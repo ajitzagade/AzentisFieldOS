@@ -1,6 +1,6 @@
 # Story 2.2: Update Site Details & Status Transitions
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -20,21 +20,21 @@ so that the Sites list always reflects reality.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add an update schema (AC: #4)
-  - [ ] Add `updateSiteSchema` to `packages/shared/src/schemas/site.ts` as `createSiteSchema.partial()` — every field optional, same validation rules per field as create (min/max lengths, enum). Export `type UpdateSiteInput = z.infer<typeof updateSiteSchema>`. Do not hand-write a second set of field rules; derive from the existing schema so create/update can never silently drift apart.
-  - [ ] Do not add an `id` field to this schema — the Site being updated is identified by the route param, not the body.
+- [x] Task 1: Add an update schema (AC: #4)
+  - [x] Add `updateSiteSchema` to `packages/shared/src/schemas/site.ts` as `createSiteSchema.partial()` — every field optional, same validation rules per field as create (min/max lengths, enum). Export `type UpdateSiteInput = z.infer<typeof updateSiteSchema>`. Do not hand-write a second set of field rules; derive from the existing schema so create/update can never silently drift apart.
+  - [x] Do not add an `id` field to this schema — the Site being updated is identified by the route param, not the body.
 
-- [ ] Task 2: Add the update endpoint (AC: #1, #2, #3, #4, #5)
-  - [ ] Add `PATCH /sites/:id` to `apps/api/src/sites/sites.controller.ts`, validated via `ZodValidationPipe(updateSiteSchema)` (same pattern already used on `POST /sites` — see current file, already loaded into this story's context).
-  - [ ] Add `update(id: string, input: UpdateSiteInput)` to `sites.service.ts`, calling `this.prisma.site.update({ where: { id }, data: input })`. Prisma's generated `@updatedAt` on `updatedAt` handles AC #2 automatically — no manual timestamp-setting code needed.
-  - [ ] A `PATCH` to a nonexistent Site ID must return a `404`, not a generic `500` — Prisma throws `P2025` (record not found) on `update` against a missing row; catch it in the service or controller and re-throw as a NestJS `NotFoundException`. This is not handled by the existing `create`/`list` code (neither needs it) — it is new for this story.
+- [x] Task 2: Add the update endpoint (AC: #1, #2, #3, #4, #5)
+  - [x] Add `PATCH /sites/:id` to `apps/api/src/sites/sites.controller.ts`, validated via `ZodValidationPipe(updateSiteSchema)` (same pattern already used on `POST /sites` — see current file, already loaded into this story's context).
+  - [x] Add `update(id: string, input: UpdateSiteInput)` to `sites.service.ts`, calling `this.prisma.site.update({ where: { id }, data: input })`. Prisma's generated `@updatedAt` on `updatedAt` handles AC #2 automatically — no manual timestamp-setting code needed.
+  - [x] A `PATCH` to a nonexistent Site ID must return a `404`, not a generic `500` — Prisma throws `P2025` (record not found) on `update` against a missing row; catch it in the service or controller and re-throw as a NestJS `NotFoundException`. This is not handled by the existing `create`/`list` code (neither needs it) — it is new for this story.
 
-- [ ] Task 3: Edit Site page (AC: #1, #3, #4, #5)
-  - [ ] Create `apps/web/app/sites/[id]/edit/page.tsx`. Fetch the current Site via `GET {API_URL}/sites` and find by ID for now (there is no `GET /sites/:id` endpoint yet — that's Story 2.3's job; do not build one here just to make this page's data-fetching cleaner, since that would duplicate Story 2.3's work ahead of it. Fetching the list and filtering client-side, or fetching the list server-side and finding the match, is an acceptable interim approach for this story alone).
-  - [ ] Pre-fill the form with the Site's current values (name, location, status, contract reference).
-  - [ ] Server Action (`'use server'`) calls `PATCH {API_URL}/sites/{id}` with only the changed fields (or all fields — `updateSiteSchema.partial()` accepts either) — same AD-3 HTTP-only rule as Story 2.1's create form: no direct Prisma/database access from `apps/web`.
-  - [ ] On success, redirect back to `/sites`.
-  - [ ] Reuse the same field components/validation logic built in Story 2.1's create form where the shapes overlap (name/location/status/contractReference are identical fields) — do not duplicate that form markup wholesale; extract a shared field-rendering piece if Story 2.1 didn't already leave one reusable, but don't over-engineer a generic "SiteForm" abstraction beyond what these two call sites actually need.
+- [x] Task 3: Edit Site page (AC: #1, #3, #4, #5)
+  - [x] Create `apps/web/app/sites/[id]/edit/page.tsx`. Fetch the current Site via `GET {API_URL}/sites` and find by ID for now (there is no `GET /sites/:id` endpoint yet — that's Story 2.3's job; do not build one here just to make this page's data-fetching cleaner, since that would duplicate Story 2.3's work ahead of it. Fetching the list and filtering client-side, or fetching the list server-side and finding the match, is an acceptable interim approach for this story alone).
+  - [x] Pre-fill the form with the Site's current values (name, location, status, contract reference).
+  - [x] Server Action (`'use server'`) calls `PATCH {API_URL}/sites/{id}` with only the changed fields (or all fields — `updateSiteSchema.partial()` accepts either) — same AD-3 HTTP-only rule as Story 2.1's create form: no direct Prisma/database access from `apps/web`.
+  - [x] On success, redirect back to `/sites`.
+  - [x] Reuse the same field components/validation logic built in Story 2.1's create form where the shapes overlap (name/location/status/contractReference are identical fields) — do not duplicate that form markup wholesale; extract a shared field-rendering piece if Story 2.1 didn't already leave one reusable, but don't over-engineer a generic "SiteForm" abstraction beyond what these two call sites actually need.
 
 ## Dev Notes
 
@@ -66,10 +66,34 @@ so that the Sites list always reflects reality.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-5
 
 ### Debug Log References
 
+- `pnpm --filter @azentisfieldos/api test` — 12/12 pass (7 new: controller `update` delegation, `ZodValidationPipe(updateSiteSchema)` ×3, `SitesService.update` ×3)
+- `pnpm --filter @azentisfieldos/web typecheck` / `lint` / `test` — pass (30/30 tests, 10 new for the edit flow)
+- `pnpm --filter @azentisfieldos/web build` — pass; `/sites/[id]/edit` correctly renders as `ƒ Dynamic`
+- Full-repo `pnpm lint` / `pnpm typecheck` / `pnpm test` — all pass, no regressions
+- Grep for raw hex/rgba/px-bracket literals — zero matches
+
 ### Completion Notes List
 
+- **Caught and fixed a real bug via this story's own test-writing, not a pre-existing one**: `updateSiteSchema` was originally defined as `createSiteSchema.partial()`. Zod applies a field's `.default()` whenever that key is absent from input, independent of `.partial()` — so `updateSiteSchema.parse({})` was silently returning `{ status: "ACTIVE" }` instead of a true no-op, which would have reset *any* Site's status to Active on every partial update that didn't explicitly include status (e.g. editing just the name of a Site currently On Hold). Fixed by overriding `status` to the bare `siteStatusSchema` (no default) before calling `.partial()` — see `packages/shared/src/schemas/site.ts`'s comment for the full mechanism. Directly regression-tested via `ZodValidationPipe(updateSiteSchema)`'s "accepts an empty body as a no-op update" case.
+- `SitesService.update` catches Prisma's `P2025` (record not found) and re-throws as `NotFoundException` — confirmed this is genuinely new (`create`/`list` never needed it) and doesn't swallow any other error type (a non-P2025 error re-throws unchanged, tested directly).
+- Followed this story's own explicit instruction not to build `GET /sites/:id` early: the edit page fetches the full Sites list and finds by id client-side-equivalent (server-side `.find()`), exactly as story 2.2's Dev Notes specify, even though this is a known, temporary inefficiency story 2.3 resolves.
+- **Entry-point UI deferred to story 2.3, mirroring how story 2.1 deferred its row-link**: neither `mockups/02-sites.html` (Sites list) nor `mockups/03-site-detail.html` (Site detail) shows an explicit "Edit" button anywhere — Sites-list rows are whole-row links to the detail view with no separate row-actions column (per the mockup's own markup, unlike `_shared-kit.html`'s generic row-actions example), and the detail mockup only shows a "View DSR Entry" secondary button, no Edit. `EXPERIENCE.md`'s Component Patterns table establishes that master data like Sites gets a normal Edit affordance, but no mockup pixel-specifies where. Rather than fabricating a placement not in any mockup (or reusing `CorrectAction`, whose entire purpose is structurally preventing an Edit-looking affordance — the opposite of what's needed here), this story builds the `PATCH` endpoint and `/sites/[id]/edit` page fully functional and directly reachable by URL; wiring an "Edit Site" trigger button belongs in story 2.3's detail-page header build, where a precedented secondary-button slot already exists next to "View DSR Entry." Flagged explicitly rather than silently decided.
+- `EditSiteForm` reuses story 2.1's `TextField`/`SelectField`/`Card`/`Button` and the same field-rendering shape as `NewSitePage`'s create form (per this story's own Dev Notes) — pre-filled via `defaultValue` from the fetched Site, not a new form abstraction.
+- `updateSiteAction` uses the same AD-3 (HTTP-only)/AD-7 (shared schema) pattern as story 2.1's `createSiteAction`; `id` is bound via `updateSiteAction.bind(null, site.id)` since a `useActionState` action only receives `(prevState, formData)`.
+
 ### File List
+
+- `packages/shared/src/schemas/site.ts` (modified — `updateSiteSchema`, fixed default-leakage bug)
+- `apps/api/src/sites/sites.controller.ts` (modified — `PATCH /sites/:id`)
+- `apps/api/src/sites/sites.service.ts` (modified — `update()` with P2025→404 mapping)
+- `apps/api/src/sites/sites.controller.spec.ts` (modified — new `update`/`ZodValidationPipe(updateSiteSchema)`/`SitesService.update` coverage)
+- `apps/web/app/(app)/sites/[id]/edit/page.tsx` (new)
+- `apps/web/app/(app)/sites/[id]/edit/page.test.tsx` (new)
+- `apps/web/app/(app)/sites/[id]/edit/edit-site-form.tsx` (new)
+- `apps/web/app/(app)/sites/[id]/edit/edit-site-form.test.tsx` (new)
+- `apps/web/app/(app)/sites/[id]/edit/actions.ts` (new — `updateSiteAction` Server Action)
+- `apps/web/app/(app)/sites/[id]/edit/actions.test.ts` (new)

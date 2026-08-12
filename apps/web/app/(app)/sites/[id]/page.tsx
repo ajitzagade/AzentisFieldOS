@@ -1,0 +1,132 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import type { FeedItem } from "@azentisfieldos/shared";
+import {
+  Badge,
+  ClipboardIcon,
+  DataTable,
+  MapPinIcon,
+  PencilIcon,
+  buttonVariants,
+  cn,
+  type DataTableColumn,
+} from "@azentisfieldos/ui";
+import type { Site } from "../page";
+import { FEED_TYPE_CONFIG } from "./feed-type-config";
+
+interface SiteDetail extends Site {
+  feed: FeedItem[];
+}
+
+async function getSiteDetail(id: string): Promise<SiteDetail | null> {
+  const res = await fetch(`${process.env.API_URL}/sites/${id}`, { cache: "no-store" });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`Failed to load Site (${res.status})`);
+  }
+  return res.json();
+}
+
+const STATUS_BADGE: Record<Site["status"], { variant: "success" | "warning" | "neutral"; label: string }> = {
+  ACTIVE: { variant: "success", label: "Active" },
+  ON_HOLD: { variant: "warning", label: "On Hold" },
+  COMPLETED: { variant: "neutral", label: "Completed" },
+};
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+const feedColumns: DataTableColumn<FeedItem>[] = [
+  { header: "Date", cell: (item) => <span className="text-ink-500">{formatDateTime(item.occurredAt)}</span> },
+  {
+    header: "Type",
+    cell: (item) => {
+      const config = FEED_TYPE_CONFIG[item.type];
+      const Icon = config.icon;
+      return (
+        <Badge variant={config.badgeVariant} icon={<Icon />}>
+          {config.label}
+        </Badge>
+      );
+    },
+  },
+  { header: "Description", cell: (item) => item.summary },
+  {
+    header: "Amount",
+    align: "right",
+    cell: (item) =>
+      item.amount !== null ? (
+        <span className="font-semibold text-gold-700 tabular-nums">₹{item.amount.toLocaleString("en-IN")}</span>
+      ) : (
+        <span className="text-ink-500">—</span>
+      ),
+  },
+];
+
+export default async function SiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const site = await getSiteDetail(id);
+
+  if (!site) {
+    notFound();
+  }
+
+  const status = STATUS_BADGE[site.status];
+
+  return (
+    <>
+      <div className="mb-2 text-eyebrow text-ink-500">
+        <Link href="/sites" className="hover:text-accent-teal-700 hover:underline">
+          Sites
+        </Link>{" "}
+        / {site.name}
+      </div>
+
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="mb-2 flex items-center gap-3 text-page-title text-ink-900">
+            {site.name}
+            <Badge variant={status.variant}>{status.label}</Badge>
+          </h1>
+          <div className="flex flex-wrap gap-4 text-body-sm text-ink-500">
+            <span className="flex items-center gap-1.5">
+              <MapPinIcon className="size-3.5" />
+              {site.location}
+            </span>
+            {site.contractReference ? (
+              <span className="flex items-center gap-1.5">
+                <ClipboardIcon className="size-3.5" />
+                Contract ref: {site.contractReference}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <Link href={`/sites/${site.id}/edit`} className={cn(buttonVariants({ variant: "secondary" }))}>
+          <PencilIcon className="size-4" />
+          Edit Site
+        </Link>
+      </div>
+
+      <div className="mb-4 text-section-header text-ink-900">Activity Feed</div>
+      <DataTable
+        columns={feedColumns}
+        rowKey={(item) => item.id}
+        state={
+          site.feed.length === 0
+            ? {
+                status: "empty",
+                icon: <ClipboardIcon />,
+                message: "No activity logged yet for this Site.",
+              }
+            : { status: "success", rows: site.feed }
+        }
+      />
+    </>
+  );
+}

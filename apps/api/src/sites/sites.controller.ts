@@ -1,5 +1,18 @@
-import { Body, Controller, Get, Post, UsePipes } from '@nestjs/common';
-import { createSiteSchema, type CreateSiteInput } from '@azentisfieldos/shared';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UsePipes,
+} from '@nestjs/common';
+import {
+  createSiteSchema,
+  updateSiteSchema,
+  type CreateSiteInput,
+  type UpdateSiteInput,
+} from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { SitesService } from './sites.service';
 
@@ -18,5 +31,16 @@ export class SitesController {
   @Get()
   list() {
     return this.sitesService.list();
+  }
+
+  @Patch(':id')
+  @UsePipes(new ZodValidationPipe(updateSiteSchema))
+  update(@Param('id') id: string, @Body() body: UpdateSiteInput) {
+    return this.sitesService.update(id, body);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.sitesService.findOne(id);
   }
 }

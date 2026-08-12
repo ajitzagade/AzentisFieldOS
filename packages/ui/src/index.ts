@@ -7,4 +7,5 @@ export * from "./components/stat-tile";
 export * from "./components/gap-flag";
 export * from "./components/correct-action";
 export * from "./components/empty-state";
+export * from "./components/field";
 export * from "./icons";

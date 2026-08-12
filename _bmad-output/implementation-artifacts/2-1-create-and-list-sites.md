@@ -1,6 +1,6 @@
 # Story 2.1: Create and List Sites
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -20,30 +20,30 @@ so that I can start tracking a new project immediately and always see my full po
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add the API base URL environment variable (AC: #1, #2)
-  - [ ] Add `API_URL` (e.g. `http://localhost:3001`) to `.env.example` — server-only, no `NEXT_PUBLIC_` prefix, since it is only ever read from Server Components/Server Actions running on the server, never from browser JS. This variable does not exist yet anywhere in the repo; this story is the first to need it.
-  - [ ] Read it in `apps/web` via `process.env.API_URL` at the call site (no config abstraction needed for a single var at this stage).
+- [x] Task 1: Add the API base URL environment variable (AC: #1, #2)
+  - [x] Add `API_URL` (e.g. `http://localhost:3001`) to `.env.example` — server-only, no `NEXT_PUBLIC_` prefix, since it is only ever read from Server Components/Server Actions running on the server, never from browser JS. This variable does not exist yet anywhere in the repo; this story is the first to need it.
+  - [x] Read it in `apps/web` via `process.env.API_URL` at the call site (no config abstraction needed for a single var at this stage).
 
-- [ ] Task 2: Sites list page (AC: #2, #4)
-  - [ ] Create `apps/web/app/sites/page.tsx` as an async Server Component. Fetch `GET {API_URL}/sites` directly in the component (Next.js 16 App Router convention: Server Components fetch, they don't need a Server Action or client-side `useEffect`).
-  - [ ] Render results in a table: Name, Location, Status (badge), Contract Reference. If `packages/ui` has a `Table`/`Badge` component (check `packages/ui/src/components/` — see Dev Notes on Epic 1 sequencing before assuming), compose from those; otherwise use plain semantic `<table>` markup styled with Tailwind utility classes directly (do not invent a one-off styled `SiteTable` component that duplicates what Epic 1's shared `Table` component is supposed to be — see Dev Notes).
-  - [ ] Zero-Sites state: render a centered empty-state block (icon + "No Sites yet" + a primary-styled link to the create form) instead of an empty `<table>`.
-  - [ ] This page has no app-shell/sidebar to nest inside yet (Epic 1 Story 1.6 hasn't shipped as of this story's writing — check `apps/web/app/layout.tsx` before starting; if a shared shell layout now exists, nest under it instead of rendering standalone).
+- [x] Task 2: Sites list page (AC: #2, #4)
+  - [x] Create `apps/web/app/sites/page.tsx` as an async Server Component. Fetch `GET {API_URL}/sites` directly in the component (Next.js 16 App Router convention: Server Components fetch, they don't need a Server Action or client-side `useEffect`).
+  - [x] Render results in a table: Name, Location, Status (badge), Contract Reference. If `packages/ui` has a `Table`/`Badge` component (check `packages/ui/src/components/` — see Dev Notes on Epic 1 sequencing before assuming), compose from those; otherwise use plain semantic `<table>` markup styled with Tailwind utility classes directly (do not invent a one-off styled `SiteTable` component that duplicates what Epic 1's shared `Table` component is supposed to be — see Dev Notes).
+  - [x] Zero-Sites state: render a centered empty-state block (icon + "No Sites yet" + a primary-styled link to the create form) instead of an empty `<table>`.
+  - [x] This page has no app-shell/sidebar to nest inside yet (Epic 1 Story 1.6 hasn't shipped as of this story's writing — check `apps/web/app/layout.tsx` before starting; if a shared shell layout now exists, nest under it instead of rendering standalone).
 
-- [ ] Task 3: Create Site form (AC: #1, #3, #5)
-  - [ ] Create `apps/web/app/sites/new/page.tsx` (or a modal/dialog on the list page — plain page is simpler and sufficient for this story; do not build modal infrastructure that doesn't exist yet elsewhere in the app).
-  - [ ] Implement a Server Action (`'use server'`) that:
+- [x] Task 3: Create Site form (AC: #1, #3, #5)
+  - [x] Create `apps/web/app/sites/new/page.tsx` (or a modal/dialog on the list page — plain page is simpler and sufficient for this story; do not build modal infrastructure that doesn't exist yet elsewhere in the app).
+  - [x] Implement a Server Action (`'use server'`) that:
     - Parses `FormData` into the shape `createSiteSchema` expects.
     - Calls `POST {API_URL}/sites` with a JSON body via `fetch` — **do not** import `PrismaClient`/`PrismaService` or any `apps/api` internals into `apps/web`; the only integration point is HTTP (AD-3, non-negotiable — see Dev Notes for why generic Next.js tutorials will lead you astray here).
     - On a `400` (validation failure) response, surface the API's `error.details` (Zod `flatten()` shape — see `apps/api/src/common/zod-validation.pipe.ts`) as per-field errors, via `useActionState`/`useFormStatus` per Next.js 16 form-mutation conventions.
     - On success, `redirect('/sites')` so the new Site is visible immediately (AC #1) — no client-side cache to invalidate manually since the list page re-fetches on navigation.
-  - [ ] Client-side: also validate with `createSiteSchema` before submit for instant feedback (both client and server validate against the *same* imported schema instance from `@azentisfieldos/shared` — never a hand-duplicated rule set, per AD-7).
-  - [ ] Status field: a select defaulting to `ACTIVE` (`siteStatusSchema` enum: `ACTIVE` / `COMPLETED` / `ON_HOLD`).
+  - [x] Client-side: also validate with `createSiteSchema` before submit for instant feedback (both client and server validate against the *same* imported schema instance from `@azentisfieldos/shared` — never a hand-duplicated rule set, per AD-7).
+  - [x] Status field: a select defaulting to `ACTIVE` (`siteStatusSchema` enum: `ACTIVE` / `COMPLETED` / `ON_HOLD`).
 
-- [ ] Task 4: Confirm existing API behavior and add missing test coverage (AC: #1, #2, #3, #4, #5)
-  - [ ] `apps/api/src/sites/sites.controller.ts` and `sites.service.ts` already implement `POST /sites` and `GET /sites` (Zod-validated via `ZodValidationPipe`, ordered newest-first) — do not rebuild these; they satisfy AC #1, #2, #5 as they stand. Confirm by reading them (already loaded into this story's context — see Dev Notes).
-  - [ ] **Gap:** zero test files exist for the `sites` module. Add `apps/api/src/sites/sites.controller.spec.ts` following the `NestJS TestingModule` + Vitest pattern already established in `apps/api/src/app.controller.spec.ts` (mock `SitesService`, assert `create`/`list` wiring and that `ZodValidationPipe` rejects an invalid body with the documented `error.code: 'VALIDATION_FAILED'` shape).
-  - [ ] Add `apps/web` test tooling: no `test` script or Vitest config exists in `apps/web/package.json` yet. Add minimal Vitest + React Testing Library config (per root `AGENTS.md`: Vitest project-wide, never Jest) and one test each for the Sites list page (empty state + populated state) and the Create Site form (client validation error rendering).
+- [x] Task 4: Confirm existing API behavior and add missing test coverage (AC: #1, #2, #3, #4, #5)
+  - [x] `apps/api/src/sites/sites.controller.ts` and `sites.service.ts` already implement `POST /sites` and `GET /sites` (Zod-validated via `ZodValidationPipe`, ordered newest-first) — do not rebuild these; they satisfy AC #1, #2, #5 as they stand. Confirm by reading them (already loaded into this story's context — see Dev Notes).
+  - [x] **Gap:** zero test files exist for the `sites` module. Add `apps/api/src/sites/sites.controller.spec.ts` following the `NestJS TestingModule` + Vitest pattern already established in `apps/api/src/app.controller.spec.ts` (mock `SitesService`, assert `create`/`list` wiring and that `ZodValidationPipe` rejects an invalid body with the documented `error.code: 'VALIDATION_FAILED'` shape).
+  - [x] Add `apps/web` test tooling: no `test` script or Vitest config exists in `apps/web/package.json` yet. Add minimal Vitest + React Testing Library config (per root `AGENTS.md`: Vitest project-wide, never Jest) and one test each for the Sites list page (empty state + populated state) and the Create Site form (client validation error rendering).
 
 ## Dev Notes
 
@@ -83,10 +83,37 @@ so that I can start tracking a new project immediately and always see my full po
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-5
 
 ### Debug Log References
 
+- `pnpm --filter @azentisfieldos/api test` — 5/5 pass (2 new: `SitesController` delegation, `ZodValidationPipe(createSiteSchema)` shape)
+- `pnpm --filter @azentisfieldos/web typecheck` / `lint` / `test` — pass (20/20 tests, 8 new for Sites)
+- `pnpm --filter @azentisfieldos/web build` — pass; `/sites` correctly renders as `ƒ Dynamic` (runtime `cache: "no-store"` fetch), `/sites/new` as `○ Static`
+- Full-repo `pnpm lint` / `pnpm typecheck` / `pnpm test` — all pass, no regressions
+- Grep for raw hex/rgba/px-bracket literals in all new files — zero matches
+
 ### Completion Notes List
 
+- **Epic 1 sequencing note this story itself flagged has now resolved in the "shipped" direction**: Epic 1 finished (all 7 stories) before this story was picked up, so the "Epic 1 not shipped yet" fallback path (plain unstyled `<table>`, no shell) described in this story's own Dev Notes did **not** apply. Built the Sites list with Epic 1's real `DataTable`/`Badge` components, nested inside the `(app)` route-group shell — replacing the `EmptyState` placeholder Epic 1 had at `/sites`, not a new standalone route outside the shell.
+- Extracted a shared `TextField`/`SelectField` primitive into `packages/ui` (`field.tsx`) — this is the second screen needing the input styling story 1.5's Sign In form established locally, which that story's own Dev Notes flagged as the trigger for extraction (AD-5). Refactored `apps/web/app/sign-in/page.tsx` to use `TextField` too, so there's one implementation, not two screens each with their own copy.
+- Sites list matches `mockups/02-sites.html` exactly: page title + "All sites across the organization" subtitle, "Add Site" primary button top-right, 5-column table (Site/Location/Status/Last DSR activity/Contract ref), status badges mapped `ACTIVE`→success/`ON_HOLD`→warning/`COMPLETED`→neutral. "Last DSR activity" is included as a column (matching the mockup's layout) but renders `—` for every row — no DSR data exists until Epic 3 ships; this is an honest "not available yet" placeholder, not fabricated data.
+- Row-linking uses `DataTable`'s `rowHref` accessor (`/sites/{id}`) — the actual destination page doesn't exist until story 2.3, so today these links 404. That's expected and consistent with the story's own scope boundary (2.1 doesn't build 2.3's page); story 2.3 is the one that makes these links resolve.
+- `createSiteAction` (`apps/web/app/(app)/sites/new/actions.ts`) is a thin HTTP-calling Server Action — validates with the same imported `createSiteSchema` instance the API also validates with (AD-7), never imports Prisma or any `apps/api` internal (AD-3). Maps the API's `400` response body (Zod `flatten()` shape) to per-field errors; any other non-2xx response becomes a generic form-level error, never a raw status/message.
+- Confirmed `apps/api/src/sites/sites.controller.ts`/`sites.service.ts` already correctly implement `POST /sites` and `GET /sites` exactly as this story's Dev Notes described — no changes needed there. The only real gap found was test coverage, now added.
+- Added `API_URL` to `.env.example` (server-only, no `NEXT_PUBLIC_` prefix) — first story to need it.
+
 ### File List
+
+- `packages/ui/src/components/field.tsx` (new — `TextField`, `SelectField`)
+- `packages/ui/src/components/field.test.tsx` (new)
+- `packages/ui/src/index.ts` (modified — barrel export)
+- `apps/web/app/sign-in/page.tsx` (modified — refactored to use `TextField`)
+- `apps/web/app/(app)/sites/page.tsx` (modified — real Sites list, replacing the `EmptyState` placeholder)
+- `apps/web/app/(app)/sites/page.test.tsx` (new)
+- `apps/web/app/(app)/sites/new/page.tsx` (new — Create Site form)
+- `apps/web/app/(app)/sites/new/page.test.tsx` (new)
+- `apps/web/app/(app)/sites/new/actions.ts` (new — `createSiteAction` Server Action)
+- `apps/web/app/(app)/sites/new/actions.test.ts` (new)
+- `apps/api/src/sites/sites.controller.spec.ts` (new)
+- `.env.example` (modified — `API_URL`)

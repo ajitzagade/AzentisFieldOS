@@ -1,0 +1,74 @@
+"use client";
+
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
+import { Button, Card, SelectField, TextField } from "@azentisfieldos/ui";
+import { updateSiteAction, type UpdateSiteFormState } from "./actions";
+import type { Site } from "../../page";
+
+const STATUS_OPTIONS = [
+  { value: "ACTIVE", label: "Active" },
+  { value: "ON_HOLD", label: "On Hold" },
+  { value: "COMPLETED", label: "Completed" },
+];
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" isLoading={pending}>
+      Save Changes
+    </Button>
+  );
+}
+
+const initialState: UpdateSiteFormState = {};
+
+export function EditSiteForm({ site }: { site: Site }) {
+  const [state, formAction] = useActionState(updateSiteAction.bind(null, site.id), initialState);
+
+  return (
+    <Card>
+      <form action={formAction} noValidate>
+        <TextField
+          label="Name"
+          name="name"
+          required
+          maxLength={200}
+          defaultValue={site.name}
+          error={state.errors?.name?.[0]}
+        />
+        <TextField
+          label="Location"
+          name="location"
+          required
+          maxLength={500}
+          defaultValue={site.location}
+          error={state.errors?.location?.[0]}
+        />
+        <SelectField
+          label="Status"
+          name="status"
+          defaultValue={site.status}
+          options={STATUS_OPTIONS}
+          error={state.errors?.status?.[0]}
+        />
+        <TextField
+          label="Contract reference"
+          name="contractReference"
+          hint="Optional"
+          maxLength={200}
+          defaultValue={site.contractReference ?? ""}
+          error={state.errors?.contractReference?.[0]}
+        />
+
+        {state.formError ? (
+          <p role="alert" className="mb-4 text-caption text-danger-700">
+            {state.formError}
+          </p>
+        ) : null}
+
+        <SubmitButton />
+      </form>
+    </Card>
+  );
+}

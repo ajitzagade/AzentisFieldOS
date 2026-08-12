@@ -24,3 +24,4 @@ export * from "./wifi-off-icon";
 export * from "./chevron-right-icon";
 export * from "./logout-icon";
 export * from "./bell-icon";
+export * from "./pencil-icon";

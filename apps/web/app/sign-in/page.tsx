@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSignIn } from "@clerk/nextjs";
-import { Button, Card } from "@azentisfieldos/ui";
+import { Button, Card, TextField } from "@azentisfieldos/ui";
 import { mapClerkSignInError } from "./map-clerk-error";
 
 // Custom-styled sign-in flow using Clerk's headless useSignIn hook (the
@@ -66,36 +66,26 @@ export default function SignInPage() {
         </p>
 
         <form onSubmit={handleSubmit} noValidate>
-          <div className="mb-4">
-            <label htmlFor="email" className="mb-1 block text-caption font-semibold text-ink-700">
-              Email address
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="username"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-md border border-border-strong bg-surface-1 px-3 py-2 text-body text-ink-900 focus:border-accent-teal-700 focus:outline-none focus:ring-3 focus:ring-accent-teal-100"
-            />
-          </div>
-          <div className="mb-4">
-            <label htmlFor="password" className="mb-1 block text-caption font-semibold text-ink-700">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-md border border-border-strong bg-surface-1 px-3 py-2 text-body text-ink-900 focus:border-accent-teal-700 focus:outline-none focus:ring-3 focus:ring-accent-teal-100"
-            />
-          </div>
+          <TextField
+            label="Email address"
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="username"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+          <TextField
+            label="Password"
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
 
           {error ? (
             <p role="alert" className="mb-4 text-caption text-danger-700">
