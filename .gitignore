@@ -1,0 +1,40 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+.next/
+out/
+dist/
+build/
+.turbo/
+.vercel
+next-env.d.ts
+
+# env files — never commit secrets; infra/tenants/*.json holds non-secret config only
+.env
+.env.local
+.env.*.local
+
+# generated
+apps/api/src/generated/
+*.tsbuildinfo
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# test / coverage
+coverage/
+playwright-report/
+test-results/
+
+# misc
+*.pem

@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Activity — AzentisFieldOS</title>
+<style>
+/* ============================== TOKENS ============================== */
+:root {
+  /* ---- color: light ---- */
+  --surface-0: #FBFAF7;   /* page background, "premium paper" */
+  --surface-1: #FFFFFF;   /* card/panel surface */
+  --surface-2: #F3F1EA;   /* sunken surface, table stripe, input fill */
+  --surface-3: #EAE6DA;   /* deeper sunken, chip fill, active tab track */
+  --border-hairline: #E4E0D3;
+  --border-strong: #D2CBB8;
+  --ink-900: #1B2430;
+  --ink-700: #3E4757;
+  --ink-500: #6B7280;
+  --ink-on-accent: #F7F5EE;
+
+  --accent-teal-900: #0B3B3E;
+  --accent-teal-700: #0F5257;   /* primary action fill */
+  --accent-teal-600: #14666C;   /* hover state */
+  --accent-teal-100: #E4EFEE;   /* tint bg, row hover, selected row */
+
+  --accent-navy-800: #16273E;
+  --accent-navy-600: #223A5E;
+
+  --gold-700: #96700F;   /* money text/icon only */
+  --gold-500: #C7912B;   /* money fills/badges only */
+  --gold-100: #FBF0DA;   /* money tint bg only */
+
+  --success-700: #1E6B45; --success-100: #E4F3EA;
+  --danger-700: #A32E2E;  --danger-100: #FBE7E5;
+  --warning-700: #8A5A12; --warning-100: #FBF0DA;
+
+  /* ---- type ---- */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fs-2xs: 11px; --fs-xs: 12.5px; --fs-sm: 13.5px; --fs-base: 15px;
+  --fs-md: 17px; --fs-lg: 21px; --fs-xl: 28px; --fs-2xl: 38px;
+
+  /* ---- spacing (4px base) ---- */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px;
+  --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px; --sp-16: 64px;
+
+  /* ---- radius ---- */
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 20px; --r-full: 999px;
+
+  /* ---- elevation (soft layered shadow — never glassmorphism/blur) ---- */
+  --shadow-1: 0 1px 2px rgba(27,36,48,.06), 0 1px 1px rgba(27,36,48,.04);
+  --shadow-2: 0 4px 12px rgba(27,36,48,.08), 0 2px 4px rgba(27,36,48,.04);
+  --shadow-3: 0 12px 32px rgba(27,36,48,.14), 0 4px 8px rgba(27,36,48,.06);
+  --shadow-2-hover: 0 8px 20px rgba(27,36,48,.12), 0 3px 6px rgba(27,36,48,.06);
+
+  /* ---- motion ---- */
+  --ease: cubic-bezier(.2,.8,.2,1);
+  --dur-fast: 110ms;
+  --dur-base: 160ms;
+}
+.dark-scope {
+  --surface-0: #12161C; --surface-1: #191F27; --surface-2: #212933; --surface-3: #2A3340;
+  --border-hairline: #313B48; --border-strong: #414E5E;
+  --ink-900: #F1EEE4; --ink-700: #C7CCD6; --ink-500: #8D95A3; --ink-on-accent: #12161C;
+  --accent-teal-700: #4FB8AE; --accent-teal-600: #6BCFC5; --accent-teal-100: #1B3B3A;
+  --gold-700: #E3B24B; --gold-500: #E3B24B; --gold-100: #2E2413;
+  --success-700: #5FCF93; --success-100: #163527;
+  --danger-700: #F0847E; --danger-100: #3A1E1E;
+  --warning-700: #E3B24B; --warning-100: #2E2413;
+  --shadow-1: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-2: 0 6px 20px rgba(0,0,0,.45);
+  --shadow-3: 0 16px 40px rgba(0,0,0,.5);
+  --shadow-2-hover: 0 10px 26px rgba(0,0,0,.5);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: var(--font); background: var(--surface-0); color: var(--ink-900);
+  font-size: var(--fs-base); line-height: 1.5; -webkit-font-smoothing: antialiased;
+}
+.tabular { font-variant-numeric: tabular-nums lining-nums; }
+
+/* ============================== APP SHELL ============================== */
+.app-shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+.sidebar {
+  background: var(--accent-navy-800); color: var(--ink-on-accent);
+  padding: var(--sp-6) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-1);
+}
+.sidebar .brand { display:flex; align-items:center; gap: var(--sp-2); padding: 0 var(--sp-2) var(--sp-6); }
+.sidebar .brand-mark {
+  width: 32px; height: 32px; border-radius: var(--r-md); background: var(--accent-teal-700);
+  display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size: var(--fs-sm);
+}
+.sidebar .brand-name { font-size: var(--fs-md); font-weight: 650; letter-spacing: -.01em; }
+.nav-group-label { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .07em; color: #93A0B5; padding: var(--sp-4) var(--sp-2) var(--sp-1); }
+.nav-link {
+  display:flex; align-items:center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md); color: #C6CEDB; text-decoration:none; font-size: var(--fs-sm); font-weight: 500;
+  transition: background var(--dur-base) var(--ease), color var(--dur-base) var(--ease);
+}
+.nav-link svg { width:18px; height:18px; flex-shrink:0; }
+.nav-link:hover { background: rgba(255,255,255,.06); color: #fff; }
+.nav-link.active { background: var(--accent-teal-700); color: #fff; }
+.main { padding: var(--sp-8) var(--sp-10); max-width: 1240px; }
+.topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--sp-8); }
+.page-title { font-size: var(--fs-xl); font-weight: 650; letter-spacing: -.015em; margin:0 0 var(--sp-1); }
+.page-sub { color: var(--ink-500); font-size: var(--fs-sm); margin:0; }
+.breadcrumb { font-size: var(--fs-xs); color: var(--ink-500); margin-bottom: var(--sp-2); }
+.breadcrumb a { color: var(--ink-500); text-decoration: none; }
+.breadcrumb a:hover { color: var(--accent-teal-700); text-decoration: underline; }
+
+/* ============================== CARDS (elevated) ============================== */
+.card {
+  background: var(--surface-1); border: 1px solid var(--border-hairline); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2); padding: var(--sp-6);
+  transition: box-shadow var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
+}
+.card.interactive { cursor: pointer; }
+.card.interactive:hover { box-shadow: var(--shadow-2-hover); transform: translateY(-2px); }
+.card-flat { background: var(--surface-1); border: 1px solid var(--border-hairline); border-radius: var(--r-lg); box-shadow: var(--shadow-1); padding: var(--sp-6); }
+
+/* ============================== STAT TILES ============================== */
+.stat-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: var(--sp-4); }
+.stat-tile { background: var(--surface-1); border:1px solid var(--border-hairline); border-radius: var(--r-lg); box-shadow: var(--shadow-1); padding: var(--sp-5); transition: box-shadow var(--dur-base) var(--ease); }
+.stat-tile:hover { box-shadow: var(--shadow-2); }
+.stat-tile .stat-icon { width:34px; height:34px; border-radius: var(--r-md); display:flex; align-items:center; justify-content:center; margin-bottom: var(--sp-3); }
+.stat-tile .stat-icon svg { width:18px; height:18px; }
+.stat-tile .stat-value { font-size: var(--fs-2xl); font-weight: 700; letter-spacing:-.02em; }
+.stat-tile .stat-label { font-size: var(--fs-xs); color: var(--ink-500); margin-top: var(--sp-1); }
+.stat-icon.teal { background: var(--accent-teal-100); color: var(--accent-teal-700); }
+.stat-icon.gold { background: var(--gold-100); color: var(--gold-700); }
+.stat-icon.success { background: var(--success-100); color: var(--success-700); }
+.stat-icon.danger { background: var(--danger-100); color: var(--danger-700); }
+
+/* ============================== BUTTONS (icon + label) ============================== */
+.btn {
+  display:inline-flex; align-items:center; gap: var(--sp-2); font-family: var(--font);
+  font-size: var(--fs-sm); font-weight: 600; padding: var(--sp-2) var(--sp-4); border-radius: var(--r-md);
+  border: 1px solid transparent; cursor: pointer; text-decoration:none; white-space:nowrap;
+  transition: background var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.btn svg { width:16px; height:16px; }
+.btn-primary { background: var(--accent-teal-700); color:#fff; box-shadow: var(--shadow-1); }
+.btn-primary:hover { background: var(--accent-teal-600); box-shadow: var(--shadow-2); transform: translateY(-1px); }
+.btn-secondary { background: var(--surface-1); color: var(--ink-900); border-color: var(--border-strong); }
+.btn-secondary:hover { background: var(--surface-2); border-color: var(--accent-teal-700); }
+.btn-ghost { background: transparent; color: var(--ink-700); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--ink-900); }
+.btn-sm { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); }
+.btn-icon-only { padding: var(--sp-2); }
+.btn:disabled { opacity:.5; cursor:not-allowed; transform:none !important; box-shadow:none !important; }
+
+/* ============================== TABLES (zebra + hover) ============================== */
+.table-wrap { background: var(--surface-1); border:1px solid var(--border-hairline); border-radius: var(--r-lg); box-shadow: var(--shadow-2); overflow:hidden; }
+table.data { width:100%; border-collapse: collapse; font-size: var(--fs-sm); }
+table.data thead th {
+  text-align:left; font-size: var(--fs-2xs); text-transform:uppercase; letter-spacing:.05em;
+  color: var(--ink-500); font-weight:600; padding: var(--sp-3) var(--sp-4); border-bottom:1px solid var(--border-hairline);
+  background: var(--surface-2);
+}
+table.data tbody tr { transition: background var(--dur-fast) var(--ease); border-bottom:1px solid var(--border-hairline); }
+table.data tbody tr:last-child { border-bottom:none; }
+table.data tbody tr:nth-child(even) { background: var(--surface-2); }
+table.data tbody tr:hover { background: var(--accent-teal-100); }
+table.data td { padding: var(--sp-3) var(--sp-4); color: var(--ink-900); vertical-align: middle; }
+table.data td.num { text-align:right; font-variant-numeric: tabular-nums; }
+table.data td.muted { color: var(--ink-500); }
+.row-actions { display:flex; gap: var(--sp-1); justify-content:flex-end; }
+
+/* ============================== BADGES / STATUS ============================== */
+.badge { display:inline-flex; align-items:center; gap:4px; font-size: var(--fs-2xs); font-weight:600; padding: 3px var(--sp-2); border-radius: var(--r-full); }
+.badge svg { width:11px; height:11px; }
+.badge-success { background: var(--success-100); color: var(--success-700); }
+.badge-danger { background: var(--danger-100); color: var(--danger-700); }
+.badge-warning { background: var(--warning-100); color: var(--warning-700); }
+.badge-neutral { background: var(--surface-3); color: var(--ink-700); }
+.badge-gold { background: var(--gold-100); color: var(--gold-700); }
+.money { font-variant-numeric: tabular-nums; color: var(--gold-700); font-weight:600; }
+
+/* ============================== FORMS ============================== */
+.field { margin-bottom: var(--sp-4); }
+.field label { display:block; font-size: var(--fs-xs); font-weight:600; color: var(--ink-700); margin-bottom: var(--sp-1); }
+.field .req { color: var(--danger-700); }
+.field input, .field select, .field textarea {
+  width:100%; font-family: var(--font); font-size: var(--fs-base); padding: var(--sp-2) var(--sp-3);
+  border:1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface-1); color: var(--ink-900);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline:none; border-color: var(--accent-teal-700); box-shadow: 0 0 0 3px var(--accent-teal-100);
+}
+.field .help { font-size: var(--fs-2xs); color: var(--ink-500); margin-top: var(--sp-1); }
+.field .error { font-size: var(--fs-2xs); color: var(--danger-700); margin-top: var(--sp-1); }
+
+/* ============================== DEVICE FRAMES (for mobile screens) ============================== */
+.phone-frame { width: 390px; border-radius: 40px; background:#000; padding: 12px; box-shadow: var(--shadow-3); }
+.phone-screen { background: var(--surface-0); border-radius: 30px; overflow:hidden; min-height: 700px; }
+
+/* ============================== MISC ============================== */
+.section-header { display:flex; align-items:center; justify-content:space-between; margin: var(--sp-8) 0 var(--sp-4); }
+.section-header h2 { font-size: var(--fs-lg); font-weight:650; margin:0; }
+.gap-flag { display:flex; align-items:center; gap: var(--sp-3); background: var(--warning-100); border:1px solid #E8CC8F; border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); color: var(--warning-700); font-size: var(--fs-sm); font-weight:600; }
+.empty-state { text-align:center; padding: var(--sp-16) var(--sp-6); color: var(--ink-500); }
+.empty-state svg { width:40px; height:40px; margin-bottom: var(--sp-3); opacity:.5; }
+
+/* ============================== SCREEN-LOCAL (04-dsr-entry) ============================== */
+.phones-page { min-height:100vh; background: var(--surface-2); padding: var(--sp-10) var(--sp-6); display:flex; gap: var(--sp-8); justify-content:center; align-items:flex-start; flex-wrap:wrap; }
+.phone-col { display:flex; flex-direction:column; align-items:center; gap: var(--sp-3); }
+.phone-col-label { font-size: var(--fs-xs); font-weight:600; color: var(--ink-700); text-transform:uppercase; letter-spacing:.05em; }
+.phone-topbar { background: var(--accent-navy-800); color: var(--ink-on-accent); padding: var(--sp-4) var(--sp-4); }
+.phone-topbar .site { font-size: var(--fs-sm); font-weight:650; }
+.phone-topbar .meta { font-size: var(--fs-2xs); opacity:.72; margin-top:2px; }
+.phone-body { padding: var(--sp-4) var(--sp-4) var(--sp-6); }
+.field-label { font-size: var(--fs-xs); font-weight:600; color: var(--ink-700); margin: var(--sp-5) 0 var(--sp-1); }
+.field-hint { font-size: var(--fs-2xs); color: var(--ink-500); margin-bottom: var(--sp-2); }
+.checklist-item { display:flex; align-items:center; gap: var(--sp-2); padding: var(--sp-1) 0; font-size: var(--fs-sm); }
+.checklist-item input[type="checkbox"] { width:16px; height:16px; accent-color: var(--accent-teal-700); flex-shrink:0; }
+.chip-row { display:flex; flex-wrap:wrap; gap: var(--sp-2); }
+.chip { display:inline-flex; align-items:center; font-size: var(--fs-2xs); font-weight:600; padding: 3px var(--sp-2); border-radius: var(--r-full); background: var(--surface-3); color: var(--ink-700); }
+.chip-removable { display:inline-flex; align-items:center; gap:6px; background: var(--surface-3); color: var(--ink-700); font-size: var(--fs-2xs); font-weight:600; padding: 4px 6px 4px 12px; border-radius: var(--r-full); }
+.chip-x { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; background: var(--surface-1); color: var(--ink-500); font-size:12px; line-height:1; }
+.photo-row { display:flex; gap: var(--sp-2); flex-wrap:wrap; }
+.photo-thumb { width:64px; height:64px; border-radius: var(--r-md); background: linear-gradient(135deg, var(--surface-3), var(--surface-2)); border:1px solid var(--border-hairline); }
+.photo-add { width:64px; height:64px; border-radius: var(--r-md); border:1.5px dashed var(--border-strong); background:transparent; color: var(--ink-500); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.photo-add svg { width:20px; height:20px; }
+.mini-list { list-style:none; margin:0; padding:0; }
+.mini-list li { display:flex; align-items:center; justify-content:space-between; padding: var(--sp-2) 0; border-bottom:1px solid var(--border-hairline); font-size: var(--fs-sm); }
+.mini-list li:last-child { border-bottom:none; }
+</style>
+</head>
+<body>
+<div class="phones-page">
+
+  <!-- ================= PHONE A: mid-fill form ================= -->
+  <div class="phone-col">
+    <div class="phone-col-label">Form — mid-fill</div>
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="phone-topbar">
+          <div class="site">NH-48 Highway Widening — Package 3</div>
+          <div class="meta">Tue, 12 Aug 2026 · Ramesh Yadav</div>
+        </div>
+        <div class="phone-body">
+
+          <div class="field" style="margin-top:var(--sp-4);">
+            <label>Work Completed Today <span class="req">*</span></label>
+            <textarea rows="3">Sub-base compaction completed CH 12+200 to CH 12+450. RCC pipe laying started at CH 11+800 outfall.</textarea>
+          </div>
+
+          <div class="field-label">Labour Present</div>
+          <div class="field-hint">Defaulted from yesterday's report — uncheck if absent today</div>
+          <div>
+            <label class="checklist-item"><input type="checkbox" checked> Prakash Jadhav</label>
+            <label class="checklist-item"><input type="checkbox" checked> Dinesh More</label>
+            <label class="checklist-item"><input type="checkbox" checked> Ravi Kumar</label>
+            <label class="checklist-item"><input type="checkbox"> Sanjay Pawar <span class="badge badge-neutral" style="margin-left:6px;">Absent</span></label>
+          </div>
+
+          <div class="field-label">Materials Consumed</div>
+          <div class="chip-row">
+            <span class="chip-removable">Cement (OPC 53) — 40 Bags <span class="chip-x">&times;</span></span>
+            <span class="chip-removable">TMT Steel 12mm — 180 Kg <span class="chip-x">&times;</span></span>
+            <span class="chip-removable">Aggregate 20mm — 2 Ton <span class="chip-x">&times;</span></span>
+          </div>
+          <button class="btn btn-secondary btn-sm" style="margin-top:var(--sp-3);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Add material
+          </button>
+
+          <div class="field" style="margin-top:var(--sp-5);">
+            <label>RMC Received (Cum)</label>
+            <input type="text" value="6.5">
+          </div>
+
+          <div class="field-label" style="margin-top:var(--sp-4);">Site Photos</div>
+          <div class="photo-row">
+            <div class="photo-thumb"></div>
+            <div class="photo-thumb"></div>
+            <div class="photo-thumb"></div>
+            <button class="photo-add" title="Add photo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2h6l2 2h3v11H4V8Z"/><circle cx="12" cy="13.5" r="3.5"/></svg>
+            </button>
+          </div>
+
+          <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:var(--sp-6);">
+            Submit Report
+          </button>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PHONE B: post-submit state ================= -->
+  <div class="phone-col">
+    <div class="phone-col-label">Post-submit — offline saved</div>
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="phone-topbar">
+          <div class="site">NH-48 Highway Widening — Package 3</div>
+          <div class="meta">Tue, 12 Aug 2026 · Ramesh Yadav</div>
+        </div>
+        <div class="phone-body">
+
+          <div class="gap-flag" style="margin-top:var(--sp-4);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M5 12.5a10.5 10.5 0 0 1 3-2M19 12.5a10.5 10.5 0 0 0-4.6-2.7M12 20h.01"/></svg>
+            <span style="flex:1">Saved on device — will sync when back online</span>
+          </div>
+
+          <div class="card-flat" style="margin-top:var(--sp-4);">
+            <div class="field-label" style="margin-top:0;">Work Completed Today</div>
+            <div style="font-size:var(--fs-sm);color:var(--ink-900);">Sub-base compaction completed CH 12+200 to CH 12+450. RCC pipe laying started at CH 11+800 outfall.</div>
+          </div>
+
+          <div class="card-flat" style="margin-top:var(--sp-4);">
+            <div class="field-label" style="margin-top:0;">Labour Present (3)</div>
+            <div class="chip-row">
+              <span class="chip">Prakash Jadhav</span>
+              <span class="chip">Dinesh More</span>
+              <span class="chip">Ravi Kumar</span>
+            </div>
+          </div>
+
+          <div class="card-flat" style="margin-top:var(--sp-4);">
+            <div class="field-label" style="margin-top:0;">Materials Consumed</div>
+            <div class="chip-row">
+              <span class="chip">Cement (OPC 53) — 40 Bags</span>
+              <span class="chip">TMT Steel 12mm — 180 Kg</span>
+              <span class="chip">Aggregate 20mm — 2 Ton</span>
+            </div>
+            <div style="font-size:var(--fs-xs);color:var(--ink-500);margin-top:var(--sp-3);">RMC Received: 6.5 Cum</div>
+          </div>
+
+          <div class="card-flat" style="margin-top:var(--sp-4);">
+            <div class="field-label" style="margin-top:0;">Site Photos (3)</div>
+            <div class="photo-row">
+              <div class="photo-thumb"></div>
+              <div class="photo-thumb"></div>
+              <div class="photo-thumb"></div>
+            </div>
+          </div>
+
+          <div class="section-header" style="margin:var(--sp-6) 0 var(--sp-2);">
+            <h2 style="font-size:var(--fs-sm);">Previous Reports</h2>
+          </div>
+          <ul class="mini-list">
+            <li>
+              <span>11 Aug 2026 report</span>
+              <span class="badge badge-success">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.3 2.4 2.4 4.6-5.2"/></svg>
+                Synced
+              </span>
+            </li>
+            <li>
+              <span>10 Aug 2026 report</span>
+              <span class="badge badge-success">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.3 2.4 2.4 4.6-5.2"/></svg>
+                Synced
+              </span>
+            </li>
+          </ul>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

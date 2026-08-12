@@ -1,0 +1,984 @@
+<!--
+====================================================================
+DESIGN TOKEN SEED — Direction B: "Modern Industrial / Construction"
+====================================================================
+Posture: structural, grid-disciplined, data-dense, sharp-edged.
+Earthy-industrial neutrals + a single rust/amber signal color used
+ONLY for alerts, flags and attention states — never decoration.
+
+COLOR — LIGHT
+  --b-bg            #F1EFEA   canvas / page background (warm concrete)
+  --b-surface       #FFFFFF   card / panel surface
+  --b-surface-alt   #E9E6DF   recessed surface (table stripe, well)
+  --b-surface-sunk  #E2DED5   deeper recess (inputs, chips)
+  --b-border        #CFC9BE   hairline / structural rule
+  --b-border-strong #A9A296   heavier structural rule / dividers
+  --b-ink           #23262B   primary text (graphite-black)
+  --b-ink-soft      #4B5057   secondary text (steel)
+  --b-ink-mute      #6E7178   tertiary text / meta (still AA on white)
+  --b-accent        #A8431B   rust — alerts, flags, destructive signal
+  --b-accent-soft   #F3DFD2   rust tint background (badge fill)
+  --b-amber         #C77F17   amber — warning / attention (secondary signal)
+  --b-amber-soft    #F5E6C8   amber tint background
+  --b-action        #1F3A44   deep steel-teal — primary actions / links
+  --b-action-hover  #16292F
+  --b-success       #2E6B4C   confirmations, synced, delivered
+  --b-success-soft  #DCEADF
+
+COLOR — DARK
+  --d-bg            #17181A
+  --d-surface       #202226
+  --d-surface-alt   #292B30
+  --d-surface-sunk  #313338
+  --d-border        #3B3E44
+  --d-border-strong #52555C
+  --d-ink           #EDEBE6
+  --d-ink-soft      #B9B6AE
+  --d-ink-mute      #8D8A82
+  --d-accent        #E08A4F
+  --d-accent-soft   #3A2A20
+  --d-amber         #E3AE4E
+  --d-amber-soft    #3A311D
+  --d-action        #6FA9B8
+  --d-action-hover  #8FC1CE
+  --d-success       #6FB98A
+  --d-success-soft  #1E3327
+
+TYPE SCALE (system stack: -apple-system, "Segoe UI", Roboto, Helvetica, Arial)
+  --t-2xs  11px / tracking .06em, uppercase — micro labels, table headers
+  --t-xs   12.5px — meta, captions
+  --t-sm   13.5px — secondary body
+  --t-base 15px   — body / data
+  --t-md   17px   — sub-heads
+  --t-lg   21px   — card titles
+  --t-xl   27px   — section titles
+  --t-2xl  34px   — hero numerals / wordmark
+  Weights: 400 body, 600 labels/data, 700 headings, 800 wordmark/stat numerals
+
+SPACING SCALE (4px base)
+  --s-1 4px  --s-2 8px  --s-3 12px  --s-4 16px  --s-5 24px
+  --s-6 32px --s-7 48px --s-8 64px
+
+RADIUS SCALE (sharp, structural — not a soft consumer app)
+  --r-sm 2px   — chips, tags, inputs
+  --r-md 4px   — buttons, small cards
+  --r-lg 6px   — panels, device screens
+  --r-pill 999px — status pills only (deliberately the one soft shape,
+                   reserved for state pills so they read as "state", not chrome)
+====================================================================
+-->
+<meta charset="UTF-8" />
+<title>AzentisFieldOS — Direction B: Modern Industrial</title>
+<style>
+  :root{
+    --bg:#F1EFEA; --surface:#FFFFFF; --surface-alt:#E9E6DF; --surface-sunk:#E2DED5;
+    --border:#CFC9BE; --border-strong:#A9A296;
+    --ink:#23262B; --ink-soft:#4B5057; --ink-mute:#6E7178;
+    --accent:#A8431B; --accent-soft:#F3DFD2;
+    --amber:#C77F17; --amber-soft:#F5E6C8;
+    --action:#1F3A44; --action-hover:#16292F;
+    --success:#2E6B4C; --success-soft:#DCEADF;
+    --r-sm:2px; --r-md:4px; --r-lg:6px; --r-pill:999px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:15px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{margin:0;font-weight:700;}
+  p{margin:0;}
+  .mono-label{
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-mute);
+  }
+  img,svg{display:block;}
+
+  /* ============ PAGE HEADER ============ */
+  .page-header{
+    background:var(--ink);
+    color:#F1EFEA;
+    padding:40px 48px 36px;
+    border-bottom:6px solid var(--accent);
+  }
+  .page-header .kicker{
+    font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+    color:#D9A98C; margin-bottom:10px;
+  }
+  .page-header h1{
+    font-size:32px; letter-spacing:-.01em; margin-bottom:14px; color:#FBFAF7;
+  }
+  .page-header p{
+    max-width:920px; font-size:15.5px; color:#C7C4BC; line-height:1.6;
+  }
+  .page-header .tags{margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;}
+  .page-header .tag{
+    border:1px solid #444a4e; color:#C7C4BC; font-size:11px; font-weight:700;
+    letter-spacing:.04em; text-transform:uppercase; padding:5px 10px; border-radius:var(--r-sm);
+  }
+
+  /* ============ NAV ============ */
+  .toc{
+    display:flex; gap:0; flex-wrap:wrap; background:var(--surface);
+    border-bottom:1px solid var(--border-strong); position:sticky; top:0; z-index:50;
+  }
+  .toc a{
+    color:var(--ink-soft); text-decoration:none; font-size:12.5px; font-weight:700;
+    letter-spacing:.03em; padding:14px 18px; border-right:1px solid var(--border);
+  }
+  .toc a span{color:var(--accent); margin-right:6px; font-weight:800;}
+  .toc a:hover{background:var(--surface-alt); color:var(--ink);}
+
+  /* ============ SECTION WRAP ============ */
+  main{max-width:1320px; margin:0 auto; padding:0 0 80px;}
+  section.screen{ padding:64px 48px 8px; border-bottom:1px solid var(--border); }
+  section.screen:last-child{border-bottom:none;}
+  .screen-head{ display:flex; align-items:baseline; gap:16px; margin-bottom:28px; }
+  .screen-head .num{
+    font-size:13px; font-weight:800; color:#fff; background:var(--ink);
+    padding:4px 9px; border-radius:var(--r-sm);
+  }
+  .screen-head h2{font-size:23px; letter-spacing:-.01em;}
+  .screen-head .desc{font-size:13.5px; color:var(--ink-mute); margin-left:4px;}
+
+  /* ============ DEVICE FRAMES ============ */
+  .browser-frame{
+    width:100%; max-width:1180px; background:#DAD6CC; border-radius:var(--r-lg);
+    border:1px solid var(--border-strong); overflow:hidden; box-shadow:0 18px 40px -20px rgba(20,20,15,.35);
+  }
+  .browser-chrome{
+    display:flex; align-items:center; gap:10px; padding:10px 14px; background:#DAD6CC;
+    border-bottom:1px solid var(--border-strong);
+  }
+  .browser-dots{display:flex; gap:6px;}
+  .browser-dots span{width:9px; height:9px; border-radius:50%; background:#B7B0A1; display:block;}
+  .browser-url{
+    flex:1; background:#EFECE4; border:1px solid var(--border); border-radius:var(--r-sm);
+    padding:5px 12px; font-size:11.5px; color:var(--ink-mute); font-weight:600;
+  }
+  .browser-body{background:var(--bg); min-height:200px;}
+
+  .phone-frame{
+    width:390px; max-width:100%; margin:0 auto; background:#111214; border-radius:34px;
+    padding:14px; box-shadow:0 20px 44px -18px rgba(20,20,15,.45);
+  }
+  .phone-notch{
+    width:120px; height:22px; background:#111214; border-radius:0 0 14px 14px; margin:0 auto 4px;
+  }
+  .phone-screen{
+    background:var(--bg); border-radius:22px; overflow:hidden; min-height:200px;
+  }
+  .phone-statusbar{
+    display:flex; justify-content:space-between; align-items:center; padding:10px 20px 4px;
+    font-size:12px; font-weight:700; color:var(--ink);
+  }
+
+  /* ============ GENERIC UI ATOMS ============ */
+  .app-topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 26px; background:var(--ink); color:#fff; border-bottom:3px solid var(--accent);
+  }
+  .wordmark{ font-size:18px; font-weight:800; letter-spacing:-.02em; color:#fff; display:flex; align-items:center; gap:8px;}
+  .wordmark .mark{
+    width:22px; height:22px; background:var(--accent); border-radius:var(--r-sm);
+    display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:#fff;
+  }
+  .app-topbar .user{display:flex; align-items:center; gap:10px;}
+  .avatar{
+    width:30px; height:30px; border-radius:var(--r-sm); background:#3A4348; color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;
+  }
+  .user-meta{font-size:12px; line-height:1.3;}
+  .user-meta .name{font-weight:700; color:#fff;}
+  .user-meta .role{color:#B9B6AE; font-size:11px;}
+
+  .pill{
+    display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:var(--r-pill);
+    font-size:11px; font-weight:700; letter-spacing:.02em; text-transform:uppercase;
+  }
+  .pill.active{background:var(--success-soft); color:var(--success);}
+  .pill.hold{background:var(--amber-soft); color:var(--amber);}
+  .pill.done{background:var(--surface-sunk); color:var(--ink-mute);}
+  .pill.flag{background:var(--accent-soft); color:var(--accent);}
+
+  .btn{
+    border:none; border-radius:var(--r-md); font-size:13.5px; font-weight:700; padding:10px 18px;
+    cursor:default; letter-spacing:.01em;
+  }
+  .btn-primary{background:var(--action); color:#fff;}
+  .btn-ghost{background:transparent; border:1px solid var(--border-strong); color:var(--ink-soft);}
+  .btn-sm{padding:6px 12px; font-size:12px;}
+  .link-btn{ background:none; border:none; color:var(--action); font-weight:700; font-size:12px; cursor:default; }
+
+  table{border-collapse:collapse; width:100%;}
+  th{
+    text-align:left; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--ink-mute); padding:9px 12px; border-bottom:2px solid var(--border-strong);
+    background:var(--surface-alt);
+  }
+  td{ padding:11px 12px; font-size:13.5px; border-bottom:1px solid var(--border); color:var(--ink); }
+  tr:last-child td{border-bottom:none;}
+
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); }
+  .divider-strong{ height:2px; background:var(--border-strong); border:none; margin:0; }
+
+  /* ============ SCREEN 1: LOGIN ============ */
+  .login-wrap{ display:flex; align-items:center; justify-content:center; padding:64px 20px; min-height:520px;}
+  .login-card{
+    width:400px; background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--r-lg);
+    padding:38px 34px; box-shadow:0 10px 30px -14px rgba(20,20,15,.25);
+  }
+  .login-mark{ display:flex; align-items:center; gap:10px; margin-bottom:6px;}
+  .login-mark .mark{
+    width:34px; height:34px; background:var(--ink); border-radius:var(--r-sm); color:var(--accent);
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:17px;
+  }
+  .login-mark .word{font-size:20px; font-weight:800; letter-spacing:-.02em; color:var(--ink);}
+  .login-tag{ font-size:13px; color:var(--ink-mute); margin:6px 0 26px; padding-left:44px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;}
+  .field .input{
+    width:100%; background:var(--surface-sunk); border:1px solid var(--border-strong); border-radius:var(--r-sm);
+    padding:11px 12px; font-size:14px; color:var(--ink-mute);
+  }
+  .login-btn{ width:100%; background:var(--action); color:#fff; border:none; padding:13px; border-radius:var(--r-md);
+    font-size:14px; font-weight:800; letter-spacing:.02em; margin-top:6px;}
+  .login-foot{ margin-top:18px; padding-top:16px; border-top:1px solid var(--border); font-size:11.5px; color:var(--ink-mute); text-align:center;}
+
+  /* ============ DASHBOARD ============ */
+  .dash-body{padding:24px 26px 30px;}
+  .dash-section-label{
+    font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-mute);
+    margin:26px 0 12px; display:flex; align-items:center; gap:10px;
+  }
+  .dash-section-label:first-child{margin-top:0;}
+  .dash-section-label::after{content:""; flex:1; height:1px; background:var(--border-strong);}
+  .stat-grid{ display:grid; grid-template-columns:repeat(6,1fr); gap:12px;}
+  .stat-tile{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md);
+    padding:14px 14px 12px; border-top:3px solid var(--action);
+  }
+  .stat-tile.warn{border-top-color:var(--accent);}
+  .stat-tile .num{font-size:23px; font-weight:800; letter-spacing:-.01em; color:var(--ink);}
+  .stat-tile .lbl{font-size:11px; color:var(--ink-mute); font-weight:700; text-transform:uppercase; letter-spacing:.03em; margin-top:3px;}
+
+  .gap-strip{
+    display:flex; align-items:center; gap:14px; background:var(--accent-soft); border:1px solid var(--accent);
+    border-left:6px solid var(--accent); border-radius:var(--r-md); padding:12px 16px; margin:14px 0 4px;
+  }
+  .gap-strip .flag{
+    background:var(--accent); color:#fff; font-size:10.5px; font-weight:800; letter-spacing:.05em;
+    padding:4px 8px; border-radius:var(--r-sm); text-transform:uppercase; white-space:nowrap;
+  }
+  .gap-strip .txt{font-size:13.5px; color:#5C2A12; font-weight:600;}
+  .gap-strip .txt b{color:var(--accent);}
+
+  .overall-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px;}
+  .overall-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); padding:16px;}
+  .overall-card .lbl{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-mute);}
+  .overall-card .val{font-size:21px; font-weight:800; margin-top:6px;}
+  .overall-card .sub{font-size:11.5px; color:var(--ink-mute); margin-top:3px;}
+  .overall-card .val.flagnum{color:var(--accent);}
+
+  .site-row-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px;}
+  .site-card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); padding:14px; border-left:4px solid var(--border-strong);}
+  .site-card.active{border-left-color:var(--success);}
+  .site-card.hold{border-left-color:var(--amber);}
+  .site-card.done{border-left-color:var(--ink-mute);}
+  .site-card .name{font-size:13px; font-weight:700; margin-bottom:8px; line-height:1.35;}
+  .site-card .meta{font-size:11.5px; color:var(--ink-mute); margin-top:8px;}
+
+  /* dark variant */
+  .dark-shell{
+    --bg:#17181A; --surface:#202226; --surface-alt:#292B30; --surface-sunk:#313338;
+    --border:#3B3E44; --border-strong:#52555C; --ink:#EDEBE6; --ink-soft:#B9B6AE; --ink-mute:#8D8A82;
+    --accent:#E08A4F; --accent-soft:#3A2A20; --amber:#E3AE4E; --amber-soft:#3A311D;
+    --action:#6FA9B8; --action-hover:#8FC1CE; --success:#6FB98A; --success-soft:#1E3327;
+  }
+
+  /* ============ SITE OVERVIEW ============ */
+  .so-body{padding:24px 26px 30px;}
+  .so-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;}
+  .so-head h3{font-size:20px;}
+  .so-head .meta{font-size:12.5px; color:var(--ink-mute); margin-top:4px;}
+  .pulse-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); padding:18px 20px; margin-bottom:24px;}
+  .pulse-title{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-mute); margin-bottom:12px;}
+  .pulse-bars{display:flex; align-items:flex-end; gap:5px; height:56px; margin-bottom:10px;}
+  .pulse-bars .bar{flex:1; background:var(--action); border-radius:2px 2px 0 0;}
+  .pulse-bars .bar.low{background:var(--surface-sunk); border:1px solid var(--border-strong);}
+  .pulse-foot{display:flex; gap:28px; font-size:12.5px; color:var(--ink-soft);}
+  .pulse-foot b{color:var(--ink); font-weight:800;}
+
+  .feed{list-style:none; margin:0; padding:0; border-left:2px solid var(--border-strong); margin-left:6px;}
+  .feed li{ position:relative; padding:0 0 22px 22px; }
+  .feed li::before{
+    content:""; position:absolute; left:-7px; top:2px; width:12px; height:12px; background:var(--surface);
+    border:2px solid var(--action); border-radius:2px;
+  }
+  .feed li.tag-expense::before{border-color:var(--amber);}
+  .feed li.tag-movement::before{border-color:var(--ink-mute);}
+  .feed .frow{display:flex; justify-content:space-between; align-items:baseline; gap:10px;}
+  .feed .ftype{font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--action);}
+  .feed li.tag-expense .ftype{color:var(--amber);}
+  .feed li.tag-movement .ftype{color:var(--ink-mute);}
+  .feed .fdate{font-size:11.5px; color:var(--ink-mute);}
+  .feed .fbody{font-size:13.5px; margin-top:4px; color:var(--ink);}
+  .feed .fmeta{font-size:11.5px; color:var(--ink-mute); margin-top:3px;}
+
+  /* ============ DSR MOBILE ============ */
+  .dsr-body{padding:16px 16px 26px;}
+  .dsr-title{font-size:16px; font-weight:800; margin-bottom:2px;}
+  .dsr-sub{font-size:11.5px; color:var(--ink-mute); margin-bottom:16px;}
+  .sync-banner{
+    display:flex; gap:10px; align-items:flex-start; background:var(--amber-soft); border:1px solid var(--amber);
+    border-left:5px solid var(--amber); border-radius:var(--r-md); padding:10px 12px; margin-bottom:16px;
+  }
+  .sync-banner .ic{font-size:15px;}
+  .sync-banner .t{font-size:12px; font-weight:700; color:#5A430C;}
+  .sync-banner .s{font-size:10.5px; color:#7A5E17; margin-top:2px;}
+  .sync-banner.synced{background:var(--success-soft); border-color:var(--success);}
+  .sync-banner.synced .t{color:#1D4A32;}
+  .sync-banner.synced .s{color:#2E6B4C;}
+
+  .dsr-block{margin-bottom:18px;}
+  .dsr-block .lbl{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:8px;}
+  .dsr-textarea{
+    background:var(--surface-sunk); border:1px solid var(--border-strong); border-radius:var(--r-sm);
+    padding:10px 11px; font-size:13px; color:var(--ink); line-height:1.5;
+  }
+  .labour-list{display:flex; flex-direction:column; gap:6px;}
+  .labour-row{
+    display:flex; align-items:center; justify-content:space-between; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--r-sm); padding:9px 11px;
+  }
+  .labour-row .nm{font-size:13px; font-weight:600;}
+  .chk{
+    width:18px; height:18px; border-radius:var(--r-sm); background:var(--action); color:#fff; font-size:11px;
+    display:flex; align-items:center; justify-content:center; font-weight:800;
+  }
+  .labour-count{font-size:11.5px; color:var(--ink-mute); margin-top:8px;}
+  .search-input{
+    background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--r-sm);
+    padding:9px 11px; font-size:12.5px; color:var(--ink-mute); display:flex; justify-content:space-between; align-items:center;
+  }
+  .material-chips{display:flex; flex-wrap:wrap; gap:7px; margin-top:9px;}
+  .mchip{
+    background:var(--surface-alt); border:1px solid var(--border-strong); border-radius:var(--r-sm);
+    padding:6px 10px; font-size:12px; font-weight:700; color:var(--ink);
+  }
+  .rmc-row{
+    display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--r-sm); padding:11px 12px;
+  }
+  .rmc-row .v{font-weight:700; font-size:13px;}
+  .photo-row{display:flex; gap:8px;}
+  .photo-tile{
+    width:60px; height:60px; background:var(--surface-sunk); border:1px dashed var(--border-strong); border-radius:var(--r-sm);
+    display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--ink-mute);
+  }
+  .photo-tile.add{color:var(--action); font-weight:800;}
+  .submit-btn{
+    width:100%; background:var(--action); color:#fff; border:none; padding:13px; border-radius:var(--r-md);
+    font-size:14px; font-weight:800; letter-spacing:.02em; margin-top:6px;
+  }
+
+  /* ============ INVENTORY ============ */
+  .inv-body{padding:24px 26px 30px;}
+  .inv-cols{display:grid; grid-template-columns:1.3fr 1fr; gap:20px; margin-bottom:22px;}
+  .low-stock-banner{
+    display:flex; gap:12px; align-items:center; background:var(--accent-soft); border:1px solid var(--accent);
+    border-left:5px solid var(--accent); border-radius:var(--r-md); padding:11px 15px; margin-bottom:16px;
+  }
+  .low-stock-banner .flag{background:var(--accent); color:#fff; font-size:10.5px; font-weight:800; padding:4px 8px; border-radius:var(--r-sm); text-transform:uppercase;}
+  .low-stock-banner .t{font-size:13px; color:#5C2A12; font-weight:600;}
+  .txn-tag{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:3px 7px; border-radius:var(--r-sm);}
+  .txn-tag.purchase{background:var(--success-soft); color:var(--success);}
+  .txn-tag.movement{background:var(--surface-sunk); color:var(--ink-soft);}
+  .txn-tag.consumption{background:var(--amber-soft); color:var(--amber);}
+
+  /* ============ TEAM ============ */
+  .team-body{padding:24px 26px 30px;}
+  .team-cols{display:grid; grid-template-columns:1.2fr 1fr; gap:20px;}
+  .adv-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px 20px;}
+  .adv-card .top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;}
+  .adv-card .who{font-size:14.5px; font-weight:700;}
+  .adv-card .role{font-size:11.5px; color:var(--ink-mute);}
+  .adv-line{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;}
+  .adv-line:last-of-type{border-bottom:none;}
+  .adv-line .k{color:var(--ink-mute);}
+  .adv-line .v{font-weight:700;}
+  .adv-outstanding{
+    margin-top:12px; background:var(--accent-soft); border:1px solid var(--accent); border-radius:var(--r-sm);
+    padding:12px 14px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .adv-outstanding .k{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--accent);}
+  .adv-outstanding .v{font-size:19px; font-weight:800; color:var(--accent);}
+
+  /* ============ REPORTS ============ */
+  .rep-body{padding:24px 26px 30px;}
+  .filter-row{display:flex; gap:8px; margin-bottom:18px;}
+  .filter-chip{
+    padding:7px 14px; border-radius:var(--r-pill); font-size:12px; font-weight:700; border:1px solid var(--border-strong);
+    color:var(--ink-soft); background:var(--surface);
+  }
+  .filter-chip.on{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .rep-cols{display:grid; grid-template-columns:1fr 1.1fr; gap:20px;}
+  .delivery-tag{font-size:10.5px; font-weight:800; padding:3px 8px; border-radius:var(--r-sm); text-transform:uppercase;}
+  .delivery-tag.delivered{background:var(--success-soft); color:var(--success);}
+  .delivery-tag.pending{background:var(--amber-soft); color:var(--amber);}
+  .report-preview{background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--r-lg); overflow:hidden;}
+  .rp-head{background:var(--ink); color:#fff; padding:14px 18px; display:flex; justify-content:space-between; align-items:center;}
+  .rp-head .wm{font-size:13px; font-weight:800; display:flex; align-items:center; gap:7px;}
+  .rp-head .mark{width:18px; height:18px; background:var(--accent); border-radius:2px;}
+  .rp-body-inner{padding:18px;}
+  .rp-body-inner h4{font-size:14.5px; margin-bottom:2px;}
+  .rp-body-inner .d{font-size:11.5px; color:var(--ink-mute); margin-bottom:14px;}
+  .rp-stat-row{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;}
+  .rp-stat{background:var(--surface-alt); border-radius:var(--r-sm); padding:10px; text-align:center;}
+  .rp-stat .n{font-size:16px; font-weight:800;}
+  .rp-stat .l{font-size:10px; color:var(--ink-mute); font-weight:700; text-transform:uppercase; margin-top:2px;}
+  .rp-foot{border-top:1px solid var(--border); padding-top:12px; font-size:11.5px; color:var(--ink-mute); display:flex; justify-content:space-between; align-items:center;}
+
+  section.dark-note{
+    font-size:11.5px; color:var(--ink-mute); margin:14px 0 6px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  }
+</style>
+
+<div class="page-header">
+  <div class="kicker">AzentisFieldOS — Visual Direction Comparison</div>
+  <h1>B — Modern Industrial / Construction</h1>
+  <p>A confident, structural register built for people who work with quantities and numbers all day: bold grid discipline, sharp geometric corners, heavier type weights on data and labels, and an earthy concrete-and-graphite palette. A single rust/amber signal color is reserved strictly for alerts and flags — never for decoration — so attention states carry real weight instead of competing with wallpaper. Premium reads through restraint and precision, not through a construction-site costume.</p>
+  <div class="tags">
+    <span class="tag">Sharp radii (2–6px)</span>
+    <span class="tag">Data-dense tables</span>
+    <span class="tag">Signal color = alerts only</span>
+    <span class="tag">Light + dark tokens</span>
+  </div>
+</div>
+
+<nav class="toc">
+  <a href="#login"><span>01</span>Login</a>
+  <a href="#dashboard"><span>02</span>Dashboard</a>
+  <a href="#site-overview"><span>03</span>Site Overview</a>
+  <a href="#dsr"><span>04</span>DSR Entry</a>
+  <a href="#inventory"><span>05</span>Inventory</a>
+  <a href="#team"><span>06</span>Team / Labour</a>
+  <a href="#reports"><span>07</span>Reports</a>
+</nav>
+
+<main>
+
+<!-- ============ 1. LOGIN ============ -->
+<section class="screen" id="login">
+  <div class="screen-head">
+    <span class="num">01</span>
+    <h2>Login</h2>
+    <span class="desc">Tenant-branded entry, browser frame</span>
+  </div>
+  <div class="browser-frame">
+    <div class="browser-chrome">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">app.azentisfieldos.com/suresh-construction/login</div>
+    </div>
+    <div class="browser-body">
+      <div class="login-wrap">
+        <div class="login-card">
+          <div class="login-mark">
+            <div class="mark">A</div>
+            <div class="word">AzentisFieldOS</div>
+          </div>
+          <div class="login-tag">Every site, every rupee, every day — accounted for.</div>
+          <div class="field">
+            <label>Email</label>
+            <div class="input">suresh.rao@shreeconstruction.in</div>
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <div class="input">••••••••••••</div>
+          </div>
+          <button class="login-btn">Sign In</button>
+          <div class="login-foot">Shree Construction Co. — Private deployment</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2. DASHBOARD ============ -->
+<section class="screen" id="dashboard">
+  <div class="screen-head">
+    <span class="num">02</span>
+    <h2>Main Dashboard</h2>
+    <span class="desc">Owner/Admin, desktop — light mode</span>
+  </div>
+  <div class="browser-frame">
+    <div class="browser-chrome">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">app.azentisfieldos.com/suresh-construction/dashboard</div>
+    </div>
+    <div class="browser-body">
+      <div class="app-topbar">
+        <div class="wordmark"><div class="mark">A</div>AzentisFieldOS</div>
+        <div class="user">
+          <div class="user-meta"><div class="name">Suresh Rao</div><div class="role">Owner / Admin</div></div>
+          <div class="avatar">SR</div>
+        </div>
+      </div>
+      <div class="dash-body">
+        <div class="dash-section-label">Today's Activity — Tue, 12 Aug 2026</div>
+        <div class="stat-grid">
+          <div class="stat-tile"><div class="num">3 / 4</div><div class="lbl">Sites Active Today</div></div>
+          <div class="stat-tile"><div class="num">42</div><div class="lbl">Labour Working</div></div>
+          <div class="stat-tile"><div class="num">6</div><div class="lbl">Materials Received</div></div>
+          <div class="stat-tile"><div class="num">18 m³</div><div class="lbl">RMC Used</div></div>
+          <div class="stat-tile"><div class="num">5</div><div class="lbl">Machinery In Use</div></div>
+          <div class="stat-tile warn"><div class="num">₹18,500</div><div class="lbl">Expenses Today</div></div>
+        </div>
+
+        <div class="gap-strip">
+          <span class="flag">No DSR Yet</span>
+          <span class="txt"><b>Riverside Bridge Approach</b> — no Daily Site Report submitted today. Last report: Yesterday, 6:12 PM.</span>
+        </div>
+
+        <div class="dash-section-label">Overall</div>
+        <div class="overall-grid">
+          <div class="overall-card"><div class="lbl">Active Sites</div><div class="val">3 of 4</div><div class="sub">1 On Hold, 1 Completed</div></div>
+          <div class="overall-card"><div class="lbl">Inventory Status</div><div class="val flagnum">1 Low Stock</div><div class="sub">Cement OPC 53 Grade — Godown</div></div>
+          <div class="overall-card"><div class="lbl">Outstanding Advances</div><div class="val">₹1,42,000</div><div class="sub">Across 11 Team Members</div></div>
+          <div class="overall-card"><div class="lbl">Pending Payments</div><div class="val">₹3,86,200</div><div class="sub">4 Vendors</div></div>
+        </div>
+
+        <div class="dash-section-label">Sites</div>
+        <div class="site-row-grid">
+          <div class="site-card active"><div class="name">NH-48 Highway Widening — Package 3</div><span class="pill active">Active</span><div class="meta">Ramesh Yadav · DSR today 6:42 PM</div></div>
+          <div class="site-card active"><div class="name">Sector 12 Metro Depot</div><span class="pill active">Active</span><div class="meta">DSR today 5:18 PM</div></div>
+          <div class="site-card hold"><div class="name">Riverside Bridge Approach</div><span class="pill hold">On Hold</span><div class="meta">DSR yesterday 6:12 PM</div></div>
+          <div class="site-card done"><div class="name">Zonal Water Pipeline — Phase 2</div><span class="pill done">Completed</span><div class="meta">Closed 28 Jul 2026</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dark-note">Dark Mode Variant — same content, dark tokens</div>
+  <div class="browser-frame dark-shell" style="background:#0F1011; border-color:#3B3E44;">
+    <div class="browser-chrome" style="background:#0F1011; border-bottom-color:#3B3E44;">
+      <div class="browser-dots"><span style="background:#3B3E44;"></span><span style="background:#3B3E44;"></span><span style="background:#3B3E44;"></span></div>
+      <div class="browser-url" style="background:#202226; border-color:#3B3E44; color:#8D8A82;">app.azentisfieldos.com/suresh-construction/dashboard</div>
+    </div>
+    <div class="browser-body" style="background:var(--bg);">
+      <div class="app-topbar" style="background:#0F1011; border-bottom-color:var(--accent);">
+        <div class="wordmark"><div class="mark">A</div>AzentisFieldOS</div>
+        <div class="user">
+          <div class="user-meta"><div class="name">Suresh Rao</div><div class="role">Owner / Admin</div></div>
+          <div class="avatar" style="background:#3A4348;">SR</div>
+        </div>
+      </div>
+      <div class="dash-body">
+        <div class="dash-section-label">Today's Activity — Tue, 12 Aug 2026</div>
+        <div class="stat-grid">
+          <div class="stat-tile"><div class="num">3 / 4</div><div class="lbl">Sites Active Today</div></div>
+          <div class="stat-tile"><div class="num">42</div><div class="lbl">Labour Working</div></div>
+          <div class="stat-tile"><div class="num">6</div><div class="lbl">Materials Received</div></div>
+          <div class="stat-tile"><div class="num">18 m³</div><div class="lbl">RMC Used</div></div>
+          <div class="stat-tile"><div class="num">5</div><div class="lbl">Machinery In Use</div></div>
+          <div class="stat-tile warn"><div class="num">₹18,500</div><div class="lbl">Expenses Today</div></div>
+        </div>
+        <div class="gap-strip">
+          <span class="flag">No DSR Yet</span>
+          <span class="txt" style="color:#F0D9C8;"><b style="color:var(--accent);">Riverside Bridge Approach</b> — no Daily Site Report submitted today. Last report: Yesterday, 6:12 PM.</span>
+        </div>
+        <div class="dash-section-label">Overall</div>
+        <div class="overall-grid">
+          <div class="overall-card"><div class="lbl">Active Sites</div><div class="val">3 of 4</div><div class="sub">1 On Hold, 1 Completed</div></div>
+          <div class="overall-card"><div class="lbl">Inventory Status</div><div class="val flagnum">1 Low Stock</div><div class="sub">Cement OPC 53 Grade — Godown</div></div>
+          <div class="overall-card"><div class="lbl">Outstanding Advances</div><div class="val">₹1,42,000</div><div class="sub">Across 11 Team Members</div></div>
+          <div class="overall-card"><div class="lbl">Pending Payments</div><div class="val">₹3,86,200</div><div class="sub">4 Vendors</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3. SITE OVERVIEW ============ -->
+<section class="screen" id="site-overview">
+  <div class="screen-head">
+    <span class="num">03</span>
+    <h2>Site / Project Overview</h2>
+    <span class="desc">NH-48 Highway Widening — Package 3</span>
+  </div>
+  <div class="browser-frame">
+    <div class="browser-chrome">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">app.azentisfieldos.com/suresh-construction/sites/nh-48-package-3</div>
+    </div>
+    <div class="browser-body">
+      <div class="app-topbar">
+        <div class="wordmark"><div class="mark">A</div>AzentisFieldOS</div>
+        <div class="user"><div class="user-meta"><div class="name">Suresh Rao</div><div class="role">Owner / Admin</div></div><div class="avatar">SR</div></div>
+      </div>
+      <div class="so-body">
+        <div class="so-head">
+          <div>
+            <h3>NH-48 Highway Widening — Package 3</h3>
+            <div class="meta">Site Supervisor: Ramesh Yadav · Started 3 Feb 2026</div>
+          </div>
+          <span class="pill active">Active</span>
+        </div>
+
+        <div class="pulse-card">
+          <div class="pulse-title">Activity Pulse — DSR Volume, Last 14 Days</div>
+          <div class="pulse-bars">
+            <div class="bar" style="height:70%"></div><div class="bar" style="height:85%"></div><div class="bar" style="height:55%"></div>
+            <div class="bar low" style="height:14%"></div><div class="bar" style="height:90%"></div><div class="bar" style="height:64%"></div>
+            <div class="bar" style="height:78%"></div><div class="bar" style="height:60%"></div><div class="bar" style="height:95%"></div>
+            <div class="bar" style="height:72%"></div><div class="bar" style="height:82%"></div><div class="bar" style="height:58%"></div>
+            <div class="bar" style="height:100%"></div><div class="bar" style="height:88%"></div>
+          </div>
+          <div class="pulse-foot">
+            <span>Last DSR: <b>Today, 6:42 PM</b></span>
+            <span>Reported: <b>13 of 14 days</b></span>
+            <span>Avg. labour/day: <b>18</b></span>
+          </div>
+        </div>
+
+        <div class="dash-section-label">Site Feed — Chronological</div>
+        <ul class="feed">
+          <li>
+            <div class="frow"><span class="ftype">DSR</span><span class="fdate">Today, 6:42 PM</span></div>
+            <div class="fbody">Laid RCC Pipe 600mm — 45m stretch, chainage 12+300 to 12+345. 18 labour present.</div>
+            <div class="fmeta">Submitted by Ramesh Yadav</div>
+          </li>
+          <li class="tag-movement">
+            <div class="frow"><span class="ftype">Movement</span><span class="fdate">Today, 2:10 PM</span></div>
+            <div class="fbody">RCC Pipe 600mm × 12 units — Godown → Site</div>
+            <div class="fmeta">Reference: MV-2026-0842</div>
+          </li>
+          <li class="tag-expense">
+            <div class="frow"><span class="ftype">Expense</span><span class="fdate">Yesterday, 4:30 PM</span></div>
+            <div class="fbody">Diesel — Excavator PC200 — ₹6,200</div>
+            <div class="fmeta">Paid via Site Petty Cash</div>
+          </li>
+          <li>
+            <div class="frow"><span class="ftype">DSR</span><span class="fdate">Yesterday, 6:20 PM</span></div>
+            <div class="fbody">Excavation for pipe bedding — chainage 12+250 to 12+300. 20 labour present.</div>
+            <div class="fmeta">Submitted by Ramesh Yadav</div>
+          </li>
+          <li>
+            <div class="frow"><span class="ftype">Advance</span><span class="fdate">10 Aug 2026</span></div>
+            <div class="fbody">₹5,000 advance issued — Ravi Kumar</div>
+            <div class="fmeta">Approved by Suresh Rao</div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. DSR ENTRY (MOBILE) ============ -->
+<section class="screen" id="dsr">
+  <div class="screen-head">
+    <span class="num">04</span>
+    <h2>Daily Site Activity (DSR Entry)</h2>
+    <span class="desc">Site Supervisor Ramesh Yadav, mobile-first</span>
+  </div>
+  <div style="display:flex; gap:36px; flex-wrap:wrap; justify-content:center;">
+    <div>
+      <div class="phone-frame">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="phone-statusbar"><span>9:41</span><span>●●● ✆ 62%</span></div>
+          <div class="app-topbar" style="padding:12px 16px;">
+            <div class="wordmark" style="font-size:14px;"><div class="mark" style="width:18px;height:18px;font-size:10px;">A</div>AzentisFieldOS</div>
+            <div class="avatar" style="width:24px;height:24px;font-size:10px;">RY</div>
+          </div>
+          <div class="dsr-body">
+            <div class="dsr-title">Daily Site Activity</div>
+            <div class="dsr-sub">NH-48 Highway Widening — Package 3 · Tue, 12 Aug 2026</div>
+
+            <div class="sync-banner">
+              <div class="ic">⛔</div>
+              <div><div class="t">Saved on device</div><div class="s">Will sync automatically when back online</div></div>
+            </div>
+
+            <div class="dsr-block">
+              <div class="lbl">Work Completed</div>
+              <div class="dsr-textarea">Laid RCC Pipe 600mm — 45m stretch, chainage 12+300 to 12+345. Bedding compacted, joints sealed.</div>
+            </div>
+
+            <div class="dsr-block">
+              <div class="lbl">Labour Present — Defaulted from Yesterday</div>
+              <div class="labour-list">
+                <div class="labour-row"><span class="nm">Prakash Jadhav</span><span class="chk">✓</span></div>
+                <div class="labour-row"><span class="nm">Dinesh More</span><span class="chk">✓</span></div>
+                <div class="labour-row"><span class="nm">Ravi Kumar</span><span class="chk">✓</span></div>
+                <div class="labour-row"><span class="nm">Sanjay Pawar</span><span class="chk">✓</span></div>
+              </div>
+              <div class="labour-count">4 of 4 present · tap to mark absent</div>
+            </div>
+
+            <div class="dsr-block">
+              <div class="lbl">Materials Consumed</div>
+              <div class="search-input"><span>Search material…</span><span>⌄</span></div>
+              <div class="material-chips">
+                <span class="mchip">RCC Pipe 600mm × 12 units</span>
+                <span class="mchip">Cement OPC 53 × 8 bags</span>
+                <span class="mchip">+ Add material</span>
+              </div>
+            </div>
+
+            <div class="dsr-block">
+              <div class="lbl">RMC Used</div>
+              <div class="rmc-row"><span>Anand RMC Suppliers</span><span class="v">6 m³</span></div>
+            </div>
+
+            <div class="dsr-block">
+              <div class="lbl">Photos</div>
+              <div class="photo-row">
+                <div class="photo-tile">▦</div>
+                <div class="photo-tile">▦</div>
+                <div class="photo-tile add">+</div>
+              </div>
+            </div>
+
+            <button class="submit-btn">Submit Daily Report</button>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center; font-size:11.5px; color:var(--ink-mute); font-weight:700; margin-top:10px; text-transform:uppercase; letter-spacing:.04em;">Offline — saved, not yet synced</div>
+    </div>
+
+    <div>
+      <div class="phone-frame">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="phone-statusbar"><span>9:44</span><span>●●●● ✆ 61%</span></div>
+          <div class="app-topbar" style="padding:12px 16px;">
+            <div class="wordmark" style="font-size:14px;"><div class="mark" style="width:18px;height:18px;font-size:10px;">A</div>AzentisFieldOS</div>
+            <div class="avatar" style="width:24px;height:24px;font-size:10px;">RY</div>
+          </div>
+          <div class="dsr-body">
+            <div class="dsr-title">Daily Site Activity</div>
+            <div class="dsr-sub">NH-48 Highway Widening — Package 3 · Tue, 12 Aug 2026</div>
+
+            <div class="sync-banner synced">
+              <div class="ic">✓</div>
+              <div><div class="t">Synced</div><div class="s">Delivered to server — 2 minutes ago</div></div>
+            </div>
+
+            <div class="dsr-block">
+              <div class="lbl">Work Completed</div>
+              <div class="dsr-textarea">Laid RCC Pipe 600mm — 45m stretch, chainage 12+300 to 12+345. Bedding compacted, joints sealed.</div>
+            </div>
+
+            <div class="dsr-block">
+              <div class="lbl">Labour Present</div>
+              <div class="labour-count">4 of 4 present</div>
+            </div>
+
+            <div class="dsr-block">
+              <div class="lbl">Materials Consumed</div>
+              <div class="material-chips">
+                <span class="mchip">RCC Pipe 600mm × 12 units</span>
+                <span class="mchip">Cement OPC 53 × 8 bags</span>
+              </div>
+            </div>
+
+            <div class="dsr-block">
+              <div class="lbl">RMC Used</div>
+              <div class="rmc-row"><span>Anand RMC Suppliers</span><span class="v">6 m³</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center; font-size:11.5px; color:var(--ink-mute); font-weight:700; margin-top:10px; text-transform:uppercase; letter-spacing:.04em;">Online — synced state, for comparison</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. INVENTORY ============ -->
+<section class="screen" id="inventory">
+  <div class="screen-head">
+    <span class="num">05</span>
+    <h2>Inventory</h2>
+    <span class="desc">Godown &amp; Site-wise Stock, Owner/Admin</span>
+  </div>
+  <div class="browser-frame">
+    <div class="browser-chrome">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">app.azentisfieldos.com/suresh-construction/inventory</div>
+    </div>
+    <div class="browser-body">
+      <div class="app-topbar">
+        <div class="wordmark"><div class="mark">A</div>AzentisFieldOS</div>
+        <div class="user"><div class="user-meta"><div class="name">Suresh Rao</div><div class="role">Owner / Admin</div></div><div class="avatar">SR</div></div>
+      </div>
+      <div class="inv-body">
+        <div class="low-stock-banner">
+          <span class="flag">Low Stock</span>
+          <span class="t">Cement (OPC 53 Grade) — 42 bags in Godown, below threshold of 100 bags</span>
+        </div>
+
+        <div class="inv-cols">
+          <div>
+            <div class="dash-section-label" style="margin-top:0;">Godown Stock</div>
+            <table>
+              <tr><th>Material</th><th>Unit</th><th>Qty</th><th>Status</th></tr>
+              <tr><td>RCC Pipe 300mm</td><td>units</td><td>210</td><td><span class="pill active">OK</span></td></tr>
+              <tr><td>RCC Pipe 450mm</td><td>units</td><td>96</td><td><span class="pill active">OK</span></td></tr>
+              <tr><td>RCC Pipe 600mm</td><td>units</td><td>38</td><td><span class="pill active">OK</span></td></tr>
+              <tr><td>RCC Pipe 900mm</td><td>units</td><td>14</td><td><span class="pill active">OK</span></td></tr>
+              <tr><td>RCC Cover</td><td>units</td><td>150</td><td><span class="pill active">OK</span></td></tr>
+              <tr><td>Cement (OPC 53 Grade)</td><td>bags</td><td>42</td><td><span class="pill flag">Low</span></td></tr>
+              <tr><td>Crush Sand</td><td>tonnes</td><td>64</td><td><span class="pill active">OK</span></td></tr>
+              <tr><td>TMT Steel 12mm</td><td>tonnes</td><td>9.2</td><td><span class="pill active">OK</span></td></tr>
+              <tr><td>TMT Steel 16mm</td><td>tonnes</td><td>7.6</td><td><span class="pill active">OK</span></td></tr>
+              <tr><td>Aggregate 20mm</td><td>tonnes</td><td>112</td><td><span class="pill active">OK</span></td></tr>
+            </table>
+          </div>
+          <div>
+            <div class="dash-section-label" style="margin-top:0;">Site-wise Stock</div>
+            <table>
+              <tr><th>Site</th><th>Material</th><th>Qty</th></tr>
+              <tr><td>NH-48 Pkg 3</td><td>RCC Pipe 600mm</td><td>12</td></tr>
+              <tr><td>NH-48 Pkg 3</td><td>Cement OPC 53</td><td>28 bags</td></tr>
+              <tr><td>Sector 12 Metro</td><td>TMT Steel 16mm</td><td>3.1 t</td></tr>
+              <tr><td>Sector 12 Metro</td><td>Aggregate 20mm</td><td>22 t</td></tr>
+              <tr><td>Riverside Bridge</td><td>RCC Cover</td><td>18</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="dash-section-label">Recent Purchases / Movements / Consumption</div>
+        <table>
+          <tr><th>Type</th><th>Material</th><th>Qty</th><th>Vendor / Route</th><th>Date</th><th></th></tr>
+          <tr><td><span class="txn-tag purchase">Purchase</span></td><td>Cement OPC 53 Grade</td><td>200 bags</td><td>Shree Balaji Traders</td><td>11 Aug 2026</td><td><button class="link-btn">Correct</button></td></tr>
+          <tr><td><span class="txn-tag movement">Movement</span></td><td>RCC Pipe 600mm</td><td>12 units</td><td>Godown → NH-48 Pkg 3</td><td>12 Aug 2026</td><td><button class="link-btn">Correct</button></td></tr>
+          <tr><td><span class="txn-tag consumption">Consumption</span></td><td>Cement OPC 53 Grade</td><td>8 bags</td><td>NH-48 Pkg 3</td><td>12 Aug 2026</td><td><button class="link-btn">Correct</button></td></tr>
+          <tr><td><span class="txn-tag purchase">Purchase</span></td><td>TMT Steel 12mm</td><td>4.5 t</td><td>Om Steel Corporation</td><td>9 Aug 2026</td><td><button class="link-btn">Correct</button></td></tr>
+          <tr><td><span class="txn-tag movement">Movement</span></td><td>Aggregate 20mm</td><td>10 t</td><td>Godown → Sector 12 Metro</td><td>8 Aug 2026</td><td><button class="link-btn">Correct</button></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6. TEAM / LABOUR ============ -->
+<section class="screen" id="team">
+  <div class="screen-head">
+    <span class="num">06</span>
+    <h2>Team / Labour</h2>
+    <span class="desc">Attendance, Work Records &amp; Advances</span>
+  </div>
+  <div class="browser-frame">
+    <div class="browser-chrome">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">app.azentisfieldos.com/suresh-construction/team</div>
+    </div>
+    <div class="browser-body">
+      <div class="app-topbar">
+        <div class="wordmark"><div class="mark">A</div>AzentisFieldOS</div>
+        <div class="user"><div class="user-meta"><div class="name">Suresh Rao</div><div class="role">Owner / Admin</div></div><div class="avatar">SR</div></div>
+      </div>
+      <div class="team-body">
+        <div class="team-cols">
+          <div>
+            <div class="dash-section-label" style="margin-top:0;">Team Members — Today's Attendance</div>
+            <table>
+              <tr><th>Team Member</th><th>Role</th><th>Site</th><th>Today</th></tr>
+              <tr><td>Ramesh Yadav</td><td>Site Supervisor</td><td>NH-48 Pkg 3</td><td><span class="pill active">Present</span></td></tr>
+              <tr><td>Prakash Jadhav</td><td>Labour</td><td>NH-48 Pkg 3</td><td><span class="pill active">Present</span></td></tr>
+              <tr><td>Dinesh More</td><td>Labour</td><td>NH-48 Pkg 3</td><td><span class="pill active">Present</span></td></tr>
+              <tr><td>Ravi Kumar</td><td>Labour</td><td>NH-48 Pkg 3</td><td><span class="pill active">Present</span></td></tr>
+              <tr><td>Sanjay Pawar</td><td>Labour</td><td>NH-48 Pkg 3</td><td><span class="pill active">Present</span></td></tr>
+              <tr><td>Vijay Salunkhe</td><td>Labour</td><td>Sector 12 Metro</td><td><span class="pill hold">Absent</span></td></tr>
+            </table>
+          </div>
+          <div>
+            <div class="dash-section-label" style="margin-top:0;">Advance &amp; Outstanding Balance</div>
+            <div class="adv-card">
+              <div class="top">
+                <div><div class="who">Prakash Jadhav</div><div class="role">Labour — NH-48 Highway Widening</div></div>
+                <div class="avatar" style="background:#3A4348;">PJ</div>
+              </div>
+              <div class="adv-line"><span class="k">Advance Issued — 2 Aug 2026</span><span class="v">₹15,000</span></div>
+              <div class="adv-line"><span class="k">Advance Adjustment — 9 Aug 2026</span><span class="v">− ₹7,000</span></div>
+              <div class="adv-line"><span class="k">Work Records — 12 Aug 2026</span><span class="v"><button class="link-btn">Correct</button></span></div>
+              <div class="adv-outstanding"><span class="k">Outstanding Balance</span><span class="v">₹8,000</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7. REPORTS ============ -->
+<section class="screen" id="reports">
+  <div class="screen-head">
+    <span class="num">07</span>
+    <h2>Reports</h2>
+    <span class="desc">Auto-delivered, filterable, view-only</span>
+  </div>
+  <div class="browser-frame">
+    <div class="browser-chrome">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">app.azentisfieldos.com/suresh-construction/reports</div>
+    </div>
+    <div class="browser-body">
+      <div class="app-topbar">
+        <div class="wordmark"><div class="mark">A</div>AzentisFieldOS</div>
+        <div class="user"><div class="user-meta"><div class="name">Suresh Rao</div><div class="role">Owner / Admin</div></div><div class="avatar">SR</div></div>
+      </div>
+      <div class="rep-body">
+        <div class="filter-row">
+          <span class="filter-chip on">All Reports</span>
+          <span class="filter-chip">Site Reports</span>
+          <span class="filter-chip">Inventory Reports</span>
+          <span class="filter-chip">Labour Reports</span>
+          <span class="filter-chip">Financial Reports</span>
+        </div>
+        <div class="rep-cols">
+          <div>
+            <table>
+              <tr><th>Report</th><th>Site</th><th>Date</th><th>Delivery</th></tr>
+              <tr><td>Daily Site Report</td><td>NH-48 Pkg 3</td><td>12 Aug</td><td><span class="delivery-tag delivered">Delivered</span></td></tr>
+              <tr><td>Daily Site Report</td><td>Sector 12 Metro</td><td>12 Aug</td><td><span class="delivery-tag delivered">Delivered</span></td></tr>
+              <tr><td>Daily Site Report</td><td>Riverside Bridge</td><td>12 Aug</td><td><span class="delivery-tag pending">Pending</span></td></tr>
+              <tr><td>Inventory Summary</td><td>All Sites</td><td>11 Aug</td><td><span class="delivery-tag delivered">Delivered</span></td></tr>
+              <tr><td>Labour Attendance</td><td>All Sites</td><td>11 Aug</td><td><span class="delivery-tag delivered">Delivered</span></td></tr>
+              <tr><td>Financial Summary</td><td>All Sites</td><td>Weekly · 10 Aug</td><td><span class="delivery-tag delivered">Delivered</span></td></tr>
+            </table>
+          </div>
+          <div>
+            <div class="dash-section-label" style="margin-top:0;">Preview — Auto-Branded Daily Report</div>
+            <div class="report-preview">
+              <div class="rp-head">
+                <div class="wm"><div class="mark"></div>AzentisFieldOS</div>
+                <div style="font-size:11px; color:#C7C4BC;">Shree Construction Co.</div>
+              </div>
+              <div class="rp-body-inner">
+                <h4>Daily Site Report — NH-48 Highway Widening — Package 3</h4>
+                <div class="d">Tuesday, 12 August 2026</div>
+                <div class="rp-stat-row">
+                  <div class="rp-stat"><div class="n">18</div><div class="l">Labour</div></div>
+                  <div class="rp-stat"><div class="n">6 m³</div><div class="l">RMC Used</div></div>
+                  <div class="rp-stat"><div class="n">₹6,200</div><div class="l">Expense</div></div>
+                </div>
+                <p style="font-size:12.5px; color:var(--ink-soft); line-height:1.6;">Laid RCC Pipe 600mm — 45m stretch, chainage 12+300 to 12+345. Bedding compacted, joints sealed. Materials consumed: RCC Pipe 600mm × 12, Cement OPC 53 × 8 bags.</p>
+                <div class="rp-foot">
+                  <span>Delivered via WhatsApp to Suresh Rao</span>
+                  <span>Today, 7:02 PM</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>

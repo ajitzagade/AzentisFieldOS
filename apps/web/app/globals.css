@@ -1,0 +1,22 @@
+/* Single design-token source: @azentisfieldos/ui/styles/theme.css (AD-4).
+ * This file wires it in and maps semantic background/foreground — it never
+ * defines a competing color, spacing, or radius value itself. */
+@import "@azentisfieldos/ui/styles/theme.css";
+
+:root {
+  --color-background: var(--color-neutral-0);
+  --color-foreground: var(--color-neutral-900);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: var(--color-neutral-950);
+    --color-foreground: var(--color-neutral-50);
+  }
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}

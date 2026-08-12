@@ -1,0 +1,21 @@
+{
+  "$comment": "Template — copy to <tenant-slug>.json per tenant (architecture spine AD-2). Committed, versioned, diffable. No secrets here: DB URLs, Clerk keys, R2 credentials are deployment env vars, never checked in.",
+  "slug": "example-contractor",
+  "displayName": "Example Contractor Pvt Ltd",
+  "domain": "example-contractor.azentisfieldos.app",
+  "branding": {
+    "logoUrl": "",
+    "primaryColorToken": "primary-600",
+    "accentColorToken": "accent-500"
+  },
+  "contact": {
+    "ownerName": "",
+    "email": "",
+    "phone": ""
+  },
+  "notificationChannels": {
+    "whatsapp": false,
+    "email": false,
+    "inApp": true
+  }
+}

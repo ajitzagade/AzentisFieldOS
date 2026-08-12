@@ -1,0 +1,1069 @@
+<!--
+==============================================================================
+DESIGN TOKEN SEED — Direction C: "Premium Executive Dashboard"
+(feed this block into DESIGN.md)
+==============================================================================
+
+COLOR — LIGHT MODE
+  --surface-0        #FBFAF7   page background ("premium paper" — warm off-white, not pure #fff)
+  --surface-1        #FFFFFF   card / panel surface
+  --surface-2        #F3F1EA   sunken surface (table stripe, input fill, nested panel)
+  --surface-3        #EAE6DA   deeper sunken (chip fill, active tab track)
+  --border-hairline  #E4E0D3   1px dividers
+  --border-strong    #D2CBB8   emphasized borders (input focus rest state)
+  --ink-900          #1B2430   primary text (deep ink navy-black, not pure #000)
+  --ink-700          #3E4757   secondary text
+  --ink-500          #6B7280   tertiary / meta text (still passes AA on surface-0/1)
+  --ink-on-accent    #F7F5EE   text on deep-teal / navy fills
+
+  --accent-teal-900  #0B3B3E   deepest teal (headers on dark ink surfaces)
+  --accent-teal-700  #0F5257   primary action fill (buttons, links, focus ring core)
+  --accent-teal-600  #14666C   hover state
+  --accent-teal-100  #E4EFEE   tinted background (selected row, info chip)
+
+  --accent-navy-800  #16273E   secondary deep accent (nav rail, section headers)
+  --accent-navy-600  #223A5E   secondary interactive
+
+  --gold-700         #96700F   money-only accent, text/icon weight (AA on surface-0/1)
+  --gold-500         #C7912B   money-only accent, fills/badges
+  --gold-100         #FBF0DA   money-only tint background
+
+  --success-700      #1E6B45   positive delta / synced / on-time
+  --success-100      #E4F3EA
+  --danger-700       #A32E2E   flagged issue / low stock / overdue
+  --danger-100       #FBE7E5
+  --warning-700      #8A5A12   pending / awaiting sync (distinct from danger)
+  --warning-100      #FBF0DA
+
+COLOR — DARK MODE ("premium ink")
+  --surface-0-dark   #12161C   page background (warm-cool charcoal, not full black)
+  --surface-1-dark   #191F27   card / panel
+  --surface-2-dark   #212933   sunken surface
+  --surface-3-dark   #2A3340   chip / active track
+  --border-hairline-dark #313B48
+  --border-strong-dark   #414E5E
+  --ink-900-dark     #F1EEE4   primary text on dark
+  --ink-700-dark     #C7CCD6   secondary text on dark
+  --ink-500-dark     #8D95A3   tertiary text on dark (AA-checked ~4.6:1 on surface-0-dark)
+  --accent-teal-400-dark #4FB8AE  primary action on dark (brightened for contrast)
+  --accent-teal-100-dark  #1B3B3A tinted bg on dark
+  --gold-400-dark    #E3B24B   money accent on dark
+  --gold-100-dark    #2E2413   money tint bg on dark
+  --success-400-dark #5FCF93
+  --danger-400-dark  #F0847E
+  --warning-400-dark #E3B24B
+
+TYPE SCALE (system font stack, tabular numerals for all figures)
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif
+  --fs-2xs   11px / 1.4   letter-spacing .02em  (eyebrow labels, table meta)
+  --fs-xs    12.5px / 1.45
+  --fs-sm    13.5px / 1.5   (body default, table cells)
+  --fs-base  15px / 1.55    (primary body)
+  --fs-md    17px / 1.4     (card titles)
+  --fs-lg    21px / 1.3     (section headers)
+  --fs-xl    28px / 1.2     (page titles, hero numerals)
+  --fs-2xl   38px / 1.1     (dashboard headline KPI numerals — tabular-nums)
+  font-variant-numeric: tabular-nums lining-nums  — applied to all currency/count figures
+
+SPACING SCALE (4px base)
+  --sp-1  4px   --sp-2  8px   --sp-3 12px   --sp-4 16px
+  --sp-5  20px  --sp-6 24px   --sp-8 32px   --sp-10 40px
+  --sp-12 48px  --sp-16 64px
+
+RADIUS SCALE
+  --r-sm  6px   (chips, inputs)
+  --r-md  10px  (buttons, small cards)
+  --r-lg  14px  (panels, cards)
+  --r-xl  20px  (device frame corner echo, modals)
+  --r-full 999px (pills, avatars)
+
+ELEVATION (soft shadow, never glassmorphism/blur)
+  --shadow-1: 0 1px 2px rgba(27,36,48,.06), 0 1px 1px rgba(27,36,48,.04)
+  --shadow-2: 0 4px 12px rgba(27,36,48,.08), 0 2px 4px rgba(27,36,48,.04)
+  --shadow-3: 0 12px 32px rgba(27,36,48,.14), 0 4px 8px rgba(27,36,48,.06)
+  --shadow-dark-1: 0 1px 2px rgba(0,0,0,.4)
+  --shadow-dark-2: 0 6px 20px rgba(0,0,0,.45)
+
+RATIONALE
+  Deep teal is the operational-action color (submit, confirm, primary nav) — it must never
+  be reused for money. Gold/amber is reserved strictly for financial figures (Outstanding
+  Balance, Advance, Payment, Expense totals) so the eye learns "gold = money" across the
+  whole product. Warm off-white/ink surfaces (not pure #fff/#000) give the "premium paper vs
+  premium ink" tonal depth called for in the brief without tipping into full dark-mode-by-default.
+==============================================================================
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AzentisFieldOS — Direction C: Premium Executive Dashboard</title>
+<style>
+  :root{
+    --surface-0:#FBFAF7; --surface-1:#FFFFFF; --surface-2:#F3F1EA; --surface-3:#EAE6DA;
+    --border-hairline:#E4E0D3; --border-strong:#D2CBB8;
+    --ink-900:#1B2430; --ink-700:#3E4757; --ink-500:#6B7280; --ink-on-accent:#F7F5EE;
+    --accent-teal-900:#0B3B3E; --accent-teal-700:#0F5257; --accent-teal-600:#14666C; --accent-teal-100:#E4EFEE;
+    --accent-navy-800:#16273E; --accent-navy-600:#223A5E;
+    --gold-700:#96700F; --gold-500:#C7912B; --gold-100:#FBF0DA;
+    --success-700:#1E6B45; --success-100:#E4F3EA;
+    --danger-700:#A32E2E; --danger-100:#FBE7E5;
+    --warning-700:#8A5A12; --warning-100:#FBF0DA;
+    --r-sm:6px; --r-md:10px; --r-lg:14px; --r-xl:20px; --r-full:999px;
+    --shadow-1:0 1px 2px rgba(27,36,48,.06), 0 1px 1px rgba(27,36,48,.04);
+    --shadow-2:0 4px 12px rgba(27,36,48,.08), 0 2px 4px rgba(27,36,48,.04);
+    --shadow-3:0 12px 32px rgba(27,36,48,.14), 0 4px 8px rgba(27,36,48,.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--surface-0); color:var(--ink-900);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:15px; line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  .num{ font-variant-numeric: tabular-nums lining-nums; }
+  h1,h2,h3,h4,p{margin:0;}
+  a{color:inherit;}
+
+  /* ============ PAGE HEADER ============ */
+  .intro{
+    max-width:960px; margin:0 auto; padding:56px 24px 40px;
+    border-bottom:1px solid var(--border-hairline);
+  }
+  .intro .badge{
+    display:inline-block; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+    font-weight:700; color:var(--accent-teal-700); background:var(--accent-teal-100);
+    padding:6px 12px; border-radius:var(--r-full); margin-bottom:16px;
+  }
+  .intro h1{font-size:32px; font-weight:800; letter-spacing:-.01em; margin-bottom:14px;}
+  .intro p{font-size:16px; color:var(--ink-700); max-width:820px;}
+  .intro .toc{display:flex; flex-wrap:wrap; gap:8px; margin-top:24px;}
+  .intro .toc a{
+    font-size:12.5px; font-weight:600; color:var(--accent-teal-700); background:var(--surface-1);
+    border:1px solid var(--border-hairline); padding:7px 12px; border-radius:var(--r-full);
+    text-decoration:none; box-shadow:var(--shadow-1);
+  }
+
+  /* ============ SECTION SCAFFOLD ============ */
+  section.screen{
+    max-width:1400px; margin:0 auto; padding:64px 24px; border-bottom:1px solid var(--border-hairline);
+  }
+  section.screen:last-of-type{border-bottom:none;}
+  .screen-label{
+    display:flex; align-items:baseline; gap:12px; margin-bottom:28px; flex-wrap:wrap;
+  }
+  .screen-label .idx{
+    font-size:12px; font-weight:800; color:var(--gold-700); background:var(--gold-100);
+    padding:4px 10px; border-radius:var(--r-sm); letter-spacing:.04em;
+  }
+  .screen-label h2{font-size:24px; font-weight:800; letter-spacing:-.01em;}
+  .screen-label .sub{font-size:13.5px; color:var(--ink-500);}
+  .frames-row{display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start; justify-content:center;}
+
+  /* ============ DEVICE FRAMES ============ */
+  .browser-frame{
+    width:1280px; max-width:100%; background:var(--surface-1); border-radius:var(--r-xl);
+    box-shadow:var(--shadow-3); overflow:hidden; border:1px solid var(--border-hairline);
+  }
+  .browser-frame.scaled{ transform:scale(.74); transform-origin:top center; margin:-90px -172px; }
+  .browser-chrome{
+    height:44px; background:var(--surface-2); display:flex; align-items:center; gap:8px; padding:0 16px;
+    border-bottom:1px solid var(--border-hairline);
+  }
+  .browser-chrome .dot{width:11px;height:11px;border-radius:50%;}
+  .browser-chrome .dot.r{background:#E5A6A0;} .browser-chrome .dot.y{background:#E8CB8A;} .browser-chrome .dot.g{background:#9FCBAE;}
+  .browser-chrome .url{
+    margin-left:16px; background:var(--surface-1); border:1px solid var(--border-hairline); border-radius:var(--r-full);
+    padding:5px 16px; font-size:12px; color:var(--ink-500); flex:1; max-width:420px;
+  }
+  .browser-body{background:var(--surface-0); min-height:200px;}
+  .browser-body.dark{background:var(--surface-0-d); color:var(--ink-900-d);}
+
+  .phone-frame{
+    width:390px; background:#0C0F13; border-radius:44px; padding:14px; box-shadow:var(--shadow-3);
+    flex-shrink:0;
+  }
+  .phone-screen{
+    background:var(--surface-0); border-radius:32px; overflow:hidden; position:relative; min-height:640px;
+  }
+  .phone-notch{
+    position:absolute; top:0; left:50%; transform:translateX(-50%); width:120px; height:26px;
+    background:#0C0F13; border-bottom-left-radius:16px; border-bottom-right-radius:16px; z-index:5;
+  }
+  .phone-statusbar{height:46px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px 6px; font-size:12px; font-weight:700; color:var(--ink-900);}
+
+  /* ============ APP CHROME (desktop) ============ */
+  .app-shell{display:flex; min-height:720px;}
+  .app-nav{
+    width:220px; background:var(--accent-navy-800); color:var(--ink-on-accent); flex-shrink:0; padding:20px 14px;
+  }
+  .app-nav .brand{display:flex; align-items:center; gap:8px; padding:6px 8px 22px;}
+  .app-nav .brand .mark{
+    width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent-teal-600),var(--accent-teal-900));
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;
+  }
+  .app-nav .brand .word{font-weight:800; font-size:14.5px; letter-spacing:-.01em;}
+  .app-nav .item{
+    display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:var(--r-md); font-size:13px; font-weight:600;
+    color:#C4CFE0; margin-bottom:2px;
+  }
+  .app-nav .item.active{background:rgba(255,255,255,.09); color:#fff;}
+  .app-nav .item .ic{width:16px;text-align:center;opacity:.9;}
+  .app-nav .navsection{font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:#7C89A3; margin:18px 8px 6px;}
+  .app-main{flex:1; padding:26px 30px; background:var(--surface-0); overflow:hidden;}
+  .app-main.dark{background:var(--surface-0-d);}
+  .app-topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;}
+  .app-topbar h3{font-size:20px; font-weight:800; letter-spacing:-.01em;}
+  .app-topbar .meta{font-size:12.5px; color:var(--ink-500);}
+  .avatar{
+    width:34px;height:34px;border-radius:50%; background:var(--accent-teal-700); color:#fff; display:flex;
+    align-items:center; justify-content:center; font-size:12.5px; font-weight:700;
+  }
+  .topbar-right{display:flex; align-items:center; gap:14px;}
+
+  /* ============ COMPONENTS ============ */
+  .card{
+    background:var(--surface-1); border:1px solid var(--border-hairline); border-radius:var(--r-lg);
+    box-shadow:var(--shadow-1); padding:18px;
+  }
+  .card-dark{background:var(--surface-1-d); border-color:var(--border-hairline-d); color:var(--ink-900-d);}
+  .grid{display:grid; gap:16px;}
+  .grid-4{grid-template-columns:repeat(4,1fr);}
+  .grid-3{grid-template-columns:repeat(3,1fr);}
+  .grid-2{grid-template-columns:repeat(2,1fr);}
+  .kpi-label{font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-500); margin-bottom:8px;}
+  .kpi-label-d{color:var(--ink-500-d);}
+  .kpi-value{font-size:26px; font-weight:800; letter-spacing:-.02em;}
+  .kpi-delta{font-size:12px; font-weight:700; margin-top:6px; display:inline-flex; align-items:center; gap:4px;}
+  .kpi-delta.pos{color:var(--success-700);} .kpi-delta.pos-d{color:var(--success-400-d);}
+  .kpi-delta.warn{color:var(--warning-700);}
+  .section-title{font-size:15px; font-weight:800; letter-spacing:-.005em; margin-bottom:2px;}
+  .section-sub{font-size:12px; color:var(--ink-500); margin-bottom:14px;}
+
+  .badge{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:4px 9px; border-radius:var(--r-full);}
+  .badge.active{background:var(--success-100); color:var(--success-700);}
+  .badge.hold{background:var(--warning-100); color:var(--warning-700);}
+  .badge.completed{background:var(--surface-3); color:var(--ink-700);}
+  .badge.danger{background:var(--danger-100); color:var(--danger-700);}
+  .badge.gold{background:var(--gold-100); color:var(--gold-700);}
+  .badge.teal{background:var(--accent-teal-100); color:var(--accent-teal-700);}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px; border:none; cursor:default;
+    font-size:13px; font-weight:700; padding:10px 18px; border-radius:var(--r-md); font-family:inherit;
+  }
+  .btn-primary{background:var(--accent-teal-700); color:#fff; box-shadow:0 1px 0 rgba(0,0,0,.08);}
+  .btn-secondary{background:var(--surface-1); color:var(--ink-900); border:1px solid var(--border-strong);}
+  .btn-ghost{background:transparent; color:var(--accent-teal-700); font-weight:700; padding:6px 4px;}
+  .btn-block{width:100%;}
+  .btn-lg{padding:15px 18px; font-size:15px; border-radius:var(--r-md);}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-500); font-weight:700; padding:8px 12px; border-bottom:1px solid var(--border-hairline);}
+  td{padding:11px 12px; border-bottom:1px solid var(--border-hairline); color:var(--ink-900);}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:var(--surface-2);}
+
+  .sparkline{display:flex; align-items:flex-end; gap:2px; height:28px;}
+  .sparkline .bar{width:5px; background:var(--accent-teal-600); border-radius:2px 2px 0 0; opacity:.85;}
+  .sparkline .bar.peak{background:var(--gold-500);}
+
+  .divider{height:1px; background:var(--border-hairline); margin:16px 0;}
+  .input{
+    width:100%; background:var(--surface-2); border:1px solid var(--border-hairline); border-radius:var(--r-md);
+    padding:12px 14px; font-size:14px; color:var(--ink-900); font-family:inherit;
+  }
+  .label{font-size:12px; font-weight:700; color:var(--ink-700); margin-bottom:6px; display:block;}
+  .field{margin-bottom:16px;}
+
+  /* dark-mode local variables applied when .dark-scope wraps a block */
+  .dark-scope{
+    --surface-0-d:#12161C; --surface-1-d:#191F27; --surface-2-d:#212933; --surface-3-d:#2A3340;
+    --border-hairline-d:#313B48; --border-strong-d:#414E5E;
+    --ink-900-d:#F1EEE4; --ink-700-d:#C7CCD6; --ink-500-d:#8D95A3;
+    --accent-teal-400-d:#4FB8AE; --accent-teal-100-d:#1B3B3A;
+    --gold-400-d:#E3B24B; --gold-100-d:#2E2413;
+    --success-400-d:#5FCF93; --danger-400-d:#F0847E; --warning-400-d:#E3B24B;
+  }
+  .surface-0-d{background:var(--surface-0-d);}
+  .text-d{color:var(--ink-900-d);}
+  .subtext-d{color:var(--ink-700-d);}
+  .metatext-d{color:var(--ink-500-d);}
+  .badge.active-d{background:var(--accent-teal-100-d); color:var(--accent-teal-400-d);}
+  .badge.danger-d{background:#3A1E1D; color:var(--danger-400-d);}
+  .badge.gold-d{background:var(--gold-100-d); color:var(--gold-400-d);}
+  .btn-primary-d{background:var(--accent-teal-400-d); color:#0C1614; font-weight:800;}
+
+  .flag-row{
+    display:flex; align-items:center; gap:12px; background:var(--danger-100); border:1px solid #F0C9C4;
+    border-radius:var(--r-md); padding:12px 14px;
+  }
+  .flag-dot{width:8px;height:8px;border-radius:50%; background:var(--danger-700); flex-shrink:0;}
+
+  .money{color:var(--gold-700); font-weight:800;}
+  .money-d{color:var(--gold-400-d); font-weight:800;}
+
+  .chip{display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--border-hairline); border-radius:var(--r-full); padding:6px 12px; font-size:12.5px; font-weight:600;}
+
+  .feed-item{display:flex; gap:14px; padding:14px 0; border-bottom:1px solid var(--border-hairline);}
+  .feed-item:last-child{border-bottom:none;}
+  .feed-dot{width:32px;height:32px;border-radius:50%; background:var(--accent-teal-100); color:var(--accent-teal-700); display:flex;align-items:center;justify-content:center; font-size:14px; flex-shrink:0;}
+  .feed-time{font-size:11.5px; color:var(--ink-500); white-space:nowrap;}
+
+  .progress-strip{display:flex; gap:3px; height:34px; align-items:flex-end;}
+  .progress-strip .day{flex:1; background:var(--surface-3); border-radius:3px 3px 0 0; position:relative;}
+  .progress-strip .day.filled{background:var(--accent-teal-600);}
+  .progress-strip .day.today{background:var(--gold-500);}
+
+  footer.note{max-width:960px; margin:0 auto; padding:40px 24px 80px; font-size:12.5px; color:var(--ink-500); text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <span class="badge">Direction C of 3</span>
+  <h1>C — Premium Executive Dashboard</h1>
+  <p>This direction treats the Owner/Admin's screen as a command instrument, not a spreadsheet: warm-ink "premium paper" surfaces, real tabular numerals, sparklines and small multiples in place of raw tables, and a strict two-accent discipline — deep teal for action, gold reserved only for money — so financial figures read at a glance across every screen. Elevation comes from soft, precise shadows rather than blur, giving the Owner the feeling of piloting the business rather than scrolling through it. The Site Supervisor's mobile flow deliberately drops almost all of this vocabulary in favour of one big teal button and plain state — because the executive posture is for the person reading the business, not the person reporting from the field.</p>
+  <div class="toc">
+    <a href="#login">1. Login</a>
+    <a href="#dashboard">2. Main Dashboard</a>
+    <a href="#site-overview">3. Site Overview</a>
+    <a href="#dsr">4. DSR Entry (mobile)</a>
+    <a href="#inventory">5. Inventory</a>
+    <a href="#team">6. Team / Labour</a>
+    <a href="#reports">7. Reports</a>
+  </div>
+</div>
+
+<!-- ======================================================================
+     1. LOGIN
+====================================================================== -->
+<section class="screen" id="login">
+  <div class="screen-label">
+    <span class="idx">01</span>
+    <h2>Login</h2>
+    <span class="sub">Browser frame · tenant-branded entry point</span>
+  </div>
+  <div class="frames-row">
+    <div class="browser-frame">
+      <div class="browser-chrome">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <div class="url">🔒 app.azentisfieldos.in</div>
+      </div>
+      <div class="browser-body" style="display:flex; align-items:center; justify-content:center; padding:80px 24px; background:linear-gradient(180deg,var(--surface-0) 0%, var(--surface-2) 100%);">
+        <div style="width:420px; background:var(--surface-1); border:1px solid var(--border-hairline); border-radius:var(--r-xl); box-shadow:var(--shadow-3); padding:40px 36px;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+            <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--accent-teal-600),var(--accent-teal-900)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:16px;">A</div>
+            <div style="font-weight:800; font-size:18px; letter-spacing:-.01em;">AzentisFieldOS</div>
+          </div>
+          <p style="font-size:13px; color:var(--ink-500); margin-bottom:30px;">Command centre for your sites, stock and site teams.</p>
+          <div class="field">
+            <label class="label">Email address</label>
+            <input class="input" value="suresh.rao@balajicontractors.in" readonly>
+          </div>
+          <div class="field">
+            <label class="label">Password</label>
+            <input class="input" value="••••••••••••" readonly>
+          </div>
+          <button class="btn btn-primary btn-block btn-lg" style="margin-top:6px;">Sign in</button>
+          <div style="text-align:center; margin-top:16px; font-size:12.5px; color:var(--accent-teal-700); font-weight:700;">Forgot password?</div>
+          <div class="divider"></div>
+          <p style="font-size:11.5px; color:var(--ink-500); text-align:center;">Single-tenant deployment for Balaji Contractors · Data isolated to this organisation</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     2. MAIN DASHBOARD (light + dark)
+====================================================================== -->
+<section class="screen" id="dashboard">
+  <div class="screen-label">
+    <span class="idx">02</span>
+    <h2>Main Dashboard</h2>
+    <span class="sub">Browser frame · Owner/Admin (Suresh Rao) · light mode, then dark-mode token proof below</span>
+  </div>
+  <div class="frames-row">
+    <div class="browser-frame">
+      <div class="browser-chrome">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <div class="url">🔒 app.azentisfieldos.in/dashboard</div>
+      </div>
+      <div class="browser-body">
+        <div class="app-shell">
+          <nav class="app-nav">
+            <div class="brand"><div class="mark">A</div><div class="word">AzentisFieldOS</div></div>
+            <div class="item active"><span class="ic">◆</span> Dashboard</div>
+            <div class="item"><span class="ic">▣</span> Sites</div>
+            <div class="item"><span class="ic">▤</span> Inventory</div>
+            <div class="item"><span class="ic">◉</span> Team</div>
+            <div class="item"><span class="ic">▦</span> Reports</div>
+            <div class="navsection">Organisation</div>
+            <div class="item"><span class="ic">☰</span> Vendors</div>
+            <div class="item"><span class="ic">⚙</span> Settings</div>
+          </nav>
+          <main class="app-main">
+            <div class="app-topbar">
+              <div>
+                <h3>Good evening, Suresh</h3>
+                <div class="meta">Tuesday, 12 August 2026 · 6:42 PM IST</div>
+              </div>
+              <div class="topbar-right">
+                <span class="chip">🔔 3 flagged</span>
+                <div class="avatar">SR</div>
+              </div>
+            </div>
+
+            <div class="section-title">Today's Activity</div>
+            <div class="section-sub">Across all active sites, as of 6:42 PM</div>
+            <div class="grid grid-4" style="margin-bottom:20px;">
+              <div class="card">
+                <div class="kpi-label">Sites active today</div>
+                <div class="kpi-value num">3 <span style="font-size:14px; color:var(--ink-500); font-weight:600;">/ 4</span></div>
+                <div class="kpi-delta warn">1 site with no DSR yet →</div>
+              </div>
+              <div class="card">
+                <div class="kpi-label">Labour present today</div>
+                <div class="kpi-value num">47</div>
+                <div class="kpi-delta pos">▲ 5 vs. yesterday</div>
+              </div>
+              <div class="card">
+                <div class="kpi-label">RMC used today</div>
+                <div class="kpi-value num">34 m³</div>
+                <div class="kpi-delta pos">Anand RMC Suppliers · 2 loads</div>
+              </div>
+              <div class="card">
+                <div class="kpi-label">Today's expenses</div>
+                <div class="kpi-value num money">₹86,400</div>
+                <div class="kpi-delta warn">Fuel + site consumables</div>
+              </div>
+            </div>
+
+            <div class="grid grid-3" style="margin-bottom:24px;">
+              <div class="card" style="grid-column:span 2;">
+                <div class="section-title">Material received / consumed — last 7 days</div>
+                <div class="section-sub">Godown + site-wise, all materials</div>
+                <div class="sparkline" style="height:64px; align-items:flex-end; margin-bottom:6px;">
+                  <div class="bar" style="height:28px;"></div><div class="bar" style="height:40px;"></div>
+                  <div class="bar" style="height:22px;"></div><div class="bar" style="height:52px;"></div>
+                  <div class="bar" style="height:34px;"></div><div class="bar peak" style="height:64px;"></div>
+                  <div class="bar" style="height:46px;"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--ink-500);">
+                  <span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span><span>Mon</span><span>Tue</span>
+                </div>
+              </div>
+              <div class="card">
+                <div class="section-title">Machinery in use</div>
+                <div style="margin-top:10px;">
+                  <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border-hairline); font-size:13px;"><span>JCB 3DX</span><span class="badge active">Running</span></div>
+                  <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border-hairline); font-size:13px;"><span>Excavator PC200</span><span class="badge active">Running</span></div>
+                  <div style="display:flex; justify-content:space-between; padding:7px 0; font-size:13px;"><span>Concrete Mixer</span><span class="badge completed">Idle</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-bottom:24px; border-color:#F0C9C4;">
+              <div class="flag-row">
+                <span class="flag-dot"></span>
+                <div style="flex:1;">
+                  <div style="font-weight:700; font-size:13.5px;">Riverside Bridge Approach — no DSR submitted for today</div>
+                  <div style="font-size:12px; color:var(--ink-700); margin-top:2px;">Last DSR received 12 Aug, 9:10 AM (work order, no site activity logged since). Supervisor unassigned since site is on hold.</div>
+                </div>
+                <span class="badge danger">Gap · Today</span>
+              </div>
+            </div>
+
+            <div class="section-title">Overall</div>
+            <div class="section-sub">Portfolio position across all Sites / Projects</div>
+            <div class="grid grid-4">
+              <div class="card">
+                <div class="kpi-label">Active sites</div>
+                <div class="kpi-value num">2</div>
+                <div class="kpi-delta">1 on hold · 1 completed</div>
+              </div>
+              <div class="card">
+                <div class="kpi-label">Inventory status</div>
+                <div class="kpi-value num">1</div>
+                <div class="kpi-delta warn">material below threshold</div>
+              </div>
+              <div class="card">
+                <div class="kpi-label">Outstanding advances</div>
+                <div class="kpi-value num money">₹42,000</div>
+                <div class="kpi-delta">across 6 team members</div>
+              </div>
+              <div class="card">
+                <div class="kpi-label">Pending vendor payments</div>
+                <div class="kpi-value num money">₹3,18,600</div>
+                <div class="kpi-delta warn">2 invoices overdue</div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:36px;"></div>
+  <div class="screen-label">
+    <span class="idx">02b</span>
+    <h2>Main Dashboard — Dark Mode</h2>
+    <span class="sub">Same content, same tokens, "premium ink" surface — proves the token system holds</span>
+  </div>
+  <div class="frames-row">
+    <div class="browser-frame dark-scope">
+      <div class="browser-chrome" style="background:var(--surface-2-d); border-color:var(--border-hairline-d);">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <div class="url" style="background:var(--surface-1-d); border-color:var(--border-hairline-d); color:var(--ink-500-d);">🔒 app.azentisfieldos.in/dashboard</div>
+      </div>
+      <div class="browser-body surface-0-d text-d">
+        <div class="app-shell">
+          <nav class="app-nav" style="background:#0D141F;">
+            <div class="brand"><div class="mark">A</div><div class="word">AzentisFieldOS</div></div>
+            <div class="item active"><span class="ic">◆</span> Dashboard</div>
+            <div class="item"><span class="ic">▣</span> Sites</div>
+            <div class="item"><span class="ic">▤</span> Inventory</div>
+            <div class="item"><span class="ic">◉</span> Team</div>
+            <div class="item"><span class="ic">▦</span> Reports</div>
+          </nav>
+          <main class="app-main dark">
+            <div class="app-topbar">
+              <div>
+                <h3 class="text-d">Good evening, Suresh</h3>
+                <div class="meta metatext-d">Tuesday, 12 August 2026 · 6:42 PM IST</div>
+              </div>
+              <div class="topbar-right">
+                <span class="chip" style="background:var(--surface-2-d); border-color:var(--border-hairline-d); color:var(--ink-700-d);">🔔 3 flagged</span>
+                <div class="avatar" style="background:var(--accent-teal-400-d); color:#0C1614;">SR</div>
+              </div>
+            </div>
+
+            <div class="section-title text-d">Today's Activity</div>
+            <div class="section-sub metatext-d">Across all active sites, as of 6:42 PM</div>
+            <div class="grid grid-4" style="margin-bottom:20px;">
+              <div class="card card-dark">
+                <div class="kpi-label kpi-label-d">Sites active today</div>
+                <div class="kpi-value num text-d">3 <span style="font-size:14px; color:var(--ink-500-d); font-weight:600;">/ 4</span></div>
+                <div class="kpi-delta" style="color:var(--warning-400-d);">1 site with no DSR yet →</div>
+              </div>
+              <div class="card card-dark">
+                <div class="kpi-label kpi-label-d">Labour present today</div>
+                <div class="kpi-value num text-d">47</div>
+                <div class="kpi-delta pos-d">▲ 5 vs. yesterday</div>
+              </div>
+              <div class="card card-dark">
+                <div class="kpi-label kpi-label-d">RMC used today</div>
+                <div class="kpi-value num text-d">34 m³</div>
+                <div class="kpi-delta subtext-d">Anand RMC Suppliers · 2 loads</div>
+              </div>
+              <div class="card card-dark">
+                <div class="kpi-label kpi-label-d">Today's expenses</div>
+                <div class="kpi-value num money-d">₹86,400</div>
+                <div class="kpi-delta" style="color:var(--warning-400-d);">Fuel + site consumables</div>
+              </div>
+            </div>
+
+            <div class="card card-dark" style="margin-bottom:20px; border-color:#4A2C29;">
+              <div class="flag-row" style="background:#2A1917; border-color:#4A2C29;">
+                <span class="flag-dot" style="background:var(--danger-400-d);"></span>
+                <div style="flex:1;">
+                  <div style="font-weight:700; font-size:13.5px;" class="text-d">Riverside Bridge Approach — no DSR submitted for today</div>
+                  <div style="font-size:12px; color:var(--ink-500-d); margin-top:2px;">Last DSR received 12 Aug, 9:10 AM. Site is on hold.</div>
+                </div>
+                <span class="badge danger-d">Gap · Today</span>
+              </div>
+            </div>
+
+            <div class="section-title text-d">Overall</div>
+            <div class="grid grid-4">
+              <div class="card card-dark">
+                <div class="kpi-label kpi-label-d">Active sites</div>
+                <div class="kpi-value num text-d">2</div>
+              </div>
+              <div class="card card-dark">
+                <div class="kpi-label kpi-label-d">Inventory status</div>
+                <div class="kpi-value num text-d">1</div>
+                <div class="kpi-delta" style="color:var(--warning-400-d);">below threshold</div>
+              </div>
+              <div class="card card-dark">
+                <div class="kpi-label kpi-label-d">Outstanding advances</div>
+                <div class="kpi-value num money-d">₹42,000</div>
+              </div>
+              <div class="card card-dark">
+                <div class="kpi-label kpi-label-d">Pending vendor payments</div>
+                <div class="kpi-value num money-d">₹3,18,600</div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     3. SITE / PROJECT OVERVIEW
+====================================================================== -->
+<section class="screen" id="site-overview">
+  <div class="screen-label">
+    <span class="idx">03</span>
+    <h2>Site / Project Overview</h2>
+    <span class="sub">Browser frame · NH-48 Highway Widening — Package 3</span>
+  </div>
+  <div class="frames-row">
+    <div class="browser-frame">
+      <div class="browser-chrome">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <div class="url">🔒 app.azentisfieldos.in/sites/nh-48-package-3</div>
+      </div>
+      <div class="browser-body">
+        <div class="app-shell">
+          <nav class="app-nav">
+            <div class="brand"><div class="mark">A</div><div class="word">AzentisFieldOS</div></div>
+            <div class="item"><span class="ic">◆</span> Dashboard</div>
+            <div class="item active"><span class="ic">▣</span> Sites</div>
+            <div class="item"><span class="ic">▤</span> Inventory</div>
+            <div class="item"><span class="ic">◉</span> Team</div>
+            <div class="item"><span class="ic">▦</span> Reports</div>
+          </nav>
+          <main class="app-main">
+            <div class="app-topbar">
+              <div>
+                <h3>NH-48 Highway Widening — Package 3</h3>
+                <div class="meta">Site Supervisor: Ramesh Yadav · Started 3 Feb 2026</div>
+              </div>
+              <div class="topbar-right">
+                <span class="badge active">Active</span>
+              </div>
+            </div>
+
+            <div class="grid grid-3" style="margin-bottom:22px;">
+              <div class="card">
+                <div class="kpi-label">DSR activity signal</div>
+                <div class="section-sub" style="margin-bottom:10px;">Reporting cadence, last 14 days — this reflects reporting recency &amp; volume, not % complete</div>
+                <div class="progress-strip">
+                  <div class="day filled" style="height:60%"></div><div class="day filled" style="height:80%"></div>
+                  <div class="day filled" style="height:45%"></div><div class="day filled" style="height:90%"></div>
+                  <div class="day" style="height:10%"></div><div class="day filled" style="height:70%"></div>
+                  <div class="day filled" style="height:85%"></div><div class="day filled" style="height:55%"></div>
+                  <div class="day filled" style="height:95%"></div><div class="day filled" style="height:65%"></div>
+                  <div class="day" style="height:10%"></div><div class="day filled" style="height:75%"></div>
+                  <div class="day filled" style="height:88%"></div><div class="day today" style="height:70%"></div>
+                </div>
+                <div style="font-size:11px; color:var(--ink-500); margin-top:8px;">12 of 14 days reported · today's DSR received 6:12 AM</div>
+              </div>
+              <div class="card">
+                <div class="kpi-label">Labour on site today</div>
+                <div class="kpi-value num">14</div>
+                <div class="kpi-delta pos">Full crew present</div>
+              </div>
+              <div class="card">
+                <div class="kpi-label">Expenses logged this week</div>
+                <div class="kpi-value num money">₹64,200</div>
+                <div class="kpi-delta">Fuel, consumables, transport</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section-title">Activity feed</div>
+              <div class="section-sub">DSRs, Material Movements and Expenses tagged to this site, most recent first</div>
+
+              <div class="feed-item">
+                <div class="feed-dot">📋</div>
+                <div style="flex:1;">
+                  <div style="font-weight:700; font-size:13.5px;">DSR submitted by Ramesh Yadav</div>
+                  <div style="font-size:12.5px; color:var(--ink-700); margin-top:2px;">Pipe laying — Chainage 12+400 to 12+520. 14 labour present. RCC Pipe 600mm x 8 units consumed. RMC 6 m³ used (Anand RMC Suppliers).</div>
+                </div>
+                <div class="feed-time">Today, 6:12 AM</div>
+              </div>
+              <div class="feed-item">
+                <div class="feed-dot">🚚</div>
+                <div style="flex:1;">
+                  <div style="font-weight:700; font-size:13.5px;">Material Movement — Godown → Site</div>
+                  <div style="font-size:12.5px; color:var(--ink-700); margin-top:2px;">TMT Steel 16mm × 2.4 tonnes dispatched via Tata 1109 Truck (MH-14-AB-1234).</div>
+                </div>
+                <div class="feed-time">Yesterday, 4:30 PM</div>
+              </div>
+              <div class="feed-item">
+                <div class="feed-dot">₹</div>
+                <div style="flex:1;">
+                  <div style="font-weight:700; font-size:13.5px;">Expense logged — Diesel refill</div>
+                  <div style="font-size:12.5px; color:var(--ink-700); margin-top:2px;">JCB 3DX and Excavator PC200 refuelling, site fuel point.</div>
+                </div>
+                <div class="feed-time">Yesterday, 1:15 PM</div>
+              </div>
+              <div class="feed-item">
+                <div class="feed-dot">📋</div>
+                <div style="flex:1;">
+                  <div style="font-weight:700; font-size:13.5px;">DSR submitted by Ramesh Yadav</div>
+                  <div style="font-size:12.5px; color:var(--ink-700); margin-top:2px;">Formwork &amp; RCC Cover placement, Chainage 12+300. 13 labour present. Cement (OPC 53 Grade) 40 bags consumed.</div>
+                </div>
+                <div class="feed-time">Yesterday, 6:05 AM</div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     4. DSR ENTRY — MOBILE
+====================================================================== -->
+<section class="screen" id="dsr">
+  <div class="screen-label">
+    <span class="idx">04</span>
+    <h2>Daily Site Activity (DSR entry)</h2>
+    <span class="sub">Phone frame · Site Supervisor (Ramesh Yadav) · kept radically simple by design</span>
+  </div>
+  <div class="frames-row">
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="phone-notch"></div>
+        <div class="phone-statusbar"><span>9:41</span><span>📶 ⚠ 39%</span></div>
+        <div style="padding:0 18px 24px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+            <div style="font-weight:800; font-size:19px;">Today's Site Report</div>
+            <span class="chip" style="background:var(--warning-100); border-color:#EAD9AE; color:var(--warning-700); font-size:11px;">No signal</span>
+          </div>
+          <div style="font-size:12.5px; color:var(--ink-500); margin-bottom:18px;">NH-48 Highway Widening — Package 3 · 12 Aug</div>
+
+          <label class="label">Work completed today</label>
+          <div class="input" style="min-height:64px; margin-bottom:16px; color:var(--ink-900);">Pipe laying — Chainage 12+520 to 12+640, jointing complete for 6 sections.</div>
+
+          <label class="label">Labour present <span style="font-weight:500; color:var(--ink-500);">(from yesterday's crew)</span></label>
+          <div class="card" style="padding:12px 14px; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0;"><span style="font-size:13.5px;">✓ Prakash Jadhav</span><span class="badge active">Present</span></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0;"><span style="font-size:13.5px;">✓ Dinesh More</span><span class="badge active">Present</span></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0;"><span style="font-size:13.5px;">✓ Ravi Kumar</span><span class="badge active">Present</span></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0;"><span style="font-size:13.5px;">Sanjay Pawar</span><span class="badge" style="background:var(--surface-3); color:var(--ink-500);">Absent</span></div>
+            <div style="text-align:center; padding-top:8px;"><span class="btn-ghost" style="font-size:12.5px;">+ Add team member</span></div>
+          </div>
+
+          <label class="label">Materials consumed</label>
+          <div class="input" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+            <span>🔍 Search or select material…</span><span style="color:var(--ink-500);">⌄</span>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+            <span class="chip">RCC Pipe 600mm × 6</span>
+            <span class="chip">Cement (OPC 53) × 12 bags</span>
+          </div>
+
+          <label class="label">RMC used</label>
+          <div class="input" style="margin-bottom:16px; display:flex; justify-content:space-between;"><span>Anand RMC Suppliers</span><span class="num" style="font-weight:700;">4.5 m³</span></div>
+
+          <label class="label">Photos</label>
+          <div style="display:flex; gap:10px; margin-bottom:20px;">
+            <div style="width:64px;height:64px;border-radius:var(--r-md); background:var(--surface-2); border:1px solid var(--border-hairline); display:flex; align-items:center; justify-content:center; font-size:20px;">🖼</div>
+            <div style="width:64px;height:64px;border-radius:var(--r-md); background:var(--surface-2); border:1px solid var(--border-hairline); display:flex; align-items:center; justify-content:center; font-size:20px;">🖼</div>
+            <div style="width:64px;height:64px;border-radius:var(--r-md); background:var(--surface-2); border:1px dashed var(--border-strong); display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--ink-500);">＋</div>
+          </div>
+
+          <button class="btn btn-primary btn-block btn-lg">Save Report</button>
+
+          <div style="display:flex; align-items:center; gap:8px; justify-content:center; margin-top:14px; padding:10px; background:var(--warning-100); border-radius:var(--r-md);">
+            <span style="font-size:15px;">💾</span>
+            <span style="font-size:12px; font-weight:700; color:var(--warning-700);">Saved on this device — will sync when back online</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="phone-notch"></div>
+        <div class="phone-statusbar"><span>9:41</span><span>📶 82%</span></div>
+        <div style="padding:0 18px 24px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+            <div style="font-weight:800; font-size:19px;">Yesterday's Report</div>
+            <span class="chip" style="background:var(--success-100); border-color:#BFE2CC; color:var(--success-700); font-size:11px;">✓ Synced</span>
+          </div>
+          <div style="font-size:12.5px; color:var(--ink-500); margin-bottom:18px;">NH-48 Highway Widening — Package 3 · 11 Aug</div>
+
+          <div class="card" style="padding:16px; margin-bottom:14px;">
+            <div style="font-size:12px; font-weight:700; color:var(--ink-500); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px;">Work completed</div>
+            <p style="font-size:13.5px; color:var(--ink-900);">Formwork &amp; RCC Cover placement, Chainage 12+300. Jointing complete for 5 sections.</p>
+          </div>
+          <div class="card" style="padding:16px; margin-bottom:14px;">
+            <div style="font-size:12px; font-weight:700; color:var(--ink-500); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px;">Labour present</div>
+            <p style="font-size:13.5px; color:var(--ink-900);">13 of 14 team members</p>
+          </div>
+          <div class="card" style="padding:16px;">
+            <div style="font-size:12px; font-weight:700; color:var(--ink-500); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px;">Materials consumed</div>
+            <p style="font-size:13.5px; color:var(--ink-900);">Cement (OPC 53 Grade) × 40 bags · RCC Cover × 5 units</p>
+          </div>
+          <div style="text-align:center; margin-top:20px; font-size:12px; color:var(--ink-500);">This report is view-only once synced. Reporting mistake? Use <b style="color:var(--accent-teal-700);">Correct</b> to add a note — past entries can't be edited.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     5. INVENTORY
+====================================================================== -->
+<section class="screen" id="inventory">
+  <div class="screen-label">
+    <span class="idx">05</span>
+    <h2>Inventory</h2>
+    <span class="sub">Browser frame · Godown stock, Site-wise stock, low-stock flag, transaction history</span>
+  </div>
+  <div class="frames-row">
+    <div class="browser-frame">
+      <div class="browser-chrome">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <div class="url">🔒 app.azentisfieldos.in/inventory</div>
+      </div>
+      <div class="browser-body">
+        <div class="app-shell">
+          <nav class="app-nav">
+            <div class="brand"><div class="mark">A</div><div class="word">AzentisFieldOS</div></div>
+            <div class="item"><span class="ic">◆</span> Dashboard</div>
+            <div class="item"><span class="ic">▣</span> Sites</div>
+            <div class="item active"><span class="ic">▤</span> Inventory</div>
+            <div class="item"><span class="ic">◉</span> Team</div>
+            <div class="item"><span class="ic">▦</span> Reports</div>
+          </nav>
+          <main class="app-main">
+            <div class="app-topbar">
+              <div><h3>Inventory</h3><div class="meta">Godown Stock &amp; Site-wise Stock</div></div>
+              <div class="topbar-right"><span class="chip">⚠ 1 low-stock flag</span></div>
+            </div>
+
+            <div class="card" style="margin-bottom:6px; border-color:#F0C9C4; background:var(--danger-100);">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span class="flag-dot"></span>
+                <div style="flex:1;">
+                  <div style="font-weight:700; font-size:13.5px;">Cement (OPC 53 Grade) — below reorder threshold</div>
+                  <div style="font-size:12px; color:var(--ink-700);">Godown stock: <b class="num">38 bags</b> · Threshold: <b class="num">100 bags</b> · Consider a Purchase from Shree Balaji Traders</div>
+                </div>
+                <span class="badge danger">Low Stock</span>
+              </div>
+            </div>
+
+            <div style="height:18px;"></div>
+            <div class="grid grid-2" style="margin-bottom:22px;">
+              <div class="card">
+                <div class="section-title">Godown Stock</div>
+                <div class="section-sub">Central store, all materials</div>
+                <table>
+                  <tr><th>Material</th><th>Qty on hand</th><th>Status</th></tr>
+                  <tr><td>Cement (OPC 53 Grade)</td><td class="num">38 bags</td><td><span class="badge danger">Low</span></td></tr>
+                  <tr><td>Crush Sand</td><td class="num">64 tonnes</td><td><span class="badge active">OK</span></td></tr>
+                  <tr><td>TMT Steel 12mm</td><td class="num">8.2 tonnes</td><td><span class="badge active">OK</span></td></tr>
+                  <tr><td>TMT Steel 16mm</td><td class="num">5.6 tonnes</td><td><span class="badge active">OK</span></td></tr>
+                  <tr><td>Aggregate 20mm</td><td class="num">92 tonnes</td><td><span class="badge active">OK</span></td></tr>
+                </table>
+              </div>
+              <div class="card">
+                <div class="section-title">Site-wise Stock</div>
+                <div class="section-sub">Dispatched to site, not yet consumed</div>
+                <table>
+                  <tr><th>Site</th><th>Material</th><th>Qty</th></tr>
+                  <tr><td>NH-48 — Package 3</td><td>RCC Pipe 600mm</td><td class="num">22 units</td></tr>
+                  <tr><td>NH-48 — Package 3</td><td>TMT Steel 16mm</td><td class="num">2.4 tonnes</td></tr>
+                  <tr><td>Sector 12 Metro Depot</td><td>RCC Pipe 900mm</td><td class="num">9 units</td></tr>
+                  <tr><td>Sector 12 Metro Depot</td><td>Aggregate 20mm</td><td class="num">18 tonnes</td></tr>
+                </table>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section-title">Recent Purchases / Movements / Consumption</div>
+              <div class="section-sub">Historical transactions — immutable; corrections open a new linked entry</div>
+              <table>
+                <tr><th>Date</th><th>Type</th><th>Material</th><th>Qty</th><th>Vendor / Site</th><th></th></tr>
+                <tr><td>12 Aug</td><td><span class="badge teal">Consumption</span></td><td>RCC Pipe 600mm</td><td class="num">8 units</td><td>NH-48 — Package 3</td><td><span class="btn-ghost">Correct</span></td></tr>
+                <tr><td>11 Aug</td><td><span class="badge gold">Purchase</span></td><td>TMT Steel 16mm</td><td class="num">5 tonnes</td><td>Om Steel Corporation</td><td><span class="btn-ghost">Correct</span></td></tr>
+                <tr><td>11 Aug</td><td><span class="badge teal">Movement</span></td><td>TMT Steel 16mm</td><td class="num">2.4 tonnes</td><td>Godown → NH-48</td><td><span class="btn-ghost">Correct</span></td></tr>
+                <tr><td>10 Aug</td><td><span class="badge gold">Purchase</span></td><td>Cement (OPC 53 Grade)</td><td class="num">200 bags</td><td>Shree Balaji Traders</td><td><span class="btn-ghost">Correct</span></td></tr>
+              </table>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     6. TEAM / LABOUR
+====================================================================== -->
+<section class="screen" id="team">
+  <div class="screen-label">
+    <span class="idx">06</span>
+    <h2>Team / Labour</h2>
+    <span class="sub">Browser frame · Team Members, attendance, Advance &amp; Outstanding Balance</span>
+  </div>
+  <div class="frames-row">
+    <div class="browser-frame">
+      <div class="browser-chrome">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <div class="url">🔒 app.azentisfieldos.in/team</div>
+      </div>
+      <div class="browser-body">
+        <div class="app-shell">
+          <nav class="app-nav">
+            <div class="brand"><div class="mark">A</div><div class="word">AzentisFieldOS</div></div>
+            <div class="item"><span class="ic">◆</span> Dashboard</div>
+            <div class="item"><span class="ic">▣</span> Sites</div>
+            <div class="item"><span class="ic">▤</span> Inventory</div>
+            <div class="item active"><span class="ic">◉</span> Team</div>
+            <div class="item"><span class="ic">▦</span> Reports</div>
+          </nav>
+          <main class="app-main">
+            <div class="app-topbar">
+              <div><h3>Team / Labour</h3><div class="meta">12 Team Members across 2 active sites</div></div>
+            </div>
+
+            <div class="card" style="margin-bottom:20px;">
+              <div class="section-title">Today's attendance / Work Records</div>
+              <table>
+                <tr><th>Team Member</th><th>Site</th><th>Status</th><th>Outstanding Balance</th><th></th></tr>
+                <tr>
+                  <td style="display:flex; align-items:center; gap:8px;"><span class="avatar" style="width:26px;height:26px;font-size:10.5px; background:var(--accent-navy-600);">PJ</span> Prakash Jadhav</td>
+                  <td>NH-48 — Package 3</td>
+                  <td><span class="badge active">Present</span></td>
+                  <td class="num money">₹8,000</td>
+                  <td><span class="btn-ghost">View ledger</span></td>
+                </tr>
+                <tr>
+                  <td style="display:flex; align-items:center; gap:8px;"><span class="avatar" style="width:26px;height:26px;font-size:10.5px; background:var(--accent-navy-600);">DM</span> Dinesh More</td>
+                  <td>NH-48 — Package 3</td>
+                  <td><span class="badge active">Present</span></td>
+                  <td class="num">₹0</td>
+                  <td><span class="btn-ghost">View ledger</span></td>
+                </tr>
+                <tr>
+                  <td style="display:flex; align-items:center; gap:8px;"><span class="avatar" style="width:26px;height:26px;font-size:10.5px; background:var(--accent-navy-600);">RK</span> Ravi Kumar</td>
+                  <td>NH-48 — Package 3</td>
+                  <td><span class="badge active">Present</span></td>
+                  <td class="num money">₹2,500</td>
+                  <td><span class="btn-ghost">View ledger</span></td>
+                </tr>
+                <tr>
+                  <td style="display:flex; align-items:center; gap:8px;"><span class="avatar" style="width:26px;height:26px;font-size:10.5px; background:var(--accent-navy-600);">SP</span> Sanjay Pawar</td>
+                  <td>NH-48 — Package 3</td>
+                  <td><span class="badge" style="background:var(--surface-3); color:var(--ink-500);">Absent</span></td>
+                  <td class="num">₹0</td>
+                  <td><span class="btn-ghost">View ledger</span></td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="card">
+              <div class="section-title">Prakash Jadhav — Advance ledger</div>
+              <div class="section-sub">Labour, NH-48 Highway Widening — Package 3</div>
+              <div class="grid grid-3" style="margin-bottom:16px;">
+                <div>
+                  <div class="kpi-label">Total Advance given</div>
+                  <div class="kpi-value num money" style="font-size:22px;">₹12,000</div>
+                </div>
+                <div>
+                  <div class="kpi-label">Total Adjusted</div>
+                  <div class="kpi-value num" style="font-size:22px;">₹4,000</div>
+                </div>
+                <div>
+                  <div class="kpi-label">Outstanding Balance</div>
+                  <div class="kpi-value num money" style="font-size:22px;">₹8,000</div>
+                </div>
+              </div>
+              <table>
+                <tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th><th></th></tr>
+                <tr><td>5 Aug</td><td><span class="badge gold">Advance</span></td><td class="num money">₹12,000</td><td>Family medical need</td><td><span class="btn-ghost">Correct</span></td></tr>
+                <tr><td>9 Aug</td><td><span class="badge teal">Advance Adjustment</span></td><td class="num">− ₹4,000</td><td>Adjusted against wages, week ending 9 Aug</td><td><span class="btn-ghost">Correct</span></td></tr>
+              </table>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     7. REPORTS
+====================================================================== -->
+<section class="screen" id="reports">
+  <div class="screen-label">
+    <span class="idx">07</span>
+    <h2>Reports</h2>
+    <span class="sub">Browser frame · filterable report list + auto-branded daily report preview (view-only)</span>
+  </div>
+  <div class="frames-row">
+    <div class="browser-frame">
+      <div class="browser-chrome">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <div class="url">🔒 app.azentisfieldos.in/reports</div>
+      </div>
+      <div class="browser-body">
+        <div class="app-shell">
+          <nav class="app-nav">
+            <div class="brand"><div class="mark">A</div><div class="word">AzentisFieldOS</div></div>
+            <div class="item"><span class="ic">◆</span> Dashboard</div>
+            <div class="item"><span class="ic">▣</span> Sites</div>
+            <div class="item"><span class="ic">▤</span> Inventory</div>
+            <div class="item"><span class="ic">◉</span> Team</div>
+            <div class="item active"><span class="ic">▦</span> Reports</div>
+          </nav>
+          <main class="app-main">
+            <div class="app-topbar">
+              <div><h3>Reports</h3><div class="meta">Delivered automatically via WhatsApp &amp; email — no manual send required</div></div>
+            </div>
+
+            <div style="display:flex; gap:8px; margin-bottom:18px;">
+              <span class="chip" style="background:var(--accent-teal-100); border-color:transparent; color:var(--accent-teal-700); font-weight:700;">All</span>
+              <span class="chip">Site reports</span>
+              <span class="chip">Inventory reports</span>
+              <span class="chip">Labour reports</span>
+              <span class="chip">Financial reports</span>
+            </div>
+
+            <div class="grid grid-2">
+              <div class="card">
+                <div class="section-title" style="margin-bottom:10px;">Report list</div>
+                <table>
+                  <tr><th>Report</th><th>Site</th><th>Date</th><th>Delivery</th></tr>
+                  <tr><td>Daily Site Report</td><td>NH-48 — Package 3</td><td>12 Aug</td><td><span class="badge active">✓ Delivered</span></td></tr>
+                  <tr><td>Daily Site Report</td><td>Sector 12 Metro Depot</td><td>12 Aug</td><td><span class="badge active">✓ Delivered</span></td></tr>
+                  <tr><td>Inventory Summary</td><td>All sites</td><td>12 Aug</td><td><span class="badge active">✓ Delivered</span></td></tr>
+                  <tr><td>Labour Attendance</td><td>All sites</td><td>12 Aug</td><td><span class="badge active">✓ Delivered</span></td></tr>
+                  <tr><td>Financial Summary</td><td>All sites</td><td>11 Aug</td><td><span class="badge active">✓ Delivered</span></td></tr>
+                  <tr><td>Daily Site Report</td><td>Riverside Bridge Approach</td><td>12 Aug</td><td><span class="badge warn" style="background:var(--warning-100); color:var(--warning-700);">Pending — no DSR yet</span></td></tr>
+                </table>
+              </div>
+
+              <div class="card" style="background:var(--surface-2);">
+                <div class="section-title" style="margin-bottom:2px;">Preview — Daily Site Report</div>
+                <div class="section-sub">Auto-branded, view-only · delivered 6:20 AM via WhatsApp + email</div>
+                <div style="background:var(--surface-1); border:1px solid var(--border-hairline); border-radius:var(--r-lg); padding:20px; box-shadow:var(--shadow-1);">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+                    <div style="width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--accent-teal-600),var(--accent-teal-900)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:11px;">A</div>
+                    <div style="font-weight:800; font-size:13px;">AzentisFieldOS · Daily Site Report</div>
+                  </div>
+                  <div style="font-size:12px; color:var(--ink-500); margin-bottom:12px;">NH-48 Highway Widening — Package 3 · 12 August 2026</div>
+                  <div class="divider"></div>
+                  <div style="font-size:12.5px; margin-bottom:8px;"><b>Work:</b> Pipe laying, Chainage 12+400 to 12+520</div>
+                  <div style="font-size:12.5px; margin-bottom:8px;"><b>Labour present:</b> 14</div>
+                  <div style="font-size:12.5px; margin-bottom:8px;"><b>Materials consumed:</b> RCC Pipe 600mm × 8, Cement (OPC 53) × 12 bags</div>
+                  <div style="font-size:12.5px; margin-bottom:8px;"><b>RMC used:</b> 6 m³ — Anand RMC Suppliers</div>
+                  <div style="font-size:12.5px;"><b>Expenses:</b> <span class="money">₹4,200</span> — fuel</div>
+                  <div class="divider"></div>
+                  <div style="font-size:11px; color:var(--ink-500); text-align:center;">Generated automatically by AzentisFieldOS · view-only</div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="note">AzentisFieldOS — Direction C: Premium Executive Dashboard · concept mockup for internal comparison · all names, sites and figures are illustrative sample content.</footer>
+
+</body>
+</html>

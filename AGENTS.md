@@ -1,0 +1,42 @@
+<!-- bmad:context -->
+<!-- Verified 2026-08-12. No commit yet (greenfield, no git history). Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+
+## AzentisFieldOS
+
+White-label, deploy-per-tenant construction-contractor operations platform (TypeScript monorepo, Turborepo/pnpm, Next.js + NestJS, per-tenant Postgres). No code exists yet. Build contract: `_bmad-output/specs/spec-AzentisFieldOS/SPEC.md` (+ `glossary.md`, `functional-requirements.md`, `success-metrics.md`). Architecture: `_bmad-output/planning-artifacts/architecture/architecture-AzentisFieldOS-2026-08-11/ARCHITECTURE-SPINE.md` (AD-1 through AD-15). PRD: `_bmad-output/planning-artifacts/prds/prd-AzentisFieldOS-2026-08-11/prd.md`.
+
+## Policy
+
+- Never introduce a shared database, a `tenant_id` column, or any in-app "current tenant" selector — every deployment is single-tenant by construction (spine AD-1). This is the platform's core security guarantee to a resale business.
+- Never build an in-app cross-tenant "Platform Operator" role or screen — tenant provisioning is credential-level tooling outside the running app (AD-11).
+- Never `UPDATE` or `DELETE` a row in a transaction-history table (Purchase, Movement, Consumption, Advance, AdvanceAdjustment, Payment) — a correction is a new, reason-carrying row linked to the one it corrects (AD-9).
+- Never merge a change that regresses WCAG AA or the Lighthouse >95 budgets (Performance/Accessibility/Best Practices/SEO). CI enforces both (AD-15): `.github/workflows/ci.yml` runs `pnpm lint`/`typecheck`/`test` on every PR (jsx-a11y rules are bumped to `error` in `apps/web/eslint.config.mjs` — `eslint-config-next`'s `core-web-vitals` ships them at `warn` by default, which wouldn't fail a build; do not add a separate `eslint-plugin-jsx-a11y` package, it throws a duplicate-plugin error), and `.github/workflows/lighthouse.yml` runs Lighthouse CI (`apps/web/lighthouserc.js`, `minScore: 0.95` on all four categories) against `/sign-in` on PRs touching `apps/web`/`packages/ui`/`packages/shared`/`packages/config`. **TODO:** the Lighthouse job needs `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`/`CLERK_SECRET_KEY` configured as GitHub Actions repository secrets before it can run — confirmed locally that `next start` throws (`Missing publishableKey`) without them, so the job is wired but not yet live-verified. Lighthouse coverage is also currently limited to the one unauthenticated route (`/sign-in`); expanding to authenticated routes needs an e2e auth-seeding mechanism that doesn't exist yet (see the Playwright TODO below).
+
+## Where things are
+
+- Full functional detail (FR-1..FR-54) with per-requirement testable consequences: `_bmad-output/specs/spec-AzentisFieldOS/functional-requirements.md`
+- Domain vocabulary — use these terms verbatim, no synonyms: `_bmad-output/specs/spec-AzentisFieldOS/glossary.md`
+- Planned source tree, stack versions, ERD, deployment topology: architecture spine, "Structural Seed" and "Stack" sections
+
+## Running and verifying
+
+- `pnpm install` at repo root — do not `npm install` or `yarn`, the workspace is pnpm-only (`pnpm-workspace.yaml`).
+- `pnpm build` / `pnpm lint` / `pnpm typecheck` / `pnpm test` run through Turborepo across every app/package; scope to one with `pnpm --filter @azentisfieldos/web build`.
+- `apps/api` tests run on Vitest (`pnpm --filter @azentisfieldos/api test`), not Jest — the Nest CLI's default was deliberately swapped out for consistency with the rest of the monorepo (spine "Stack").
+- `pnpm db:generate` (root) regenerates the Prisma client from `infra/prisma/schema.prisma` into `apps/api/src/generated/` — config lives in root `prisma.config.ts` (Prisma 7), schema lives under `infra/prisma/` since it's identical across every tenant deployment (AD-2), not under `apps/api`.
+- `pnpm db:migrate:dev` / `pnpm db:migrate:deploy` (root) run migrations against `DATABASE_URL`.
+- PrismaClient is imported from `apps/api/src/generated/prisma/client`, never from an `@prisma/client` package import — Prisma 7's `prisma-client` generator emits a self-contained client, not a thin wrapper.
+- **TODO:** e2e via Playwright — not yet set up; add when there's a real cross-app flow worth testing.
+- **TODO:** `pnpm provision <tenant-slug>` (`infra/provisioning/provision.ts`) — skeleton exists, provider API calls (Vercel/Neon/Clerk/R2) are not yet implemented. Never provision through a cloud console by hand (AD-2).
+- **TODO:** `apps/web`'s `AppShell` (`app/(app)/_components/app-shell.tsx`) takes an explicit `role` prop but its one call site hardcodes `"OWNER_ADMIN"` — the Site Supervisor's minimal-top-bar shell is real and tested but currently unreachable, pending a Postgres-backed current-user/role fetch through `apps/api` (AD-3, AD-11). Wire the real value once that endpoint exists; do not branch on viewport width instead (EXPERIENCE.md is explicit that sidebar-vs-topbar is a role distinction, not a breakpoint one).
+
+## Conventions that differ from defaults
+
+- All styling goes through the single design-token theme (`packages/ui`, Tailwind v4 `@theme`) — no inline styles, no one-off hex/px/rgba literals in component code (AD-4).
+- One implementation per UI primitive (button, input, form, modal, dialog, table, card, toast, loader, alert) lives in `packages/ui` — never re-implemented per screen; new variants extend the shared component's prop API (AD-5).
+- Any component that fetches or mutates server data renders its full state set (loading, empty, success, error, validation-failure) via the shared `packages/ui` state components — never an ad-hoc partial-state screen (AD-6).
+- Form validation schemas are defined once (Zod) in `packages/shared`, imported by both `apps/api` (source of truth) and `apps/web` — never two independently hand-written validators for the same fields (AD-7).
+- `apps/web` never imports a database client directly — all writes go through `apps/api` over HTTP (AD-3).
+- `packages/ui` and `packages/shared` are consumed as raw TypeScript source (no build step) by both a Bundler-resolution consumer (`apps/web`/Turbopack) and a nodenext-resolution consumer (`apps/api`/tsc). Do not add `"type": "module"` to their `package.json` or `.js` extensions to their internal relative imports — that combination satisfies Node-strict-ESM rules for `apps/api`'s typecheck but breaks Turbopack's resolution of `apps/web`'s workspace imports. Leave them extensionless with no `"type"` field; this is a deliberate, verified-working choice, not an oversight.
+
+<!-- /bmad:context -->

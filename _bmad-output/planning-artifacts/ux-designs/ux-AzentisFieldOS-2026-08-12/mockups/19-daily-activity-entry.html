@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Daily Activity — AzentisFieldOS</title>
+<style>
+:root {
+  --surface-0: #FBFAF7; --surface-1: #FFFFFF; --surface-2: #F3F1EA; --surface-3: #EAE6DA;
+  --border-hairline: #E4E0D3; --border-strong: #D2CBB8;
+  --ink-900: #1B2430; --ink-700: #3E4757; --ink-500: #6B7280; --ink-on-accent: #F7F5EE;
+  --accent-teal-900: #0B3B3E; --accent-teal-700: #0F5257; --accent-teal-600: #14666C; --accent-teal-100: #E4EFEE;
+  --accent-navy-800: #16273E; --accent-navy-600: #223A5E;
+  --gold-700: #96700F; --gold-500: #C7912B; --gold-100: #FBF0DA;
+  --success-700: #1E6B45; --success-100: #E4F3EA;
+  --danger-700: #A32E2E;  --danger-100: #FBE7E5;
+  --warning-700: #8A5A12; --warning-100: #FBF0DA;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fs-2xs: 11px; --fs-xs: 12.5px; --fs-sm: 13.5px; --fs-base: 15px;
+  --fs-md: 17px; --fs-lg: 21px; --fs-xl: 28px; --fs-2xl: 38px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px;
+  --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px; --sp-16: 64px;
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 20px; --r-full: 999px;
+  --shadow-1: 0 1px 2px rgba(27,36,48,.06), 0 1px 1px rgba(27,36,48,.04);
+  --shadow-2: 0 4px 12px rgba(27,36,48,.08), 0 2px 4px rgba(27,36,48,.04);
+  --shadow-3: 0 12px 32px rgba(27,36,48,.14), 0 4px 8px rgba(27,36,48,.06);
+  --shadow-2-hover: 0 8px 20px rgba(27,36,48,.12), 0 3px 6px rgba(27,36,48,.06);
+  --ease: cubic-bezier(.2,.8,.2,1); --dur-fast: 110ms; --dur-base: 160ms;
+}
+* { box-sizing: border-box; }
+body { margin:0; font-family: var(--font); background: var(--surface-0); color: var(--ink-900); font-size: var(--fs-base); line-height:1.5; -webkit-font-smoothing: antialiased; }
+.tabular { font-variant-numeric: tabular-nums lining-nums; }
+.app-shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+.sidebar { background: var(--accent-navy-800); color: var(--ink-on-accent); padding: var(--sp-6) var(--sp-4); display:flex; flex-direction:column; gap: var(--sp-1); }
+.sidebar .brand { display:flex; align-items:center; gap: var(--sp-2); padding: 0 var(--sp-2) var(--sp-6); }
+.sidebar .brand-mark { width:32px; height:32px; border-radius: var(--r-md); background: var(--accent-teal-700); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size: var(--fs-sm); }
+.sidebar .brand-name { font-size: var(--fs-md); font-weight:650; letter-spacing:-.01em; }
+.nav-group-label { font-size: var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em; color:#93A0B5; padding: var(--sp-4) var(--sp-2) var(--sp-1); }
+.nav-link { display:flex; align-items:center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); color:#C6CEDB; text-decoration:none; font-size: var(--fs-sm); font-weight:500; transition: background var(--dur-base) var(--ease), color var(--dur-base) var(--ease); }
+.nav-link svg { width:18px; height:18px; flex-shrink:0; }
+.nav-link:hover { background: rgba(255,255,255,.06); color:#fff; }
+.nav-link.active { background: var(--accent-teal-700); color:#fff; }
+.main { padding: var(--sp-8) var(--sp-10); max-width: 920px; }
+.breadcrumb { font-size: var(--fs-xs); color: var(--ink-500); margin-bottom: var(--sp-2); }
+.breadcrumb a { color: var(--ink-500); text-decoration:none; }
+.breadcrumb a:hover { color: var(--accent-teal-700); text-decoration:underline; }
+.topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--sp-6); }
+.page-title { font-size: var(--fs-xl); font-weight:650; letter-spacing:-.015em; margin:0 0 var(--sp-1); }
+.page-sub { color: var(--ink-500); font-size: var(--fs-sm); margin:0; }
+.card { background: var(--surface-1); border:1px solid var(--border-hairline); border-radius: var(--r-lg); box-shadow: var(--shadow-2); padding: var(--sp-6); margin-bottom: var(--sp-5); }
+.card h3 { font-size: var(--fs-md); font-weight:650; margin:0 0 var(--sp-4); }
+.correction-banner { display:flex; align-items:flex-start; gap: var(--sp-3); background: var(--warning-100); border:1px solid #E8CC8F; border-radius: var(--r-md); padding: var(--sp-4); color: var(--warning-700); font-size: var(--fs-sm); margin-bottom: var(--sp-6); }
+.correction-banner svg { width:18px; height:18px; flex-shrink:0; margin-top:1px; }
+.correction-banner a { color: var(--warning-700); font-weight:600; }
+.field { margin-bottom: var(--sp-4); }
+.field label { display:block; font-size: var(--fs-xs); font-weight:600; color: var(--ink-700); margin-bottom: var(--sp-1); }
+.field .req { color: var(--danger-700); }
+.field input, .field select, .field textarea { width:100%; font-family: var(--font); font-size: var(--fs-base); padding: var(--sp-2) var(--sp-3); border:1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface-1); color: var(--ink-900); }
+.field input:focus, .field select:focus, .field textarea:focus { outline:none; border-color: var(--accent-teal-700); box-shadow: 0 0 0 3px var(--accent-teal-100); }
+.field .help { font-size: var(--fs-2xs); color: var(--ink-500); margin-top: var(--sp-1); }
+.field-row { display:grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+.checklist { display:grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.check-item { display:flex; align-items:center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border:1px solid var(--border-hairline); border-radius: var(--r-md); background: var(--surface-2); font-size: var(--fs-sm); }
+.check-item input { width:auto; }
+.chip-row { display:flex; flex-wrap:wrap; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.chip { display:inline-flex; align-items:center; gap: var(--sp-2); background: var(--accent-teal-100); color: var(--accent-teal-700); font-size: var(--fs-xs); font-weight:600; padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-3); border-radius: var(--r-full); }
+.chip button { background:none; border:none; color:inherit; cursor:pointer; display:flex; padding:2px; }
+.chip svg { width:12px; height:12px; }
+.btn { display:inline-flex; align-items:center; gap: var(--sp-2); font-family: var(--font); font-size: var(--fs-sm); font-weight:600; padding: var(--sp-2) var(--sp-4); border-radius: var(--r-md); border:1px solid transparent; cursor:pointer; text-decoration:none; white-space:nowrap; transition: background var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease); }
+.btn svg { width:16px; height:16px; }
+.btn-primary { background: var(--accent-teal-700); color:#fff; box-shadow: var(--shadow-1); }
+.btn-primary:hover { background: var(--accent-teal-600); box-shadow: var(--shadow-2); transform: translateY(-1px); }
+.btn-secondary { background: var(--surface-1); color: var(--ink-900); border-color: var(--border-strong); }
+.btn-secondary:hover { background: var(--surface-2); border-color: var(--accent-teal-700); }
+.btn-ghost { background:transparent; color: var(--ink-700); }
+.btn-sm { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); }
+.dropzone { border:2px dashed var(--border-strong); border-radius: var(--r-md); padding: var(--sp-6); text-align:center; color: var(--ink-500); font-size: var(--fs-sm); }
+.dropzone svg { width:24px; height:24px; margin-bottom: var(--sp-2); }
+.form-actions { display:flex; justify-content:flex-end; gap: var(--sp-3); padding-top: var(--sp-2); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+<aside class="sidebar">
+  <div class="brand"><div class="brand-mark">A</div><div class="brand-name">AzentisFieldOS</div></div>
+  <a class="nav-link" href="01-dashboard.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg>
+    Dashboard
+  </a>
+  <a class="nav-link" href="02-sites.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+    Sites
+  </a>
+  <a class="nav-link active" href="18-daily-activities.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8.5 11h7M8.5 15h7M8.5 19h4"/></svg>
+    Daily Activity
+  </a>
+  <div class="nav-group-label">Materials</div>
+  <a class="nav-link" href="05-inventory.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+    Inventory
+  </a>
+  <a class="nav-link" href="06-materials.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/></svg>
+    Materials
+  </a>
+  <a class="nav-link" href="07-movements.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>
+    Movements
+  </a>
+  <div class="nav-group-label">People</div>
+  <a class="nav-link" href="08-team.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.25"/><path d="M2.5 20c.7-3.4 3.2-5.5 6.5-5.5s5.8 2.1 6.5 5.5"/><circle cx="17.5" cy="8.5" r="2.5"/><path d="M16 14.8c2.6.4 4.4 2.2 5 5.2"/></svg>
+    Team &amp; Labour
+  </a>
+  <a class="nav-link" href="10-payments.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.25" fill="currentColor" stroke="none"/></svg>
+    Payments
+  </a>
+  <div class="nav-group-label">Assets</div>
+  <a class="nav-link" href="11-machinery-vehicles.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h11v9H2z"/><path d="M13 11h4l4 3v3h-8z"/><circle cx="6.5" cy="18" r="1.75"/><circle cx="17" cy="18" r="1.75"/></svg>
+    Machinery &amp; Vehicles
+  </a>
+  <a class="nav-link" href="12-vendors.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h1M14 8h1M9 12h1M14 12h1M9 16h1M14 16h1"/><path d="M10 21v-4h4v4"/></svg>
+    Vendors
+  </a>
+  <a class="nav-link" href="14-rmc.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z"/></svg>
+    RMC
+  </a>
+  <a class="nav-link" href="15-expenses.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-2.5-1.5L13 22l-1.5-1.5L10 22l-2.5-1.5L6 22V2Z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+    Expenses
+  </a>
+  <div class="nav-group-label">Insights</div>
+  <a class="nav-link" href="16-reports.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M11 20V4M18 20v-7"/><path d="M2 20h20"/></svg>
+    Reports
+  </a>
+  <a class="nav-link" href="17-settings.html" style="margin-top:auto">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.4-2-3.4-2.3.9a7.6 7.6 0 0 0-2.6-1.5L14 2h-4l-.5 2.4a7.6 7.6 0 0 0-2.6 1.5l-2.3-.9-2 3.4 2 1.4a7.6 7.6 0 0 0 0 3l-2 1.4 2 3.4 2.3-.9c.75.66 1.63 1.17 2.6 1.5L10 22h4l.5-2.4a7.6 7.6 0 0 0 2.6-1.5l2.3.9 2-3.4-2-1.4Z"/></svg>
+    Settings
+  </a>
+</aside>
+
+<main class="main">
+  <div class="breadcrumb"><a href="18-daily-activities.html">Daily Activity</a> &rsaquo; New Entry</div>
+  <div class="topbar">
+    <div>
+      <h1 class="page-title">New Daily Activity Entry</h1>
+      <p class="page-sub">Log a Daily Site Report from the web app — the same record a Site Supervisor would submit from the field</p>
+    </div>
+  </div>
+
+  <div class="correction-banner">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+    <div>
+      <strong>Correcting an already-submitted report?</strong> Daily Site Reports are permanent history once synced — this same form is used to add a correcting entry. Open the original from <a href="18-daily-activities.html">Daily Activity</a> and choose <strong>Correct</strong>; a reason field appears at the top and the new entry is linked to the one it fixes. Nothing is ever overwritten or deleted.
+    </div>
+  </div>
+
+  <form>
+    <div class="card">
+      <h3>Site &amp; date</h3>
+      <div class="field-row">
+        <div class="field">
+          <label for="site">Site <span class="req">*</span></label>
+          <select id="site">
+            <option>NH-48 Highway Widening — Package 3</option>
+            <option>Sector 12 Metro Depot</option>
+            <option>Riverside Bridge Approach</option>
+            <option>Zonal Water Pipeline — Phase 2</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="date">Date <span class="req">*</span></label>
+          <input type="text" id="date" value="12 Aug 2026">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Work completed</h3>
+      <div class="field">
+        <label for="work">Summary of work <span class="req">*</span></label>
+        <textarea id="work" rows="3" placeholder="e.g. RCC pour completed at Ch. 44+200; shuttering removed at Ch. 43+800">RCC pour completed at Ch. 44+200; shuttering removed at Ch. 43+800</textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Labour present</h3>
+      <p class="page-sub" style="margin-bottom: var(--sp-3);">Defaulted from yesterday's crew at this site — uncheck anyone absent today.</p>
+      <div class="checklist">
+        <label class="check-item"><input type="checkbox" checked> Prakash Jadhav</label>
+        <label class="check-item"><input type="checkbox" checked> Dinesh More</label>
+        <label class="check-item"><input type="checkbox"> Ravi Kumar</label>
+        <label class="check-item"><input type="checkbox" checked> Sanjay Pawar</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Materials consumed</h3>
+      <div class="chip-row">
+        <span class="chip">Cement (OPC 53 Grade) — 40 Bags <button type="button" aria-label="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span>
+        <span class="chip">TMT Steel 12mm — 200 Kg <button type="button" aria-label="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Add material
+      </button>
+    </div>
+
+    <div class="card">
+      <h3>RMC used</h3>
+      <div class="field-row">
+        <div class="field"><label for="rmc-qty">Quantity (m&sup3;)</label><input type="text" id="rmc-qty" placeholder="e.g. 12"></div>
+        <div class="field"><label for="rmc-grade">Grade</label><input type="text" id="rmc-grade" placeholder="e.g. M25"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Machinery &amp; vehicles used</h3>
+      <div class="chip-row">
+        <span class="chip">JCB 3DX <button type="button" aria-label="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span>
+        <span class="chip">Concrete Mixer <button type="button" aria-label="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Add machinery / vehicle
+      </button>
+    </div>
+
+    <div class="card">
+      <h3>Expenses &amp; issues</h3>
+      <div class="field-row">
+        <div class="field"><label for="exp">Expenses today (&#8377;)</label><input type="text" id="exp" placeholder="e.g. 6,400"></div>
+        <div class="field"><label for="issues">Issues / blockers</label><input type="text" id="issues" placeholder="e.g. Ravi Kumar absent — follow up"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Photos</h3>
+      <div class="dropzone">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2h6l2 2h3v11H4V8Z"/><circle cx="12" cy="13.5" r="3.5"/></svg>
+        <div>Drag photos here, or <strong style="color:var(--accent-teal-700);">browse files</strong></div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <a href="18-daily-activities.html" class="btn btn-ghost">Cancel</a>
+      <a href="18-daily-activities.html" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.3 2.4 2.4 4.6-5.2"/></svg>
+        Submit Daily Activity
+      </a>
+    </div>
+  </form>
+
+</main>
+</div>
+</body>
+</html>

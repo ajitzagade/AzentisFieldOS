@@ -1,0 +1,211 @@
+/*
+ * Single design-token source (architecture spine AD-4). Every color, type
+ * scale, spacing step, radius, shadow, breakpoint, and z-index value used
+ * anywhere in apps/web is defined here, once. No app or component defines
+ * a competing value — extend this file, never a one-off literal.
+ *
+ * Palette, type scale, radius, and shadow values are copied verbatim from
+ * DESIGN.md's frontmatter (the approved design system source of truth).
+ * Color and shadow tokens are declared as plain custom properties outside
+ * @theme, then bridged into @theme via var() — that indirection is what
+ * lets a `.dark` ancestor class swap every token's value at once, since a
+ * value written directly inside @theme can't be re-scoped by a selector.
+ */
+
+@import "tailwindcss";
+
+:root {
+  /* Color — light mode (DESIGN.md frontmatter `colors`) */
+  --surface-0: #FBFAF7;
+  --surface-1: #FFFFFF;
+  --surface-2: #F3F1EA;
+  --surface-3: #EAE6DA;
+  --border-hairline: #E4E0D3;
+  --border-strong: #D2CBB8;
+  --ink-900: #1B2430;
+  --ink-700: #3E4757;
+  --ink-500: #6B7280;
+  --ink-on-accent: #F7F5EE;
+  --accent-teal-900: #0B3B3E;
+  --accent-teal-700: #0F5257;
+  --accent-teal-600: #14666C;
+  --accent-teal-100: #E4EFEE;
+  --accent-navy-800: #16273E;
+  --accent-navy-600: #223A5E;
+  --gold-700: #96700F;
+  --gold-500: #C7912B;
+  --gold-100: #FBF0DA;
+  --success-700: #1E6B45;
+  --success-100: #E4F3EA;
+  --danger-700: #A32E2E;
+  --danger-100: #FBE7E5;
+  --warning-700: #8A5A12;
+  --warning-100: #FBF0DA;
+  --gap-flag-border: #E8CC8F;
+
+  /* Shadow — light mode (DESIGN.md Elevation & Depth) */
+  --shadow-1: 0 1px 2px rgba(27, 36, 48, 0.06), 0 1px 1px rgba(27, 36, 48, 0.04);
+  --shadow-2: 0 4px 12px rgba(27, 36, 48, 0.08), 0 2px 4px rgba(27, 36, 48, 0.04);
+  --shadow-3: 0 12px 32px rgba(27, 36, 48, 0.14), 0 4px 8px rgba(27, 36, 48, 0.06);
+  --shadow-2-hover: 0 8px 20px rgba(27, 36, 48, 0.12), 0 3px 6px rgba(27, 36, 48, 0.06);
+}
+
+/*
+ * Dark-mode overrides. accent-teal-900, accent-navy-800, and accent-navy-600
+ * have no `-dark` entry in DESIGN.md's frontmatter — the sidebar surface is
+ * deliberately navy in both themes, so those three are intentionally absent
+ * here and keep their :root value.
+ */
+.dark {
+  --surface-0: #12161C;
+  --surface-1: #191F27;
+  --surface-2: #212933;
+  --surface-3: #2A3340;
+  --border-hairline: #313B48;
+  --border-strong: #414E5E;
+  --ink-900: #F1EEE4;
+  --ink-700: #C7CCD6;
+  --ink-500: #8D95A3;
+  --ink-on-accent: #12161C;
+  --accent-teal-700: #4FB8AE;
+  --accent-teal-600: #6BCFC5;
+  --accent-teal-100: #1B3B3A;
+  --gold-700: #E3B24B;
+  --gold-500: #E3B24B;
+  --gold-100: #2E2413;
+  --success-700: #5FCF93;
+  --success-100: #163527;
+  --danger-700: #F0847E;
+  --danger-100: #3A1E1E;
+  --warning-700: #E3B24B;
+  --warning-100: #2E2413;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --shadow-2-hover: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+@theme {
+  /* Color — bridged from the raw custom properties above so `.dark` can
+     re-scope them; never assign a literal value directly in this block. */
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border-hairline: var(--border-hairline);
+  --color-border-strong: var(--border-strong);
+  --color-ink-900: var(--ink-900);
+  --color-ink-700: var(--ink-700);
+  --color-ink-500: var(--ink-500);
+  --color-ink-on-accent: var(--ink-on-accent);
+  --color-accent-teal-900: var(--accent-teal-900);
+  --color-accent-teal-700: var(--accent-teal-700);
+  --color-accent-teal-600: var(--accent-teal-600);
+  --color-accent-teal-100: var(--accent-teal-100);
+  --color-accent-navy-800: var(--accent-navy-800);
+  --color-accent-navy-600: var(--accent-navy-600);
+  --color-gold-700: var(--gold-700);
+  --color-gold-500: var(--gold-500);
+  --color-gold-100: var(--gold-100);
+  --color-success-700: var(--success-700);
+  --color-success-100: var(--success-100);
+  --color-danger-700: var(--danger-700);
+  --color-danger-100: var(--danger-100);
+  --color-warning-700: var(--warning-700);
+  --color-warning-100: var(--warning-100);
+  --color-gap-flag-border: var(--gap-flag-border);
+
+  /* Shadow — same bridging pattern as color */
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-3: var(--shadow-3);
+  --shadow-2-hover: var(--shadow-2-hover);
+
+  /* Typography — apps/web loads Geist via next/font and exposes it as
+     --font-geist-sans; DESIGN.md's system-font fallback stack follows it
+     (DESIGN.md itself forbids webfont loading for the low-bandwidth field
+     budget — the Geist/system-stack conflict this implies is flagged for
+     story 1.6, which owns apps/web's font wiring). */
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Named typography roles (DESIGN.md frontmatter `typography`). Each pairs
+     size + line-height + weight + (where specified) letter-spacing via
+     Tailwind v4's --text-{name}--* sub-properties, so `text-{role}` applies
+     the full role in one utility. `eyebrow` also needs text-transform:
+     uppercase — not a paired --text-* sub-property, so pair `text-eyebrow`
+     with Tailwind's own `uppercase` utility at the call site. */
+  --text-eyebrow: 11px;
+  --text-eyebrow--line-height: 1.4;
+  --text-eyebrow--font-weight: 600;
+  --text-eyebrow--letter-spacing: 0.05em;
+
+  --text-caption: 12.5px;
+  --text-caption--line-height: 1.45;
+  --text-caption--font-weight: 500;
+
+  --text-body-sm: 13.5px;
+  --text-body-sm--line-height: 1.5;
+  --text-body-sm--font-weight: 400;
+
+  --text-body: 15px;
+  --text-body--line-height: 1.55;
+  --text-body--font-weight: 400;
+
+  --text-card-title: 17px;
+  --text-card-title--line-height: 1.4;
+  --text-card-title--font-weight: 650;
+
+  --text-section-header: 21px;
+  --text-section-header--line-height: 1.3;
+  --text-section-header--font-weight: 650;
+  --text-section-header--letter-spacing: -0.005em;
+
+  --text-page-title: 28px;
+  --text-page-title--line-height: 1.2;
+  --text-page-title--font-weight: 650;
+  --text-page-title--letter-spacing: -0.015em;
+
+  --text-kpi-numeral: 38px;
+  --text-kpi-numeral--line-height: 1.1;
+  --text-kpi-numeral--font-weight: 700;
+  --text-kpi-numeral--letter-spacing: -0.02em;
+
+  /* Spacing — base unit; all spacing utilities derive from this. 4px base
+     already matches DESIGN.md's spacing.1=4px..spacing.16=64px scale
+     exactly (p-{n} = n * --spacing), confirmed, not a placeholder. */
+  --spacing: 0.25rem;
+
+  /* Radius (DESIGN.md frontmatter `rounded`) */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Breakpoints — desktop/tablet/mobile per PRD constraint */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+
+  /* Z-index scale — every stacking-context value used in the app is named
+     here; a raw numeric z-[N] anywhere else is a violation (AD-4). */
+  --z-index-dropdown: 20;
+  --z-index-sticky: 30;
+  --z-index-overlay: 40;
+  --z-index-modal: 50;
+  --z-index-toast: 60;
+  --z-index-tooltip: 70;
+
+  /* Motion — purposeful, performant, consistent (AD-4 / PRD motion constraint).
+     Two durations, deliberately distinct per DESIGN.md/_shared-kit.html:
+     the 150ms default is for buttons/cards (--dur-base in the shared kit,
+     documented there as ≤160ms), --duration-fast is the quicker ≤110ms
+     figure used for table row hover/zebra transitions specifically. */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --default-transition-duration: 150ms;
+  --duration-fast: 110ms;
+}

@@ -1,0 +1,499 @@
+// Single schema, run identically against every tenant's separate database
+// (architecture spine AD-2, AD-12). No tenant_id anywhere — AD-1 forbids it;
+// a deployment's database belongs to exactly one Tenant.
+//
+// Tables listed under "Append-only (AD-9)" below are never UPDATEd or
+// DELETEd by application code — enforced by revoking those grants from the
+// API's Postgres role in the deployment migration, not by Prisma itself.
+// A correction is a new row with `correctsId` pointing at the row it fixes
+// and a required `reason`.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../../apps/api/src/generated/prisma"
+  moduleFormat = "cjs" // apps/api is a CommonJS NestJS build, not ESM
+}
+
+// Connection URL lives in prisma.config.ts (Prisma 7), not here.
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Identity ----------
+
+enum Role {
+  OWNER_ADMIN
+  SITE_SUPERVISOR
+}
+
+// Clerk owns authentication; this table owns authorization (AD-10, AD-11 —
+// Role here is the only in-app role set, never "Platform Operator").
+model User {
+  id        String   @id @default(uuid(7))
+  clerkId   String   @unique
+  name      String
+  email     String   @unique
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dailySiteReports DailySiteReport[]
+}
+
+// ---------- Sites ----------
+
+enum SiteStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+}
+
+model Site {
+  id                String     @id @default(uuid(7))
+  name              String
+  location          String
+  status            SiteStatus @default(ACTIVE)
+  contractReference String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  siteStock          SiteStock[]
+  purchases          Purchase[]
+  movementsFrom       Movement[]        @relation("MovementSourceSite")
+  movementsTo         Movement[]        @relation("MovementDestinationSite")
+  consumptions        Consumption[]
+  returnWastages       ReturnWastage[]
+  machineryMovements   MachineryMovementLog[]
+  vehicleMovements     VehicleMovementLog[]
+  workRecords          WorkRecord[]
+  rmcEntries           RmcEntry[]
+  dailySiteReports     DailySiteReport[]
+  expenses             Expense[]
+}
+
+// ---------- Material catalog (FR-4..FR-7) ----------
+
+model MaterialCategory {
+  id        String     @id @default(uuid(7))
+  name      String     @unique
+  materials Material[]
+}
+
+model Unit {
+  id        String     @id @default(uuid(7))
+  name      String     @unique
+  materials Material[]
+}
+
+model Material {
+  id           String            @id @default(uuid(7))
+  categoryId   String
+  category     MaterialCategory  @relation(fields: [categoryId], references: [id])
+  unitId       String
+  unit         Unit              @relation(fields: [unitId], references: [id])
+  name         String
+  isActive     Boolean           @default(true)
+  customFields Json              @default("{}") // FR-7 — admin custom fields, no migration needed
+
+  sizes MaterialSize[]
+
+  @@unique([categoryId, name])
+}
+
+model MaterialSize {
+  id         String   @id @default(uuid(7))
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id])
+  label      String // e.g. "300mm"
+
+  godownStock   GodownStock[]
+  siteStock     SiteStock[]
+  purchases     Purchase[]
+  movements     Movement[]
+  consumptions  Consumption[]
+  returnWastages ReturnWastage[]
+
+  @@unique([materialId, label])
+}
+
+// ---------- Inventory lifecycle (FR-8..FR-14) ----------
+// GodownStock/SiteStock are materialized, write-path-only balances
+// (AD-9): the only writer is the same transaction that inserts the
+// causing Purchase/Movement/Consumption/ReturnWastage row.
+
+model GodownStock {
+  materialSizeId String
+  materialSize   MaterialSize @relation(fields: [materialSizeId], references: [id])
+  quantity       Decimal      @default(0)
+  updatedAt      DateTime     @updatedAt
+
+  @@id([materialSizeId])
+}
+
+model SiteStock {
+  siteId         String
+  site           Site         @relation(fields: [siteId], references: [id])
+  materialSizeId String
+  materialSize   MaterialSize @relation(fields: [materialSizeId], references: [id])
+  quantity       Decimal      @default(0)
+  updatedAt      DateTime     @updatedAt
+
+  @@id([siteId, materialSizeId])
+}
+
+enum PurchaseDestination {
+  GODOWN
+  SITE
+}
+
+// Append-only (AD-9).
+model Purchase {
+  id                  String              @id @default(uuid(7))
+  vendorId            String
+  vendor              Vendor              @relation(fields: [vendorId], references: [id])
+  materialSizeId       String
+  materialSize         MaterialSize        @relation(fields: [materialSizeId], references: [id])
+  destination          PurchaseDestination
+  siteId               String? // required when destination = SITE (FR-8, FR-10)
+  site                 Site?               @relation(fields: [siteId], references: [id])
+  quantity             Decimal
+  rate                 Decimal
+  totalAmount          Decimal
+  invoiceOrChallanNo   String?
+  paymentStatus        String
+  deliveryLocation     String?
+  vehicleDetails       String?
+  receiverName         String? // FR-10 direct Vendor->Site
+  notes                String?
+  purchasedAt          DateTime
+  createdAt            DateTime            @default(now())
+  correctsId           String?
+  reason               String?             // required when correctsId is set
+
+  expenses Expense[]
+}
+
+enum MovementKind {
+  GODOWN_TO_SITE // FR-9
+  SITE_TO_SITE   // FR-11
+}
+
+// Append-only (AD-9).
+model Movement {
+  id                 String       @id @default(uuid(7))
+  kind               MovementKind
+  materialSizeId      String
+  materialSize        MaterialSize @relation(fields: [materialSizeId], references: [id])
+  sourceSiteId         String? // null when kind = GODOWN_TO_SITE (source is the Godown)
+  sourceSite           Site?        @relation("MovementSourceSite", fields: [sourceSiteId], references: [id])
+  destinationSiteId    String
+  destinationSite      Site         @relation("MovementDestinationSite", fields: [destinationSiteId], references: [id])
+  sentQuantity          Decimal
+  receivedQuantity       Decimal?    // shortage/damage gap = sentQuantity - receivedQuantity
+  vehicleDetails         String?
+  personResponsible      String?
+  notes                  String?
+  movedAt                DateTime
+  createdAt              DateTime    @default(now())
+  correctsId             String?
+  reason                 String?
+
+  @@index([materialSizeId])
+}
+
+// Append-only (AD-9).
+model Consumption {
+  id             String       @id @default(uuid(7))
+  siteId         String
+  site           Site         @relation(fields: [siteId], references: [id])
+  materialSizeId  String
+  materialSize    MaterialSize @relation(fields: [materialSizeId], references: [id])
+  quantity         Decimal
+  activityReference String?
+  dailySiteReportId String?
+  dailySiteReport   DailySiteReport? @relation(fields: [dailySiteReportId], references: [id])
+  recordedByUserId   String
+  notes              String?
+  consumedAt          DateTime
+  createdAt            DateTime @default(now())
+  correctsId           String?
+  reason               String?
+}
+
+enum ReturnWastageKind {
+  RETURN
+  WASTAGE
+}
+
+// Append-only (AD-9).
+model ReturnWastage {
+  id             String            @id @default(uuid(7))
+  siteId         String
+  site           Site              @relation(fields: [siteId], references: [id])
+  materialSizeId  String
+  materialSize    MaterialSize      @relation(fields: [materialSizeId], references: [id])
+  kind            ReturnWastageKind
+  quantity         Decimal
+  notes             String?
+  recordedAt         DateTime
+  createdAt           DateTime @default(now())
+}
+
+// ---------- Machinery & Vehicles (FR-15..FR-18) ----------
+
+enum AssetLocationStatus {
+  AVAILABLE
+  AT_SITE
+  MAINTENANCE
+}
+
+model Machinery {
+  id                String              @id @default(uuid(7))
+  name              String
+  type              String
+  assetNumber        String              @unique
+  model               String?
+  ownership           String?
+  operator             String?
+  currentStatus         AssetLocationStatus @default(AVAILABLE)
+  currentSiteId          String?
+  customFields            Json                @default("{}")
+
+  movementLogs  MachineryMovementLog[]
+  serviceLogs   MachineryServiceLog[]
+}
+
+// Append-only (AD-9) — full movement history, not just current state.
+model MachineryMovementLog {
+  id           String              @id @default(uuid(7))
+  machineryId  String
+  machinery    Machinery           @relation(fields: [machineryId], references: [id])
+  toStatus     AssetLocationStatus
+  siteId       String?
+  site         Site?               @relation(fields: [siteId], references: [id])
+  movedAt      DateTime
+  createdAt    DateTime            @default(now())
+}
+
+model MachineryServiceLog {
+  id          String    @id @default(uuid(7))
+  machineryId String
+  machinery   Machinery @relation(fields: [machineryId], references: [id])
+  kind        String // fuel | maintenance | repair
+  notes       String?
+  cost        Decimal?
+  serviceDate DateTime
+  createdAt   DateTime  @default(now())
+}
+
+model Vehicle {
+  id             String              @id @default(uuid(7))
+  number         String              @unique
+  type           String
+  ownership      String?
+  driver         String?
+  currentStatus  AssetLocationStatus @default(AVAILABLE)
+  currentSiteId  String?
+  customFields   Json                @default("{}")
+
+  movementLogs VehicleMovementLog[]
+  serviceLogs  VehicleServiceLog[]
+}
+
+// Append-only (AD-9).
+model VehicleMovementLog {
+  id        String              @id @default(uuid(7))
+  vehicleId String
+  vehicle   Vehicle             @relation(fields: [vehicleId], references: [id])
+  toStatus  AssetLocationStatus
+  siteId    String?
+  site      Site?               @relation(fields: [siteId], references: [id])
+  movedAt   DateTime
+  createdAt DateTime            @default(now())
+}
+
+model VehicleServiceLog {
+  id          String   @id @default(uuid(7))
+  vehicleId   String
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
+  kind        String
+  notes       String?
+  cost        Decimal?
+  serviceDate DateTime
+  createdAt   DateTime @default(now())
+}
+
+// ---------- Labour (FR-19..FR-25) ----------
+
+enum EmploymentType {
+  MONTHLY
+  WEEKLY
+  DAILY_WAGE
+}
+
+model TeamMember {
+  id             String         @id @default(uuid(7))
+  name           String
+  designation    String?
+  contact        String?
+  employmentType EmploymentType
+  isActive       Boolean        @default(true)
+
+  workRecords WorkRecord[]
+  advances    Advance[]
+  payments    Payment[]
+}
+
+// One row per Team Member per Site per date (FR-20) — DB-level unique
+// constraint is the enforcement backstop for "never two Sites, same date".
+model WorkRecord {
+  id             String    @id @default(uuid(7))
+  teamMemberId    String
+  teamMember      TeamMember @relation(fields: [teamMemberId], references: [id])
+  siteId           String
+  site             Site       @relation(fields: [siteId], references: [id])
+  workDate          DateTime  @db.Date
+  attended            Boolean   @default(true)
+  hours                Decimal?
+  overtimeHours         Decimal?
+  dailySiteReportId      String?
+  dailySiteReport        DailySiteReport? @relation(fields: [dailySiteReportId], references: [id])
+  createdAt              DateTime @default(now())
+
+  @@unique([teamMemberId, workDate])
+}
+
+// Append-only (AD-9).
+model Advance {
+  id           String   @id @default(uuid(7))
+  teamMemberId String
+  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id])
+  amount       Decimal
+  reason       String?
+  paymentMethod String?
+  givenAt       DateTime
+  createdAt     DateTime @default(now())
+
+  adjustments AdvanceAdjustment[]
+}
+
+// Append-only (AD-9). FR-23: amount must never exceed the Advance's
+// current outstanding balance — enforced in the service layer at the same
+// transaction boundary that writes this row, not just at the UI.
+model AdvanceAdjustment {
+  id         String   @id @default(uuid(7))
+  advanceId  String
+  advance    Advance  @relation(fields: [advanceId], references: [id])
+  paymentId  String?
+  payment    Payment? @relation(fields: [paymentId], references: [id])
+  amount     Decimal
+  note       String?
+  adjustedAt DateTime
+  createdAt  DateTime @default(now())
+}
+
+// Append-only (AD-9).
+model Payment {
+  id                String   @id @default(uuid(7))
+  teamMemberId      String
+  teamMember        TeamMember @relation(fields: [teamMemberId], references: [id])
+  basePay           Decimal
+  additionalAmount  Decimal  @default(0)
+  deductions        Decimal  @default(0)
+  netPayable        Decimal
+  status            String // pending | paid
+  paidAt            DateTime?
+  createdAt         DateTime @default(now())
+
+  advanceAdjustments AdvanceAdjustment[]
+}
+
+// ---------- RMC (FR-26..FR-27) ----------
+
+model RmcEntry {
+  id            String   @id @default(uuid(7))
+  siteId        String
+  site          Site     @relation(fields: [siteId], references: [id])
+  vendorId      String
+  vendor        Vendor   @relation(fields: [vendorId], references: [id])
+  quantityM3    Decimal
+  grade         String
+  ratePerM3     Decimal
+  totalAmount   Decimal
+  invoiceOrChallanNo String?
+  deliveredAt   DateTime
+  createdAt     DateTime @default(now())
+}
+
+// ---------- Daily Site Report (FR-28..FR-31) ----------
+
+model DailySiteReport {
+  id                String   @id @default(uuid(7))
+  siteId            String
+  site              Site     @relation(fields: [siteId], references: [id])
+  reportDate        DateTime @db.Date
+  submittedByUserId String
+  submittedBy       User     @relation(fields: [submittedByUserId], references: [id])
+  workCompleted     String?
+  workInProgress    String?
+  plannedWork       String?
+  issuesBlockers    String?
+  safetyObservations String?
+  notes             String?
+  createdAt         DateTime @default(now())
+
+  workRecords   WorkRecord[]
+  consumptions  Consumption[]
+  photos        Photo[]
+  expenses      Expense[]
+
+  @@unique([siteId, reportDate])
+}
+
+model Photo {
+  id                String          @id @default(uuid(7))
+  dailySiteReportId String
+  dailySiteReport   DailySiteReport @relation(fields: [dailySiteReportId], references: [id])
+  storageKey        String // Cloudflare R2 object key
+  uploadedByUserId  String
+  createdAt         DateTime        @default(now())
+}
+
+// ---------- Vendors & Expenses (FR-39..FR-41) ----------
+
+model Vendor {
+  id                String   @id @default(uuid(7))
+  name              String
+  contactPerson     String?
+  phone             String?
+  email             String?
+  address           String?
+  materialsSupplied String?
+
+  purchases  Purchase[]
+  rmcEntries RmcEntry[]
+}
+
+model ExpenseCategory {
+  id       String    @id @default(uuid(7))
+  name     String    @unique
+  expenses Expense[]
+}
+
+model Expense {
+  id                String          @id @default(uuid(7))
+  siteId            String
+  site              Site            @relation(fields: [siteId], references: [id])
+  categoryId        String
+  category          ExpenseCategory @relation(fields: [categoryId], references: [id])
+  amount            Decimal
+  description       String?
+  paymentMethod     String?
+  personOrVendor    String?
+  purchaseId        String? // links an Expense that IS a Purchase's cost entry
+  purchase          Purchase?       @relation(fields: [purchaseId], references: [id])
+  dailySiteReportId String?
+  dailySiteReport   DailySiteReport? @relation(fields: [dailySiteReportId], references: [id])
+  incurredAt        DateTime
+  createdAt         DateTime        @default(now())
+}
