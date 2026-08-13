@@ -1,0 +1,46 @@
+import { render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import NewVendorToSitePurchasePage from "./page";
+
+async function renderPage() {
+  const element = await NewVendorToSitePurchasePage();
+  render(element);
+}
+
+const originalFetch = global.fetch;
+const originalApiUrl = process.env.API_URL;
+
+beforeEach(() => {
+  process.env.API_URL = "http://localhost:3001";
+});
+
+afterEach(() => {
+  global.fetch = originalFetch;
+  process.env.API_URL = originalApiUrl;
+  vi.restoreAllMocks();
+});
+
+function mockFetchRouter(handlers: { sites?: unknown; materials?: unknown }) {
+  global.fetch = vi.fn((url: string) => {
+    const urlStr = String(url);
+    if (urlStr.includes("/sites")) {
+      return Promise.resolve({ ok: true, json: async () => handlers.sites ?? [] });
+    }
+    return Promise.resolve({ ok: true, json: async () => handlers.materials ?? [] });
+  }) as unknown as typeof fetch;
+}
+
+describe("NewVendorToSitePurchasePage", () => {
+  it("skips the destination toggle and shows the Site picker up front (FR-10)", async () => {
+    mockFetchRouter({
+      sites: [{ id: "site1", name: "NH-48 Highway Widening" }],
+      materials: [{ id: "m1", name: "Cement", sizes: [{ id: "ms1", label: "OPC 53 Grade" }] }],
+    });
+
+    await renderPage();
+
+    expect(screen.queryByLabelText("Destination")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Site")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "NH-48 Highway Widening" })).toBeInTheDocument();
+  });
+});

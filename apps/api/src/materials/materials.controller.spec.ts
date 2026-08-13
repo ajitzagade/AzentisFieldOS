@@ -183,6 +183,27 @@ describe('ZodValidationPipe(updateMaterialSchema)', () => {
     }));
     expect(() => pipe.transform({ customFields })).toThrow(BadRequestException);
   });
+
+  it('accepts a positive lowStockThreshold', () => {
+    expect(pipe.transform({ lowStockThreshold: 200 })).toEqual({
+      lowStockThreshold: 200,
+    });
+  });
+
+  it('accepts null to clear the lowStockThreshold (FR-36: no threshold means never flagged)', () => {
+    expect(pipe.transform({ lowStockThreshold: null })).toEqual({
+      lowStockThreshold: null,
+    });
+  });
+
+  it('rejects a non-positive lowStockThreshold', () => {
+    expect(() => pipe.transform({ lowStockThreshold: 0 })).toThrow(
+      BadRequestException,
+    );
+    expect(() => pipe.transform({ lowStockThreshold: -5 })).toThrow(
+      BadRequestException,
+    );
+  });
 });
 
 describe('MaterialsService', () => {

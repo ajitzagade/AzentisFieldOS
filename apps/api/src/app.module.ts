@@ -6,6 +6,7 @@ import { SitesModule } from './sites/sites.module';
 import { DsrModule } from './dsr/dsr.module';
 import { StorageModule } from './storage/storage.module';
 import { MaterialsModule } from './materials/materials.module';
+import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { MaterialsModule } from './materials/materials.module';
     DsrModule,
     StorageModule,
     MaterialsModule,
+    InventoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

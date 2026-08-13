@@ -17,6 +17,7 @@ const material: MaterialDetail = {
   unit: { id: "u1", name: "Pcs" },
   sizes: [],
   customFields: [],
+  lowStockThreshold: null,
 };
 
 describe("EditMaterialForm", () => {
@@ -85,5 +86,23 @@ describe("EditMaterialForm", () => {
 
     const hiddenInput = container.querySelector('input[name="customFields"]') as HTMLInputElement;
     expect(JSON.parse(hiddenInput.value)).toEqual([{ label: "Warranty Expiry", type: "DATE" }]);
+  });
+
+  it("Story 5.7: pre-fills the Low-stock threshold field, blank when unset", () => {
+    render(<EditMaterialForm material={material} categories={[{ id: "c1", name: "Pipes & Fittings" }]} units={[{ id: "u1", name: "Pcs" }]} />);
+
+    expect(screen.getByLabelText("Low-stock threshold")).toHaveValue(null);
+  });
+
+  it("Story 5.7: pre-fills the Low-stock threshold field with the Material's current value", () => {
+    render(
+      <EditMaterialForm
+        material={{ ...material, lowStockThreshold: "200" }}
+        categories={[{ id: "c1", name: "Pipes & Fittings" }]}
+        units={[{ id: "u1", name: "Pcs" }]}
+      />,
+    );
+
+    expect(screen.getByLabelText("Low-stock threshold")).toHaveValue(200);
   });
 });

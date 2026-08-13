@@ -96,6 +96,7 @@ model Material {
   name         String
   isActive     Boolean           @default(true)
   customFields Json              @default("{}") // FR-7 — admin custom fields, no migration needed
+  lowStockThreshold Decimal? // FR-36 — nullable: no threshold set means never flagged, never a default nobody chose
 
   sizes MaterialSize[]
 
@@ -244,6 +245,8 @@ model ReturnWastage {
   notes             String?
   recordedAt         DateTime
   createdAt           DateTime @default(now())
+  correctsId         String?
+  reason             String?
 }
 
 // ---------- Machinery & Vehicles (FR-15..FR-18) ----------

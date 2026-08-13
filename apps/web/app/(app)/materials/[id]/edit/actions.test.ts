@@ -93,4 +93,24 @@ describe("updateMaterialAction", () => {
     expect(result.errors?.customFields).toBeDefined();
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  it("Story 5.7: includes the lowStockThreshold as a number when set", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+
+    await updateMaterialAction("mat-1", {}, formData({ isActive: "true", lowStockThreshold: "200" }));
+
+    const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const body = JSON.parse((call?.[1] as RequestInit).body as string);
+    expect(body.lowStockThreshold).toBe(200);
+  });
+
+  it("Story 5.7: sends lowStockThreshold as null when the field is left blank (clears it, doesn't omit it)", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+
+    await updateMaterialAction("mat-1", {}, formData({ isActive: "true", lowStockThreshold: "" }));
+
+    const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const body = JSON.parse((call?.[1] as RequestInit).body as string);
+    expect(body.lowStockThreshold).toBeNull();
+  });
 });

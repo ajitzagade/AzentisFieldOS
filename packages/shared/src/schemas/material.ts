@@ -33,8 +33,17 @@ export type CustomFieldDefinition = z.infer<typeof customFieldDefinitionSchema>;
 // Custom Fields are edited via this same Material PATCH, not a separate
 // endpoint — there is no independent lifecycle for a Custom Field apart
 // from the Material it belongs to, so it's not on createMaterialSchema.
+// FR-36: admin-configurable per-Material low-stock threshold, compared
+// against that Material's balance summed across all its Sizes (Story 5.7
+// Dev Notes "Per-Material vs per-Size threshold"). Nullable — omitting it
+// (or clearing it to null) means the Material is never flagged.
 export const updateMaterialSchema = z
-  .object({ ...createMaterialSchema.shape, isActive: z.boolean(), customFields: customFieldsSchema })
+  .object({
+    ...createMaterialSchema.shape,
+    isActive: z.boolean(),
+    customFields: customFieldsSchema,
+    lowStockThreshold: z.number().positive().nullable(),
+  })
   .partial();
 
 export type UpdateMaterialInput = z.infer<typeof updateMaterialSchema>;

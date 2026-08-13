@@ -78,6 +78,16 @@ export function EditMaterialForm({
           options={units.map((u) => ({ value: u.id, label: u.name }))}
           error={state.errors?.unitId?.[0]}
         />
+        <TextField
+          label="Low-stock threshold"
+          name="lowStockThreshold"
+          type="number"
+          step="any"
+          min={0}
+          hint="Optional — flags this Material on the Inventory page once its Godown stock (summed across all Sizes) falls below this. Leave blank to never flag it."
+          defaultValue={material.lowStockThreshold ?? undefined}
+          error={state.errors?.lowStockThreshold?.[0]}
+        />
 
         <div className="mb-4 flex items-center gap-2">
           <input

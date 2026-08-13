@@ -12,6 +12,7 @@ export interface MaterialListItem {
   // Normalized to a real array by apps/api (materials.service.ts) even for
   // Materials created before story 4.3 — never the raw Prisma `{}` default.
   customFields: CustomFieldDefinition[];
+  lowStockThreshold: string | null;
 }
 
 async function getMaterials(): Promise<MaterialListItem[]> {

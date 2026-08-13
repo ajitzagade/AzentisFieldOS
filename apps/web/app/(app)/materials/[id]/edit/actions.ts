@@ -29,6 +29,13 @@ export async function updateMaterialAction(
     }
   }
 
+  // Empty means "clear the threshold" (null), not "field omitted" — unlike
+  // the other optional() fields above, lowStockThreshold is nullable(), so
+  // an explicit null is meaningful input, not something to coerce away.
+  const rawLowStockThreshold = formData.get("lowStockThreshold");
+  const lowStockThreshold =
+    typeof rawLowStockThreshold === "string" && rawLowStockThreshold.length > 0 ? Number(rawLowStockThreshold) : null;
+
   const parsed = updateMaterialSchema.safeParse({
     // FormData.get() returns null (not undefined) for an absent field —
     // z.uuid().optional() / z.string().min(1).optional() accept undefined
@@ -39,6 +46,7 @@ export async function updateMaterialAction(
     unitId: formData.get("unitId") || undefined,
     isActive: formData.get("isActive") === "true",
     customFields,
+    lowStockThreshold,
   });
 
   if (!parsed.success) {

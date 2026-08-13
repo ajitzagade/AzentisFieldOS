@@ -1,0 +1,170 @@
+"use client";
+
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
+import { Button, Card, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { createMovementAction, type CreateMovementFormState } from "./actions";
+
+interface MaterialSizeOption {
+  id: string;
+  label: string;
+}
+
+interface SiteOption {
+  id: string;
+  name: string;
+}
+
+export interface MovementFormInitialValues {
+  materialSizeId?: string;
+  sourceSiteId?: string;
+  destinationSiteId?: string;
+  vehicleDetails?: string;
+  personResponsible?: string;
+  notes?: string;
+  movedAt?: string;
+}
+
+function SubmitButton({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" isLoading={pending}>
+      {label}
+    </Button>
+  );
+}
+
+const initialState: CreateMovementFormState = {};
+
+function todayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function MovementForm({
+  mode,
+  kind = "GODOWN_TO_SITE",
+  correctsId,
+  materialSizes,
+  sites,
+  initial,
+}: {
+  mode: "new" | "correct";
+  /** Story 5.4: SITE_TO_SITE reuses this same form/schema/service with a
+   * Source Site picker instead of an implicit Godown source — not a
+   * duplicated field list (AD-7). */
+  kind?: "GODOWN_TO_SITE" | "SITE_TO_SITE";
+  correctsId?: string;
+  materialSizes: MaterialSizeOption[];
+  sites: SiteOption[];
+  initial?: MovementFormInitialValues;
+}) {
+  const [state, formAction] = useActionState(createMovementAction, initialState);
+
+  return (
+    <form action={formAction} noValidate>
+      <input type="hidden" name="kind" value={kind} />
+
+      {mode === "correct" ? (
+        <Card className="mb-4 border-warning-700 bg-warning-100">
+          <h2 className="mb-1 flex items-center gap-2 text-card-title text-warning-700">
+            <RotateCcwIcon className="size-4" />
+            Filing a correction
+          </h2>
+          <p className="mb-3 text-body-sm text-warning-700">
+            This creates a new, linked entry — the original Movement is never edited or deleted (AD-9). Enter the
+            quantity to add or remove as a signed adjustment (e.g. -20), not the corrected total.
+          </p>
+          <input type="hidden" name="correctsId" value={correctsId} />
+          <TextField label="Reason for this correction" name="reason" required error={state.errors?.reason?.[0]} />
+        </Card>
+      ) : null}
+
+      <Card className="mb-4">
+        <SelectField
+          label="Material / Size"
+          name="materialSizeId"
+          required
+          disabled={mode === "correct"}
+          defaultValue={initial?.materialSizeId ?? ""}
+          options={[{ value: "", label: "Select a Material" }, ...materialSizes.map((m) => ({ value: m.id, label: m.label }))]}
+          error={state.errors?.materialSizeId?.[0]}
+        />
+        {mode === "correct" ? <input type="hidden" name="materialSizeId" value={initial?.materialSizeId} /> : null}
+
+        {kind === "SITE_TO_SITE" ? (
+          <>
+            <SelectField
+              label="Source Site"
+              name="sourceSiteId"
+              required
+              disabled={mode === "correct"}
+              defaultValue={initial?.sourceSiteId ?? ""}
+              options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
+              error={state.errors?.sourceSiteId?.[0]}
+            />
+            {mode === "correct" ? <input type="hidden" name="sourceSiteId" value={initial?.sourceSiteId} /> : null}
+          </>
+        ) : null}
+
+        <SelectField
+          label="Destination Site"
+          name="destinationSiteId"
+          required
+          disabled={mode === "correct"}
+          defaultValue={initial?.destinationSiteId ?? ""}
+          options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
+          error={state.errors?.destinationSiteId?.[0]}
+        />
+        {mode === "correct" ? <input type="hidden" name="destinationSiteId" value={initial?.destinationSiteId} /> : null}
+      </Card>
+
+      <Card className="mb-4">
+        <TextField
+          label={mode === "correct" ? "Quantity adjustment" : "Sent Quantity"}
+          name="sentQuantity"
+          type="number"
+          step="any"
+          required
+          hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -20." : undefined}
+          error={state.errors?.sentQuantity?.[0]}
+        />
+        <TextField
+          label="Movement Date"
+          name="movedAt"
+          type="date"
+          required
+          defaultValue={initial?.movedAt ?? todayDate()}
+          error={state.errors?.movedAt?.[0]}
+        />
+      </Card>
+
+      <Card className="mb-4">
+        <TextField
+          label="Vehicle Details"
+          name="vehicleDetails"
+          hint="Optional"
+          defaultValue={initial?.vehicleDetails}
+          error={state.errors?.vehicleDetails?.[0]}
+        />
+        <TextField
+          label="Person Responsible"
+          name="personResponsible"
+          hint="Optional"
+          defaultValue={initial?.personResponsible}
+          error={state.errors?.personResponsible?.[0]}
+        />
+        <TextField label="Notes" name="notes" hint="Optional" defaultValue={initial?.notes} error={state.errors?.notes?.[0]} />
+      </Card>
+
+      {state.formError ? (
+        <p role="alert" className="mb-4 text-caption text-danger-700">
+          {state.formError}
+        </p>
+      ) : null}
+
+      <SubmitButton
+        label={mode === "correct" ? "Submit Correction" : kind === "SITE_TO_SITE" ? "Record Transfer" : "Record Movement"}
+      />
+    </form>
+  );
+}
