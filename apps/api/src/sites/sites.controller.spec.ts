@@ -19,6 +19,7 @@ describe('SitesController', () => {
     list: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
+    getPhotos: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -27,6 +28,7 @@ describe('SitesController', () => {
       list: vi.fn(),
       update: vi.fn(),
       findOne: vi.fn(),
+      getPhotos: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -76,6 +78,15 @@ describe('SitesController', () => {
 
     expect(service.findOne).toHaveBeenCalledWith('1');
     expect(result).toEqual({ id: '1', name: 'NH-48', feed: [] });
+  });
+
+  it('getPhotos delegates to SitesService.getPhotos with the id', async () => {
+    service.getPhotos.mockResolvedValue([]);
+
+    const result = await controller.getPhotos('1');
+
+    expect(service.getPhotos).toHaveBeenCalledWith('1');
+    expect(result).toEqual([]);
   });
 });
 
@@ -132,6 +143,7 @@ describe('SitesService.update', () => {
     };
     return new SitesService(
       prisma as unknown as ConstructorParameters<typeof SitesService>[0],
+      {} as ConstructorParameters<typeof SitesService>[1],
     );
   }
 
@@ -204,6 +216,7 @@ describe('SitesService.findOne', () => {
     };
     return new SitesService(
       prisma as unknown as ConstructorParameters<typeof SitesService>[0],
+      {} as ConstructorParameters<typeof SitesService>[1],
     );
   }
 

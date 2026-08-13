@@ -112,6 +112,24 @@ describe("SiteDetailPage", () => {
     expect(screen.getByRole("link", { name: /Edit Site/ })).toHaveAttribute("href", "/sites/site-1/edit");
   });
 
+  it("renders a Site Photos link pointing to the gallery route", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "site-1",
+        name: "NH-48",
+        location: "Nashik",
+        status: "ACTIVE",
+        contractReference: null,
+        feed: [],
+      }),
+    }) as unknown as typeof fetch;
+
+    await renderDetailPage("site-1");
+
+    expect(screen.getByRole("link", { name: /Site Photos/ })).toHaveAttribute("href", "/sites/site-1/photos");
+  });
+
   it("calls notFound() for a Site ID that doesn't exist, instead of crashing or showing an empty feed", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 }) as unknown as typeof fetch;
 

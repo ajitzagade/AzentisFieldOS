@@ -38,6 +38,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   dailySiteReports DailySiteReport[]
+  photos           Photo[]
 }
 
 // ---------- Sites ----------
@@ -218,6 +219,11 @@ model Consumption {
   createdAt            DateTime @default(now())
   correctsId           String?
   reason               String?
+  // Story 3.2: set by the offline queue at queue-write time so a retried
+  // sync upserts the same row instead of creating a duplicate — this
+  // model has no other natural key (a Site can legitimately have two
+  // separate Consumption entries for the same Material on the same day).
+  clientGeneratedId    String?  @unique
 }
 
 enum ReturnWastageKind {
@@ -344,8 +350,18 @@ model TeamMember {
   payments    Payment[]
 }
 
-// One row per Team Member per Site per date (FR-20) — DB-level unique
-// constraint is the enforcement backstop for "never two Sites, same date".
+// One row per Team Member per Site per date (FR-20) — enforced at the
+// application level (apps/api/src/dsr/dsr.service.ts), not by a DB unique
+// constraint. Story 3.5: a correction that changes an existing crew
+// member's attendance for an already-reported date needs to insert its own
+// fresh WorkRecord row (AD-9 — the original's rows are never touched), which
+// a hard unique constraint on (teamMemberId, workDate) would make
+// impossible (a correction and the row it corrects can legitimately share
+// the same team member + date). The "never two Sites, same date"
+// double-booking rule this constraint used to enforce as a DB backstop
+// moved to an explicit application-level check instead (same as
+// DailySiteReport's own siteId+reportDate constraint, relaxed for the same
+// reason).
 model WorkRecord {
   id             String    @id @default(uuid(7))
   teamMemberId    String
@@ -360,7 +376,7 @@ model WorkRecord {
   dailySiteReport        DailySiteReport? @relation(fields: [dailySiteReportId], references: [id])
   createdAt              DateTime @default(now())
 
-  @@unique([teamMemberId, workDate])
+  @@index([teamMemberId, workDate])
 }
 
 // Append-only (AD-9).
@@ -423,6 +439,12 @@ model RmcEntry {
   invoiceOrChallanNo String?
   deliveredAt   DateTime
   createdAt     DateTime @default(now())
+
+  dailySiteReportId String?
+  dailySiteReport   DailySiteReport? @relation(fields: [dailySiteReportId], references: [id])
+  // Story 3.2 offline-sync idempotency key — same reasoning as
+  // Consumption.clientGeneratedId.
+  clientGeneratedId String? @unique
 }
 
 // ---------- Daily Site Report (FR-28..FR-31) ----------
@@ -446,8 +468,22 @@ model DailySiteReport {
   consumptions  Consumption[]
   photos        Photo[]
   expenses      Expense[]
+  rmcEntries    RmcEntry[]
 
-  @@unique([siteId, reportDate])
+  // Informational tagging only — "JCB 3DX was in use today" is not a
+  // location/status change (that's Epic 8's MachineryMovementLog /
+  // VehicleMovementLog concern), so this is deliberately not a relation.
+  // Denormalized (stores the name at entry time) so this DSR's feed entry
+  // still reads correctly even if the asset is later renamed/deleted.
+  equipmentUsed Json @default("[]")
+
+  // Story 3.5 (AD-9, FR-54): a correction is a new row, never an edit —
+  // same plain correctsId/reason pattern as Purchase/Movement/Consumption
+  // elsewhere in this schema, no enforced self-relation.
+  correctsId String?
+  reason     String? // required when correctsId is set
+
+  @@index([siteId, reportDate])
 }
 
 model Photo {
@@ -456,6 +492,7 @@ model Photo {
   dailySiteReport   DailySiteReport @relation(fields: [dailySiteReportId], references: [id])
   storageKey        String // Cloudflare R2 object key
   uploadedByUserId  String
+  uploadedBy        User            @relation(fields: [uploadedByUserId], references: [id])
   createdAt         DateTime        @default(now())
 }
 
@@ -496,4 +533,7 @@ model Expense {
   dailySiteReport   DailySiteReport? @relation(fields: [dailySiteReportId], references: [id])
   incurredAt        DateTime
   createdAt         DateTime        @default(now())
+  // Story 3.2 offline-sync idempotency key — same reasoning as
+  // Consumption.clientGeneratedId.
+  clientGeneratedId String? @unique
 }

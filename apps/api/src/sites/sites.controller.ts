@@ -43,4 +43,9 @@ export class SitesController {
   findOne(@Param('id') id: string) {
     return this.sitesService.findOne(id);
   }
+
+  @Get(':id/photos')
+  getPhotos(@Param('id') id: string) {
+    return this.sitesService.getPhotos(id);
+  }
 }

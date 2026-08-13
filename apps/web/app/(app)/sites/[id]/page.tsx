@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { FeedItem } from "@azentisfieldos/shared";
 import {
   Badge,
+  CameraIcon,
   ClipboardIcon,
   DataTable,
   MapPinIcon,
@@ -107,10 +108,16 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             ) : null}
           </div>
         </div>
-        <Link href={`/sites/${site.id}/edit`} className={cn(buttonVariants({ variant: "secondary" }))}>
-          <PencilIcon className="size-4" />
-          Edit Site
-        </Link>
+        <div className="flex gap-2">
+          <Link href={`/sites/${site.id}/photos`} className={cn(buttonVariants({ variant: "secondary" }))}>
+            <CameraIcon className="size-4" />
+            Site Photos
+          </Link>
+          <Link href={`/sites/${site.id}/edit`} className={cn(buttonVariants({ variant: "secondary" }))}>
+            <PencilIcon className="size-4" />
+            Edit Site
+          </Link>
+        </div>
       </div>
 
       <div className="mb-4 text-section-header text-ink-900">Activity Feed</div>

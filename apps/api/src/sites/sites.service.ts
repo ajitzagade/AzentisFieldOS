@@ -2,12 +2,17 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { CreateSiteInput, UpdateSiteInput } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { getSiteActivityFeed } from './site-activity-feed';
+import { getSitePhotoGallery } from './site-photo-gallery';
 
 // FR-1: Owner/Admin creates and maintains Sites.
 @Injectable()
 export class SitesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   create(input: CreateSiteInput) {
     return this.prisma.site.create({
@@ -55,5 +60,14 @@ export class SitesService {
 
     const feed = await getSiteActivityFeed(this.prisma, id);
     return { ...site, feed };
+  }
+
+  // FR-31: every photo from every DSR at this Site, newest-first.
+  async getPhotos(id: string) {
+    const site = await this.prisma.site.findUnique({ where: { id } });
+    if (!site) {
+      throw new NotFoundException(`Site ${id} not found`);
+    }
+    return getSitePhotoGallery(this.prisma, this.storage, id);
   }
 }
