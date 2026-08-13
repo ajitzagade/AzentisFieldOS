@@ -1,0 +1,96 @@
+import { BadRequestException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createUnitSchema } from '@azentisfieldos/shared';
+import { ZodValidationPipe } from '../common/zod-validation.pipe';
+import { Prisma } from '../generated/prisma/client';
+import { UnitsController } from './units.controller';
+import { UnitsService } from './units.service';
+
+describe('UnitsController', () => {
+  let controller: UnitsController;
+  let service: {
+    create: ReturnType<typeof vi.fn>;
+    list: ReturnType<typeof vi.fn>;
+  };
+
+  beforeEach(async () => {
+    service = { create: vi.fn(), list: vi.fn() };
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [UnitsController],
+      providers: [{ provide: UnitsService, useValue: service }],
+    }).compile();
+
+    controller = module.get<UnitsController>(UnitsController);
+  });
+
+  it('create delegates to UnitsService.create with the validated body', async () => {
+    const input = { name: 'Bags' };
+    service.create.mockResolvedValue({ id: '1', ...input });
+
+    const result = await controller.create(input);
+
+    expect(service.create).toHaveBeenCalledWith(input);
+    expect(result).toEqual({ id: '1', ...input });
+  });
+
+  it('list delegates to UnitsService.list', async () => {
+    service.list.mockResolvedValue([{ id: '1', name: 'Bags' }]);
+
+    const result = await controller.list();
+
+    expect(service.list).toHaveBeenCalled();
+    expect(result).toEqual([{ id: '1', name: 'Bags' }]);
+  });
+});
+
+describe('ZodValidationPipe(createUnitSchema)', () => {
+  const pipe = new ZodValidationPipe(createUnitSchema);
+
+  it('rejects a body missing required fields', () => {
+    expect(() => pipe.transform({})).toThrow(BadRequestException);
+  });
+
+  it('accepts a valid body', () => {
+    expect(pipe.transform({ name: 'Bags' })).toEqual({ name: 'Bags' });
+  });
+});
+
+describe('UnitsService.create', () => {
+  function makeService(create: ReturnType<typeof vi.fn>) {
+    const prisma = { unit: { create } };
+    return new UnitsService(
+      prisma as unknown as ConstructorParameters<typeof UnitsService>[0],
+    );
+  }
+
+  it('translates a duplicate-name P2002 into a clear 400, not a raw 500', async () => {
+    const error = Object.create(
+      Prisma.PrismaClientKnownRequestError.prototype,
+    ) as InstanceType<typeof Prisma.PrismaClientKnownRequestError>;
+    Object.assign(error, {
+      code: 'P2002',
+      message: 'Unique constraint failed',
+    });
+    const create = vi.fn().mockRejectedValue(error);
+    const service = makeService(create);
+
+    await expect(service.create({ name: 'Bags' })).rejects.toThrow(
+      BadRequestException,
+    );
+    await expect(service.create({ name: 'Bags' })).rejects.toThrow(
+      'A Unit with this name already exists',
+    );
+  });
+
+  it('re-throws any other error unchanged', async () => {
+    const otherError = new Error('connection lost');
+    const create = vi.fn().mockRejectedValue(otherError);
+    const service = makeService(create);
+
+    await expect(service.create({ name: 'Bags' })).rejects.toThrow(
+      'connection lost',
+    );
+  });
+});
