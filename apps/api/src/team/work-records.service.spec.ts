@@ -45,14 +45,20 @@ describe('WorkRecordsService.create', () => {
     expect(executeRaw).toHaveBeenCalled();
     expect(findFirst).toHaveBeenCalledWith({
       where: { teamMemberId: 'tm1', workDate: new Date('2026-08-13') },
+      include: { teamMember: true },
     });
   });
 
-  it('rejects with a 409, not a 500, when the Team Member already has a Work Record for that date (AC #1)', async () => {
-    const findFirst = vi.fn().mockResolvedValue({ id: 'existing' });
+  it('rejects with a 409 naming the Team Member, not a 500, when they already have a Work Record for that date (AC #1)', async () => {
+    const findFirst = vi.fn().mockResolvedValue({
+      id: 'existing',
+      teamMember: { name: 'Ravi Kumar' },
+    });
     const { service } = makeService({ findFirst });
 
-    await expect(service.create(input)).rejects.toThrow(ConflictException);
+    await expect(service.create(input)).rejects.toThrow(
+      /Ravi Kumar already has a Work Record/,
+    );
   });
 
   it('translates a foreign-key violation (bad teamMemberId/siteId, P2003) into a clear 400', async () => {
@@ -86,7 +92,10 @@ describe('WorkRecordsService.createBatch', () => {
   });
 
   it('rejects the whole batch with a 409 when any one member already has a Work Record for that date', async () => {
-    const findFirst = vi.fn().mockResolvedValue({ id: 'existing' });
+    const findFirst = vi.fn().mockResolvedValue({
+      id: 'existing',
+      teamMember: { name: 'Ravi Kumar' },
+    });
     const { service } = makeService({ findFirst });
 
     await expect(

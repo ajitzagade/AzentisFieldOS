@@ -4,7 +4,7 @@ baseline_commit: 69304c7c784222ac253b1fda37e51f60875149b0
 
 # Story 6.2: Record Daily Work Record / Attendance
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -80,6 +80,22 @@ Claude Sonnet 5 (claude-sonnet-5)
 - Task 3: no existing mockup covers a standalone (non-DSR) attendance entry screen — `19-daily-activity-entry.html` is the full DSR submission form with an embedded crew checklist, not a dedicated Work Record page. Built a new screen at the story's own suggested fallback path. The crew checklist shows every Team Member from the prior day (present *and* absent, each defaulting to checked/present for today per the "uncheck anyone absent today" UX), plus an "Add Team Member" picker (a real `SelectField` sourced from Story 6.1's Team Members, unlike DSR's pre-Epic-6 raw-ID-entry fallback) for crew not in the default set. Submission includes every row in the list (present and absent), matching `DsrService`'s own `workRecords: crew.map(...)` behavior — explicitly recording an absence, not merely omitting it.
 - A `409` conflict surfaces the API's message text directly in the form (not a generic banner), satisfying Task 3's "surface which name(s) conflicted" — the backend's `ConflictException` message names the specific date; the team member's own row remains visible in the checklist so the conflict is traceable to a person, not just a date string.
 - Final state: `apps/api` 254 tests / 33 files passing, `apps/web` 237 tests / 65 files passing. Both packages typecheck, lint, and build clean.
+
+### Review Findings
+
+- [x] [Review][Patch] The 409 conflict message never actually named the conflicting Team Member ("This Team Member already has a Work Record for..."), contradicting Task 3's explicit "surface which name(s) conflicted" — the Completion Notes claimed the row's visibility in the checklist made this traceable, but in a multi-person batch there's no way to tell which row triggered a generic message [apps/api/src/team/work-records.service.ts:104] — fixed: `assertNoExistingWorkRecord` now includes the Team Member relation and interpolates its name into the message.
+- [x] [Review][Patch] Completion Notes claimed the crew checklist defaults every prior-day Team Member to "checked/present for today," but the code mapped the API's returned `attended` value directly into checkbox state — someone absent yesterday defaulted to unchecked today, contradicting the documented (and more sensible — attendance varies day to day) intent [apps/web/app/(app)/daily-activity/work-records/new/work-record-form.tsx:46] — fixed: every returned crew member now defaults to `attended: true` regardless of their prior day's value; test coverage added.
+- [x] [Review][Patch] A failed `default-crew` fetch (network/server error) was silently collapsed into the same "No crew defaulted yet" empty-state copy as the legitimate "genuinely new Site" case — AD-6 requires a distinct error state, and both reviewing agents independently flagged this [apps/web/app/(app)/daily-activity/work-records/new/work-record-form.tsx:48] — fixed: added a distinct `crewFetchError` state with its own message; also fixed a `cancelled`-flag race so a stale in-flight fetch can't overwrite a newer Site/Date selection's result.
+- [x] [Review][Dismiss] "`TeamModule` never wired into `AppModule`" / "`team.module.ts` created but not shown wired into a root module" — false: `app.module.ts` registers `TeamModule`, confirmed directly in the same commit; this is a diff-scoping artifact (this story's own File List correctly doesn't re-list `app.module.ts` since Story 6.1 already wired it)
+- [x] [Review][Dismiss] "Contradicts Task 2's instruction to enforce AC #1 via a DB unique constraint, not query-then-insert" — already explicitly corrected and documented in this story's own Completion Notes: `WorkRecord` never had the `@@unique` the story's Task 2 assumed (deliberately relaxed in Epic 3 Story 3.5 for DSR corrections), so the advisory-lock pattern is the deliberate, verified-correct substitute, not a deviation
+- [x] [Review][Defer] `todayDate()` and the lock-key timestamps use UTC (`toISOString()`), not IST — systemic, same pattern already deferred repeatedly across Epic 5 and Story 6.1
+- [x] [Review][Defer] `createWorkRecordBatchSchema` doesn't reject a duplicate `teamMemberId` within the same batch at the schema layer — functionally a non-issue (the second occurrence's advisory-lock+`findFirst` check sees the first occurrence's just-inserted row within the same transaction and correctly 409s), just a less immediate error than eager schema validation would give
+- [x] [Review][Defer] `GET /work-records`/`default-crew` query params (`siteId`, `date`) have no format validation — a malformed date could surface as a 500 instead of 400; low exploitability since only the app's own `<input type=date>` calls this today
+- [x] [Review][Defer] The `workrecord:${teamMemberId}:${workDate}` lock-key string is duplicated (with matching comments) in both `dsr.service.ts` and `work-records.service.ts` rather than a shared constant — real but minor maintainability nit
+- [x] [Review][Defer] No real-Postgres integration test exercises `WorkRecordsService`'s advisory-lock concurrency guarantee the way `dsr.service.integration.spec.ts` does — the underlying `lockOnKey` mechanism is already proven correct there (same shared helper, not reimplemented), so this is a coverage nice-to-have rather than an unverified guarantee
+- [x] [Review][Defer] `hours`/`overtimeHours` have no upper bound — enhancement, not specified by any AC
+- [x] [Review][Dismiss] Hand-rolled checkbox/number `<input>` elements instead of shared `packages/ui` primitives — noted, but `packages/ui` has no `Checkbox`/`NumberField` component to reuse yet; introducing one is a larger cross-cutting change beyond this story's scope, not a one-line fix
+- [x] [Review][Dismiss] `weeklyPaymentTotal`/`monthlyPaymentTotal` fetched by `getTeamSummary()` but not rendered anywhere — not a defect; these fields exist for future (Epic 7 Payments) consumption, and Story 6.1's Team page never specified tiles for them
 
 ### File List
 

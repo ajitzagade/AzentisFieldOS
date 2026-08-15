@@ -18,8 +18,18 @@ export type CreateTeamMemberInput = z.infer<typeof createTeamMemberSchema>;
 // `.partial()` — the same default-on-partial trap documented in
 // material-category.ts/site.ts: without this, updateTeamMemberSchema.parse({})
 // would silently return `{ isActive: true }` instead of a true no-op.
+// `designation`/`contact` additionally take `.nullable()` — the edit form
+// always resubmits every field (a full-replace PATCH, not a diff), so an
+// intentionally-blanked field must be representable as an explicit `null`
+// to actually clear it, not just omitted (which `.partial()` alone would
+// treat as "leave untouched").
 export const updateTeamMemberSchema = z
-  .object({ ...createTeamMemberSchema.shape, isActive: z.boolean() })
+  .object({
+    ...createTeamMemberSchema.shape,
+    designation: z.string().max(200).nullable(),
+    contact: z.string().max(100).nullable(),
+    isActive: z.boolean(),
+  })
   .partial();
 
 export type UpdateTeamMemberInput = z.infer<typeof updateTeamMemberSchema>;

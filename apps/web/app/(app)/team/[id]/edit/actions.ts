@@ -18,8 +18,12 @@ export async function updateTeamMemberAction(
 ): Promise<UpdateTeamMemberFormState> {
   const parsed = updateTeamMemberSchema.safeParse({
     name: formData.get("name") || undefined,
-    designation: formData.get("designation") || undefined,
-    contact: formData.get("contact") || undefined,
+    // The form always resubmits every field (full-replace, not a diff) —
+    // an intentionally-blanked Designation/Contact must reach the API as
+    // an explicit `null` so it's actually cleared, not silently dropped
+    // by JSON.stringify omitting an `undefined` key.
+    designation: formData.get("designation") || null,
+    contact: formData.get("contact") || null,
     employmentTypeId: formData.get("employmentTypeId") || undefined,
     isActive: formData.get("isActive") === "true",
   });
@@ -28,18 +32,29 @@ export async function updateTeamMemberAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/team-members/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(parsed.data),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${process.env.API_URL}/team-members/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed.data),
+    });
+  } catch {
+    return { formError: "Something went wrong updating the Team Member. Please try again." };
+  }
 
   if (res.status === 400) {
-    const body = (await res.json()) as { error?: { details?: { fieldErrors?: Record<string, string[]> }; message?: string } };
-    if (body.error?.details?.fieldErrors) {
+    // Nest's default body for a plain `BadRequestException('<string>')`
+    // (translateWriteError's FK-violation message) is
+    // `{ statusCode, message, error: 'Bad Request' }` — `error` is a
+    // string, not an object — so the real message lives at `body.message`.
+    const body = (await res.json().catch(() => undefined)) as
+      | { error?: { details?: { fieldErrors?: Record<string, string[]> } }; message?: string }
+      | undefined;
+    if (body?.error?.details?.fieldErrors) {
       return { errors: body.error.details.fieldErrors };
     }
-    return { formError: body.error?.message ?? "This Team Member references an Employment Type that does not exist." };
+    return { formError: body?.message ?? "This Team Member references an Employment Type that does not exist." };
   }
 
   if (res.status === 404) {

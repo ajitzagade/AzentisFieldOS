@@ -65,6 +65,37 @@ describe("WorkRecordForm", () => {
     expect(screen.getByText("Absent")).toBeInTheDocument();
   });
 
+  it("defaults every returned crew member to Present, even one marked absent on the prior date", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { teamMemberId: "tm1", name: "Ravi Kumar", attended: true },
+        { teamMemberId: "tm2", name: "Dinesh More", attended: false },
+      ],
+    }) as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+    render(<WorkRecordForm sites={sites} teamMembers={teamMembers} />);
+    await user.selectOptions(screen.getByLabelText("Site"), "site1");
+
+    await waitFor(() => expect(screen.getByText("Dinesh More")).toBeInTheDocument());
+    expect(screen.getAllByText("Present")).toHaveLength(2);
+    expect(screen.queryByText("Absent")).not.toBeInTheDocument();
+  });
+
+  it("shows a distinct error message, not the generic empty-crew message, when the default-crew fetch fails", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+    render(<WorkRecordForm sites={sites} teamMembers={teamMembers} />);
+    await user.selectOptions(screen.getByLabelText("Site"), "site1");
+
+    await waitFor(() => {
+      expect(screen.getByText(/Couldn't load the default crew/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText("No crew defaulted yet")).not.toBeInTheDocument();
+  });
+
   it("adding a Team Member not in the default crew adds them as Present, and removes them from the Add picker", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => [] }) as unknown as typeof fetch;
 
@@ -102,14 +133,14 @@ describe("WorkRecordForm", () => {
     ]);
   });
 
-  it("surfaces a 409 conflict message instead of failing silently or redirecting", async () => {
+  it("surfaces a 409 conflict message naming the Team Member, instead of failing silently or redirecting", async () => {
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => [{ teamMemberId: "tm1", name: "Ravi Kumar", attended: true }] })
       .mockResolvedValueOnce({
         ok: false,
         status: 409,
-        json: async () => ({ message: "This Team Member already has a Work Record for 2026-08-13" }),
+        json: async () => ({ message: "Ravi Kumar already has a Work Record for 2026-08-13" }),
       }) as unknown as typeof fetch;
 
     const user = userEvent.setup();
@@ -120,7 +151,7 @@ describe("WorkRecordForm", () => {
     await user.click(screen.getByRole("button", { name: "Save Attendance" }));
 
     await waitFor(() => {
-      expect(screen.getByText("This Team Member already has a Work Record for 2026-08-13")).toBeInTheDocument();
+      expect(screen.getByText("Ravi Kumar already has a Work Record for 2026-08-13")).toBeInTheDocument();
     });
     expect(pushMock).not.toHaveBeenCalled();
   });

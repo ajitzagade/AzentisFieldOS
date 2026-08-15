@@ -77,8 +77,8 @@ development_status:
   epic-5-retrospective: optional
 
   epic-6: in-progress
-  6-1-manage-team-members: review
-  6-2-record-daily-work-record-attendance: review
+  6-1-manage-team-members: done
+  6-2-record-daily-work-record-attendance: done
   6-3-work-history-team-summary: review
   epic-6-retrospective: optional
 

@@ -62,3 +62,20 @@
 - The GapFlag's "Transfer Stock" action always links to the generic entry route with no pre-selected Material/quantity — real UX gap, but matches Task 3's literal spec.
 - `getLowStockMaterials()`'s Decimal→`Number` conversion when summing across Sizes risks float precision loss at extreme magnitudes — theoretical.
 - No `aria-label` on stat-tile em-dash placeholders — matches the established pattern on Team/Sites pages.
+
+## Deferred from: code review of story-6.1 (2026-08-15)
+
+- `list()`'s `isToday` check and `getTeamSummary()`'s date boundaries use UTC, not IST — systemic, same pattern already deferred for `PurchasesService.countThisMonth`.
+- No server-side check that an assigned `EmploymentType` is `isActive` — currently unreachable since nothing can disable an Employment Type yet (Epic 14 scope).
+- `EmploymentType.name` isn't trimmed/case-normalized — matches the same pattern used by `MaterialCategory`/`Unit`/`Site` elsewhere.
+- `EditTeamMemberPage` fetches Employment Types even on a 404 Team Member — minor wasted read.
+- **Flagged for Epic 7 (not this codebase's own action item, noted for awareness):** `TeamMember.outstandingAdvanceBalance` and `Advance`/`AdvanceAdjustment`/`Payment`'s `correctsId`/`correctionReason`/`reason` columns exist in `schema.prisma` with no corresponding migration — `pnpm db:generate` will produce a client whose fields don't exist in an actually-migrated database. Not exercised by anything in Epic 6; will need its own migration before Epic 7 code goes live.
+
+## Deferred from: code review of story-6.2 (2026-08-15)
+
+- `todayDate()` and the Work Record lock-key timestamps use UTC, not IST — systemic, same pattern already deferred repeatedly.
+- `createWorkRecordBatchSchema` doesn't reject a duplicate `teamMemberId` within a batch at the schema layer — functionally caught later by the advisory-lock check, just a less immediate error.
+- `GET /work-records`/`default-crew` query params have no format validation — low exploitability, only called by the app's own date picker today.
+- The `workrecord:${teamMemberId}:${workDate}` lock-key string is duplicated (with matching comments) across `dsr.service.ts` and `work-records.service.ts` rather than a shared constant.
+- No real-Postgres integration test for `WorkRecordsService`'s advisory-lock concurrency — the underlying `lockOnKey` mechanism is already proven via `DsrService`'s own integration test (same shared helper).
+- `hours`/`overtimeHours` have no upper bound — enhancement, not specified by any AC.

@@ -107,12 +107,15 @@ export class WorkRecordsService {
     workDate: Date,
   ) {
     await lockOnKey(tx, `workrecord:${teamMemberId}:${workDate.toISOString()}`);
+    // Task 3: a 409 must name which Team Member conflicted, not just the
+    // date — a batch submission needs to trace the error back to a row.
     const existing = await tx.workRecord.findFirst({
       where: { teamMemberId, workDate },
+      include: { teamMember: true },
     });
     if (existing) {
       throw new ConflictException(
-        `This Team Member already has a Work Record for ${workDate.toISOString().slice(0, 10)}`,
+        `${existing.teamMember.name} already has a Work Record for ${workDate.toISOString().slice(0, 10)}`,
       );
     }
   }

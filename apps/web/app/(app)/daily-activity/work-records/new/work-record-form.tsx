@@ -34,18 +34,37 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
   const [crew, setCrew] = useState<CrewRow[]>([]);
   const [newMemberId, setNewMemberId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [crewFetchError, setCrewFetchError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // AC #2: defaulted from the most recent prior date this Site had any
-  // attendance recorded, not literally the calendar-previous day.
+  // attendance recorded, not literally the calendar-previous day. Every
+  // returned crew member defaults to Present (checked), regardless of
+  // whether they were marked present or absent on that prior date — this
+  // is who's expected to work today; the supervisor unchecks anyone who's
+  // actually a no-show, rather than the form silently carrying forward a
+  // stale, unrelated day's absence.
   useEffect(() => {
     if (!siteId || !workDate) return;
+    let cancelled = false;
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/work-records/default-crew?siteId=${siteId}&date=${workDate}`)
-      .then((res) => res.json())
-      .then((defaults: { teamMemberId: string; name: string; attended: boolean }[]) => {
-        setCrew(defaults.map((d) => ({ teamMemberId: d.teamMemberId, name: d.name, attended: d.attended, hours: "", overtimeHours: "" })));
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load default crew (${res.status})`);
+        return res.json() as Promise<{ teamMemberId: string; name: string; attended: boolean }[]>;
       })
-      .catch(() => setCrew([]));
+      .then((defaults) => {
+        if (cancelled) return;
+        setCrew(defaults.map((d) => ({ teamMemberId: d.teamMemberId, name: d.name, attended: true, hours: "", overtimeHours: "" })));
+        setCrewFetchError(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCrew([]);
+        setCrewFetchError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [siteId, workDate]);
 
   function toggleAttended(teamMemberId: string) {
@@ -120,7 +139,14 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
 
       <Card className="mb-4">
         <h2 className="mb-3 text-card-title text-ink-900">Labour present</h2>
-        {crew.length === 0 ? <p className="mb-3 text-body-sm text-ink-500">No crew defaulted yet — select a Site and Date, or add a Team Member below.</p> : null}
+        {crew.length === 0 && crewFetchError ? (
+          <p role="alert" className="mb-3 text-body-sm text-danger-700">
+            Couldn&apos;t load the default crew for this Site and Date. You can still add Team Members below.
+          </p>
+        ) : null}
+        {crew.length === 0 && !crewFetchError ? (
+          <p className="mb-3 text-body-sm text-ink-500">No crew defaulted yet — select a Site and Date, or add a Team Member below.</p>
+        ) : null}
         <ul className="mb-3 flex flex-col gap-2">
           {crew.map((row) => (
             <li key={row.teamMemberId} className="flex flex-wrap items-center gap-2">
