@@ -144,4 +144,39 @@ describe('ZodValidationPipe(createWorkRecordBatchSchema)', () => {
   it('accepts a single-item array', () => {
     expect(() => pipe.transform([record])).not.toThrow();
   });
+
+  it('accepts a multi-item batch when every record shares the same Site and date', () => {
+    expect(() =>
+      pipe.transform([
+        record,
+        { ...record, teamMemberId: '33333333-3333-4333-8333-333333333333' },
+      ]),
+    ).not.toThrow();
+  });
+
+  it('rejects a batch mixing Sites', () => {
+    expect(() =>
+      pipe.transform([
+        record,
+        {
+          ...record,
+          teamMemberId: '33333333-3333-4333-8333-333333333333',
+          siteId: '44444444-4444-4444-8444-444444444444',
+        },
+      ]),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects a batch mixing dates', () => {
+    expect(() =>
+      pipe.transform([
+        record,
+        {
+          ...record,
+          teamMemberId: '33333333-3333-4333-8333-333333333333',
+          workDate: '2026-08-14',
+        },
+      ]),
+    ).toThrow(BadRequestException);
+  });
 });

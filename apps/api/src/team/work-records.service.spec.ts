@@ -182,4 +182,15 @@ describe('WorkRecordsService.getDefaultCrew', () => {
 
     expect(result).toEqual([]);
   });
+
+  it('rejects a malformed date with a clean 400 instead of letting it flow into an Invalid Date Prisma query', async () => {
+    const prisma = { workRecord: { findFirst: vi.fn(), findMany: vi.fn() } };
+    const service = new WorkRecordsService(
+      prisma as unknown as ConstructorParameters<typeof WorkRecordsService>[0],
+    );
+
+    await expect(service.getDefaultCrew('site1', 'not-a-date')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
 });

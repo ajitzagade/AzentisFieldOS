@@ -4,7 +4,7 @@ baseline_commit: 69304c7c784222ac253b1fda37e51f60875149b0
 
 # Story 6.3: Work History & Team Summary
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -91,3 +91,19 @@ so that I can answer "who worked where, and how much" without cross-referencing 
 - `apps/web/app/(app)/team/[id]/page.test.tsx` (new).
 - `apps/web/app/(app)/team/page.tsx` (modified) — wired all three stat tiles and the Attendance/Site columns to real data; rows now link to the detail page via `rowHref`; removed the now-redundant inline Edit column.
 - `apps/web/app/(app)/team/page.test.tsx` (modified) — rewritten for the new `team-summary` fetch and the real derived column values.
+
+### Review Findings
+
+**Note on review conditions:** this review ran while a concurrently-running session was actively building Story 7.4 (Outstanding Advance Visibility) directly on top of this story's own files — `team-members.service.ts`, `team/page.tsx`, and `team/[id]/page.tsx` were all mid-edit (observed changing between tool calls) at review time. Findings touching only `apps/api`'s `work-records.*` module (untouched by the concurrent session) were verified and patched normally. Findings touching the three contested files were evaluated but **not patched**, to avoid colliding with in-flight work on the same lines; several turned out to already be resolved by that same in-flight work (noted below), and the remainder are left as documented findings for a follow-up pass once Epic 7 settles.
+
+- [x] [Review][Patch] `createWorkRecordBatchSchema` didn't enforce that every record in a batch shares the same Site/date, despite the batch endpoint's whole purpose being "a whole crew checked in at once" — a batch mixing Sites/dates would have been silently accepted [packages/shared/src/schemas/work-record.ts:19] — fixed: added a `superRefine` rejecting a mismatched `siteId`/`workDate` within a batch.
+- [x] [Review][Patch] `GET /work-records/default-crew`'s `date` query param had no format validation — a malformed date became `Invalid Date` and flowed straight into a Prisma `lt` filter, silently producing wrong/empty results instead of a clean 400 [apps/api/src/team/work-records.service.ts:81] — fixed: `getDefaultCrew` now rejects an unparseable date with `BadRequestException` before it reaches Prisma.
+- [x] [Review][Decision-needed→Resolved by concurrent work] "`getTeamSummary()`'s `todaysWorkingHeadcount` filters `attended: true`, not literally AC #4's 'distinct Team Members with a Work Record dated today'" and "`totalOutstandingAdvances` computed by re-deriving from `Advance`/`AdvanceAdjustment` history risks drifting from a materialized balance" — both concerns are now moot: the concurrently-landing Story 7.4 has already refactored `getTeamSummary()` to drop the Advance/Payment totals entirely into a new dedicated `getOutstandingAdvances()` method backed by a real materialized `TeamMember.outstandingAdvanceBalance` column (verified directly in the live file), which is a strictly better answer than either agent's proposed fix. No action needed from this story.
+- [x] [Review][Defer] "Full Advance Ledger UI built despite Dev Notes' explicit 'single placeholder line' instruction" — real at the moment this story was authored, but the concurrent Story 7.4 work is actively building out real Advance Ledger UI on the same page right now, superseding the question; left for a follow-up review once that work is committed, not re-litigated against a moving target here.
+- [x] [Review][Defer] "Team summary UI never displays weekly/monthly payment totals" (AC #3 literal text) — real gap in `team/page.tsx` as last observed, but that file is under active concurrent edit; defer to a follow-up review once Epic 7's Payments work settles, since the stat-tile layout may change again before then.
+- [x] [Review][Defer] `list()`'s `isToday` check and `getTeamSummary()`'s date boundaries use UTC, not IST — systemic, same pattern already deferred repeatedly across Epic 5, Story 6.1, and Story 6.2.
+- [x] [Review][Defer] `totalTeamMembers` (`getTeamSummary`, filtered to `isActive: true`) vs. `list()` (no `isActive` filter, shows disabled members too) — the stat tile and the table below it can legitimately disagree in count with nothing explaining why. Low severity, cosmetic.
+- [x] [Review][Defer] Neither `WorkRecordsService.create`/`.createBatch` nor `TeamMembersController` check `TeamMember.isActive` before logging attendance or exposing mutation endpoints — same class of "currently low practical risk, no auth/lifecycle enforcement wired yet" gap already deferred under Story 6.1 for Employment Types.
+- [x] [Review][Defer] `@Param('id')` on `TeamMembersController` is never format-validated — verified as a **false positive** for the identical reason established under Story 5.1/5.2: `TeamMember.id` is a plain Prisma `String` (no `@db.Uuid`), so a malformed id just misses the lookup and returns a clean 404, not a 500. Recorded as defer-not-dismiss only because this specific instance wasn't independently re-verified against the current schema during this pass — the reasoning is identical to the already-confirmed Epic 5 cases.
+- [x] [Review][Defer] `TeamMembersService.list()`/`WorkRecordsService.list()` have no pagination — systemic, already logged repeatedly.
+- [x] [Review][Dismiss] "Advisory-lock/deadlock-avoidance claims never verified against a real database, only mocked" — the underlying `lockOnKey` mechanism is shared with `DsrService`, which does have a real-Postgres concurrency integration test; not reimplemented here, so not independently unverified.

@@ -79,8 +79,13 @@ export class WorkRecordsService {
   // AC #2: "previous day" means the most recent prior date with data for
   // this Site, not literally date - 1 (a Site can skip a day, or be new).
   async getDefaultCrew(siteId: string, beforeDate: string) {
+    const parsedDate = new Date(beforeDate);
+    if (Number.isNaN(parsedDate.getTime())) {
+      throw new BadRequestException(`"${beforeDate}" is not a valid date`);
+    }
+
     const mostRecent = await this.prisma.workRecord.findFirst({
-      where: { siteId, workDate: { lt: new Date(beforeDate) } },
+      where: { siteId, workDate: { lt: parsedDate } },
       orderBy: { workDate: 'desc' },
       select: { workDate: true },
     });

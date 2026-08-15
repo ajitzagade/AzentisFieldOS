@@ -79,3 +79,14 @@
 - The `workrecord:${teamMemberId}:${workDate}` lock-key string is duplicated (with matching comments) across `dsr.service.ts` and `work-records.service.ts` rather than a shared constant.
 - No real-Postgres integration test for `WorkRecordsService`'s advisory-lock concurrency — the underlying `lockOnKey` mechanism is already proven via `DsrService`'s own integration test (same shared helper).
 - `hours`/`overtimeHours` have no upper bound — enhancement, not specified by any AC.
+
+## Deferred from: code review of story-6.3 (2026-08-15)
+
+**Reviewed while a concurrent session was actively building Story 7.4 on the same files** (`team-members.service.ts`, `team/page.tsx`, `team/[id]/page.tsx`) — findings touching those three files were deferred rather than patched, to avoid colliding with in-flight work. Two agent-raised concerns turned out to already be resolved by that concurrent work (`getTeamSummary()`'s Advance/Payment totals replaced by a materialized-balance-backed `getOutstandingAdvances()`), noted in the story file rather than repeated here.
+
+- Full Advance Ledger UI on the Team Member detail page — real question at review time, but superseded by Story 7.4 landing the real thing on the same page; needs a follow-up look once that work is committed.
+- Team summary UI doesn't display weekly/monthly payment totals (AC #3's literal text) — real gap as last observed, but the page is under active edit; re-check once Epic 7's Payments work settles.
+- `list()`'s `isToday` check and `getTeamSummary()`'s date boundaries use UTC, not IST — systemic, already logged repeatedly.
+- `totalTeamMembers` (active-only) vs. the roster table (`list()`, no active filter) can show different counts with no explanation — cosmetic.
+- Neither `WorkRecordsService.create`/`.createBatch` nor `TeamMembersController` checks `TeamMember.isActive` — same class of gap already deferred under Story 6.1.
+- `TeamMembersService.list()`/`WorkRecordsService.list()` have no pagination — systemic, already logged repeatedly.
