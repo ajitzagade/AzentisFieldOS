@@ -7,6 +7,7 @@ import { DsrModule } from './dsr/dsr.module';
 import { StorageModule } from './storage/storage.module';
 import { MaterialsModule } from './materials/materials.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { TeamModule } from './team/team.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { InventoryModule } from './inventory/inventory.module';
     StorageModule,
     MaterialsModule,
     InventoryModule,
+    TeamModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -59,8 +59,18 @@ describeIfDb('DsrService (integration)', () => {
     });
     materialSizeId = materialSize.id;
 
+    // "Daily Wage" is seed data (infra/prisma/seed.ts), not a per-test
+    // fixture — looked up, never created or deleted here.
+    const employmentType = await prisma.employmentType.upsert({
+      where: { name: 'Daily Wage' },
+      update: {},
+      create: { name: 'Daily Wage' },
+    });
     const teamMember = await prisma.teamMember.create({
-      data: { name: 'Test Crew Member', employmentType: 'DAILY_WAGE' },
+      data: {
+        name: 'Test Crew Member',
+        employmentTypeId: employmentType.id,
+      },
     });
     teamMemberId = teamMember.id;
 

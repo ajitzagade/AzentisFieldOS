@@ -8,6 +8,7 @@ import type { CreateDsrInput } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPlaceholderUserId } from '../common/get-placeholder-user-id';
+import { lockOnKey } from '../common/advisory-lock';
 import { StorageService } from '../storage/storage.service';
 
 // FR-28: one DSR per Site per date, with all its nested sub-records
@@ -36,28 +37,17 @@ export class DsrService {
     private readonly storage: StorageService,
   ) {}
 
-  // Serializes concurrent transactions that touch the same logical key by
-  // blocking until any earlier transaction holding it commits or rolls
-  // back (an xact-scoped advisory lock releases automatically then) — the
-  // standard Postgres pattern for closing a check-then-act race without a
-  // DB constraint. Every call site acquires locks in the same relative
-  // order (site+date lock, if any, before per-crew-member locks; crew
-  // member locks always in teamMemberId-sorted order) so two transactions
-  // can never deadlock waiting on each other.
-  private async lockOnKey(tx: Prisma.TransactionClient, key: string) {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
-  }
-
+  // Every call site acquires locks in the same relative order (site+date
+  // lock, if any, before per-crew-member locks; crew member locks always
+  // in teamMemberId-sorted order) so two transactions can never deadlock
+  // waiting on each other.
   private async assertNoDoubleBooking(
     tx: Prisma.TransactionClient,
     teamMemberId: string,
     workDate: Date,
     siteId: string,
   ) {
-    await this.lockOnKey(
-      tx,
-      `workrecord:${teamMemberId}:${workDate.toISOString()}`,
-    );
+    await lockOnKey(tx, `workrecord:${teamMemberId}:${workDate.toISOString()}`);
     const existing = await tx.workRecord.findFirst({
       where: { teamMemberId, workDate },
     });
@@ -94,7 +84,7 @@ export class DsrService {
         // both pass the findFirst below and both insert a new "original"
         // row, violating AD-8's "a retried sync can never create a
         // duplicate" guarantee.
-        await this.lockOnKey(tx, `dsr:${input.siteId}:${input.reportDate}`);
+        await lockOnKey(tx, `dsr:${input.siteId}:${input.reportDate}`);
 
         const existingOriginal = await tx.dailySiteReport.findFirst({
           where: { siteId: input.siteId, reportDate, correctsId: null },

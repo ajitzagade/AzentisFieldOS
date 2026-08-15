@@ -9,5 +9,8 @@ export * from "./schemas/purchase";
 export * from "./schemas/movement";
 export * from "./schemas/consumption";
 export * from "./schemas/return-wastage";
+export * from "./schemas/employment-type";
+export * from "./schemas/team-member";
+export * from "./schemas/work-record";
 export * from "./types/activity-feed";
 export * from "./types/photo-gallery";

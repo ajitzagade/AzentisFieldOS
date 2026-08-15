@@ -335,19 +335,30 @@ model VehicleServiceLog {
 
 // ---------- Labour (FR-19..FR-25) ----------
 
-enum EmploymentType {
-  MONTHLY
-  WEEKLY
-  DAILY_WAGE
+// FR-19, NFR-4: admin-configurable data, not a hardcoded enum — same
+// minimal create+list-now, full admin lifecycle later (Epic 14) split
+// Epic 4 Story 4.1 used for Unit.
+model EmploymentType {
+  id       String @id @default(uuid(7))
+  name     String @unique
+  isActive Boolean @default(true)
+
+  teamMembers TeamMember[]
 }
 
 model TeamMember {
-  id             String         @id @default(uuid(7))
-  name           String
-  designation    String?
-  contact        String?
-  employmentType EmploymentType
-  isActive       Boolean        @default(true)
+  id               String         @id @default(uuid(7))
+  name             String
+  designation      String?
+  contact          String?
+  employmentTypeId String
+  employmentType   EmploymentType @relation(fields: [employmentTypeId], references: [id])
+  isActive         Boolean        @default(true)
+
+  // AD-9's materialized, write-path-only balance (Story 7.1) — same class
+  // of column as GodownStock/SiteStock.quantity, never a value summed from
+  // Advance/AdvanceAdjustment rows on every read.
+  outstandingAdvanceBalance Decimal @default(0)
 
   workRecords WorkRecord[]
   advances    Advance[]
@@ -383,36 +394,49 @@ model WorkRecord {
   @@index([teamMemberId, workDate])
 }
 
-// Append-only (AD-9).
+// Append-only (AD-9). `reason` is the business reason the Advance was
+// given (e.g. "medical emergency") — a different question from why a
+// correcting entry exists, so the correction pair below is a distinct,
+// separately-named field (Story 7.1), same disambiguation DailySiteReport
+// needed for its own pre-existing `notes` field.
 model Advance {
-  id           String   @id @default(uuid(7))
-  teamMemberId String
-  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id])
-  amount       Decimal
-  reason       String?
-  paymentMethod String?
-  givenAt       DateTime
-  createdAt     DateTime @default(now())
+  id                String   @id @default(uuid(7))
+  teamMemberId      String
+  teamMember        TeamMember @relation(fields: [teamMemberId], references: [id])
+  amount            Decimal
+  reason            String?
+  paymentMethod     String?
+  givenAt           DateTime
+  createdAt         DateTime @default(now())
+  correctsId        String?
+  correctionReason  String? // required when correctsId is set
 
   adjustments AdvanceAdjustment[]
 }
 
 // Append-only (AD-9). FR-23: amount must never exceed the Advance's
 // current outstanding balance — enforced in the service layer at the same
-// transaction boundary that writes this row, not just at the UI.
+// transaction boundary that writes this row, not just at the UI. `note` is
+// the free-form business note for the adjustment itself — same
+// disambiguation as Advance.reason vs. correctionReason above.
 model AdvanceAdjustment {
-  id         String   @id @default(uuid(7))
-  advanceId  String
-  advance    Advance  @relation(fields: [advanceId], references: [id])
-  paymentId  String?
-  payment    Payment? @relation(fields: [paymentId], references: [id])
-  amount     Decimal
-  note       String?
-  adjustedAt DateTime
-  createdAt  DateTime @default(now())
+  id                String   @id @default(uuid(7))
+  advanceId         String
+  advance           Advance  @relation(fields: [advanceId], references: [id])
+  paymentId         String?
+  payment           Payment? @relation(fields: [paymentId], references: [id])
+  amount            Decimal
+  note              String?
+  adjustedAt        DateTime
+  createdAt         DateTime @default(now())
+  correctsId        String?
+  correctionReason  String? // required when correctsId is set
 }
 
-// Append-only (AD-9).
+// Append-only (AD-9). No pre-existing reason/note field to collide with,
+// so this uses the plain correctsId/reason pair (Purchase/Movement/
+// Consumption's convention), not the disambiguated correctionReason name
+// Advance/AdvanceAdjustment need above.
 model Payment {
   id                String   @id @default(uuid(7))
   teamMemberId      String
@@ -424,6 +448,8 @@ model Payment {
   status            String // pending | paid
   paidAt            DateTime?
   createdAt         DateTime @default(now())
+  correctsId        String?
+  reason            String? // required when correctsId is set
 
   advanceAdjustments AdvanceAdjustment[]
 }
