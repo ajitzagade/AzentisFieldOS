@@ -4,7 +4,7 @@ baseline_commit: cf5dd4dc709029a08e7c4febf34f2421f394871f
 
 # Story 5.7: Stock Lifecycle Visibility & Low-Stock Flagging
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -81,6 +81,25 @@ Claude Sonnet 5 (claude-sonnet-5)
 - `/movements/site-to-site` has no combined "all Sites" stock endpoint (Task 2 scopes `GET /stock/site/:siteId` to one Site at a time, matching its literal endpoint list) — the Inventory page fetches `GET /sites` then calls `GET /stock/site/:siteId` per Site in parallel and flattens, reusing only the specified endpoints rather than inventing a broader one.
 - The two ₹ value stat tiles (Godown/Site Stock Value) render a `—` placeholder with an explanatory label, per Dev Notes' explicit instruction not to invent a stock-valuation formula — matching `apps/web/app/(app)/sites/page.tsx`'s existing honest-placeholder precedent.
 - Final state: `apps/api` 213 tests / 28 files passing, `apps/web` 203 tests / 54 files passing. Both packages typecheck, lint, and build clean. This completes Epic 5 (all 7 stories).
+
+### Review Findings
+
+- [x] [Review][Patch] The Godown Stock table rendered a bare `<Badge variant="warning">Low</Badge>` on rows for a low-stock Material, in addition to the GapFlag in the Alerts section — AC #2 is explicit that the low-stock signal is a GapFlag "never a bare warning badge." [apps/web/app/(app)/inventory/page.tsx:103] — fixed: removed the badge and its `isLow`/name-matching derivation entirely; the GapFlag Alerts section is now the sole low-stock indicator, matching AC #2 literally. This also eliminates a latent bug the badge's removal makes moot: the `isLow` match was joined on `materialSize.material.name` (display-name equality) rather than a stable id, which two identically-named Materials could have defeated.
+- [x] [Review][Patch] A test title read "rejects a non-negative quantity" while its assertions actually test rejection of non-positive (`0` and `-5`) values — pure wording/naming correctness, zero behavioral impact [apps/api/src/inventory/purchases.controller.spec.ts:130] — fixed.
+- [x] [Review][Dismiss] "Migration is missing `ALTER TABLE "ReturnWastage"` statements for `correctsId`/`reason`, schema/migration history out of sync" — false: verified `infra/prisma/migrations/20260813120000_add_return_wastage_correction_fields/migration.sql` (Story 5.6's own migration) already adds those columns. Diff-scoping artifact of Epic 5 being one squashed commit — `schema.prisma` is a shared file, so this story's own scoped diff (against the pre-epic baseline) shows both fields even though this story's own migration only touches `Material.lowStockThreshold`. This story's own Dev Notes explicitly state "(2) None — ReturnWastage's correctsId/reason gap was already caught and fixed in Story 5.6."
+- [x] [Review][Dismiss] `PurchasesService.countThisMonth()` uses server-local timezone — duplicate of the same finding already deferred under Story 5.1's review
+- [x] [Review][Dismiss] Purchase corrections have no floor check against driving stock negative — duplicate of the already-dismissed finding from Story 5.1: this is Dev Notes' deliberate, documented design decision ("Stock-safety does not apply to this story... Purchases only ever increase a balance... no floor check here")
+- [x] [Review][Dismiss] `getAllSiteStock` issues one HTTP call per Site (N+1) — explicitly disclosed as a deliberate scope decision in both a code comment and this story's own Completion Notes ("Task 2 scopes `GET /stock/site/:siteId` to one Site at a time... reusing only the specified endpoints rather than inventing a broader one"), not an oversight
+- [x] [Review][Dismiss] StatTile labels literally read "(not yet available)" — matches the established, deliberate honest-placeholder convention this story's own Dev Notes cite (`apps/web/app/(app)/sites/page.tsx`'s precedent), already used identically on the Team page
+- [x] [Review][Dismiss] Reconciliation test conditionally skipped via `describeIfDb` without `DATABASE_URL` — established pattern used identically across every integration spec in `apps/api` (dsr, sites, consumption, movements, purchases, return-wastage), not unique to or introduced by this story
+- [x] [Review][Defer] No pagination on `GET /purchases`/the merged Movements page — systemic, already logged under Story 5.1
+- [x] [Review][Defer] Fetch failures on the Inventory page bypass AD-6's shared error-state policy (raw `Error()`, no shared loading/error state) — systemic, already logged under Story 5.2
+- [x] [Review][Defer] `EditMaterialForm`'s `lowStockThreshold` `TextField` has `min={0}` while the server requires strictly positive — minor client/server validation-boundary mismatch; harmless since the server still rejects `0` with a clear error, just after a round trip
+- [x] [Review][Defer] `materials/page.tsx` includes `lowStockThreshold` in its list type but doesn't render it anywhere on the Materials list — enhancement, not required by any AC
+- [x] [Review][Defer] Godown vs Site Stock tables present Material/Size inconsistently (split columns vs one concatenated column) — cosmetic layout inconsistency between the two side-by-side tables
+- [x] [Review][Defer] The GapFlag's "Transfer Stock" action always links to the generic `/movements/godown-to-site/new` with no pre-selected Material/quantity — real UX gap, but Task 3 only specifies linking to that route literally, no deep-linking requirement
+- [x] [Review][Defer] `getLowStockMaterials()`'s Decimal→`Number` conversion when summing a Material's balance across Sizes risks float precision loss at extreme magnitudes — theoretical, not a realistic risk for construction-material quantities
+- [x] [Review][Defer] No `aria-label` on stat-tile em-dash placeholders or (now-removed) Low badge — matches the same established, pre-existing pattern used identically on Team/Sites pages, not introduced here
 
 ### File List
 

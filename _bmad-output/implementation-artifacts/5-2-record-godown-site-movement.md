@@ -4,7 +4,7 @@ baseline_commit: cf5dd4dc709029a08e7c4febf34f2421f394871f
 
 # Story 5.2: Record Godown→Site Movement
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -98,6 +98,24 @@ Claude Sonnet 5 (claude-sonnet-5)
 - Extended `/movements` (Story 5.1) to merge Purchase and Movement rows into one list sorted by date, per Task 3 — badge `gold` "Movement" vs `success` "Purchase", a `Godown → destination Site` flow using `ChevronRightIcon` (matching `07-movements.html`'s row exactly), a `Pending receipt` neutral badge with a `Confirm Receipt` link when `receivedQuantity` is `null`, and the sent/received mismatch rendered in `warning-700` with no separate "damage" column.
 - `apps/web/app/(app)/movements/[id]/confirm-receipt/page.tsx` calls `notFound()` for both a missing Movement id and one whose `receivedQuantity` is already set — there's no route for re-confirming, matching `confirmReceipt`'s server-side guard.
 - Final state: `apps/api` 159 tests / 19 files passing, `apps/web` 159 tests / 43 files passing. Both packages typecheck, lint, and build clean.
+
+### Review Findings
+
+- [x] [Review][Patch] `correctsId` schema field is `z.string().min(1)` instead of `z.uuid()`, inconsistent with every other id field in the schema [packages/shared/src/schemas/movement.ts:17] — fixed.
+- [x] [Review][Patch] Empty-state message on `/movements` still reads "No Purchases, movements, or consumption recorded yet." — omits Return/Wastage even though the aggregated feed now includes those rows [apps/web/app/(app)/movements/page.tsx:276] — fixed.
+- [x] [Review][Defer] No `sourceSiteId !== destinationSiteId` check for SITE_TO_SITE Movements — a self-transfer would pass validation; real gap, but SITE_TO_SITE is Story 5.4's own scope (this story "only exercises GODOWN_TO_SITE"). Deferred, to be addressed explicitly under Story 5.4's review.
+- [x] [Review][Defer] `confirmReceipt` semantics for a correction Movement (negative `sentQuantity`) are unaddressed — genuine product-design ambiguity not specified anywhere in Dev Notes; narrow edge case since Movement corrections are rare. Deferred pending product input rather than guessed at.
+- [x] [Review][Defer] No RBAC/role guard on any Movements endpoint — deferred, matches the already-tracked epic-wide "no per-request auth yet" TODO in AGENTS.md
+- [x] [Review][Defer] Movements pages throw a plain `Error()` on fetch failure instead of rendering the shared error state, and have no `loading.tsx` — deferred, established pattern across the whole codebase, not new to this diff
+- [x] [Review][Defer] A Site-to-Site Movement's `correctHref` points at the `/movements/godown-to-site/:id/correct` URL — functionally correct (the page branches on `movement.kind`), but the URL segment is misleading; a proper fix needs a dedicated `/movements/site-to-site/:id/correct` route, a larger change than a one-line patch
+- [x] [Review][Defer] `getSites`/`getMaterials` fetch helpers duplicated verbatim across several pages — deferred, systemic pattern across the whole codebase
+- [x] [Review][Defer] No upper-bound sanity check on `receivedQuantity` relative to `sentQuantity` in `confirmMovementReceiptSchema` — deferred, enhancement not specified by any AC
+- [x] [Review][Defer] Quantity `TextField`s have no `min="0"` HTML attribute — deferred, cosmetic only, server already validates
+- [x] [Review][Defer] `movedAt` uses `z.iso.date()` instead of Task 1's literal `z.coerce.date()` — deferred, matches the same deliberate epic-wide date-only convention Story 5.1 established (native `<input type="date">`), just not called out in this story's own Completion Notes the way 5.1 did
+- [x] [Review][Dismiss] "`decrementStockWithFloorCheck` not part of this diff" / "diff contains Story 5.4/5.5 work" — diff-scoping artifact of Epic 5 being one squashed commit; `movements.service.ts` is a shared file later extended by Stories 5.4/5.5, so this diff's cumulative state isn't evidence of scope creep by 5.2's own implementation
+- [x] [Review][Dismiss] "Path params not validated, malformed id causes 500" — false positive: `Movement.id` is a plain Prisma `String` (no `@db.Uuid`), so a malformed id just misses the lookup and returns a clean 404, same as Purchase (Story 5.1)
+- [x] [Review][Dismiss] "Empty header on actions column" — established pattern used identically across every list table in this codebase (Materials, Sites, Team Members), not introduced by this diff
+- [x] [Review][Dismiss] "`receivedQuantity` missing from `createMovementSchema`" — not a bug: Task 2 explicitly specifies "POST /movements (create, `receivedQuantity` omitted)"; the two-step create-then-confirm design deliberately excludes it from the create schema, and `confirmMovementReceiptSchema` handles it separately
 
 ### File List
 

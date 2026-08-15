@@ -22,6 +22,20 @@ export class PurchasesService {
           `Purchase ${input.correctsId} does not exist`,
         );
       }
+      // The correction form locks/hides these fields client-side, but
+      // that's a UI convenience, not enforcement — a correction must stay
+      // tied to the same Material Size/destination/Site as the Purchase
+      // it corrects, or its quantity delta would apply to the wrong
+      // GodownStock/SiteStock row.
+      if (
+        original.materialSizeId !== input.materialSizeId ||
+        original.destination !== input.destination ||
+        original.siteId !== (input.siteId ?? null)
+      ) {
+        throw new BadRequestException(
+          "A correction's Material Size, destination, and Site must match the Purchase it corrects",
+        );
+      }
     }
 
     try {

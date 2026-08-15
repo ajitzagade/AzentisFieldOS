@@ -19,7 +19,7 @@ export const createPurchaseSchema = z
     receiverName: z.string().min(1).optional(),
     notes: z.string().min(1).optional(),
     purchasedAt: z.iso.date(),
-    correctsId: z.string().min(1).optional(),
+    correctsId: z.uuid().optional(),
     reason: z.string().min(1).optional(),
   })
   .superRefine((data, ctx) => {

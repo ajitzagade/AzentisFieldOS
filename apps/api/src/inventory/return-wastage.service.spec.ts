@@ -82,6 +82,43 @@ describe('ReturnWastageService.create', () => {
       service.create({ ...wastageInput, correctsId: 'missing', reason: 'x' }),
     ).rejects.toThrow(BadRequestException);
   });
+
+  it("rejects a correction whose kind/siteId/materialSizeId don't match the original entry — it would apply the delta to the wrong balance", async () => {
+    const returnWastageFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      kind: 'RETURN',
+      siteId: 'site1',
+      materialSizeId: 'ms1',
+    });
+    const { service } = makeService({ returnWastageFindUnique });
+
+    await expect(
+      service.create({ ...wastageInput, correctsId: 'orig', reason: 'x' }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('proceeds when correctsId references an existing entry with a matching kind/siteId/materialSizeId', async () => {
+    const returnWastageFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      kind: 'WASTAGE',
+      siteId: 'site1',
+      materialSizeId: 'ms1',
+    });
+    const { service, siteStockUpdateMany } = makeService({
+      returnWastageFindUnique,
+    });
+
+    await service.create({
+      ...wastageInput,
+      quantity: -2,
+      correctsId: 'orig',
+      reason: 'Recount',
+    });
+
+    expect(siteStockUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { quantity: { decrement: -2 } } }),
+    );
+  });
 });
 
 describe('ReturnWastageService.findOne', () => {

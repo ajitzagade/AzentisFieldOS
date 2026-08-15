@@ -31,18 +31,31 @@ export async function createConsumptionAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/consumption`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(parsed.data),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${process.env.API_URL}/consumption`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed.data),
+    });
+  } catch {
+    return { formError: "Something went wrong recording the Consumption. Please try again." };
+  }
 
   if (res.status === 400) {
-    const body = (await res.json()) as { error?: { details?: { fieldErrors?: Record<string, string[]> }; message?: string } };
-    if (body.error?.details?.fieldErrors) {
+    // Two distinct 400 shapes reach here: ZodValidationPipe's own body
+    // (`{ error: { details: { fieldErrors } } }`) for schema failures, and
+    // Nest's default body for a plain `BadRequestException('<string>')`
+    // (`{ statusCode, message, error: 'Bad Request' }`, where `error` is a
+    // string) for translateWriteError's FK-violation message — read
+    // `body.message` for the latter, not `body.error.message`.
+    const body = (await res.json().catch(() => undefined)) as
+      | { error?: { details?: { fieldErrors?: Record<string, string[]> } }; message?: string }
+      | undefined;
+    if (body?.error?.details?.fieldErrors) {
       return { errors: body.error.details.fieldErrors };
     }
-    return { formError: body.error?.message ?? "This Consumption references a Site, Material Size, or User that does not exist." };
+    return { formError: body?.message ?? "This Consumption references a Site, Material Size, or User that does not exist." };
   }
 
   if (!res.ok) {

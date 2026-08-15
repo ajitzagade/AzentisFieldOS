@@ -46,24 +46,19 @@ function todayDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function PurchaseForm({
-  mode,
-  correctsId,
-  materialSizes,
-  sites,
-  initial,
-  fixedDestination,
-}: {
-  mode: "new" | "correct";
-  correctsId?: string;
+type PurchaseFormProps = {
   materialSizes: MaterialSizeOption[];
   sites: SiteOption[];
-  initial?: PurchaseFormInitialValues;
   /** Story 5.3: the vendor-to-site entry point pre-sets destination to
    * SITE and skips the toggle entirely — a UX convenience, not a
    * different data path (Purchase.destination = SITE either way). */
   fixedDestination?: "SITE";
-}) {
+} & (
+  | { mode: "new"; correctsId?: undefined; initial?: PurchaseFormInitialValues }
+  | { mode: "correct"; correctsId: string; initial: PurchaseFormInitialValues }
+);
+
+export function PurchaseForm({ mode, correctsId, materialSizes, sites, initial, fixedDestination }: PurchaseFormProps) {
   const [state, formAction] = useActionState(createPurchaseAction, initialState);
   const [destination, setDestination] = useState<"GODOWN" | "SITE">(fixedDestination ?? initial?.destination ?? "GODOWN");
 

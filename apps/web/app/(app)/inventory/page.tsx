@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   AlertTriangleIcon,
-  Badge,
   BoxIcon,
   DataTable,
   GapFlag,
@@ -87,23 +86,19 @@ async function getPurchasesThisMonthCount(): Promise<number> {
   return res.json();
 }
 
-const godownColumns: DataTableColumn<GodownStockRow & { isLow: boolean }>[] = [
+// AC #2 is explicit: a low-stock signal is always a GapFlag naming the
+// Material/threshold with a "Transfer Stock" action (the Alerts section
+// below) — "never a bare warning badge." This table intentionally carries
+// no low-stock indicator of its own, so there is exactly one place in the
+// UI a low balance is ever signaled.
+const godownColumns: DataTableColumn<GodownStockRow>[] = [
   { header: "Material", cell: (r) => r.materialSize.material.name },
   {
     header: "Size / Spec",
     cell: (r) => (r.materialSize.label ? r.materialSize.label : <span className="text-ink-500">—</span>),
   },
   { header: "Unit", cell: (r) => r.materialSize.material.unit.name },
-  {
-    header: "Qty on Hand",
-    align: "right",
-    cell: (r) => (
-      <span className="inline-flex items-center gap-1.5">
-        {r.quantity}
-        {r.isLow ? <Badge variant="warning">Low</Badge> : null}
-      </span>
-    ),
-  },
+  { header: "Qty on Hand", align: "right", cell: (r) => r.quantity },
 ];
 
 const siteColumns: DataTableColumn<SiteStockRow>[] = [
@@ -120,12 +115,6 @@ export default async function InventoryPage() {
     getLowStockMaterials(),
     getPurchasesThisMonthCount(),
   ]);
-
-  const lowMaterialNames = new Set(lowStockMaterials.map((m) => m.name));
-  const godownRows = godownStock.map((row) => ({
-    ...row,
-    isLow: lowMaterialNames.has(row.materialSize.material.name),
-  }));
 
   return (
     <>
@@ -181,9 +170,9 @@ export default async function InventoryPage() {
           columns={godownColumns}
           rowKey={(r) => r.materialSizeId}
           state={
-            godownRows.length === 0
+            godownStock.length === 0
               ? { status: "empty", icon: <BoxIcon />, message: "No Godown Stock recorded yet." }
-              : { status: "success", rows: godownRows }
+              : { status: "success", rows: godownStock }
           }
         />
         <DataTable

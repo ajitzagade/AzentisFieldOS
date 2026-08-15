@@ -4,7 +4,7 @@ baseline_commit: cf5dd4dc709029a08e7c4febf34f2421f394871f
 
 # Story 5.6: Record Wastage/Return
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -82,6 +82,19 @@ Claude Sonnet 5 (claude-sonnet-5)
 - The integration suite includes an explicit "Task 1" test (`return-wastage.service.integration.spec.ts`) asserting `correctsId`/`reason` round-trip through a real Prisma write and read — per Task 5's warning that this is the piece most likely to be silently skipped.
 - Frontend: `ReturnWastageForm` has a `kind` Type toggle (Wastage/Return, defaulting to Wastage) rather than two separate forms, matching this story's single-schema, single-service design; the `/movements` list's Return/Wastage rows use `badge-danger` "Wastage & Return" with Sent Qty and Received Qty both showing the one recorded quantity (no sent/received-gap concept for this transaction type, per Task 4).
 - Final state: `apps/api` 200 tests / 25 files passing, `apps/web` 192 tests / 53 files passing. Both packages typecheck, lint, and build clean.
+
+### Review Findings
+
+- [x] [Review][Patch] `ReturnWastageService.create` never verified a correction's `kind`/`siteId`/`materialSizeId` match the entry being corrected — same class of gap already patched for Purchase (5.1), Movement (5.4), Consumption (5.5) [apps/api/src/inventory/return-wastage.service.ts:19] — fixed: `create()` now rejects a mismatched correction.
+- [x] [Review][Patch] `createReturnWastageAction`'s 400-fallback read `body.error?.message`, but Nest's default `BadRequestException` body has no `error` object — same bug already fixed for Purchase/Consumption [apps/web/app/(app)/movements/return-wastage/actions.ts:40] — fixed: now reads `body.message`, wraps `fetch()` in try/catch, guards `res.json()` with `.catch()`; test coverage added.
+- [x] [Review][Patch] `correctsId` schema field was `z.string().min(1)` instead of `z.uuid()`, inconsistent with every other id field — same pattern already fixed for Purchase/Movement/Consumption [packages/shared/src/schemas/return-wastage.ts:17] — fixed.
+- [x] [Review][Dismiss] "Movements page empty-state copy wasn't updated to include Wastage/Return" — already fixed live under Story 5.2's review, before either reviewing agent captured its diff snapshot for this story; verified current source already reads "No Purchases, movements, consumption, or wastage/return recorded yet."
+- [x] [Review][Dismiss] "`Material.lowStockThreshold` bundled into this story's schema diff with no matching migration, schema/migration history out of sync" — false: verified `infra/prisma/migrations/20260813130000_add_material_low_stock_threshold/migration.sql` exists and correctly adds the column — it's Story 5.7's own separate, later migration. Diff-scoping artifact of Epic 5 being one squashed commit: `schema.prisma` is a shared file, so this story's own scoped diff (against the pre-epic baseline) shows the field even though this story's own migration file only touches `ReturnWastage`.
+- [x] [Review][Dismiss] `Material` model's column-alignment convention broken by `lowStockThreshold` — not this story's field or diff; belongs to Story 5.7.
+- [x] [Review][Defer] No filtering/tabs UI on the combined Movements page (`07-movements.html`'s "All / Purchases / Movements / Consumption / Wastage & Returns" chip row) — real gap, but a page-wide feature spanning all four transaction types, not scoped to any single story
+- [x] [Review][Defer] `CorrectAction` renders a plain `<a href>` instead of `next/link`'s `<Link>`, causing full page reloads — pre-existing since Story 5.1's shared component, not introduced here
+- [x] [Review][Defer] No pagination/date-range scoping on the four merged `findMany()` calls — systemic, already logged under Story 5.1
+- [x] [Review][Defer] Corrections aren't visually distinguishable in the combined table (no badge/reference back to the original row) — applies uniformly across all four row types, already logged as a table-wide gap under Story 5.5
 
 ### File List
 

@@ -12,7 +12,7 @@ export const createConsumptionSchema = z
     notes: z.string().min(1).optional(),
     consumedAt: z.iso.date(),
     recordedByUserId: z.uuid(),
-    correctsId: z.string().min(1).optional(),
+    correctsId: z.uuid().optional(),
     reason: z.string().min(1).optional(),
   })
   .superRefine((data, ctx) => {

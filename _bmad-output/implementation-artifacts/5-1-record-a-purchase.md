@@ -4,7 +4,7 @@ baseline_commit: cf5dd4dc709029a08e7c4febf34f2421f394871f
 
 # Story 5.1: Record a Purchase
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -92,6 +92,21 @@ Claude Sonnet 5 (claude-sonnet-5)
 - A correcting row's `quantity` is a signed delta (Dev Notes), so the correction form intentionally leaves Quantity blank rather than pre-filling the original's value — pre-filling would read as "the corrected total," which is the opposite of what the field means. `vendorId`/`materialSizeId`/`destination`/`siteId` are locked (disabled, matching the DSR correction-form precedent) since a correction must stay tied to the same underlying transaction; other fields (rate, totalAmount, payment/logistics fields) are editable, pre-filled as sensible defaults from the original.
 - Server Actions (`useActionState`) can't submit `disabled` fields — the browser omits disabled controls from `FormData` entirely. The correction form pairs each locked, visibly-disabled field with a same-named `<input type="hidden">` carrying the actual value, so the locked fields still reach the server despite being non-interactive.
 - Final state: `apps/api` 135 tests / 16 files passing (`pnpm --filter @azentisfieldos/api test`, requires `DATABASE_URL` exported — Turbo doesn't pass it through, per AGENTS.md's documented workaround), `apps/web` 137 tests / 37 files passing. Both packages typecheck, lint, and build clean (`next build`, `nest build`).
+
+### Review Findings
+
+- [x] [Review][Patch] Correction doesn't verify the original Purchase's materialSizeId/destination/siteId match the submitted correction — server-side gap, only prevented client-side by locked form fields [apps/api/src/inventory/purchases.service.ts:15] — fixed: `create()` now rejects a correction whose materialSizeId/destination/siteId diverge from the original Purchase's.
+- [x] [Review][Patch] `createPurchaseAction`'s 400-fallback reads `body.error?.message`, but Nest's default BadRequestException body has no `error` object (`error` is the string `"Bad Request"`) — the real backend message is never actually surfaced, and the existing test mocks a shape that doesn't match reality, masking this [apps/web/app/(app)/movements/purchases/actions.ts:49] — fixed: now reads `body.message` (Nest's real field), and the test mocks the real `{ statusCode, message, error: 'Bad Request' }` shape.
+- [x] [Review][Patch] `correctsId` schema field is `z.string().min(1)` instead of `z.uuid()`, inconsistent with every other id field in the schema [packages/shared/src/schemas/purchase.ts:20] — fixed.
+- [x] [Review][Dismiss] `GET /purchases/:id` "500 on malformed id" — false positive: `Purchase.id` is a plain Prisma `String` (no `@db.Uuid`), so a malformed id simply misses the `findUnique` lookup and returns `null`, which the existing code already converts to a clean 404 via `NotFoundException`. No Postgres-level type-cast error is possible here. [apps/api/src/inventory/purchases.controller.ts:29]
+- [x] [Review][Patch] `createPurchaseAction` doesn't wrap `fetch()` in try/catch — a network failure throws an unhandled rejection instead of returning `formError` [apps/web/app/(app)/movements/purchases/actions.ts:42] — fixed.
+- [x] [Review][Patch] `createPurchaseAction`'s 400-handling calls `res.json()` without a `.catch()` — a non-JSON 400 body throws unhandled [apps/web/app/(app)/movements/purchases/actions.ts:49] — fixed.
+- [x] [Review][Patch] `PurchaseForm`'s prop types don't enforce `correctsId`/`initial` as required together when `mode="correct"` [apps/web/app/(app)/movements/purchases/purchase-form.tsx:47] — fixed: converted to a discriminated union on `mode`.
+- [x] [Review][Defer] `countThisMonth` uses server-local timezone instead of explicit IST — edge-case precision on a stat tile, not central to any AC [apps/api/src/inventory/purchases.service.ts:79] — deferred, pre-existing pattern across the codebase's stat-tile queries
+- [x] [Review][Defer] No cross-field validation that totalAmount ≈ quantity × rate — enhancement, not specified by any AC — deferred, not a regression
+- [x] [Review][Defer] No `createdByUserId` attribution on Purchase — deferred, matches the already-tracked epic-wide "no per-request auth yet" TODO in AGENTS.md
+- [x] [Review][Defer] `PurchasesService.list()` has no pagination — deferred, systemic pattern across the whole codebase, not new to this diff
+- [x] [Review][Defer] Archived Material/Site in a correction form renders the locked dropdown as visually unselected — deferred, cosmetic only; the hidden input still carries the correct id through
 
 ### File List
 

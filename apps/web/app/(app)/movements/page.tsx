@@ -273,7 +273,7 @@ export default async function MovementsPage() {
             ? {
                 status: "empty",
                 icon: <ArrowsIcon />,
-                message: "No Purchases, movements, or consumption recorded yet.",
+                message: "No Purchases, movements, consumption, or wastage/return recorded yet.",
                 action: (
                   <Link href="/movements/purchases/new" className={cn(buttonVariants({ variant: "primary" }))}>
                     <PlusIcon className="size-4" />

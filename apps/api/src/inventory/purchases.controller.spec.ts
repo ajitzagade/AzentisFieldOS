@@ -127,7 +127,7 @@ describe('ZodValidationPipe(createPurchaseSchema)', () => {
     ).not.toThrow();
   });
 
-  it('rejects a non-negative quantity with no correctsId', () => {
+  it('rejects a non-positive quantity with no correctsId', () => {
     expect(() =>
       pipe.transform({ ...base, destination: 'GODOWN', quantity: 0 }),
     ).toThrow(BadRequestException);

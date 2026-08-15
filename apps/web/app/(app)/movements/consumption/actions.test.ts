@@ -63,11 +63,19 @@ describe("createConsumptionAction", () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
 
     await expect(
-      createConsumptionAction({}, formData({ ...validFields, quantity: "-4", correctsId: "c1", reason: "Recount" })),
+      createConsumptionAction(
+        {},
+        formData({
+          ...validFields,
+          quantity: "-4",
+          correctsId: "44444444-4444-4444-8444-444444444444",
+          reason: "Recount",
+        }),
+      ),
     ).rejects.toThrow("NEXT_REDIRECT");
 
     const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]![1].body);
-    expect(body.correctsId).toBe("c1");
+    expect(body.correctsId).toBe("44444444-4444-4444-8444-444444444444");
     expect(body.reason).toBe("Recount");
     expect(body.quantity).toBe(-4);
   });
@@ -84,11 +92,49 @@ describe("createConsumptionAction", () => {
     expect(result.errors?.siteId).toEqual(["This Site does not exist"]);
   });
 
+  it("returns a form-level error message when the API returns 400 with no field errors, reading Nest's real BadRequestException(string) body shape", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        statusCode: 400,
+        message: "This Consumption references a Site that does not exist",
+        error: "Bad Request",
+      }),
+    }) as unknown as typeof fetch;
+
+    const result = await createConsumptionAction({}, formData(validFields));
+
+    expect(result.formError).toBe("This Consumption references a Site that does not exist");
+  });
+
   it("returns a generic form error for a non-400 failure", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
 
     const result = await createConsumptionAction({}, formData(validFields));
 
     expect(result.formError).toBe("Something went wrong recording the Consumption. Please try again.");
+  });
+
+  it("returns a generic form error instead of throwing when the fetch itself rejects (network failure)", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error("network down"));
+
+    const result = await createConsumptionAction({}, formData(validFields));
+
+    expect(result.formError).toBe("Something went wrong recording the Consumption. Please try again.");
+  });
+
+  it("returns the generic fallback instead of throwing when a 400 response body isn't valid JSON", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    }) as unknown as typeof fetch;
+
+    const result = await createConsumptionAction({}, formData(validFields));
+
+    expect(result.formError).toBe("This Consumption references a Site, Material Size, or User that does not exist.");
   });
 });

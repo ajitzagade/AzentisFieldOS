@@ -14,7 +14,7 @@ export const createReturnWastageSchema = z
     quantity: z.number(),
     notes: z.string().min(1).optional(),
     recordedAt: z.iso.date(),
-    correctsId: z.string().min(1).optional(),
+    correctsId: z.uuid().optional(),
     reason: z.string().min(1).optional(),
   })
   .superRefine((data, ctx) => {

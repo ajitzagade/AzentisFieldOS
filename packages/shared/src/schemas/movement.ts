@@ -14,7 +14,7 @@ export const createMovementSchema = z
     personResponsible: z.string().min(1).optional(),
     notes: z.string().min(1).optional(),
     movedAt: z.iso.date(),
-    correctsId: z.string().min(1).optional(),
+    correctsId: z.uuid().optional(),
     reason: z.string().min(1).optional(),
   })
   .superRefine((data, ctx) => {
@@ -30,6 +30,17 @@ export const createMovementSchema = z
         code: "custom",
         path: ["sourceSiteId"],
         message: "Source Site is required for a Site-to-Site Movement",
+      });
+    }
+    if (
+      data.kind === "SITE_TO_SITE" &&
+      data.sourceSiteId &&
+      data.sourceSiteId === data.destinationSiteId
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["destinationSiteId"],
+        message: "Source and destination Site must be different",
       });
     }
 

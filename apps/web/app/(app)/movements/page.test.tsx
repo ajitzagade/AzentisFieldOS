@@ -157,7 +157,7 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getByText(/No Purchases, movements, or consumption recorded yet\./)).toBeInTheDocument();
+    expect(screen.getByText(/No Purchases, movements, consumption, or wastage\/return recorded yet\./)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Record your first Purchase/ })).toHaveAttribute("href", "/movements/purchases/new");
   });
 

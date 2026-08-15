@@ -102,8 +102,13 @@ describe('PurchasesService.create', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('proceeds when correctsId references an existing Purchase', async () => {
-    const purchaseFindUnique = vi.fn().mockResolvedValue({ id: 'orig' });
+  it('proceeds when correctsId references an existing Purchase with matching Material Size/destination/Site', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      materialSizeId: 'ms1',
+      destination: 'GODOWN',
+      siteId: null,
+    });
     const { service, godownStockUpsert } = makeService({ purchaseFindUnique });
 
     await service.create({
@@ -116,6 +121,25 @@ describe('PurchasesService.create', () => {
     expect(godownStockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({ update: { quantity: { increment: -20 } } }),
     );
+  });
+
+  it('rejects a correction whose materialSizeId does not match the original Purchase — it would apply the delta to the wrong stock row', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      materialSizeId: 'a-different-material-size',
+      destination: 'GODOWN',
+      siteId: null,
+    });
+    const { service } = makeService({ purchaseFindUnique });
+
+    await expect(
+      service.create({
+        ...godownInput,
+        quantity: -20,
+        correctsId: 'orig',
+        reason: 'Recount',
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('translates a foreign-key violation (P2003) into a clear 400, not a raw 500', async () => {

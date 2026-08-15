@@ -69,6 +69,41 @@ describe('ConsumptionService.create', () => {
       service.create({ ...createInput, correctsId: 'missing', reason: 'x' }),
     ).rejects.toThrow(BadRequestException);
   });
+
+  it("rejects a correction whose siteId/materialSizeId don't match the original Consumption — it would apply the delta to the wrong balance", async () => {
+    const consumptionFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      siteId: 'site1',
+      materialSizeId: 'a-different-material-size',
+    });
+    const { service } = makeService({ consumptionFindUnique });
+
+    await expect(
+      service.create({ ...createInput, correctsId: 'orig', reason: 'x' }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('proceeds when correctsId references an existing Consumption with a matching siteId/materialSizeId', async () => {
+    const consumptionFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      siteId: 'site1',
+      materialSizeId: 'ms1',
+    });
+    const { service, siteStockUpdateMany } = makeService({
+      consumptionFindUnique,
+    });
+
+    await service.create({
+      ...createInput,
+      quantity: -4,
+      correctsId: 'orig',
+      reason: 'Recount',
+    });
+
+    expect(siteStockUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { quantity: { decrement: -4 } } }),
+    );
+  });
 });
 
 describe('ConsumptionService.findOne', () => {

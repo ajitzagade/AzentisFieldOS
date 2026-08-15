@@ -27,7 +27,23 @@ export class MovementsService {
           `Movement ${input.correctsId} does not exist`,
         );
       }
+      // The correction form locks/hides these fields client-side, but
+      // that's a UI convenience, not enforcement — a correction must stay
+      // tied to the same kind/Material Size/Site(s) as the Movement it
+      // corrects, or its quantity delta would apply to the wrong balance.
+      if (
+        original.kind !== input.kind ||
+        original.materialSizeId !== input.materialSizeId ||
+        original.sourceSiteId !== (input.sourceSiteId ?? null) ||
+        original.destinationSiteId !== input.destinationSiteId
+      ) {
+        throw new BadRequestException(
+          "A correction's kind, Material Size, and Site(s) must match the Movement it corrects",
+        );
+      }
     }
+
+    const isGodownToSite = input.kind === 'GODOWN_TO_SITE';
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -41,7 +57,7 @@ export class MovementsService {
         // target.
         await decrementStockWithFloorCheck(
           tx,
-          input.kind === 'GODOWN_TO_SITE'
+          isGodownToSite
             ? { model: 'godownStock', materialSizeId: input.materialSizeId }
             : {
                 model: 'siteStock',
@@ -49,7 +65,7 @@ export class MovementsService {
                 materialSizeId: input.materialSizeId,
               },
           input.sentQuantity,
-          input.kind === 'GODOWN_TO_SITE'
+          isGodownToSite
             ? 'Not enough Godown Stock for this Movement.'
             : "Not enough of the source Site's Stock for this Movement.",
         );

@@ -4,7 +4,7 @@ baseline_commit: cf5dd4dc709029a08e7c4febf34f2421f394871f
 
 # Story 5.4: Record Site→Site Transfer
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -66,6 +66,22 @@ Claude Sonnet 5 (claude-sonnet-5)
 - The correction page (`godown-to-site/[id]/correct/page.tsx`) needed a small but necessary extension beyond the story's literal task list: it now reads `kind`/`sourceSiteId` from the fetched Movement and passes them through to `MovementForm`, so correcting a `SITE_TO_SITE` Movement preserves its kind and pre-fills its Source Site instead of silently defaulting to `GODOWN_TO_SITE`. Without this, `CorrectAction` on a transfer row (routed generically to this same page per Story 5.2's design) would have produced a corrupted correction.
 - Extended `movements.service.spec.ts` (mocked) and `movements.service.integration.spec.ts` (real Postgres, including a 5-concurrent-request oversell check mirroring Story 5.2's Godown floor-check rigor) with `SITE_TO_SITE` cases, per Task 3.
 - Final state: `apps/api` 165 tests / 19 files passing, `apps/web` 166 tests / 45 files passing. Both packages typecheck, lint, and build clean.
+
+### Review Findings
+
+- [x] [Review][Patch] A SITE_TO_SITE Movement with `sourceSiteId === destinationSiteId` (a self-transfer) wasn't rejected anywhere — deferred from Story 5.2's review since this story is where SITE_TO_SITE first becomes exercisable [packages/shared/src/schemas/movement.ts:28] — fixed: `createMovementSchema`'s `superRefine` now rejects a matching source/destination Site.
+- [x] [Review][Patch] `MovementsService.create` never verified a correction's `kind`/`materialSizeId`/`sourceSiteId`/`destinationSiteId` match the original Movement being corrected — same class of gap already patched for Purchase under Story 5.1 [apps/api/src/inventory/movements.service.ts:20] — fixed: `create()` now rejects a mismatched correction.
+- [x] [Review][Patch] `input.kind === 'GODOWN_TO_SITE'` was computed twice (once for the stock target, once for the error message) — minor duplication risk if a third `kind` is ever introduced [apps/api/src/inventory/movements.service.ts:44] — fixed: hoisted to a single `isGodownToSite` local.
+- [x] [Review][Patch] The SITE_TO_SITE concurrency test didn't assert the orphan-row-free rollback the equivalent GODOWN_TO_SITE test already checks, so "rolls back identically" (Task 3) wasn't actually verified for this path [apps/api/src/inventory/movements.service.integration.spec.ts:334] — fixed: added the matching `prisma.movement.findMany(...)` assertion.
+- [x] [Review][Defer] No client-side prevention of picking the same Site for both Source and Destination — the server-side guard (now fixed) is what matters functionally; a friendlier round-trip-free UX check is a nice-to-have
+- [x] [Review][Defer] `input.sourceSiteId!` in `create()` trusts the schema layer without its own guard — matches the established codebase convention of trusting Zod validation before the service layer (e.g. Purchase's `input.siteId!`), not a pattern introduced uniquely here
+- [x] [Review][Defer] Correction routing lives under `/movements/godown-to-site/[id]/correct` for both kinds, and the shared form lives in a folder named after one specific kind — real naming nit, but Dev Notes explicitly call for reuse over duplication; a proper fix is a larger restructure than this "thin" story's scope. Same class as the `correctHref` naming gap already deferred under Story 5.2.
+- [x] [Review][Defer] `getSites`/`getMaterials` data-fetching boilerplate is now triplicated across pages — duplicate of the systemic gap already logged under Story 5.2
+- [x] [Review][Defer] Fetch failures bypass AD-6's shared error-state policy (raw `Error()`, no `error.tsx`) — duplicate of the systemic gap already logged under Story 5.2
+- [x] [Review][Defer] `confirmReceipt` semantics for a correction Movement are unclear — duplicate of the same item already deferred under Story 5.2's review
+- [x] [Review][Defer] No client-side guard against a zero-delta correction on the Quantity adjustment field — cosmetic, server already rejects via Zod
+- [x] [Review][Defer] `MovementFormInitialValues`/`kind`/`mode` have no type-level tie ensuring `sourceSiteId` travels with `kind="SITE_TO_SITE"` — same class of prop-typing tightening already applied to `PurchaseForm` under Story 5.1; deferred here to avoid expanding this "thin" story's scope further
+- [x] [Review][Dismiss] "Floor-check logic was extracted to `stock-delta.ts`, contradicting Task 1's 'parameterize in place' instruction, and that module is absent from the diff/File List" — false: this story's own Completion Notes confirm the floor check *was* parameterized in place exactly as instructed; `stock-delta.ts`'s extraction is Story 5.5's later work (the code comment says so explicitly: "extracted in Story 5.5"). Diff-scoping artifact of Epic 5 being one squashed commit — the shared file's current state reflects 5.5's later refactor, not evidence 5.4 deviated from its own task.
 
 ### File List
 

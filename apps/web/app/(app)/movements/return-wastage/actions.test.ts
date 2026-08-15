@@ -80,11 +80,49 @@ describe("createReturnWastageAction", () => {
     expect(result.errors?.siteId).toEqual(["This Site does not exist"]);
   });
 
+  it("returns a form-level error message when the API returns 400 with no field errors, reading Nest's real BadRequestException(string) body shape", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        statusCode: 400,
+        message: "This Return/Wastage entry references a Site that does not exist",
+        error: "Bad Request",
+      }),
+    }) as unknown as typeof fetch;
+
+    const result = await createReturnWastageAction({}, formData(validFields));
+
+    expect(result.formError).toBe("This Return/Wastage entry references a Site that does not exist");
+  });
+
   it("returns a generic form error for a non-400 failure", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
 
     const result = await createReturnWastageAction({}, formData(validFields));
 
     expect(result.formError).toBe("Something went wrong recording this entry. Please try again.");
+  });
+
+  it("returns a generic form error instead of throwing when the fetch itself rejects (network failure)", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error("network down"));
+
+    const result = await createReturnWastageAction({}, formData(validFields));
+
+    expect(result.formError).toBe("Something went wrong recording this entry. Please try again.");
+  });
+
+  it("returns the generic fallback instead of throwing when a 400 response body isn't valid JSON", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    }) as unknown as typeof fetch;
+
+    const result = await createReturnWastageAction({}, formData(validFields));
+
+    expect(result.formError).toBe("This Return/Wastage entry references a Site or Material Size that does not exist.");
   });
 });

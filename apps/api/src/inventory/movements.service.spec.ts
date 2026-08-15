@@ -102,6 +102,45 @@ describe('MovementsService.create', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it("rejects a correction whose kind/materialSizeId/Site(s) don't match the original Movement — it would apply the delta to the wrong balance", async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId: 'a-different-material-size',
+      sourceSiteId: null,
+      destinationSiteId: 'site1',
+    });
+    const { service } = makeService({ movementFindUnique });
+
+    await expect(
+      service.create({ ...createInput, correctsId: 'orig', reason: 'x' }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('proceeds when correctsId references an existing Movement with a matching kind/materialSizeId/Site(s)', async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId: 'ms1',
+      sourceSiteId: null,
+      destinationSiteId: 'site1',
+    });
+    const { service, godownStockUpdateMany } = makeService({
+      movementFindUnique,
+    });
+
+    await service.create({
+      ...createInput,
+      sentQuantity: -10,
+      correctsId: 'orig',
+      reason: 'Recount',
+    });
+
+    expect(godownStockUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { quantity: { decrement: -10 } } }),
+    );
+  });
+
   it("Story 5.4: a SITE_TO_SITE create applies the floor check to the source Site's SiteStock, never GodownStock", async () => {
     const { service, godownStockUpdateMany, siteStockUpdateMany } = makeService(
       {},

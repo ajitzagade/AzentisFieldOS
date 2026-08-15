@@ -24,6 +24,18 @@ export class ConsumptionService {
           `Consumption ${input.correctsId} does not exist`,
         );
       }
+      // The correction form locks/hides these fields client-side, but
+      // that's a UI convenience, not enforcement — a correction must stay
+      // tied to the same Site/Material Size as the Consumption it
+      // corrects, or its quantity delta would apply to the wrong balance.
+      if (
+        original.siteId !== input.siteId ||
+        original.materialSizeId !== input.materialSizeId
+      ) {
+        throw new BadRequestException(
+          "A correction's Site and Material Size must match the Consumption it corrects",
+        );
+      }
     }
 
     try {

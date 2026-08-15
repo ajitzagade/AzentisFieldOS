@@ -26,6 +26,19 @@ export class ReturnWastageService {
           `Return/Wastage ${input.correctsId} does not exist`,
         );
       }
+      // The correction form locks/hides these fields client-side, but
+      // that's a UI convenience, not enforcement — a correction must stay
+      // tied to the same kind/Site/Material Size as the entry it
+      // corrects, or its quantity delta would apply to the wrong balance.
+      if (
+        original.kind !== input.kind ||
+        original.siteId !== input.siteId ||
+        original.materialSizeId !== input.materialSizeId
+      ) {
+        throw new BadRequestException(
+          "A correction's kind, Site, and Material Size must match the Return/Wastage entry it corrects",
+        );
+      }
     }
 
     try {

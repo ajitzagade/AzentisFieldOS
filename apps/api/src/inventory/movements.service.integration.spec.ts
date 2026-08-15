@@ -332,6 +332,9 @@ describeIfDb('MovementsService (integration)', () => {
       },
     });
     expect(sourceStock?.quantity.toString()).toBe('10');
+    expect(
+      await prisma.movement.findMany({ where: { materialSizeId } }),
+    ).toHaveLength(3);
   });
 
   it("Story 5.4: confirmReceipt on a SITE_TO_SITE Movement increments the destination Site's SiteStock, independent of the source Site's balance", async () => {

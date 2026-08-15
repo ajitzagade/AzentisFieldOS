@@ -89,7 +89,7 @@ describe("InventoryPage", () => {
     expect(screen.getByText("No Materials are currently below their configured threshold.")).toBeInTheDocument();
   });
 
-  it("renders the Godown Stock table with a Low badge for a Material that's also in the low-stock list", async () => {
+  it("never renders a bare warning badge in the Godown Stock table for a low Material — AC #2's low-stock signal is the GapFlag alone", async () => {
     mockFetchRouter({
       godownStock: [
         {
@@ -108,7 +108,7 @@ describe("InventoryPage", () => {
 
     await renderInventoryPage();
 
-    expect(screen.getByText("Low")).toBeInTheDocument();
+    expect(screen.queryByText("Low")).not.toBeInTheDocument();
     expect(screen.getByText("RCC Pipe")).toBeInTheDocument();
     expect(screen.getByText("300mm")).toBeInTheDocument();
   });

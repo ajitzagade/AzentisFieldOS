@@ -141,6 +141,16 @@ describe('ZodValidationPipe(createMovementSchema)', () => {
       }),
     ).not.toThrow();
   });
+
+  it('rejects a SITE_TO_SITE body whose sourceSiteId and destinationSiteId are the same Site', () => {
+    expect(() =>
+      pipe.transform({
+        ...base,
+        kind: 'SITE_TO_SITE',
+        sourceSiteId: base.destinationSiteId,
+      }),
+    ).toThrow(BadRequestException);
+  });
 });
 
 describe('ZodValidationPipe(confirmMovementReceiptSchema)', () => {

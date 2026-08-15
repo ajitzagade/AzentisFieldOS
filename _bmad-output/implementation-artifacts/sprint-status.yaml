@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-12-2026 14:26
-last_updated: 08-12-2026 15:10
+last_updated: 08-15-2026 00:00
 project: AzentisFieldOS
 project_key: NOKEY
 tracking_system: file-system
@@ -60,71 +60,71 @@ development_status:
   3-5-desktop-daily-activity-entry-correction: ready-for-dev
   epic-3-retrospective: optional
 
-  epic-4: backlog
-  4-1-manage-material-categories-materials: backlog
-  4-2-manage-sizes-specifications-units-per-material: backlog
-  4-3-add-custom-fields-to-a-material: backlog
+  epic-4: in-progress
+  4-1-manage-material-categories-materials: ready-for-dev
+  4-2-manage-sizes-specifications-units-per-material: ready-for-dev
+  4-3-add-custom-fields-to-a-material: ready-for-dev
   epic-4-retrospective: optional
 
-  epic-5: backlog
-  5-1-record-a-purchase: backlog
-  5-2-record-godown-site-movement: backlog
-  5-3-record-direct-vendor-site-purchase: backlog
-  5-4-record-site-site-transfer: backlog
-  5-5-record-consumption: backlog
-  5-6-record-wastage-return: backlog
-  5-7-stock-lifecycle-visibility-low-stock-flagging: backlog
+  epic-5: in-progress
+  5-1-record-a-purchase: done
+  5-2-record-godown-site-movement: done
+  5-3-record-direct-vendor-site-purchase: done
+  5-4-record-site-site-transfer: done
+  5-5-record-consumption: done
+  5-6-record-wastage-return: done
+  5-7-stock-lifecycle-visibility-low-stock-flagging: done
   epic-5-retrospective: optional
 
-  epic-6: backlog
-  6-1-manage-team-members: backlog
-  6-2-record-daily-work-record-attendance: backlog
-  6-3-work-history-team-summary: backlog
+  epic-6: in-progress
+  6-1-manage-team-members: review
+  6-2-record-daily-work-record-attendance: review
+  6-3-work-history-team-summary: review
   epic-6-retrospective: optional
 
-  epic-7: backlog
-  7-1-record-an-advance: backlog
-  7-2-record-an-advance-adjustment: backlog
-  7-3-record-a-payment: backlog
-  7-4-outstanding-advance-visibility: backlog
+  epic-7: in-progress
+  7-1-record-an-advance: in-progress
+  7-2-record-an-advance-adjustment: ready-for-dev
+  7-3-record-a-payment: ready-for-dev
+  7-4-outstanding-advance-visibility: ready-for-dev
   epic-7-retrospective: optional
 
-  epic-8: backlog
-  8-1-manage-machinery-vehicle-registers: backlog
-  8-2-record-movement-between-sites-maintenance: backlog
-  8-3-log-fuel-maintenance-repair-history: backlog
+  epic-8: in-progress
+  8-1-manage-machinery-vehicle-registers: ready-for-dev
+  8-2-record-movement-between-sites-maintenance: ready-for-dev
+  8-3-log-fuel-maintenance-repair-history: ready-for-dev
   epic-8-retrospective: optional
 
-  epic-9: backlog
-  9-1-manage-vendor-records: backlog
-  9-2-view-vendor-purchase-history: backlog
+  epic-9: in-progress
+  9-1-manage-vendor-records: ready-for-dev
+  9-2-view-vendor-purchase-history: ready-for-dev
   epic-9-retrospective: optional
 
-  epic-10: backlog
-  10-1-record-rmc-delivery: backlog
-  10-2-rmc-reporting: backlog
+  epic-10: in-progress
+  10-1-record-rmc-delivery: ready-for-dev
+  10-2-rmc-reporting: ready-for-dev
   epic-10-retrospective: optional
 
-  epic-11: backlog
-  11-1-record-an-expense: backlog
+  epic-11: in-progress
+  11-1-record-an-expense: ready-for-dev
   epic-11-retrospective: optional
 
-  epic-12: backlog
-  12-1-today-s-activity-missing-dsr-gap-flag: backlog
-  12-2-overall-rollup: backlog
+  epic-12: in-progress
+  12-1-today-s-activity-missing-dsr-gap-flag: ready-for-dev
+  12-2-overall-rollup: ready-for-dev
   epic-12-retrospective: optional
 
-  epic-13: backlog
-  13-1-auto-compile-deliver-branded-daily-report: backlog
-  13-2-site-inventory-reports: backlog
-  13-3-labour-machinery-vehicle-reports: backlog
-  13-4-financial-reports: backlog
+  epic-13: in-progress
+  13-1-auto-compile-deliver-branded-daily-report: ready-for-dev
+  13-2-site-inventory-reports: ready-for-dev
+  13-3-labour-machinery-vehicle-reports: ready-for-dev
+  13-4-financial-reports: ready-for-dev
   epic-13-retrospective: optional
 
-  epic-14: backlog
-  14-1-branding-configuration: backlog
-  14-2-users-roles-permissions: backlog
-  14-3-category-configuration: backlog
-  14-4-notification-channel-configuration: backlog
-  14-5-report-configuration: backlog
+  epic-14: in-progress
+  14-1-branding-configuration: ready-for-dev
+  14-2-users-roles-permissions: ready-for-dev
+  14-3-category-configuration: ready-for-dev
+  14-4-notification-channel-configuration: ready-for-dev
+  14-5-report-configuration: ready-for-dev
   epic-14-retrospective: optional

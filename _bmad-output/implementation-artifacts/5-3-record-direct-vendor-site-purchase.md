@@ -4,7 +4,7 @@ baseline_commit: cf5dd4dc709029a08e7c4febf34f2421f394871f
 
 # Story 5.3: Record Direct Vendor→Site Purchase
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -66,6 +66,22 @@ Claude Sonnet 5 (claude-sonnet-5)
 - Added a third header action ("Direct Vendor → Site") on `/movements` alongside "Record Movement"/"Record Purchase" so the new route is actually discoverable, not just reachable by URL.
 - Extended Story 5.1's existing SITE-destined integration test (`purchases.service.integration.spec.ts`) with `receiverName`, per Task 3's explicit instruction not to write a parallel Purchase-creation suite.
 - Final state: `apps/api` 159 tests / 19 files passing, `apps/web` 161 tests / 44 files passing. Both packages typecheck, lint, and build clean.
+
+### Review Findings
+
+- [x] [Review][Defer] The vendor-to-site page's own test doesn't verify `siteId` is posted alongside `destination=SITE` end-to-end — coverage nice-to-have, not a proven defect (the hidden-input mechanism and the shared Server Action are each independently tested by other suites)
+- [x] [Review][Defer] No empty-state handling on `/movements/vendor-to-site/new` if zero Sites exist yet — narrow UX edge case, not blocking, matches the pre-onboarding gap other entry-point forms share
+- [x] [Review][Defer] Quantity `TextField` has no client-side `min="0"` in "new" mode — cosmetic, systemic gap already logged under Stories 5.1/5.2
+- [x] [Review][Defer] Integration spec hardcodes a literal `purchasedAt` date across test cases — minor test-quality nit
+- [x] [Review][Dismiss] "No test verifies a SITE-destined Purchase without/invalid `siteId` is rejected" — already covered by Story 5.1's own Zod cross-field tests; explicitly out of this "thin" story's scope per Dev Notes ("Verify, don't rebuild")
+- [x] [Review][Dismiss] Movement shortfall Decimal-string comparison concern — belongs to Story 5.2's code, not owned by this story
+- [x] [Review][Dismiss] Movements pages throw a raw `Error()` on fetch failure / no `loading.tsx` — systemic, already logged under Story 5.2, not new here
+- [x] [Review][Dismiss] "`createPurchaseAction` not shown in this diff, doesn't prove `siteId` enforcement end-to-end" — already proven by Story 5.1's own test suite; Task 1 explicitly required no schema/service changes for this story
+- [x] [Review][Dismiss] `receiverName` stays optional even under `fixedDestination="SITE"` — deliberate, explicitly documented in Dev Notes ("don't tighten it to required without a product decision")
+- [x] [Review][Dismiss] `purchase-form.test.tsx` doesn't test the `formError` rendering path — shared component primarily owned/tested by Story 5.1, not a gap specific to this story
+- [x] [Review][Dismiss] Correction-mode disabled+hidden field duplication "undocumented/untested" — false; already documented and tested under Story 5.1's own Completion Notes and test suite
+- [x] [Review][Dismiss] Empty-state message omitting Wastage/Return — already fixed under Story 5.2's review
+- [x] [Review][Dismiss] "File List says 'modified' but the diff shows 'new file'" / "test suite exceeds the 'extend, don't rebuild' instruction" — diff-scoping artifact of Epic 5 being one squashed commit relative to the pre-epic baseline; every Epic 5 file appears "new" against that baseline regardless of which story first created it. This story's own Completion Notes and File List correctly describe these as extensions of Story 5.1's files (verified directly against the story spec).
 
 ### File List
 

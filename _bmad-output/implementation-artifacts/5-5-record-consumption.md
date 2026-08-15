@@ -4,7 +4,7 @@ baseline_commit: cf5dd4dc709029a08e7c4febf34f2421f394871f
 
 # Story 5.5: Record Consumption
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -77,6 +77,22 @@ Claude Sonnet 5 (claude-sonnet-5)
 - `/movements` list gained a third row-producer (`consumptionToMovementRow`): `badge-neutral` "Consumption", the Site name as flow, and a muted "—" for Received Qty (never a forced value) — merged into the same sorted-by-date row list as Purchase/Movement rows, per Task 3.
 - Fixed a pre-existing gap while touching the movements header: Story 5.4's Site→Site Transfer entry point (`/movements/site-to-site/new`) was never linked from `/movements`'s header, unlike every other entry route — added it alongside this story's own "Record Consumption" link.
 - Final state: `apps/api` 181 tests / 22 files passing, `apps/web` 179 tests / 49 files passing. Both packages typecheck, lint, and build clean.
+
+### Review Findings
+
+- [x] [Review][Patch] `ConsumptionService.create` never verified a correction's `siteId`/`materialSizeId` match the original Consumption being corrected — same class of gap already patched for Purchase (Story 5.1) and Movement (Story 5.4) [apps/api/src/inventory/consumption.service.ts:17] — fixed: `create()` now rejects a mismatched correction.
+- [x] [Review][Patch] `createConsumptionAction`'s 400-fallback read `body.error?.message`, but Nest's default `BadRequestException` body has no `error` object — the real backend message was never surfaced, and no test exercised this path. Same bug already fixed for Purchase (Story 5.1) [apps/web/app/(app)/movements/consumption/actions.ts:41] — fixed: now reads `body.message`, wraps `fetch()` in try/catch, and guards `res.json()` with `.catch()`; test coverage added for all three cases.
+- [x] [Review][Patch] `correctsId` schema field was `z.string().min(1)` instead of `z.uuid()`, inconsistent with every other id field — same pattern already fixed for Purchase/Movement [packages/shared/src/schemas/consumption.ts:15] — fixed.
+- [x] [Review][Dismiss] "`inventory.module.ts`/`movements.service.ts` appear as entirely new files, can't verify nothing was dropped from Story 5.2/5.4" — diff-scoping artifact of Epic 5 being one squashed commit relative to the pre-epic baseline; every Epic 5 file appears "new" against that baseline. `stock-delta.ts`'s extraction (this story's own genuine new file, confirmed present in the diff and in the File List) is exactly what Dev Notes instructed.
+- [x] [Review][Dismiss] `consumedAt` uses `z.iso.date()` instead of Task 1's literal `z.coerce.date()` — matches the same deliberate epic-wide date-only convention already dismissed twice under Stories 5.1/5.2 (native `<input type="date">`)
+- [x] [Review][Defer] No pagination on `ConsumptionService.list()` / the combined Movements page — systemic, already logged under Story 5.1
+- [x] [Review][Defer] Fetch failures bypass AD-6's shared error-state policy (raw `Error()`, no shared loading/error state) — systemic, already logged under Story 5.2
+- [x] [Review][Defer] No visual lineage for corrections in the combined Movements table (`correctsId`/`reason` not surfaced) — real UX gap, but applies uniformly across all four row types, not specific to Consumption; a table-wide enhancement, not this story's scope
+- [x] [Review][Defer] Every row's "Correct" link shares the identical accessible name across the table — real a11y concern (WCAG 2.4.4), but pre-existing since Story 5.1's shared `CorrectAction` component, not introduced by this story
+- [x] [Review][Defer] `quantity: z.number()` has no finiteness/bounds check — enhancement, not specified by any AC
+- [x] [Review][Defer] No indication when correcting a Consumption that is itself already a correction (correction chains) — enhancement, not specified by any AC
+- [x] [Review][Dismiss] Sent/received mismatch signaled by color only, no `confirmedByUserId` on Movement's `confirmReceipt` — both belong to Movement's own code (Stories 5.2/5.4), out of this story's Consumption-only scope
+- [x] [Review][Dismiss] `formatQuantity` lacks locale-aware thousands separators — cosmetic, already logged/dismissed under Story 5.1
 
 ### File List
 

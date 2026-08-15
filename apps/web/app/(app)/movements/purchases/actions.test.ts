@@ -77,12 +77,17 @@ describe("createPurchaseAction", () => {
     await expect(
       createPurchaseAction(
         {},
-        formData({ ...validGodownFields, quantity: "-20", correctsId: "p1", reason: "Recount: 20 short" }),
+        formData({
+          ...validGodownFields,
+          quantity: "-20",
+          correctsId: "33333333-3333-4333-8333-333333333333",
+          reason: "Recount: 20 short",
+        }),
       ),
     ).rejects.toThrow("NEXT_REDIRECT");
 
     const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]![1].body);
-    expect(body.correctsId).toBe("p1");
+    expect(body.correctsId).toBe("33333333-3333-4333-8333-333333333333");
     expect(body.reason).toBe("Recount: 20 short");
     expect(body.quantity).toBe(-20);
   });
@@ -99,11 +104,19 @@ describe("createPurchaseAction", () => {
     expect(result.errors?.vendorId).toEqual(["This Vendor does not exist"]);
   });
 
-  it("returns a form-level error message when the API returns 400 with no field errors", async () => {
+  it("returns a form-level error message when the API returns 400 with no field errors, reading Nest's real BadRequestException(string) body shape", async () => {
+    // Nest's default body for `new BadRequestException('<string>')` — the
+    // shape `PurchasesService.translateWriteError` actually throws —
+    // is `{ statusCode, message, error: 'Bad Request' }` where `error`
+    // is a string, NOT `{ error: { message } }`.
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 400,
-      json: async () => ({ error: { message: "This Purchase references a Vendor that does not exist" } }),
+      json: async () => ({
+        statusCode: 400,
+        message: "This Purchase references a Vendor that does not exist",
+        error: "Bad Request",
+      }),
     }) as unknown as typeof fetch;
 
     const result = await createPurchaseAction({}, formData(validGodownFields));
@@ -117,5 +130,27 @@ describe("createPurchaseAction", () => {
     const result = await createPurchaseAction({}, formData(validGodownFields));
 
     expect(result.formError).toBe("Something went wrong recording the Purchase. Please try again.");
+  });
+
+  it("returns a generic form error instead of throwing when the fetch itself rejects (network failure)", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error("network down"));
+
+    const result = await createPurchaseAction({}, formData(validGodownFields));
+
+    expect(result.formError).toBe("Something went wrong recording the Purchase. Please try again.");
+  });
+
+  it("returns the generic fallback instead of throwing when a 400 response body isn't valid JSON", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    }) as unknown as typeof fetch;
+
+    const result = await createPurchaseAction({}, formData(validGodownFields));
+
+    expect(result.formError).toBe("This Purchase references a Vendor, Material Size, or Site that does not exist.");
   });
 });
