@@ -70,6 +70,8 @@ model Site {
   rmcEntries           RmcEntry[]
   dailySiteReports     DailySiteReport[]
   expenses             Expense[]
+  machineryCurrentlyHere Machinery[]
+  vehiclesCurrentlyHere  Vehicle[]
 }
 
 // ---------- Material catalog (FR-4..FR-7) ----------
@@ -257,17 +259,38 @@ enum AssetLocationStatus {
   MAINTENANCE
 }
 
+// FR-15, NFR-4: admin-configurable data, not a hardcoded enum or free
+// string — same minimal create+list-now, full admin lifecycle later
+// (Epic 14) split Epic 4 Story 4.1 used for Unit (no isActive field
+// either, same precedent).
+model MachineryType {
+  id        String      @id @default(uuid(7))
+  name      String      @unique
+  machinery Machinery[]
+}
+
+// FR-16, NFR-4: same split as MachineryType above — a separate table, not
+// shared with it, since Machinery and Vehicle types aren't the same
+// domain concept.
+model VehicleType {
+  id       String    @id @default(uuid(7))
+  name     String    @unique
+  vehicles Vehicle[]
+}
+
 model Machinery {
-  id                String              @id @default(uuid(7))
-  name              String
-  type              String
-  assetNumber        String              @unique
-  model               String?
-  ownership           String?
-  operator             String?
-  currentStatus         AssetLocationStatus @default(AVAILABLE)
-  currentSiteId          String?
-  customFields            Json                @default("{}")
+  id             String              @id @default(uuid(7))
+  name           String
+  typeId         String
+  type           MachineryType       @relation(fields: [typeId], references: [id])
+  assetNumber    String              @unique
+  model          String?
+  ownership      String?
+  operator       String?
+  currentStatus  AssetLocationStatus @default(AVAILABLE)
+  currentSiteId  String?
+  currentSite    Site?               @relation(fields: [currentSiteId], references: [id])
+  customFields   Json                @default("{}")
 
   movementLogs  MachineryMovementLog[]
   serviceLogs   MachineryServiceLog[]
@@ -299,11 +322,13 @@ model MachineryServiceLog {
 model Vehicle {
   id             String              @id @default(uuid(7))
   number         String              @unique
-  type           String
+  typeId         String
+  type           VehicleType         @relation(fields: [typeId], references: [id])
   ownership      String?
   driver         String?
   currentStatus  AssetLocationStatus @default(AVAILABLE)
   currentSiteId  String?
+  currentSite    Site?               @relation(fields: [currentSiteId], references: [id])
   customFields   Json                @default("{}")
 
   movementLogs VehicleMovementLog[]

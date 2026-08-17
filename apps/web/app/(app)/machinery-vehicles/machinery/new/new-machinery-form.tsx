@@ -1,0 +1,78 @@
+"use client";
+
+import Link from "next/link";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
+import { Button, Card, SelectField, TextField } from "@azentisfieldos/ui";
+import { createMachineryAction, type CreateMachineryFormState } from "./actions";
+
+interface Option {
+  id: string;
+  name: string;
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" isLoading={pending}>
+      Register Machine
+    </Button>
+  );
+}
+
+const initialState: CreateMachineryFormState = {};
+
+export function NewMachineryForm({ machineryTypes }: { machineryTypes: Option[] }) {
+  const [state, formAction] = useActionState(createMachineryAction, initialState);
+
+  if (machineryTypes.length === 0) {
+    return (
+      <Card>
+        <p className="mb-3 text-body-sm text-ink-500">
+          No Machinery Types yet —{" "}
+          <Link href="/machinery-vehicles/machinery-types" className="font-semibold text-accent-teal-700 underline">
+            create one first
+          </Link>
+          .
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <form action={formAction} noValidate>
+        <TextField label="Name" name="name" required maxLength={200} error={state.errors?.name?.[0]} />
+        <SelectField
+          label="Type"
+          name="typeId"
+          required
+          defaultValue=""
+          options={[
+            { value: "", label: "Select a Machinery Type" },
+            ...machineryTypes.map((t) => ({ value: t.id, label: t.name })),
+          ]}
+          error={state.errors?.typeId?.[0]}
+        />
+        <TextField
+          label="Asset / Registration Number"
+          name="assetNumber"
+          required
+          maxLength={100}
+          error={state.errors?.assetNumber?.[0]}
+        />
+        <TextField label="Model" name="model" hint="Optional" maxLength={200} error={state.errors?.model?.[0]} />
+        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} error={state.errors?.ownership?.[0]} />
+        <TextField label="Operator" name="operator" hint="Optional" maxLength={200} error={state.errors?.operator?.[0]} />
+
+        {state.formError ? (
+          <p role="alert" className="mb-4 text-caption text-danger-700">
+            {state.formError}
+          </p>
+        ) : null}
+
+        <SubmitButton />
+      </form>
+    </Card>
+  );
+}

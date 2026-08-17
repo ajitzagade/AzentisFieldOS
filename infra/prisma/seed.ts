@@ -8,12 +8,33 @@ import { PrismaClient } from "../../apps/api/src/generated/prisma/client";
 // configurable (Epic 14 owns the admin UI to add more later).
 const DEFAULT_EMPLOYMENT_TYPES = ["Monthly", "Weekly", "Daily Wage"];
 
+// FR-15/FR-16, NFR-4: same reasoning as EmploymentType above — common
+// defaults so the Machinery/Vehicle registers aren't unusable on day one.
+const DEFAULT_MACHINERY_TYPES = ["Excavator", "Mixer", "Crane"];
+const DEFAULT_VEHICLE_TYPES = ["Truck", "Dumper", "Tempo"];
+
 async function main() {
   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
   const prisma = new PrismaClient({ adapter });
 
   for (const name of DEFAULT_EMPLOYMENT_TYPES) {
     await prisma.employmentType.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+  }
+
+  for (const name of DEFAULT_MACHINERY_TYPES) {
+    await prisma.machineryType.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+  }
+
+  for (const name of DEFAULT_VEHICLE_TYPES) {
+    await prisma.vehicleType.upsert({
       where: { name },
       update: {},
       create: { name },

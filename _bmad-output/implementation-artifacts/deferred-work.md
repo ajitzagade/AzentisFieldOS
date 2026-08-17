@@ -90,3 +90,14 @@
 - `totalTeamMembers` (active-only) vs. the roster table (`list()`, no active filter) can show different counts with no explanation — cosmetic.
 - Neither `WorkRecordsService.create`/`.createBatch` nor `TeamMembersController` checks `TeamMember.isActive` — same class of gap already deferred under Story 6.1.
 - `TeamMembersService.list()`/`WorkRecordsService.list()` have no pagination — systemic, already logged repeatedly.
+
+## Deferred from: code review of story-8.1 (2026-08-16)
+
+- No RBAC/role guard on any `apps/assets` endpoint (Machinery/Vehicle/MachineryType/VehicleType) — matches the already-tracked epic-wide "no per-request auth yet" TODO in AGENTS.md.
+- `createMachineryTypeSchema`/`createVehicleTypeSchema`/`createMachinerySchema`/`createVehicleSchema` don't `.trim()` string inputs — systemic, matches every existing schema in `packages/shared`, already logged for `EmploymentType.name` under Story 6.1.
+- `MachineryType.name`/`VehicleType.name` uniqueness is case-sensitive in Postgres ("Excavator" vs "excavator") — matches the same pre-existing pattern on `MaterialCategory`/`Unit`/`EmploymentType`.
+- No index on the new FK columns (`Machinery.typeId`, `Machinery.currentSiteId`, `Vehicle.typeId`, `Vehicle.currentSiteId`) — systemic, the schema has no `@@index` on almost any relation scalar field project-wide, not specific to this story.
+- The `20260816070000_add_machinery_vehicle_type_and_current_site_relation` migration adds `typeId TEXT NOT NULL` with no default/backfill, same as the already-shipped `20260813140000_add_employment_type_model` migration for `EmploymentType` — would fail if applied against a table with existing rows. Worth a platform-wide decision on a safe backfill pattern for future free-text-to-lookup-table conversions, not a fix specific to this story.
+- Machinery/Vehicle-Vehicles pages throw a plain `Error()` on fetch failure with no shared error state and no `error.tsx`/`loading.tsx` — established pattern across the whole codebase (Team, Materials, Movements), already logged repeatedly.
+- Blanking a required Edit field (Name/Type/Asset Number/Number) is silently treated as "leave unchanged" rather than surfacing a validation error, due to the `formData.get(x) || undefined` pattern — same pattern already shipped in `team/[id]/edit/actions.ts`.
+- `fetch()` calls in "new"/create Server Actions have no `try/catch` (unlike edit actions, which do) — systemic inconsistency across the whole app between create- and edit-action files, not unique to this story.

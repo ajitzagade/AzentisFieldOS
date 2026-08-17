@@ -8,6 +8,7 @@ import { StorageModule } from './storage/storage.module';
 import { MaterialsModule } from './materials/materials.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { TeamModule } from './team/team.module';
+import { AssetsModule } from './assets/assets.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { TeamModule } from './team/team.module';
     MaterialsModule,
     InventoryModule,
     TeamModule,
+    AssetsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
