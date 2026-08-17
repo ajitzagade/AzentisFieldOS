@@ -7,6 +7,10 @@ import { MachineryController } from './machinery.controller';
 import { MachineryService } from './machinery.service';
 import { VehicleController } from './vehicle.controller';
 import { VehicleService } from './vehicle.service';
+import { AssetMovementsController } from './asset-movements.controller';
+import { AssetMovementsService } from './asset-movements.service';
+import { AssetServiceLogsController } from './asset-service-logs.controller';
+import { AssetServiceLogsService } from './asset-service-logs.service';
 
 @Module({
   controllers: [
@@ -14,12 +18,16 @@ import { VehicleService } from './vehicle.service';
     VehicleTypesController,
     MachineryController,
     VehicleController,
+    AssetMovementsController,
+    AssetServiceLogsController,
   ],
   providers: [
     MachineryTypesService,
     VehicleTypesService,
     MachineryService,
     VehicleService,
+    AssetMovementsService,
+    AssetServiceLogsService,
   ],
 })
 export class AssetsModule {}

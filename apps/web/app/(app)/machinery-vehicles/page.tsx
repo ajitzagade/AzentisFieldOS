@@ -1,8 +1,11 @@
 import Link from "next/link";
 import {
+  ChevronRightIcon,
+  CorrectAction,
   DataTable,
   GearIcon,
   PlusIcon,
+  RotateCcwIcon,
   TruckIcon,
   buttonVariants,
   cn,
@@ -17,6 +20,12 @@ interface MachineryListItem {
   currentStatus: AssetLocationStatus;
   type: { id: string; name: string };
   currentSite: { id: string; name: string } | null;
+  // Story 8.2: the single latest movementLogs entry — the register list's
+  // row-level Correct icon is shorthand for "correct the most recent
+  // movement entry" (Story 8.1 Dev Notes), so it needs that entry's id. A
+  // freshly-registered Machine with no Movement history yet has an empty
+  // array, and shows no Correct icon (nothing to correct).
+  movementLogs: { id: string }[];
 }
 
 interface VehicleListItem {
@@ -26,6 +35,7 @@ interface VehicleListItem {
   currentStatus: AssetLocationStatus;
   type: { id: string; name: string };
   currentSite: { id: string; name: string } | null;
+  movementLogs: { id: string }[];
 }
 
 async function getMachinery(): Promise<MachineryListItem[]> {
@@ -44,12 +54,38 @@ async function getVehicles(): Promise<VehicleListItem[]> {
   return res.json();
 }
 
+// AC #4: the row's Correct action targets the latest Movement entry, never
+// this Machine/Vehicle's master-data registration (Story 8.1 Dev Notes
+// "Two different affordances on what looks like one row"). The DataTable's
+// rowHref wraps every cell in an anchor, which would nest this action's
+// own link/button inside it — so this list uses an explicit trailing
+// actions column (same pattern as /payments) instead of rowHref.
 const machineryColumns: DataTableColumn<MachineryListItem>[] = [
   { header: "Name", cell: (m) => m.name },
   { header: "Type", cell: (m) => m.type.name },
   { header: "Asset / Registration #", cell: (m) => <span className="tabular-nums">{m.assetNumber}</span> },
   { header: "Current Site", cell: (m) => m.currentSite?.name ?? <span className="text-ink-500">—</span> },
   { header: "Status", cell: (m) => statusBadge(m.currentStatus) },
+  {
+    header: "",
+    cell: (m) => (
+      <div className="flex items-center justify-end gap-1">
+        {m.movementLogs[0] ? (
+          <CorrectAction
+            icon={<RotateCcwIcon className="size-4" />}
+            href={`/machinery-vehicles/machinery/${m.id}/movements/${m.movementLogs[0].id}/correct`}
+          />
+        ) : null}
+        <Link
+          href={`/machinery-vehicles/machinery/${m.id}`}
+          aria-label={m.name}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}
+        >
+          <ChevronRightIcon className="size-4" />
+        </Link>
+      </div>
+    ),
+  },
 ];
 
 const vehicleColumns: DataTableColumn<VehicleListItem>[] = [
@@ -58,6 +94,26 @@ const vehicleColumns: DataTableColumn<VehicleListItem>[] = [
   { header: "Driver", cell: (v) => v.driver ?? <span className="text-ink-500">—</span> },
   { header: "Current Site / Usage", cell: (v) => v.currentSite?.name ?? <span className="text-ink-500">—</span> },
   { header: "Status", cell: (v) => statusBadge(v.currentStatus) },
+  {
+    header: "",
+    cell: (v) => (
+      <div className="flex items-center justify-end gap-1">
+        {v.movementLogs[0] ? (
+          <CorrectAction
+            icon={<RotateCcwIcon className="size-4" />}
+            href={`/machinery-vehicles/vehicles/${v.id}/movements/${v.movementLogs[0].id}/correct`}
+          />
+        ) : null}
+        <Link
+          href={`/machinery-vehicles/vehicles/${v.id}`}
+          aria-label={v.number}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}
+        >
+          <ChevronRightIcon className="size-4" />
+        </Link>
+      </div>
+    ),
+  },
 ];
 
 export default async function MachineryVehiclesPage() {
@@ -105,7 +161,6 @@ export default async function MachineryVehiclesPage() {
       <DataTable
         columns={machineryColumns}
         rowKey={(m) => m.id}
-        rowHref={(m) => `/machinery-vehicles/machinery/${m.id}`}
         state={
           machinery.length === 0
             ? {
@@ -135,7 +190,6 @@ export default async function MachineryVehiclesPage() {
       <DataTable
         columns={vehicleColumns}
         rowKey={(v) => v.id}
-        rowHref={(v) => `/machinery-vehicles/vehicles/${v.id}`}
         state={
           vehicles.length === 0
             ? {

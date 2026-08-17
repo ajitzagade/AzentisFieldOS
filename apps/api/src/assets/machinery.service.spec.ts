@@ -106,14 +106,20 @@ describe('MachineryService.create', () => {
 });
 
 describe('MachineryService.list', () => {
-  it('includes type and currentSite relations', async () => {
+  it('includes type, currentSite, and the single latest movementLogs entry', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const { service } = makeService({ findMany });
 
     await service.list();
 
     expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ include: { type: true, currentSite: true } }),
+      expect.objectContaining({
+        include: {
+          type: true,
+          currentSite: true,
+          movementLogs: { orderBy: { movedAt: 'desc' }, take: 1 },
+        },
+      }),
     );
   });
 });

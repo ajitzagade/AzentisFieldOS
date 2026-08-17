@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge, GearIcon, PencilIcon, buttonVariants, cn } from "@azentisfieldos/ui";
+import { ArrowsIcon, Badge, GearIcon, PencilIcon, PlusIcon, buttonVariants, cn } from "@azentisfieldos/ui";
 import type { MachineryDetail } from "./edit/page";
 import { statusBadge } from "../../status-badge";
+import { MovementTimeline, type MovementHistoryItem } from "../../movement-timeline";
+import { ServiceHistoryTable, type ServiceLogEntry } from "../../service-history";
 
 async function getMachinery(id: string): Promise<MachineryDetail | null> {
   const res = await fetch(`${process.env.API_URL}/machinery/${id}`, { cache: "no-store" });
@@ -13,13 +15,33 @@ async function getMachinery(id: string): Promise<MachineryDetail | null> {
   return res.json();
 }
 
+async function getMovements(id: string): Promise<MovementHistoryItem[]> {
+  const res = await fetch(`${process.env.API_URL}/asset-movements?assetType=MACHINERY&assetId=${id}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to load Movement History (${res.status})`);
+  }
+  return res.json();
+}
+
+async function getServiceLogs(id: string): Promise<ServiceLogEntry[]> {
+  const res = await fetch(`${process.env.API_URL}/asset-service-logs?assetType=MACHINERY&assetId=${id}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to load Service History (${res.status})`);
+  }
+  return res.json();
+}
+
 // This story creates the shell (profile fields + Edit link); Story 8.2
-// adds the movement-history section (with its own CorrectAction on the
-// most recent movement entry, not on this Machine's registration), and
-// Story 8.3 adds the fuel/maintenance/repair service-log section.
+// adds the movement-history section (with its own CorrectAction on each
+// movement entry, not on this Machine's registration), and Story 8.3 adds
+// the fuel/maintenance/repair service-log section below it.
 export default async function MachineryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const machinery = await getMachinery(id);
+  const [machinery, movements, serviceLogs] = await Promise.all([getMachinery(id), getMovements(id), getServiceLogs(id)]);
 
   if (!machinery) {
     notFound();
@@ -71,11 +93,32 @@ export default async function MachineryDetailPage({ params }: { params: Promise<
             </span>
           </div>
         </div>
-        <Link href={`/machinery-vehicles/machinery/${machinery.id}/edit`} className={cn(buttonVariants({ variant: "secondary" }))}>
-          <PencilIcon className="size-4" />
-          Edit
+        <div className="flex gap-2">
+          <Link href={`/machinery-vehicles/machinery/${machinery.id}/move`} className={cn(buttonVariants({ variant: "primary" }))}>
+            <ArrowsIcon className="size-4" />
+            Record Movement
+          </Link>
+          <Link href={`/machinery-vehicles/machinery/${machinery.id}/edit`} className={cn(buttonVariants({ variant: "secondary" }))}>
+            <PencilIcon className="size-4" />
+            Edit
+          </Link>
+        </div>
+      </div>
+
+      <h2 className="mb-4 text-section-header text-ink-900">Movement &amp; Maintenance History</h2>
+      <MovementTimeline movements={movements} basePath="machinery" assetId={machinery.id} />
+
+      <div className="mb-4 mt-8 flex items-center justify-between">
+        <h2 className="text-section-header text-ink-900">Fuel, Maintenance &amp; Repair History</h2>
+        <Link
+          href={`/machinery-vehicles/machinery/${machinery.id}/service-log/new`}
+          className={cn(buttonVariants({ variant: "secondary" }))}
+        >
+          <PlusIcon className="size-4" />
+          Log Service
         </Link>
       </div>
+      <ServiceHistoryTable logs={serviceLogs} basePath="machinery" assetId={machinery.id} />
     </>
   );
 }

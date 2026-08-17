@@ -297,6 +297,11 @@ model Machinery {
 }
 
 // Append-only (AD-9) — full movement history, not just current state.
+// Story 8.2: a correction is a new row with correctsId set, whose
+// toStatus/siteId is a full restatement of the corrected value (not a
+// delta, unlike Purchase/Movement/Consumption's numeric quantities) — same
+// plain correctsId/reason pattern as elsewhere in this schema, no
+// enforced self-relation.
 model MachineryMovementLog {
   id           String              @id @default(uuid(7))
   machineryId  String
@@ -306,6 +311,8 @@ model MachineryMovementLog {
   site         Site?               @relation(fields: [siteId], references: [id])
   movedAt      DateTime
   createdAt    DateTime            @default(now())
+  correctsId   String?
+  reason       String?             // required when correctsId is set
 }
 
 model MachineryServiceLog {
@@ -335,16 +342,18 @@ model Vehicle {
   serviceLogs  VehicleServiceLog[]
 }
 
-// Append-only (AD-9).
+// Append-only (AD-9). Same correction shape as MachineryMovementLog above.
 model VehicleMovementLog {
-  id        String              @id @default(uuid(7))
-  vehicleId String
-  vehicle   Vehicle             @relation(fields: [vehicleId], references: [id])
-  toStatus  AssetLocationStatus
-  siteId    String?
-  site      Site?               @relation(fields: [siteId], references: [id])
-  movedAt   DateTime
-  createdAt DateTime            @default(now())
+  id         String              @id @default(uuid(7))
+  vehicleId  String
+  vehicle    Vehicle             @relation(fields: [vehicleId], references: [id])
+  toStatus   AssetLocationStatus
+  siteId     String?
+  site       Site?               @relation(fields: [siteId], references: [id])
+  movedAt    DateTime
+  createdAt  DateTime            @default(now())
+  correctsId String?
+  reason     String?             // required when correctsId is set
 }
 
 model VehicleServiceLog {

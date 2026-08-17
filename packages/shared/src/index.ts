@@ -16,5 +16,7 @@ export * from "./schemas/machinery-type";
 export * from "./schemas/vehicle-type";
 export * from "./schemas/machinery";
 export * from "./schemas/vehicle";
+export * from "./schemas/asset-movement";
+export * from "./schemas/asset-service-log";
 export * from "./types/activity-feed";
 export * from "./types/photo-gallery";
