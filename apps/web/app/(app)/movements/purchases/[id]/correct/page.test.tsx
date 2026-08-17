@@ -13,7 +13,13 @@ import CorrectPurchasePage from "./page";
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
 
-function mockFetchRouter(handlers: { purchase?: unknown; purchaseStatus?: number; sites?: unknown; materials?: unknown }) {
+function mockFetchRouter(handlers: {
+  purchase?: unknown;
+  purchaseStatus?: number;
+  sites?: unknown;
+  materials?: unknown;
+  vendors?: unknown;
+}) {
   global.fetch = vi.fn((url: string) => {
     const urlStr = String(url);
     if (urlStr.includes("/purchases/")) {
@@ -25,6 +31,9 @@ function mockFetchRouter(handlers: { purchase?: unknown; purchaseStatus?: number
     }
     if (urlStr.includes("/sites")) {
       return Promise.resolve({ ok: true, json: async () => handlers.sites ?? [] });
+    }
+    if (urlStr.includes("/vendors")) {
+      return Promise.resolve({ ok: true, json: async () => handlers.vendors ?? [] });
     }
     return Promise.resolve({ ok: true, json: async () => handlers.materials ?? [] });
   }) as unknown as typeof fetch;
@@ -69,12 +78,13 @@ describe("CorrectPurchasePage", () => {
       purchase,
       sites: [],
       materials: [{ id: "m1", name: "Cement", sizes: [{ id: "ms1", label: "OPC 53 Grade" }] }],
+      vendors: [{ id: "v1", name: "Shree Balaji Traders" }],
     });
 
     await renderCorrectPage("p1");
 
     expect(screen.getByText("Filing a correction")).toBeInTheDocument();
-    expect(screen.getByLabelText("Vendor ID")).toHaveValue("v1");
+    expect(screen.getByLabelText("Vendor")).toHaveValue("v1");
     expect(screen.getByLabelText("Rate")).toHaveValue(50);
   });
 

@@ -572,7 +572,7 @@ model Vendor {
   phone             String?
   email             String?
   address           String?
-  materialsSupplied String?
+  materialsSupplied String[] @default([])
 
   purchases  Purchase[]
   rmcEntries RmcEntry[]

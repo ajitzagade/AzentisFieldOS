@@ -10,11 +10,19 @@ import NewDsrDesktopPage from "./page";
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.NEXT_PUBLIC_API_URL;
 
-function mockFetchRouter(handlers: { sites?: unknown; defaults?: unknown; dsr?: { status: number; body?: unknown } }) {
+function mockFetchRouter(handlers: {
+  sites?: unknown;
+  defaults?: unknown;
+  dsr?: { status: number; body?: unknown };
+  vendors?: unknown;
+}) {
   global.fetch = vi.fn((url: string, init?: RequestInit) => {
     const urlStr = String(url);
     if (urlStr.includes("/sites") && !urlStr.includes("/dsr")) {
       return Promise.resolve({ ok: true, json: async () => handlers.sites ?? [] });
+    }
+    if (urlStr.includes("/vendors")) {
+      return Promise.resolve({ ok: true, json: async () => handlers.vendors ?? [] });
     }
     if (urlStr.includes("/dsr/defaults")) {
       return Promise.resolve({ ok: true, json: async () => handlers.defaults ?? [] });
@@ -77,5 +85,22 @@ describe("NewDsrDesktopPage", () => {
     await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
 
     expect(screen.getByText(/Drag and drop photos here/)).toBeInTheDocument();
+  });
+
+  it("Story 9.1: sources an RMC row's Vendor field from the Vendor list, not free text", async () => {
+    mockFetchRouter({
+      sites: [{ id: "site-1", name: "NH-48" }],
+      vendors: [{ id: "v1", name: "Anand RMC Suppliers" }],
+    });
+
+    render(<NewDsrDesktopPage />);
+    await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Add RMC delivery" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Vendor")).toBeInTheDocument());
+    expect(screen.getByLabelText("Vendor").tagName).toBe("SELECT");
+    expect(screen.getByRole("option", { name: "Anand RMC Suppliers" })).toBeInTheDocument();
   });
 });

@@ -9,6 +9,7 @@ import { MaterialsModule } from './materials/materials.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { TeamModule } from './team/team.module';
 import { AssetsModule } from './assets/assets.module';
+import { VendorsModule } from './vendors/vendors.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AssetsModule } from './assets/assets.module';
     InventoryModule,
     TeamModule,
     AssetsModule,
+    VendorsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

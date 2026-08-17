@@ -116,6 +116,47 @@ export class PurchasesService {
     return purchase;
   }
 
+  // Story 9.2's Vendor detail page "Purchase History" section — the same
+  // underlying Purchase query capability as list(), filtered to one
+  // Vendor, so VendorsService never runs a second, parallel Prisma query
+  // over this table.
+  listByVendor(vendorId: string) {
+    return this.prisma.purchase.findMany({
+      where: { vendorId },
+      include: {
+        materialSize: { include: { material: { include: { unit: true } } } },
+      },
+      orderBy: { purchasedAt: 'desc' },
+    });
+  }
+
+  // Story 9.2's Vendor list/detail "amount outstanding" figures. See that
+  // story's Dev Notes for why `notFullyPaidTotal` is the honest aggregate
+  // ("value of Purchases not marked PAID") rather than a claimed exact
+  // amount due — this data model has no field tracking how much of a
+  // PARTIAL Purchase has actually been paid.
+  async summaryForVendor(vendorId: string) {
+    const now = new Date();
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const nextYearStart = new Date(now.getFullYear() + 1, 0, 1);
+
+    const [thisYear, notFullyPaid] = await Promise.all([
+      this.prisma.purchase.aggregate({
+        where: { vendorId, purchasedAt: { gte: yearStart, lt: nextYearStart } },
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.purchase.aggregate({
+        where: { vendorId, paymentStatus: { not: 'PAID' } },
+        _sum: { totalAmount: true },
+      }),
+    ]);
+
+    return {
+      totalThisYear: thisYear._sum.totalAmount?.toNumber() ?? 0,
+      notFullyPaidTotal: notFullyPaid._sum.totalAmount?.toNumber() ?? 0,
+    };
+  }
+
   // A vendorId/materialSizeId/siteId that doesn't exist must be a clean
   // 400, not a raw 500 — same pattern as MaterialsService.translateWriteError.
   private translateWriteError(error: unknown) {

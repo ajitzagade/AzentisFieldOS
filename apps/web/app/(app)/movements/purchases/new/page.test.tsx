@@ -20,11 +20,14 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function mockFetchRouter(handlers: { sites?: unknown; materials?: unknown }) {
+function mockFetchRouter(handlers: { sites?: unknown; materials?: unknown; vendors?: unknown }) {
   global.fetch = vi.fn((url: string) => {
     const urlStr = String(url);
     if (urlStr.includes("/sites")) {
       return Promise.resolve({ ok: true, json: async () => handlers.sites ?? [] });
+    }
+    if (urlStr.includes("/vendors")) {
+      return Promise.resolve({ ok: true, json: async () => handlers.vendors ?? [] });
     }
     return Promise.resolve({ ok: true, json: async () => handlers.materials ?? [] });
   }) as unknown as typeof fetch;

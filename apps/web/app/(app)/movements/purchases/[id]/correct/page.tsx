@@ -13,6 +13,11 @@ interface MaterialListItem {
   sizes: { id: string; label: string }[];
 }
 
+interface VendorOption {
+  id: string;
+  name: string;
+}
+
 interface PurchaseForCorrection {
   id: string;
   vendorId: string;
@@ -55,12 +60,20 @@ async function getMaterials(): Promise<MaterialListItem[]> {
   return res.json();
 }
 
+async function getVendors(): Promise<VendorOption[]> {
+  const res = await fetch(`${process.env.API_URL}/vendors`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load Vendors (${res.status})`);
+  }
+  return res.json();
+}
+
 // AC #3: pre-fills from the Purchase being corrected, submits to the same
 // POST /purchases as a plain create — correctsId (set here) is what tells
 // the API this is a correction, not a route split (story 5.1 Dev Notes).
 export default async function CorrectPurchasePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [purchase, sites, materials] = await Promise.all([getPurchase(id), getSites(), getMaterials()]);
+  const [purchase, sites, materials, vendors] = await Promise.all([getPurchase(id), getSites(), getMaterials(), getVendors()]);
   if (!purchase) {
     notFound();
   }
@@ -94,7 +107,7 @@ export default async function CorrectPurchasePage({ params }: { params: Promise<
         / Correct
       </div>
       <h1 className="mb-6 text-page-title text-ink-900">Correct Purchase</h1>
-      <PurchaseForm mode="correct" correctsId={purchase.id} materialSizes={materialSizes} sites={sites} initial={initial} />
+      <PurchaseForm mode="correct" correctsId={purchase.id} materialSizes={materialSizes} sites={sites} vendors={vendors} initial={initial} />
     </div>
   );
 }

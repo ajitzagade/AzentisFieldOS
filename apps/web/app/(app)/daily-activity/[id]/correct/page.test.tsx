@@ -31,7 +31,12 @@ function originalDsr() {
   };
 }
 
-function mockFetchRouter(handlers: { dsr?: unknown; sites?: unknown; correct?: { status: number; body?: unknown } }) {
+function mockFetchRouter(handlers: {
+  dsr?: unknown;
+  sites?: unknown;
+  correct?: { status: number; body?: unknown };
+  vendors?: unknown;
+}) {
   global.fetch = vi.fn((url: string, init?: RequestInit) => {
     const urlStr = String(url);
     if (urlStr.includes("/correct") && init?.method === "POST") {
@@ -40,6 +45,9 @@ function mockFetchRouter(handlers: { dsr?: unknown; sites?: unknown; correct?: {
     }
     if (urlStr.includes("/sites") && !urlStr.includes("/dsr")) {
       return Promise.resolve({ ok: true, json: async () => handlers.sites ?? [] });
+    }
+    if (urlStr.includes("/vendors")) {
+      return Promise.resolve({ ok: true, json: async () => handlers.vendors ?? [] });
     }
     if (urlStr.endsWith("/dsr/dsr-1")) {
       return Promise.resolve({ ok: true, json: async () => handlers.dsr ?? originalDsr() });

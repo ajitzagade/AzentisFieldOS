@@ -15,6 +15,11 @@ interface SiteOption {
   name: string;
 }
 
+interface VendorOption {
+  id: string;
+  name: string;
+}
+
 export interface PurchaseFormInitialValues {
   vendorId?: string;
   materialSizeId?: string;
@@ -49,6 +54,7 @@ function todayDate() {
 type PurchaseFormProps = {
   materialSizes: MaterialSizeOption[];
   sites: SiteOption[];
+  vendors: VendorOption[];
   /** Story 5.3: the vendor-to-site entry point pre-sets destination to
    * SITE and skips the toggle entirely — a UX convenience, not a
    * different data path (Purchase.destination = SITE either way). */
@@ -58,7 +64,7 @@ type PurchaseFormProps = {
   | { mode: "correct"; correctsId: string; initial: PurchaseFormInitialValues }
 );
 
-export function PurchaseForm({ mode, correctsId, materialSizes, sites, initial, fixedDestination }: PurchaseFormProps) {
+export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, initial, fixedDestination }: PurchaseFormProps) {
   const [state, formAction] = useActionState(createPurchaseAction, initialState);
   const [destination, setDestination] = useState<"GODOWN" | "SITE">(fixedDestination ?? initial?.destination ?? "GODOWN");
 
@@ -80,13 +86,13 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, initial, 
       ) : null}
 
       <Card className="mb-4">
-        <TextField
-          label="Vendor ID"
+        <SelectField
+          label="Vendor"
           name="vendorId"
           required
-          defaultValue={initial?.vendorId}
           disabled={mode === "correct"}
-          hint="Vendor management has not shipped yet — enter the Vendor's id directly."
+          defaultValue={initial?.vendorId ?? ""}
+          options={[{ value: "", label: "Select a Vendor" }, ...vendors.map((v) => ({ value: v.id, label: v.name }))]}
           error={state.errors?.vendorId?.[0]}
         />
         {mode === "correct" ? <input type="hidden" name="vendorId" value={initial?.vendorId} /> : null}

@@ -25,5 +25,8 @@ import { StockService } from './stock.service';
     ReturnWastageService,
     StockService,
   ],
+  // VendorsModule (Story 9.2) reuses PurchasesService's Vendor-filtered
+  // queries rather than duplicating them against Purchase directly.
+  exports: [PurchasesService],
 })
 export class InventoryModule {}

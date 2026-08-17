@@ -101,3 +101,13 @@
 - Machinery/Vehicle-Vehicles pages throw a plain `Error()` on fetch failure with no shared error state and no `error.tsx`/`loading.tsx` — established pattern across the whole codebase (Team, Materials, Movements), already logged repeatedly.
 - Blanking a required Edit field (Name/Type/Asset Number/Number) is silently treated as "leave unchanged" rather than surfacing a validation error, due to the `formData.get(x) || undefined` pattern — same pattern already shipped in `team/[id]/edit/actions.ts`.
 - `fetch()` calls in "new"/create Server Actions have no `try/catch` (unlike edit actions, which do) — systemic inconsistency across the whole app between create- and edit-action files, not unique to this story.
+
+## Deferred from: code review of story-9.1 (2026-08-17)
+
+- No pagination or search/filter on `GET /vendors` — systemic, already logged repeatedly (Sites/Materials/Team lists are all unbounded too).
+- No authorization guard on `VendorsController`'s mutating endpoints — matches the already-tracked epic-wide "no per-request auth yet" TODO in AGENTS.md.
+- Vendor pages `throw new Error(...)` on fetch failure instead of AD-6's shared error-state component — established pattern across the whole codebase, already logged repeatedly.
+
+## Deferred from: code review of story-9.2 (2026-08-17)
+
+- No pagination on `GET /vendors/:id/purchases` — systemic, already logged repeatedly under Story 5.1 and elsewhere.

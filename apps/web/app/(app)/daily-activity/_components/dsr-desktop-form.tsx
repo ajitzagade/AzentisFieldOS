@@ -11,6 +11,11 @@ interface SiteOption {
   name: string;
 }
 
+interface VendorOption {
+  id: string;
+  name: string;
+}
+
 interface CrewRow {
   teamMemberId: string;
   name?: string;
@@ -83,6 +88,7 @@ export function DsrDesktopForm({
   const router = useRouter();
 
   const [sites, setSites] = useState<SiteOption[]>([]);
+  const [vendors, setVendors] = useState<VendorOption[]>([]);
   const [siteId, setSiteId] = useState(initial?.siteId ?? "");
   const [reportDate, setReportDate] = useState(initial?.reportDate ?? todayDate());
   const [workCompleted, setWorkCompleted] = useState(initial?.workCompleted ?? "");
@@ -109,6 +115,13 @@ export function DsrDesktopForm({
       .then((res) => res.json())
       .then((data: SiteOption[]) => setSites(data))
       .catch(() => setSites([]));
+  }, []);
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/vendors`)
+      .then((res) => res.json())
+      .then((data: VendorOption[]) => setVendors(data))
+      .catch(() => setVendors([]));
   }, []);
 
   // AC #1: crew checklist pre-populated from the Site's most recent prior
@@ -329,7 +342,12 @@ export function DsrDesktopForm({
         <h2 className="mb-3 text-card-title text-ink-900">RMC used</h2>
         {rmcEntries.map((row, index) => (
           <div key={index} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
-            <TextField label="Vendor ID" value={row.vendorId} onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vendorId: e.target.value } : r)))} />
+            <SelectField
+              label="Vendor"
+              value={row.vendorId}
+              onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vendorId: e.target.value } : r)))}
+              options={[{ value: "", label: "Select a Vendor" }, ...vendors.map((v) => ({ value: v.id, label: v.name }))]}
+            />
             <TextField
               label="Quantity (m³)"
               type="number"

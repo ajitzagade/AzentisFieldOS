@@ -95,9 +95,9 @@ development_status:
   8-3-log-fuel-maintenance-repair-history: review
   epic-8-retrospective: optional
 
-  epic-9: in-progress
-  9-1-manage-vendor-records: ready-for-dev
-  9-2-view-vendor-purchase-history: ready-for-dev
+  epic-9: done
+  9-1-manage-vendor-records: done
+  9-2-view-vendor-purchase-history: done
   epic-9-retrospective: optional
 
   epic-10: in-progress

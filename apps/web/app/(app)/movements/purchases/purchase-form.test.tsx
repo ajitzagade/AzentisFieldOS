@@ -10,12 +10,14 @@ import { PurchaseForm } from "./purchase-form";
 
 const materialSizes = [{ id: "ms1", label: "Cement (OPC 53 Grade)" }];
 const sites = [{ id: "site1", name: "NH-48 Highway Widening" }];
+const vendors = [{ id: "v1", name: "Shree Balaji Traders" }];
 
 describe("PurchaseForm", () => {
   it("renders the core fields for a new Purchase with Godown selected by default", () => {
-    render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} />);
+    render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} />);
 
-    expect(screen.getByLabelText("Vendor ID")).toBeInTheDocument();
+    expect(screen.getByLabelText("Vendor")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Shree Balaji Traders" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Cement (OPC 53 Grade)" })).toBeInTheDocument();
     expect(screen.getByLabelText("Quantity")).toBeInTheDocument();
     expect(screen.queryByLabelText("Site")).not.toBeInTheDocument();
@@ -24,7 +26,7 @@ describe("PurchaseForm", () => {
 
   it("shows the Site picker only when destination is switched to Site", async () => {
     const user = userEvent.setup();
-    render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} />);
+    render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} />);
 
     await user.selectOptions(screen.getByLabelText("Destination"), "SITE");
 
@@ -39,13 +41,14 @@ describe("PurchaseForm", () => {
         correctsId="p1"
         materialSizes={materialSizes}
         sites={sites}
+        vendors={vendors}
         initial={{ vendorId: "v1", materialSizeId: "ms1", destination: "GODOWN", rate: "50", totalAmount: "5000", purchasedAt: "2026-08-11" }}
       />,
     );
 
     expect(screen.getByText("Filing a correction")).toBeInTheDocument();
     expect(screen.getByLabelText("Reason for this correction")).toBeRequired();
-    expect(screen.getByLabelText("Vendor ID")).toBeDisabled();
+    expect(screen.getByLabelText("Vendor")).toBeDisabled();
     expect(screen.getByLabelText("Material / Size")).toBeDisabled();
     expect(screen.getByLabelText("Destination")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Submit Correction" })).toBeInTheDocument();
@@ -58,6 +61,7 @@ describe("PurchaseForm", () => {
         correctsId="p1"
         materialSizes={materialSizes}
         sites={sites}
+        vendors={vendors}
         initial={{ vendorId: "v1", materialSizeId: "ms1", destination: "GODOWN", rate: "50", totalAmount: "5000", purchasedAt: "2026-08-11" }}
       />,
     );
@@ -67,9 +71,15 @@ describe("PurchaseForm", () => {
   });
 
   it("Story 5.3: with fixedDestination='SITE', shows the Site picker immediately and hides the Destination toggle", () => {
-    render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} fixedDestination="SITE" />);
+    render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} fixedDestination="SITE" />);
 
     expect(screen.queryByLabelText("Destination")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Site")).toBeInTheDocument();
+  });
+
+  it("Story 9.1: sources the Vendor field from the Vendor list, not free text", () => {
+    render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} />);
+
+    expect(screen.getByLabelText("Vendor").tagName).toBe("SELECT");
   });
 });

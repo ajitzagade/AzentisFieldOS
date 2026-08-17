@@ -187,6 +187,70 @@ describe('PurchasesService.findOne', () => {
   });
 });
 
+describe('PurchasesService.listByVendor', () => {
+  it('scopes to the given vendorId, newest first', async () => {
+    const findMany = vi.fn().mockResolvedValue([{ id: 'p1' }]);
+    const prisma = { purchase: { findMany } };
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+    );
+
+    const result = await service.listByVendor('v1');
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { vendorId: 'v1' },
+        orderBy: { purchasedAt: 'desc' },
+      }),
+    );
+    expect(result).toEqual([{ id: 'p1' }]);
+  });
+});
+
+describe('PurchasesService.summaryForVendor', () => {
+  it('computes totalThisYear and notFullyPaidTotal from separate aggregates', async () => {
+    const aggregate = vi
+      .fn<
+        (args: {
+          where: { vendorId: string; paymentStatus?: { not: string } };
+        }) => Promise<{ _sum: { totalAmount: { toNumber: () => number } } }>
+      >()
+      .mockResolvedValueOnce({
+        _sum: { totalAmount: { toNumber: () => 32600 } },
+      })
+      .mockResolvedValueOnce({
+        _sum: { totalAmount: { toNumber: () => 12450 } },
+      });
+    const prisma = { purchase: { aggregate } };
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+    );
+
+    const result = await service.summaryForVendor('v1');
+
+    expect(result).toEqual({ totalThisYear: 32600, notFullyPaidTotal: 12450 });
+    expect(aggregate.mock.calls[0]![0].where.vendorId).toBe('v1');
+    expect(aggregate.mock.calls[1]![0].where).toEqual({
+      vendorId: 'v1',
+      paymentStatus: { not: 'PAID' },
+    });
+  });
+
+  it('reports 0/0 for a Vendor with zero Purchases, not an error', async () => {
+    const aggregate = vi
+      .fn()
+      .mockResolvedValue({ _sum: { totalAmount: null } });
+    const prisma = { purchase: { aggregate } };
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+    );
+
+    const result = await service.summaryForVendor('v1');
+
+    expect(result).toEqual({ totalThisYear: 0, notFullyPaidTotal: 0 });
+  });
+});
+
 describe('PurchasesService.countThisMonth', () => {
   it('scopes the count to purchasedAt within the current calendar month', async () => {
     const count = vi
