@@ -34,8 +34,11 @@ export class MaterialCategoriesController {
   }
 
   @Patch(':id')
-  @UsePipes(new ZodValidationPipe(updateMaterialCategorySchema))
-  update(@Param('id') id: string, @Body() body: UpdateMaterialCategoryInput) {
+  update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateMaterialCategorySchema))
+    body: UpdateMaterialCategoryInput,
+  ) {
     return this.materialCategoriesService.update(id, body);
   }
 }

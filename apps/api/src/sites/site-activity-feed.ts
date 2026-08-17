@@ -60,7 +60,7 @@ export async function getSiteActivityFeed(
     }),
     prisma.vehicleMovementLog.findMany({
       where: { siteId },
-      include: { vehicle: true },
+      include: { vehicle: { include: { type: true } } },
     }),
   ]);
 
@@ -139,7 +139,7 @@ export async function getSiteActivityFeed(
       id: v.id,
       type: 'VEHICLE_MOVEMENT',
       occurredAt: v.movedAt.toISOString(),
-      summary: `${v.vehicle.type} ${v.vehicle.number} — ${v.toStatus.replace('_', ' ').toLowerCase()}`,
+      summary: `${v.vehicle.type.name} ${v.vehicle.number} — ${v.toStatus.replace('_', ' ').toLowerCase()}`,
       amount: null,
     })),
   ];

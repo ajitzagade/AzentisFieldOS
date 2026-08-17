@@ -34,16 +34,19 @@ export class MaterialsController {
   }
 
   @Patch(':id')
-  @UsePipes(new ZodValidationPipe(updateMaterialSchema))
-  update(@Param('id') id: string, @Body() body: UpdateMaterialInput) {
+  update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateMaterialSchema))
+    body: UpdateMaterialInput,
+  ) {
     return this.materialsService.update(id, body);
   }
 
   @Post(':materialId/sizes')
-  @UsePipes(new ZodValidationPipe(createMaterialSizeSchema))
   createSize(
     @Param('materialId') materialId: string,
-    @Body() body: CreateMaterialSizeInput,
+    @Body(new ZodValidationPipe(createMaterialSizeSchema))
+    body: CreateMaterialSizeInput,
   ) {
     return this.materialsService.createSize(materialId, body);
   }

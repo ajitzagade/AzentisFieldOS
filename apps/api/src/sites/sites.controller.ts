@@ -34,8 +34,10 @@ export class SitesController {
   }
 
   @Patch(':id')
-  @UsePipes(new ZodValidationPipe(updateSiteSchema))
-  update(@Param('id') id: string, @Body() body: UpdateSiteInput) {
+  update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateSiteSchema)) body: UpdateSiteInput,
+  ) {
     return this.sitesService.update(id, body);
   }
 

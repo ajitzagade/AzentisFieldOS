@@ -37,8 +37,10 @@ export class VehicleController {
   }
 
   @Patch(':id')
-  @UsePipes(new ZodValidationPipe(updateVehicleSchema))
-  update(@Param('id') id: string, @Body() body: UpdateVehicleInput) {
+  update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateVehicleSchema)) body: UpdateVehicleInput,
+  ) {
     return this.vehicleService.update(id, body);
   }
 }

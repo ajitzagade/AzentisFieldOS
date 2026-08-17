@@ -37,8 +37,11 @@ export class MachineryController {
   }
 
   @Patch(':id')
-  @UsePipes(new ZodValidationPipe(updateMachinerySchema))
-  update(@Param('id') id: string, @Body() body: UpdateMachineryInput) {
+  update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateMachinerySchema))
+    body: UpdateMachineryInput,
+  ) {
     return this.machineryService.update(id, body);
   }
 }

@@ -27,10 +27,10 @@ export class MovementsController {
   }
 
   @Patch(':id/confirm-receipt')
-  @UsePipes(new ZodValidationPipe(confirmMovementReceiptSchema))
   confirmReceipt(
     @Param('id') id: string,
-    @Body() body: ConfirmMovementReceiptInput,
+    @Body(new ZodValidationPipe(confirmMovementReceiptSchema))
+    body: ConfirmMovementReceiptInput,
   ) {
     return this.movementsService.confirmReceipt(id, body);
   }
