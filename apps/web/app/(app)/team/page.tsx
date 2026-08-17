@@ -27,7 +27,17 @@ interface TeamSummary {
   todaysWorkingHeadcount: number;
   weeklyPaymentTotal: number;
   monthlyPaymentTotal: number;
-  totalOutstandingAdvances: number;
+}
+
+interface OutstandingAdvancesByTeamMember {
+  teamMemberId: string;
+  name: string;
+  outstandingAdvanceBalance: string;
+}
+
+interface OutstandingAdvances {
+  total: number;
+  byTeamMember: OutstandingAdvancesByTeamMember[];
 }
 
 async function getTeamMembers(): Promise<TeamMemberListItem[]> {
@@ -42,6 +52,16 @@ async function getTeamSummary(): Promise<TeamSummary> {
   const res = await fetch(`${process.env.API_URL}/team-members/team-summary`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Team Summary (${res.status})`);
+  }
+  return res.json();
+}
+
+// Story 7.4 (AC #1): the one shared Outstanding Advances number — Story
+// 7.3's Payments list reads the same endpoint, never a second computation.
+async function getOutstandingAdvances(): Promise<OutstandingAdvances> {
+  const res = await fetch(`${process.env.API_URL}/team-members/outstanding-advances`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load Outstanding Advances (${res.status})`);
   }
   return res.json();
 }
@@ -72,8 +92,31 @@ const columns: DataTableColumn<TeamMemberListItem>[] = [
   { header: "Current / Last Site", cell: (t) => t.currentOrLastSite ?? <span className="text-ink-500">—</span> },
 ];
 
+const outstandingAdvancesColumns: DataTableColumn<OutstandingAdvancesByTeamMember>[] = [
+  { header: "Team Member", cell: (m) => m.name },
+  {
+    header: "Outstanding Balance",
+    align: "right",
+    cell: (m) => (
+      <span className="font-semibold text-gold-700 tabular-nums">
+        ₹{Number(m.outstandingAdvanceBalance).toLocaleString("en-IN")}
+      </span>
+    ),
+  },
+];
+
 export default async function TeamPage() {
-  const [teamMembers, teamSummary] = await Promise.all([getTeamMembers(), getTeamSummary()]);
+  const [teamMembers, teamSummary, outstandingAdvances] = await Promise.all([
+    getTeamMembers(),
+    getTeamSummary(),
+    getOutstandingAdvances(),
+  ]);
+  // AC #2's drill-down: only Team Members who actually owe something —
+  // the API's byTeamMember includes every Team Member (even a ₹0 balance)
+  // so `total` above is complete, but a "who's owed" list showing every
+  // fully-repaid Team Member alongside the ones who matter would bury the
+  // signal.
+  const owingTeamMembers = outstandingAdvances.byTeamMember.filter((m) => Number(m.outstandingAdvanceBalance) > 0);
 
   return (
     <>
@@ -106,7 +149,7 @@ export default async function TeamPage() {
         />
         <StatTile
           icon={<WalletIcon />}
-          value={`₹${teamSummary.totalOutstandingAdvances.toLocaleString("en-IN")}`}
+          value={`₹${outstandingAdvances.total.toLocaleString("en-IN")}`}
           label="Total Outstanding Advances"
           tint="gold"
         />
@@ -130,6 +173,18 @@ export default async function TeamPage() {
                 ),
               }
             : { status: "success", rows: teamMembers }
+        }
+      />
+
+      <div className="mb-4 mt-8 text-section-header text-ink-900">Outstanding Advances</div>
+      <DataTable
+        columns={outstandingAdvancesColumns}
+        rowKey={(m) => m.teamMemberId}
+        rowHref={(m) => `/team/${m.teamMemberId}`}
+        state={
+          owingTeamMembers.length === 0
+            ? { status: "empty", icon: <WalletIcon />, message: "No Team Member currently has an Outstanding Advance." }
+            : { status: "success", rows: owingTeamMembers }
         }
       />
     </>

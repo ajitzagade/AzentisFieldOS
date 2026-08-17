@@ -241,8 +241,6 @@ describe('TeamMembersService.getTeamSummary', () => {
     teamMemberCount?: ReturnType<typeof vi.fn>;
     workRecordFindMany?: ReturnType<typeof vi.fn>;
     paymentAggregate?: ReturnType<typeof vi.fn>;
-    advanceAggregate?: ReturnType<typeof vi.fn>;
-    adjustmentAggregate?: ReturnType<typeof vi.fn>;
   }) {
     const teamMemberCount =
       overrides.teamMemberCount ?? vi.fn().mockResolvedValue(0);
@@ -251,19 +249,11 @@ describe('TeamMembersService.getTeamSummary', () => {
     const paymentAggregate =
       overrides.paymentAggregate ??
       vi.fn().mockResolvedValue({ _sum: { netPayable: null } });
-    const advanceAggregate =
-      overrides.advanceAggregate ??
-      vi.fn().mockResolvedValue({ _sum: { amount: null } });
-    const adjustmentAggregate =
-      overrides.adjustmentAggregate ??
-      vi.fn().mockResolvedValue({ _sum: { amount: null } });
 
     const prisma = {
       teamMember: { count: teamMemberCount },
       workRecord: { findMany: workRecordFindMany },
       payment: { aggregate: paymentAggregate },
-      advance: { aggregate: advanceAggregate },
-      advanceAdjustment: { aggregate: adjustmentAggregate },
     };
     const service = new TeamMembersService(
       prisma as unknown as ConstructorParameters<typeof TeamMembersService>[0],
@@ -274,12 +264,10 @@ describe('TeamMembersService.getTeamSummary', () => {
       teamMemberCount,
       workRecordFindMany,
       paymentAggregate,
-      advanceAggregate,
-      adjustmentAggregate,
     };
   }
 
-  it('AC #3: returns 0/empty, not an error or null, when no Advance/Payment rows exist at all', async () => {
+  it('AC #3: returns 0/empty, not an error or null, when no Payment rows exist at all', async () => {
     const { service } = makeSummaryService({});
 
     const result = await service.getTeamSummary();
@@ -289,7 +277,6 @@ describe('TeamMembersService.getTeamSummary', () => {
       todaysWorkingHeadcount: 0,
       weeklyPaymentTotal: 0,
       monthlyPaymentTotal: 0,
-      totalOutstandingAdvances: 0,
     });
   });
 
@@ -306,21 +293,90 @@ describe('TeamMembersService.getTeamSummary', () => {
     );
     expect(result.todaysWorkingHeadcount).toBe(2);
   });
+});
 
-  it('totalOutstandingAdvances subtracts total adjustments from total advances', async () => {
-    const advanceAggregate = vi
-      .fn()
-      .mockResolvedValue({ _sum: { amount: { toNumber: () => 8000 } } });
-    const adjustmentAggregate = vi
-      .fn()
-      .mockResolvedValue({ _sum: { amount: { toNumber: () => 2000 } } });
-    const { service } = makeSummaryService({
-      advanceAggregate,
-      adjustmentAggregate,
+describe('TeamMembersService.getOutstandingAdvances', () => {
+  function makeService(overrides: {
+    teamMemberFindMany?: ReturnType<typeof vi.fn>;
+    teamMemberAggregate?: ReturnType<typeof vi.fn>;
+  }) {
+    const teamMemberFindMany =
+      overrides.teamMemberFindMany ?? vi.fn().mockResolvedValue([]);
+    const teamMemberAggregate =
+      overrides.teamMemberAggregate ??
+      vi.fn().mockResolvedValue({ _sum: { outstandingAdvanceBalance: null } });
+
+    const prisma = {
+      teamMember: {
+        findMany: teamMemberFindMany,
+        aggregate: teamMemberAggregate,
+      },
+    };
+    const service = new TeamMembersService(
+      prisma as unknown as ConstructorParameters<typeof TeamMembersService>[0],
+    );
+
+    return { service, teamMemberFindMany, teamMemberAggregate };
+  }
+
+  it('AC #1: total is the sum of every Team Member outstandingAdvanceBalance, sourced from the materialized column', async () => {
+    const teamMemberFindMany = vi.fn().mockResolvedValue([
+      { id: 'tm1', name: 'Ravi Kumar', outstandingAdvanceBalance: '8000' },
+      { id: 'tm2', name: 'Sanjay Pawar', outstandingAdvanceBalance: '0' },
+      { id: 'tm3', name: 'Dinesh More', outstandingAdvanceBalance: '2500' },
+    ]);
+    const teamMemberAggregate = vi.fn().mockResolvedValue({
+      _sum: { outstandingAdvanceBalance: { toNumber: () => 10500 } },
+    });
+    const { service } = makeService({
+      teamMemberFindMany,
+      teamMemberAggregate,
     });
 
-    const result = await service.getTeamSummary();
+    const result = await service.getOutstandingAdvances();
 
-    expect(result.totalOutstandingAdvances).toBe(6000);
+    expect(result.total).toBe(10500);
+  });
+
+  it('includes a Team Member with a ₹0 balance in byTeamMember, rather than silently dropping them', async () => {
+    const teamMemberFindMany = vi
+      .fn()
+      .mockResolvedValue([
+        { id: 'tm2', name: 'Sanjay Pawar', outstandingAdvanceBalance: '0' },
+      ]);
+    const { service } = makeService({ teamMemberFindMany });
+
+    const result = await service.getOutstandingAdvances();
+
+    expect(result.byTeamMember).toEqual([
+      {
+        teamMemberId: 'tm2',
+        name: 'Sanjay Pawar',
+        outstandingAdvanceBalance: '0',
+      },
+    ]);
+  });
+
+  it('AD-6: returns a genuine ₹0 total, not an error, when there are no Team Members at all', async () => {
+    const { service } = makeService({});
+
+    const result = await service.getOutstandingAdvances();
+
+    expect(result).toEqual({ total: 0, byTeamMember: [] });
+  });
+
+  it('orders byTeamMember by outstandingAdvanceBalance descending', async () => {
+    const teamMemberFindMany = vi.fn().mockResolvedValue([]);
+    const { service, teamMemberFindMany: findMany } = makeService({
+      teamMemberFindMany,
+    });
+
+    await service.getOutstandingAdvances();
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: { outstandingAdvanceBalance: 'desc' },
+      }),
+    );
   });
 });

@@ -107,40 +107,57 @@ export class TeamMembersService {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
     );
 
-    const [
-      totalTeamMembers,
-      workingToday,
-      weeklyPayments,
-      monthlyPayments,
-      advanceSum,
-      adjustmentSum,
-    ] = await Promise.all([
-      this.prisma.teamMember.count({ where: { isActive: true } }),
-      this.prisma.workRecord.findMany({
-        where: { workDate: today, attended: true },
-        distinct: ['teamMemberId'],
-        select: { teamMemberId: true },
-      }),
-      this.prisma.payment.aggregate({
-        where: { paidAt: { gte: weekStart } },
-        _sum: { netPayable: true },
-      }),
-      this.prisma.payment.aggregate({
-        where: { paidAt: { gte: monthStart } },
-        _sum: { netPayable: true },
-      }),
-      this.prisma.advance.aggregate({ _sum: { amount: true } }),
-      this.prisma.advanceAdjustment.aggregate({ _sum: { amount: true } }),
-    ]);
+    const [totalTeamMembers, workingToday, weeklyPayments, monthlyPayments] =
+      await Promise.all([
+        this.prisma.teamMember.count({ where: { isActive: true } }),
+        this.prisma.workRecord.findMany({
+          where: { workDate: today, attended: true },
+          distinct: ['teamMemberId'],
+          select: { teamMemberId: true },
+        }),
+        this.prisma.payment.aggregate({
+          where: { paidAt: { gte: weekStart } },
+          _sum: { netPayable: true },
+        }),
+        this.prisma.payment.aggregate({
+          where: { paidAt: { gte: monthStart } },
+          _sum: { netPayable: true },
+        }),
+      ]);
 
     return {
       totalTeamMembers,
       todaysWorkingHeadcount: workingToday.length,
       weeklyPaymentTotal: weeklyPayments._sum.netPayable?.toNumber() ?? 0,
       monthlyPaymentTotal: monthlyPayments._sum.netPayable?.toNumber() ?? 0,
-      totalOutstandingAdvances:
-        (advanceSum._sum.amount?.toNumber() ?? 0) -
-        (adjustmentSum._sum.amount?.toNumber() ?? 0),
+    };
+  }
+
+  // Story 7.4 (AC #1): a single aggregate over TeamMember.outstandingAdvanceBalance
+  // — Story 7.1's materialized, write-path-only column — never a
+  // re-derivation from Advance/AdvanceAdjustment history. "Reconciles
+  // exactly" is true by construction here, the same way Epic 5 Story 5.7's
+  // stock reconciliation was. Every Team Member is returned, including a
+  // ₹0 balance — never silently dropped, or the list would look
+  // incomplete rather than accurate.
+  async getOutstandingAdvances() {
+    const [teamMembers, aggregate] = await Promise.all([
+      this.prisma.teamMember.findMany({
+        select: { id: true, name: true, outstandingAdvanceBalance: true },
+        orderBy: { outstandingAdvanceBalance: 'desc' },
+      }),
+      this.prisma.teamMember.aggregate({
+        _sum: { outstandingAdvanceBalance: true },
+      }),
+    ]);
+
+    return {
+      total: aggregate._sum.outstandingAdvanceBalance?.toNumber() ?? 0,
+      byTeamMember: teamMembers.map((t) => ({
+        teamMemberId: t.id,
+        name: t.name,
+        outstandingAdvanceBalance: t.outstandingAdvanceBalance,
+      })),
     };
   }
 

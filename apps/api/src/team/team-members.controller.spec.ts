@@ -18,6 +18,7 @@ describe('TeamMembersController', () => {
     update: ReturnType<typeof vi.fn>;
     getWorkHistory: ReturnType<typeof vi.fn>;
     getTeamSummary: ReturnType<typeof vi.fn>;
+    getOutstandingAdvances: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -28,6 +29,7 @@ describe('TeamMembersController', () => {
       update: vi.fn(),
       getWorkHistory: vi.fn(),
       getTeamSummary: vi.fn(),
+      getOutstandingAdvances: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -94,6 +96,18 @@ describe('TeamMembersController', () => {
 
     expect(service.getTeamSummary).toHaveBeenCalled();
     expect(result).toEqual({ totalTeamMembers: 4 });
+  });
+
+  it('getOutstandingAdvances delegates to TeamMembersService.getOutstandingAdvances', async () => {
+    service.getOutstandingAdvances.mockResolvedValue({
+      total: 10500,
+      byTeamMember: [],
+    });
+
+    const result = await controller.getOutstandingAdvances();
+
+    expect(service.getOutstandingAdvances).toHaveBeenCalled();
+    expect(result).toEqual({ total: 10500, byTeamMember: [] });
   });
 });
 

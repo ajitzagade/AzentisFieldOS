@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import {
   Badge,
   Card,
@@ -33,6 +34,27 @@ interface AdvanceListItem {
   teamMember: { id: string };
 }
 
+interface AdjustmentListItem {
+  id: string;
+  amount: string;
+  note: string | null;
+  adjustedAt: string;
+  advance: { id: string; teamMember: { id: string } };
+}
+
+// The combined Advance Ledger: Story 7.1 produces Advance rows, Story 7.2
+// adds AdvanceAdjustment rows here — never a separate table per
+// transaction type (same convention as /movements' combined log).
+interface LedgerRow {
+  id: string;
+  sortKey: number;
+  date: string;
+  typeBadge: ReactNode;
+  reason: string | null;
+  amount: string;
+  actions: ReactNode;
+}
+
 async function getTeamMember(id: string): Promise<TeamMemberDetail | null> {
   const res = await fetch(`${process.env.API_URL}/team-members/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
@@ -50,9 +72,9 @@ async function getWorkHistory(id: string): Promise<WorkHistoryEntry[]> {
   return res.json();
 }
 
-// Epic 7 scope entirely — GET /advances is the same global list Story 7.2
-// (Adjustments) and a future combined Advances page will also read; there
-// is no per-Team-Member endpoint, so this page filters client-side.
+// Epic 7 scope entirely — GET /advances is the same global list a future
+// combined Advances page will also read; there is no per-Team-Member
+// endpoint, so this page filters client-side.
 async function getAdvances(id: string): Promise<AdvanceListItem[]> {
   const res = await fetch(`${process.env.API_URL}/advances`, { cache: "no-store" });
   if (!res.ok) {
@@ -60,6 +82,15 @@ async function getAdvances(id: string): Promise<AdvanceListItem[]> {
   }
   const advances: AdvanceListItem[] = await res.json();
   return advances.filter((a) => a.teamMember.id === id);
+}
+
+async function getAdjustments(id: string): Promise<AdjustmentListItem[]> {
+  const res = await fetch(`${process.env.API_URL}/advance-adjustments`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load Advance Adjustments (${res.status})`);
+  }
+  const adjustments: AdjustmentListItem[] = await res.json();
+  return adjustments.filter((a) => a.advance.teamMember.id === id);
 }
 
 function formatDate(iso: string) {
@@ -70,6 +101,54 @@ function formatMoney(amount: string) {
   const value = Number(amount);
   const sign = value < 0 ? "−" : "";
   return `${sign}₹${Math.abs(value).toLocaleString("en-IN")}`;
+}
+
+function advanceToLedgerRow(a: AdvanceListItem): LedgerRow {
+  return {
+    id: a.id,
+    sortKey: new Date(a.givenAt).getTime(),
+    date: formatDate(a.givenAt),
+    typeBadge: <Badge variant="gold">Advance</Badge>,
+    reason: a.reason,
+    amount: a.amount,
+    actions: (
+      <div className="flex items-center justify-end gap-1">
+        <Link
+          href={`/team/${a.teamMember.id}/advances/${a.id}/adjustments/new`}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+        >
+          <PlusIcon className="size-4" />
+          Adjust
+        </Link>
+        <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/team/${a.teamMember.id}/advances/${a.id}/correct`} />
+      </div>
+    ),
+  };
+}
+
+function adjustmentToLedgerRow(adj: AdjustmentListItem): LedgerRow {
+  const teamMemberId = adj.advance.teamMember.id;
+  return {
+    id: adj.id,
+    sortKey: new Date(adj.adjustedAt).getTime(),
+    date: formatDate(adj.adjustedAt),
+    typeBadge: <Badge variant="neutral">Adjustment</Badge>,
+    reason: adj.note,
+    // Adjustment.amount is stored as the decrement magnitude (positive
+    // reduces the balance) — the opposite sign convention from Advance's
+    // amount (positive increases it) — negated here so the ledger's
+    // Amount column always reads as this row's signed effect on the
+    // balance, matching 09-team-member-detail.html's "−₹3,000" copy.
+    amount: String(-Number(adj.amount)),
+    actions: (
+      <div className="flex justify-end">
+        <CorrectAction
+          icon={<RotateCcwIcon className="size-4" />}
+          href={`/team/${teamMemberId}/advances/${adj.advance.id}/adjustments/${adj.id}/correct`}
+        />
+      </div>
+    ),
+  };
 }
 
 const columns: DataTableColumn<WorkHistoryEntry>[] = [
@@ -93,28 +172,30 @@ const columns: DataTableColumn<WorkHistoryEntry>[] = [
   },
 ];
 
-const advanceColumns: DataTableColumn<AdvanceListItem>[] = [
-  { header: "Date", cell: (a) => formatDate(a.givenAt) },
-  { header: "Type", cell: () => <Badge variant="gold">Advance</Badge> },
-  { header: "Reason", cell: (a) => a.reason ?? <span className="text-ink-500">—</span> },
-  { header: "Amount", align: "right", cell: (a) => <span className="tabular-nums">{formatMoney(a.amount)}</span> },
-  {
-    header: "",
-    cell: (a) => (
-      <div className="flex justify-end">
-        <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/team/${a.teamMember.id}/advances/${a.id}/correct`} />
-      </div>
-    ),
-  },
+const ledgerColumns: DataTableColumn<LedgerRow>[] = [
+  { header: "Date", cell: (r) => r.date },
+  { header: "Type", cell: (r) => r.typeBadge },
+  { header: "Reason", cell: (r) => r.reason ?? <span className="text-ink-500">—</span> },
+  { header: "Amount", align: "right", cell: (r) => <span className="tabular-nums">{formatMoney(r.amount)}</span> },
+  { header: "", cell: (r) => r.actions },
 ];
 
 export default async function TeamMemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [teamMember, workHistory, advances] = await Promise.all([getTeamMember(id), getWorkHistory(id), getAdvances(id)]);
+  const [teamMember, workHistory, advances, adjustments] = await Promise.all([
+    getTeamMember(id),
+    getWorkHistory(id),
+    getAdvances(id),
+    getAdjustments(id),
+  ]);
 
   if (!teamMember) {
     notFound();
   }
+
+  const ledgerRows = [...advances.map(advanceToLedgerRow), ...adjustments.map(adjustmentToLedgerRow)].sort(
+    (a, b) => b.sortKey - a.sortKey,
+  );
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const mostRecent = workHistory[0];
@@ -201,16 +282,16 @@ export default async function TeamMemberDetailPage({ params }: { params: Promise
         </Card>
 
         <DataTable
-          columns={advanceColumns}
-          rowKey={(a) => a.id}
+          columns={ledgerColumns}
+          rowKey={(r) => r.id}
           state={
-            advances.length === 0
+            ledgerRows.length === 0
               ? {
                   status: "empty",
                   icon: <WalletIcon />,
                   message: "No Advances recorded yet for this Team Member.",
                 }
-              : { status: "success", rows: advances }
+              : { status: "success", rows: ledgerRows }
           }
         />
       </div>

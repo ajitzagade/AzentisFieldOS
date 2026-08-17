@@ -479,6 +479,9 @@ model Payment {
   additionalAmount  Decimal  @default(0)
   deductions        Decimal  @default(0)
   netPayable        Decimal
+  // Free text, e.g. "1-15 Aug 2026" — not a structured date range; no FR
+  // requires a calendar-computed period (Story 7.3).
+  payPeriod         String?
   status            String // pending | paid
   paidAt            DateTime?
   createdAt         DateTime @default(now())

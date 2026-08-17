@@ -15,14 +15,22 @@ const defaultSummary = {
   todaysWorkingHeadcount: 0,
   weeklyPaymentTotal: 0,
   monthlyPaymentTotal: 0,
-  totalOutstandingAdvances: 0,
 };
 
-function mockFetch(teamMembers: unknown[], summary = defaultSummary) {
+const defaultOutstandingAdvances = { total: 0, byTeamMember: [] };
+
+function mockFetch(
+  teamMembers: unknown[],
+  summary = defaultSummary,
+  outstandingAdvances: unknown = defaultOutstandingAdvances,
+) {
   global.fetch = vi.fn(async (url: string | URL | Request) => {
     const href = typeof url === "string" ? url : url.toString();
     if (href.endsWith("/team-members/team-summary")) {
       return { ok: true, json: async () => summary } as Response;
+    }
+    if (href.endsWith("/team-members/outstanding-advances")) {
+      return { ok: true, json: async () => outstandingAdvances } as Response;
     }
     return { ok: true, json: async () => teamMembers } as Response;
   }) as unknown as typeof fetch;
@@ -125,7 +133,10 @@ describe("TeamPage", () => {
         todaysWorkingHeadcount: 1,
         weeklyPaymentTotal: 0,
         monthlyPaymentTotal: 0,
-        totalOutstandingAdvances: 6000,
+      },
+      {
+        total: 6000,
+        byTeamMember: [{ teamMemberId: "tm1", name: "A", outstandingAdvanceBalance: "6000" }],
       },
     );
 
@@ -133,7 +144,35 @@ describe("TeamPage", () => {
 
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument();
-    expect(screen.getByText("₹6,000")).toBeInTheDocument();
+    expect(screen.getAllByText("₹6,000")).toHaveLength(2);
+  });
+
+  it("renders the Outstanding Advances drill-down table, linking each row to the Team Member detail route (AC #2)", async () => {
+    mockFetch(
+      [],
+      defaultSummary,
+      {
+        total: 6000,
+        byTeamMember: [
+          { teamMemberId: "tm1", name: "Ravi Kumar", outstandingAdvanceBalance: "6000" },
+          { teamMemberId: "tm2", name: "Fully Repaid", outstandingAdvanceBalance: "0" },
+        ],
+      },
+    );
+
+    await renderTeamPage();
+
+    expect(screen.getByText("Outstanding Advances")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ravi Kumar/ })).toHaveAttribute("href", "/team/tm1");
+    expect(screen.queryByText("Fully Repaid")).not.toBeInTheDocument();
+  });
+
+  it("shows an honest empty state in the Outstanding Advances section when no one owes anything", async () => {
+    mockFetch([]);
+
+    await renderTeamPage();
+
+    expect(screen.getByText("No Team Member currently has an Outstanding Advance.")).toBeInTheDocument();
   });
 
   it("renders the empty state with an add-first-Team-Member action when there are zero rows", async () => {

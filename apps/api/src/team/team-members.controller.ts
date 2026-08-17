@@ -40,6 +40,12 @@ export class TeamMembersController {
     return this.teamMembersService.getTeamSummary();
   }
 
+  // Same registration-order reasoning as 'team-summary' above.
+  @Get('outstanding-advances')
+  getOutstandingAdvances() {
+    return this.teamMembersService.getOutstandingAdvances();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.teamMembersService.findOne(id);
@@ -51,8 +57,11 @@ export class TeamMembersController {
   }
 
   @Patch(':id')
-  @UsePipes(new ZodValidationPipe(updateTeamMemberSchema))
-  update(@Param('id') id: string, @Body() body: UpdateTeamMemberInput) {
+  update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateTeamMemberSchema))
+    body: UpdateTeamMemberInput,
+  ) {
     return this.teamMembersService.update(id, body);
   }
 }

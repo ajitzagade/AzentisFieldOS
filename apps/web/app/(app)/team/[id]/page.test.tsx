@@ -18,11 +18,15 @@ function mockFetchRouter(handlers: {
   teamMemberStatus?: number;
   workHistory?: unknown[];
   advances?: unknown[];
+  adjustments?: unknown[];
 }) {
   global.fetch = vi.fn((url: string) => {
     const urlStr = String(url);
     if (urlStr.includes("/work-history")) {
       return Promise.resolve({ ok: true, json: async () => handlers.workHistory ?? [] });
+    }
+    if (urlStr.includes("/advance-adjustments")) {
+      return Promise.resolve({ ok: true, json: async () => handlers.adjustments ?? [] });
     }
     if (urlStr.includes("/advances")) {
       return Promise.resolve({ ok: true, json: async () => handlers.advances ?? [] });
@@ -100,8 +104,13 @@ describe("TeamMemberDetailPage", () => {
     expect(screen.getAllByText("Present")).toHaveLength(2);
   });
 
-  it("shows honest placeholders when the Team Member has no Work Records or Advances yet", async () => {
-    mockFetchRouter({ teamMember: { ...baseTeamMember, outstandingAdvanceBalance: "0" }, workHistory: [], advances: [] });
+  it("shows honest placeholders when the Team Member has no Work Records, Advances, or Adjustments yet", async () => {
+    mockFetchRouter({
+      teamMember: { ...baseTeamMember, outstandingAdvanceBalance: "0" },
+      workHistory: [],
+      advances: [],
+      adjustments: [],
+    });
 
     await renderDetailPage("tm1");
 
@@ -110,7 +119,7 @@ describe("TeamMemberDetailPage", () => {
     expect(screen.getByText("₹0")).toBeInTheDocument();
   });
 
-  it("renders the Outstanding Balance and Advance Ledger table, and links Correct to the right route", async () => {
+  it("renders the Outstanding Balance and Advance Ledger table, and links Correct/Adjust to the right routes", async () => {
     mockFetchRouter({
       teamMember: baseTeamMember,
       workHistory: [],
@@ -131,6 +140,49 @@ describe("TeamMemberDetailPage", () => {
     expect(screen.getByText("Medical")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Record Advance" })).toHaveAttribute("href", "/team/tm1/advances/new");
     expect(screen.getByRole("link", { name: "Correct" })).toHaveAttribute("href", "/team/tm1/advances/adv1/correct");
+    expect(screen.getByRole("link", { name: /Adjust/ })).toHaveAttribute("href", "/team/tm1/advances/adv1/adjustments/new");
+  });
+
+  it("merges Advance and Adjustment rows into a single ledger, sorted most-recent-first, with Adjustment amounts shown as a negative delta", async () => {
+    mockFetchRouter({
+      teamMember: baseTeamMember,
+      workHistory: [],
+      advances: [
+        {
+          id: "adv1",
+          amount: "5000",
+          reason: "Medical",
+          givenAt: "2026-07-22T00:00:00.000Z",
+          teamMember: { id: "tm1" },
+        },
+      ],
+      adjustments: [
+        {
+          id: "aa1",
+          amount: "3000",
+          note: "Adjusted against July payment",
+          adjustedAt: "2026-08-05T00:00:00.000Z",
+          advance: { id: "adv1", teamMember: { id: "tm1" } },
+        },
+      ],
+    });
+
+    await renderDetailPage("tm1");
+
+    expect(screen.getByText("Adjustment")).toBeInTheDocument();
+    expect(screen.getByText("Adjusted against July payment")).toBeInTheDocument();
+    expect(screen.getByText("−₹3,000")).toBeInTheDocument();
+    const correctLinks = screen.getAllByRole("link", { name: "Correct" });
+    expect(correctLinks.map((link) => link.getAttribute("href"))).toContain(
+      "/team/tm1/advances/adv1/adjustments/aa1/correct",
+    );
+
+    // Scope to the ledger table's own rows (money-bearing rows) — the page
+    // also renders the separate, empty Work Record History table, whose
+    // "No Work Records..." placeholder is itself a <tr>.
+    const ledgerRows = screen.getAllByRole("row").filter((row) => row.textContent?.includes("₹"));
+    expect(ledgerRows[0]).toHaveTextContent("Adjustment");
+    expect(ledgerRows[1]).toHaveTextContent("Advance");
   });
 
   it("shows an Absent badge for an absent Work Record with no hours", async () => {
