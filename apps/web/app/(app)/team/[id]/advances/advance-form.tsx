@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, RotateCcwIcon, TextField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, RotateCcwIcon, TextField, WalletIcon } from "@azentisfieldos/ui";
 import { createAdvanceAction, type CreateAdvanceFormState } from "./actions";
 
 export interface AdvanceFormInitialValues {
@@ -12,10 +12,11 @@ export interface AdvanceFormInitialValues {
   givenAt?: string;
 }
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({ label, correcting }: { label: string; correcting: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      {correcting ? <RotateCcwIcon className="size-4" /> : <CheckCircleIcon className="size-4" />}
       {label}
     </Button>
   );
@@ -71,6 +72,7 @@ export function AdvanceForm({
           type="number"
           step="any"
           required
+          icon={<span className="text-body-sm font-semibold">₹</span>}
           defaultValue={initial?.amount}
           hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -2000." : undefined}
           error={state.errors?.amount?.[0]}
@@ -97,6 +99,8 @@ export function AdvanceForm({
           label="Payment Method"
           name="paymentMethod"
           hint="Optional"
+          icon={<WalletIcon className="size-4" />}
+          placeholder="e.g. Cash, Bank Transfer"
           defaultValue={initial?.paymentMethod}
           error={state.errors?.paymentMethod?.[0]}
         />
@@ -108,7 +112,7 @@ export function AdvanceForm({
         </p>
       ) : null}
 
-      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Advance"} />
+      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Advance"} correcting={mode === "correct"} />
     </form>
   );
 }

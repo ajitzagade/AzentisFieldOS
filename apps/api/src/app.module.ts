@@ -10,6 +10,8 @@ import { InventoryModule } from './inventory/inventory.module';
 import { TeamModule } from './team/team.module';
 import { AssetsModule } from './assets/assets.module';
 import { VendorsModule } from './vendors/vendors.module';
+import { RmcModule } from './rmc/rmc.module';
+import { ExpensesModule } from './expenses/expenses.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { VendorsModule } from './vendors/vendors.module';
     TeamModule,
     AssetsModule,
     VendorsModule,
+    RmcModule,
+    ExpensesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

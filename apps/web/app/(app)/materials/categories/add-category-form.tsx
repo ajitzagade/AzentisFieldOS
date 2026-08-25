@@ -2,7 +2,7 @@
 
 import { useActionState, useRef, useEffect } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, PlusIcon, TextField } from "@azentisfieldos/ui";
+import { Button, LayersIcon, PlusIcon, TextField } from "@azentisfieldos/ui";
 import { createMaterialCategoryAction, type CreateMaterialCategoryFormState } from "./actions";
 
 function SubmitButton() {
@@ -30,7 +30,15 @@ export function AddCategoryForm() {
   return (
     <form ref={formRef} action={formAction} noValidate className="flex items-end gap-2">
       <div className="flex-1">
-        <TextField label="Category name" name="name" required maxLength={200} error={state.errors?.name?.[0]} />
+        <TextField
+          label="Category name"
+          name="name"
+          required
+          maxLength={200}
+          icon={<LayersIcon className="size-4" />}
+          placeholder="e.g. Cement & Binders"
+          error={state.errors?.name?.[0]}
+        />
       </div>
       <SubmitButton />
       {state.formError ? (

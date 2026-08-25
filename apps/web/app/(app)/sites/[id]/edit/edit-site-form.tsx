@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, HashIcon, MapPinIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { updateSiteAction, type UpdateSiteFormState } from "./actions";
 import type { Site } from "../../page";
 
@@ -16,6 +16,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      <CheckCircleIcon className="size-4" />
       Save Changes
     </Button>
   );
@@ -34,6 +35,7 @@ export function EditSiteForm({ site }: { site: Site }) {
           name="name"
           required
           maxLength={200}
+          icon={<MapPinIcon className="size-4" />}
           defaultValue={site.name}
           error={state.errors?.name?.[0]}
         />
@@ -42,6 +44,7 @@ export function EditSiteForm({ site }: { site: Site }) {
           name="location"
           required
           maxLength={500}
+          icon={<MapPinIcon className="size-4" />}
           defaultValue={site.location}
           error={state.errors?.location?.[0]}
         />
@@ -57,6 +60,7 @@ export function EditSiteForm({ site }: { site: Site }) {
           name="contractReference"
           hint="Optional"
           maxLength={200}
+          icon={<HashIcon className="size-4" />}
           defaultValue={site.contractReference ?? ""}
           error={state.errors?.contractReference?.[0]}
         />

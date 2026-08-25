@@ -14,6 +14,14 @@
 
 @import "tailwindcss";
 
+/* Tailwind v4's automatic content detection only scans the directory of an
+ * @import'ed CSS file plus its subdirectories — since this file lives in
+ * styles/, that misses the sibling components/ and icons/ directories where
+ * every actual className lives, silently leaving every packages/ui
+ * component unstyled (native browser button/input rendering). Register the
+ * whole package source explicitly instead of relying on the heuristic. */
+@source "../";
+
 :root {
   /* Color — light mode (DESIGN.md frontmatter `colors`) */
   --surface-0: #FBFAF7;

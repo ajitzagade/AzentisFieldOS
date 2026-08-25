@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createServiceLogAction, updateServiceLogAction, type ServiceLogFormState } from "./actions";
 import type { ServiceLogKind } from "./service-history";
 
@@ -13,10 +13,11 @@ export interface ServiceLogFormInitialValues {
   serviceDate?: string;
 }
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({ label, editing }: { label: string; editing: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      {editing ? <CheckCircleIcon className="size-4" /> : <PlusIcon className="size-4" />}
       {label}
     </Button>
   );
@@ -78,6 +79,7 @@ export function ServiceLogForm(props: ServiceLogFormProps) {
           step="any"
           min={0}
           hint="Optional"
+          icon={<span className="text-body-sm font-semibold">₹</span>}
           defaultValue={initial?.cost}
           error={state.errors?.cost?.[0]}
         />
@@ -97,7 +99,7 @@ export function ServiceLogForm(props: ServiceLogFormProps) {
         </p>
       ) : null}
 
-      <SubmitButton label={props.mode === "edit" ? "Save Changes" : "Log Entry"} />
+      <SubmitButton label={props.mode === "edit" ? "Save Changes" : "Log Entry"} editing={props.mode === "edit"} />
     </form>
   );
 }

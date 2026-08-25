@@ -1,4 +1,5 @@
-import { Badge, CheckCircleIcon, ClipboardIcon, DataTable, type DataTableColumn } from "@azentisfieldos/ui";
+import Link from "next/link";
+import { Badge, Button, CheckCircleIcon, ClipboardIcon, DataTable, PlusIcon, type DataTableColumn } from "@azentisfieldos/ui";
 import type { Site } from "../sites/page";
 
 interface DsrListRow {
@@ -88,9 +89,17 @@ export default async function DailyActivityPage() {
 
   return (
     <>
-      <div className="mb-8">
-        <h1 className="text-page-title text-ink-900">Daily Activity</h1>
-        <p className="text-body-sm text-ink-500">Daily Site Reports across all Sites — {formatDate(date)}</p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-page-title text-ink-900">Daily Activity</h1>
+          <p className="text-body-sm text-ink-500">Daily Site Reports across all Sites — {formatDate(date)}</p>
+        </div>
+        <Link href="/dsr/new">
+          <Button>
+            <PlusIcon className="size-4" />
+            New Report
+          </Button>
+        </Link>
       </div>
 
       <DataTable

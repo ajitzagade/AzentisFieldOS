@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, RotateCcwIcon, SelectField, TextField, UserIcon, WalletIcon } from "@azentisfieldos/ui";
 import { createPaymentAction, type CreatePaymentFormState } from "./actions";
 
 interface TeamMemberOption {
@@ -25,10 +25,11 @@ export interface PaymentFormInitialValues {
   advanceAdjustment?: { advanceId: string; amount: string; note?: string };
 }
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({ label, correcting }: { label: string; correcting: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      {correcting ? <RotateCcwIcon className="size-4" /> : <CheckCircleIcon className="size-4" />}
       {label}
     </Button>
   );
@@ -106,6 +107,7 @@ export function PaymentForm({
           label="Team Member"
           name="teamMemberId"
           required
+          icon={<UserIcon className="size-4" />}
           disabled={mode === "correct"}
           value={teamMemberId}
           onChange={(e) => setTeamMemberId(e.target.value)}
@@ -121,6 +123,7 @@ export function PaymentForm({
           step="any"
           min={0}
           required
+          icon={<span className="text-body-sm font-semibold">₹</span>}
           value={basePay}
           onChange={(e) => setBasePay(e.target.value)}
           error={state.errors?.basePay?.[0]}
@@ -131,6 +134,7 @@ export function PaymentForm({
           type="number"
           step="any"
           min={0}
+          icon={<span className="text-body-sm font-semibold">₹</span>}
           value={additionalAmount}
           onChange={(e) => setAdditionalAmount(e.target.value)}
           error={state.errors?.additionalAmount?.[0]}
@@ -141,6 +145,7 @@ export function PaymentForm({
           type="number"
           step="any"
           min={0}
+          icon={<span className="text-body-sm font-semibold">₹</span>}
           value={deductions}
           onChange={(e) => setDeductions(e.target.value)}
           error={state.errors?.deductions?.[0]}
@@ -171,6 +176,7 @@ export function PaymentForm({
               label="Advance"
               name="advanceId"
               required
+              icon={<WalletIcon className="size-4" />}
               value={advanceId}
               onChange={(e) => setAdvanceId(e.target.value)}
               disabled={!teamMemberId}
@@ -186,6 +192,7 @@ export function PaymentForm({
               type="number"
               step="any"
               required
+              icon={<span className="text-body-sm font-semibold">₹</span>}
               value={adjustmentAmount}
               onChange={(e) => setAdjustmentAmount(e.target.value)}
               hint={
@@ -211,7 +218,7 @@ export function PaymentForm({
         </p>
       ) : null}
 
-      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Payment"} />
+      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Payment"} correcting={mode === "correct"} />
     </form>
   );
 }

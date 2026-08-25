@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, HashIcon, LayersIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { createMachineryAction, type CreateMachineryFormState } from "./actions";
 
 interface Option {
@@ -15,6 +15,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      <PlusIcon className="size-4" />
       Register Machine
     </Button>
   );
@@ -42,7 +43,15 @@ export function NewMachineryForm({ machineryTypes }: { machineryTypes: Option[] 
   return (
     <Card>
       <form action={formAction} noValidate>
-        <TextField label="Name" name="name" required maxLength={200} error={state.errors?.name?.[0]} />
+        <TextField
+          label="Name"
+          name="name"
+          required
+          maxLength={200}
+          icon={<LayersIcon className="size-4" />}
+          placeholder="e.g. Excavator EXC-01"
+          error={state.errors?.name?.[0]}
+        />
         <SelectField
           label="Type"
           name="typeId"
@@ -59,11 +68,19 @@ export function NewMachineryForm({ machineryTypes }: { machineryTypes: Option[] 
           name="assetNumber"
           required
           maxLength={100}
+          icon={<HashIcon className="size-4" />}
           error={state.errors?.assetNumber?.[0]}
         />
         <TextField label="Model" name="model" hint="Optional" maxLength={200} error={state.errors?.model?.[0]} />
-        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} error={state.errors?.ownership?.[0]} />
-        <TextField label="Operator" name="operator" hint="Optional" maxLength={200} error={state.errors?.operator?.[0]} />
+        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} placeholder="e.g. Owned, Rented" error={state.errors?.ownership?.[0]} />
+        <TextField
+          label="Operator"
+          name="operator"
+          hint="Optional"
+          maxLength={200}
+          icon={<UserIcon className="size-4" />}
+          error={state.errors?.operator?.[0]}
+        />
 
         {state.formError ? (
           <p role="alert" className="mb-4 text-caption text-danger-700">

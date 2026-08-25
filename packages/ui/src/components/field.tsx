@@ -8,14 +8,21 @@ import { cn } from "../lib/cn";
 const fieldControlClass =
   "w-full rounded-md border border-border-strong bg-surface-1 px-3 py-2 text-body text-ink-900 focus:border-accent-teal-700 focus:outline-none focus:ring-3 focus:ring-accent-teal-100";
 
+// Leading icon is optional and purely additive — every existing call site
+// with no `icon` prop renders byte-for-byte the same as before. Icon
+// speeds recognition of the field's *kind* at a glance (email, phone,
+// currency, ...); it is never decorative filler (DESIGN.md Brand & Style).
+const iconWrapperClass = "pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500";
+
 export interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
   hint?: string;
+  icon?: ReactNode;
 }
 
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
-  ({ label, error, hint, id, className, ...props }, ref) => {
+  ({ label, error, hint, icon, id, className, ...props }, ref) => {
     const generatedId = useId();
     const inputId = id ?? generatedId;
     const errorId = `${inputId}-error`;
@@ -26,14 +33,17 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
         <label htmlFor={inputId} className="mb-1 block text-caption font-semibold text-ink-700">
           {label}
         </label>
-        <input
-          ref={ref}
-          id={inputId}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : hint ? hintId : undefined}
-          className={cn(fieldControlClass, error && "border-danger-700", className)}
-          {...props}
-        />
+        <div className="relative">
+          {icon ? <span className={iconWrapperClass}>{icon}</span> : null}
+          <input
+            ref={ref}
+            id={inputId}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : hint ? hintId : undefined}
+            className={cn(fieldControlClass, icon && "pl-9", error && "border-danger-700", className)}
+            {...props}
+          />
+        </div>
         {hint && !error ? (
           <p id={hintId} className="mt-1 text-eyebrow text-ink-500">
             {hint}
@@ -59,34 +69,45 @@ export interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement
   label: string;
   options: SelectFieldOption[];
   error?: string;
+  hint?: string;
+  icon?: ReactNode;
 }
 
 export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
-  ({ label, options, error, id, className, children, ...props }, ref) => {
+  ({ label, options, error, hint, icon, id, className, children, ...props }, ref) => {
     const generatedId = useId();
     const selectId = id ?? generatedId;
     const errorId = `${selectId}-error`;
+    const hintId = `${selectId}-hint`;
 
     return (
       <div className="mb-4">
         <label htmlFor={selectId} className="mb-1 block text-caption font-semibold text-ink-700">
           {label}
         </label>
-        <select
-          ref={ref}
-          id={selectId}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
-          className={cn(fieldControlClass, error && "border-danger-700", className)}
-          {...props}
-        >
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-          {children as ReactNode}
-        </select>
+        <div className="relative">
+          {icon ? <span className={iconWrapperClass}>{icon}</span> : null}
+          <select
+            ref={ref}
+            id={selectId}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : hint ? hintId : undefined}
+            className={cn(fieldControlClass, icon && "pl-9", error && "border-danger-700", className)}
+            {...props}
+          >
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+            {children as ReactNode}
+          </select>
+        </div>
+        {hint && !error ? (
+          <p id={hintId} className="mt-1 text-eyebrow text-ink-500">
+            {hint}
+          </p>
+        ) : null}
         {error ? (
           <p id={errorId} role="alert" className="mt-1 text-eyebrow text-danger-700">
             {error}

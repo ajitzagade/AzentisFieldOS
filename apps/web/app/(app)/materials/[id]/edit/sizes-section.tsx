@@ -2,7 +2,7 @@
 
 import { useActionState, useRef, useEffect } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, PlusIcon, TextField } from "@azentisfieldos/ui";
+import { Button, Card, HashIcon, PlusIcon, TextField } from "@azentisfieldos/ui";
 import { addMaterialSizeAction, type AddSizeFormState } from "./add-size-action";
 
 function SubmitButton() {
@@ -48,7 +48,15 @@ export function SizesSection({ materialId, sizes }: { materialId: string; sizes:
 
       <form ref={formRef} action={formAction} noValidate className="flex items-end gap-2">
         <div className="flex-1">
-          <TextField label="New Size / Specification" name="label" required maxLength={50} error={state.errors?.label?.[0]} />
+          <TextField
+            label="New Size / Specification"
+            name="label"
+            required
+            maxLength={50}
+            icon={<HashIcon className="size-4" />}
+            placeholder="e.g. 50kg, 12mm dia"
+            error={state.errors?.label?.[0]}
+          />
         </div>
         <SubmitButton />
       </form>

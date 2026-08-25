@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@azentisfieldos/ui";
 import type { Role } from "@azentisfieldos/shared";
 import { NAV_GROUPS, SETTINGS_NAV_ITEM, UNGROUPED_NAV_ITEMS, type NavItem } from "./nav-config";
+import { APP_DISPLAY_NAME } from "../../../lib/tenant";
 
 // The desktop sidebar shell vs. the Site Supervisor's minimal mobile top
 // bar is a role distinction (EXPERIENCE.md), never a viewport breakpoint —
@@ -46,12 +47,12 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 
 function Sidebar({ pathname }: { pathname: string }) {
   return (
-    <aside className="flex w-62 flex-col gap-1 bg-accent-navy-800 px-4 py-6 text-ink-on-accent">
+    <aside className="flex min-h-screen w-62 shrink-0 flex-col gap-1 bg-accent-navy-800 px-4 py-6 text-ink-on-accent">
       <div className="mb-6 flex items-center gap-2 px-2">
         <div className="flex size-8 items-center justify-center rounded-md bg-accent-teal-700 text-body-sm font-bold text-white">
-          A
+          {APP_DISPLAY_NAME[0]}
         </div>
-        <div className="text-card-title font-semibold tracking-tight">AzentisFieldOS</div>
+        <div className="text-card-title font-semibold tracking-tight">{APP_DISPLAY_NAME}</div>
       </div>
 
       {UNGROUPED_NAV_ITEMS.map((item) => (
@@ -74,9 +75,9 @@ function Sidebar({ pathname }: { pathname: string }) {
 
 function MinimalTopBar({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between border-b border-border-hairline bg-surface-1 px-4 py-3">
-        <span className="text-card-title font-semibold text-ink-900">AzentisFieldOS</span>
+        <span className="text-card-title font-semibold text-ink-900">{APP_DISPLAY_NAME}</span>
       </header>
       <main className="flex-1 p-4">{children}</main>
     </div>
@@ -91,7 +92,7 @@ export function AppShell({ role, children }: AppShellProps) {
   }
 
   return (
-    <div className="flex min-h-full">
+    <div className="flex min-h-screen">
       <Sidebar pathname={pathname} />
       <main className="max-w-310 flex-1 px-10 py-8">{children}</main>
     </div>

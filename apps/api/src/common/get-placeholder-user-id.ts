@@ -18,8 +18,13 @@ export async function getPlaceholderUserId(
   try {
     const created = await prisma.user.create({
       data: {
+        // `name` renders as-is in Submitted By/Uploaded By columns end
+        // users actually see — keep it presentable. The placeholder
+        // nature is already unambiguous from `clerkId`/`email` below,
+        // which are never rendered in the UI, and from this whole
+        // function's purpose (see module comment).
         clerkId: 'system-placeholder',
-        name: 'System (placeholder — no apps/api auth wired yet)',
+        name: 'Field Team',
         email,
         role: 'OWNER_ADMIN',
       },

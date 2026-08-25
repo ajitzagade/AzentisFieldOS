@@ -2,7 +2,20 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import {
+  BuildingIcon,
+  Button,
+  Card,
+  CheckCircleIcon,
+  HashIcon,
+  LayersIcon,
+  MapPinIcon,
+  RotateCcwIcon,
+  SelectField,
+  TextField,
+  TruckIcon,
+  UserIcon,
+} from "@azentisfieldos/ui";
 import { createPurchaseAction, type CreatePurchaseFormState } from "./actions";
 
 interface MaterialSizeOption {
@@ -36,10 +49,11 @@ export interface PurchaseFormInitialValues {
   purchasedAt?: string;
 }
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({ label, correcting }: { label: string; correcting: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      {correcting ? <RotateCcwIcon className="size-4" /> : <CheckCircleIcon className="size-4" />}
       {label}
     </Button>
   );
@@ -90,6 +104,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           label="Vendor"
           name="vendorId"
           required
+          icon={<BuildingIcon className="size-4" />}
           disabled={mode === "correct"}
           defaultValue={initial?.vendorId ?? ""}
           options={[{ value: "", label: "Select a Vendor" }, ...vendors.map((v) => ({ value: v.id, label: v.name }))]}
@@ -101,6 +116,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           label="Material / Size"
           name="materialSizeId"
           required
+          icon={<LayersIcon className="size-4" />}
           disabled={mode === "correct"}
           defaultValue={initial?.materialSizeId ?? ""}
           options={[{ value: "", label: "Select a Material" }, ...materialSizes.map((m) => ({ value: m.id, label: m.label }))]}
@@ -133,6 +149,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
               label="Site"
               name="siteId"
               required
+              icon={<MapPinIcon className="size-4" />}
               disabled={mode === "correct"}
               defaultValue={initial?.siteId ?? ""}
               options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
@@ -153,13 +170,23 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -20." : undefined}
           error={state.errors?.quantity?.[0]}
         />
-        <TextField label="Rate" name="rate" type="number" step="any" required defaultValue={initial?.rate} error={state.errors?.rate?.[0]} />
+        <TextField
+          label="Rate"
+          name="rate"
+          type="number"
+          step="any"
+          required
+          icon={<span className="text-body-sm font-semibold">₹</span>}
+          defaultValue={initial?.rate}
+          error={state.errors?.rate?.[0]}
+        />
         <TextField
           label="Total Amount"
           name="totalAmount"
           type="number"
           step="any"
           required
+          icon={<span className="text-body-sm font-semibold">₹</span>}
           defaultValue={initial?.totalAmount}
           error={state.errors?.totalAmount?.[0]}
         />
@@ -190,6 +217,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           label="Invoice / Challan No."
           name="invoiceOrChallanNo"
           hint="Optional"
+          icon={<HashIcon className="size-4" />}
           defaultValue={initial?.invoiceOrChallanNo}
           error={state.errors?.invoiceOrChallanNo?.[0]}
         />
@@ -197,6 +225,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           label="Delivery Location"
           name="deliveryLocation"
           hint="Optional"
+          icon={<MapPinIcon className="size-4" />}
           defaultValue={initial?.deliveryLocation}
           error={state.errors?.deliveryLocation?.[0]}
         />
@@ -204,6 +233,8 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           label="Vehicle Details"
           name="vehicleDetails"
           hint="Optional"
+          icon={<TruckIcon className="size-4" />}
+          placeholder="e.g. MH12AB1234"
           defaultValue={initial?.vehicleDetails}
           error={state.errors?.vehicleDetails?.[0]}
         />
@@ -211,6 +242,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           label="Receiver Name"
           name="receiverName"
           hint="Optional"
+          icon={<UserIcon className="size-4" />}
           defaultValue={initial?.receiverName}
           error={state.errors?.receiverName?.[0]}
         />
@@ -223,7 +255,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
         </p>
       ) : null}
 
-      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Purchase"} />
+      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Purchase"} correcting={mode === "correct"} />
     </form>
   );
 }

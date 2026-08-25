@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Badge, Button, Card, SelectField, TextField } from "@azentisfieldos/ui";
+import { Badge, Button, Card, CheckCircleIcon, MapPinIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 
 interface SiteOption {
   id: string;
@@ -130,6 +130,7 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
         <SelectField
           label="Site"
           required
+          icon={<MapPinIcon className="size-4" />}
           value={siteId}
           onChange={(e) => setSiteId(e.target.value)}
           options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
@@ -191,12 +192,14 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
         <div className="flex items-end gap-2">
           <SelectField
             label="Add Team Member"
+            icon={<UserIcon className="size-4" />}
             value={newMemberId}
             onChange={(e) => setNewMemberId(e.target.value)}
             options={[{ value: "", label: "Select a Team Member" }, ...availableToAdd.map((t) => ({ value: t.id, label: t.name }))]}
             className="flex-1"
           />
           <Button type="button" variant="secondary" onClick={addCrewMember}>
+            <PlusIcon className="size-4" />
             Add
           </Button>
         </div>
@@ -209,6 +212,7 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
       ) : null}
 
       <Button type="submit" isLoading={isSubmitting} disabled={!siteId || crew.length === 0} className="w-full justify-center">
+        <CheckCircleIcon className="size-4" />
         Save Attendance
       </Button>
     </form>

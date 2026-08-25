@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, RotateCcwIcon, TextField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, RotateCcwIcon, TextField } from "@azentisfieldos/ui";
 import { createAdvanceAdjustmentAction, type CreateAdvanceAdjustmentFormState } from "./actions";
 
 export interface AdjustmentFormInitialValues {
@@ -10,10 +10,11 @@ export interface AdjustmentFormInitialValues {
   adjustedAt?: string;
 }
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({ label, correcting }: { label: string; correcting: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      {correcting ? <RotateCcwIcon className="size-4" /> : <CheckCircleIcon className="size-4" />}
       {label}
     </Button>
   );
@@ -78,6 +79,7 @@ export function AdjustmentForm({
           type="number"
           step="any"
           required
+          icon={<span className="text-body-sm font-semibold">₹</span>}
           hint={
             mode === "correct"
               ? "Signed delta applied on top of the current balance — e.g. -1000."
@@ -111,7 +113,7 @@ export function AdjustmentForm({
         </p>
       ) : null}
 
-      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Adjustment"} />
+      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Adjustment"} correcting={mode === "correct"} />
     </form>
   );
 }

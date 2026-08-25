@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import { APP_DISPLAY_NAME } from "../lib/tenant";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AzentisFieldOS",
+  title: APP_DISPLAY_NAME,
   description:
     "Construction contractor operations: sites, inventory, labour, and daily reporting in one place.",
 };

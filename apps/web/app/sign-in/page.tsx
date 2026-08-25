@@ -2,20 +2,31 @@
 
 import { type FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSignIn } from "@clerk/nextjs";
-import { Button, Card, TextField } from "@azentisfieldos/ui";
+import { useSignIn } from "@clerk/nextjs/legacy";
+import { isClerkAPIResponseError } from "@clerk/nextjs/errors";
+import { Button, Card, LockIcon, MailIcon, TextField } from "@azentisfieldos/ui";
 import { mapClerkSignInError } from "./map-clerk-error";
+import { APP_DISPLAY_NAME } from "../../lib/tenant";
 
-// Custom-styled sign-in flow using Clerk's headless useSignIn hook (the
-// SignIn Future/signals API in this Clerk version — signIn.password()
-// resolves with { error } rather than throwing) rather than the prebuilt
-// <SignIn/> component — DESIGN.md's exact card layout (brand mark,
-// tagline, single-tenant footer note) needs pixel-level control the
-// prebuilt component's `appearance` theming doesn't cleanly give. Clerk
-// still owns all credential verification and session issuance (AD-10);
-// only the presentational layer here is custom.
+// Custom-styled sign-in flow using Clerk's classic (non-Future) headless
+// useSignIn hook — imported from "@clerk/nextjs/legacy", not "@clerk/nextjs"
+// — rather than the prebuilt <SignIn/> component. DESIGN.md's exact card
+// layout (brand mark, tagline, single-tenant footer note) needs
+// pixel-level control the prebuilt component's `appearance` theming
+// doesn't cleanly give. Clerk still owns all credential verification and
+// session issuance (AD-10); only the presentational layer here is custom.
+//
+// The default "@clerk/nextjs" export is the newer signal-based Future API
+// (signIn.password()/finalize()) — deliberately not used here: each
+// useSignIn() call returns an immutable snapshot whose own methods close
+// over that snapshot's state, so awaiting signIn.password() and then
+// calling signIn.finalize() on the same pre-mutation object fails with
+// "Cannot finalize sign-in without a created session" even though the
+// password step itself succeeded server-side. signIn.create() below
+// resolves with the fully updated SignIn resource directly, sidestepping
+// that entirely.
 export default function SignInPage() {
-  const { signIn } = useSignIn();
+  const { isLoaded, signIn, setActive } = useSignIn();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,18 +35,15 @@ export default function SignInPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!isLoaded) return;
 
     setError(null);
     setIsSubmitting(true);
 
     try {
-      const { error: passwordError } = await signIn.password({ identifier: email, password });
-      if (passwordError) {
-        setError(mapClerkSignInError(passwordError));
-        return;
-      }
+      const result = await signIn.create({ identifier: email, password });
 
-      if (signIn.status !== "complete") {
+      if (result.status !== "complete") {
         // Single-tenant, single-factor sign-in (AD-1, AD-10) never expects
         // a further step (MFA, verification) — any non-"complete" status
         // here is treated the same as an error, never a raw status surfaced.
@@ -43,10 +51,11 @@ export default function SignInPage() {
         return;
       }
 
-      const { error: finalizeError } = await signIn.finalize({ navigate: () => router.push("/") });
-      if (finalizeError) {
-        setError(mapClerkSignInError(finalizeError));
-      }
+      await setActive({ session: result.createdSessionId });
+      router.push("/");
+    } catch (err) {
+      const clerkError = isClerkAPIResponseError(err) ? err.errors[0] : err;
+      setError(mapClerkSignInError(clerkError));
     } finally {
       setIsSubmitting(false);
     }
@@ -57,9 +66,9 @@ export default function SignInPage() {
       <Card className="w-full max-w-100">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <div className="flex size-12 items-center justify-center rounded-md bg-accent-teal-700 text-lg font-bold text-white">
-            A
+            {APP_DISPLAY_NAME[0]}
           </div>
-          <div className="text-card-title text-ink-900">AzentisFieldOS</div>
+          <div className="text-card-title text-ink-900">{APP_DISPLAY_NAME}</div>
         </div>
         <p className="mb-8 text-center text-body-sm text-ink-500">
           Field operations, accounted for — sites, stock and settlements in one system.
@@ -73,6 +82,7 @@ export default function SignInPage() {
             type="email"
             autoComplete="username"
             required
+            icon={<MailIcon className="size-4" />}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
@@ -83,6 +93,7 @@ export default function SignInPage() {
             type="password"
             autoComplete="current-password"
             required
+            icon={<LockIcon className="size-4" />}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
@@ -94,6 +105,7 @@ export default function SignInPage() {
           ) : null}
 
           <Button type="submit" isLoading={isSubmitting} className="w-full justify-center">
+            <LockIcon className="size-4" />
             Sign in
           </Button>
         </form>

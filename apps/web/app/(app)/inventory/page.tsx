@@ -1,10 +1,12 @@
 import Link from "next/link";
 import {
   AlertTriangleIcon,
+  ArrowsIcon,
   BoxIcon,
   DataTable,
   GapFlag,
   MapPinIcon,
+  PlusIcon,
   ReceiptIcon,
   StatTile,
   buttonVariants,
@@ -123,9 +125,16 @@ export default async function InventoryPage() {
           <h1 className="text-page-title text-ink-900">Inventory</h1>
           <p className="text-body-sm text-ink-500">Godown and site-wise material stock across all Sites</p>
         </div>
-        <Link href="/movements/godown-to-site/new" className={cn(buttonVariants({ variant: "secondary" }))}>
-          Record Movement
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/movements/godown-to-site/new" className={cn(buttonVariants({ variant: "secondary" }))}>
+            <ArrowsIcon className="size-4" />
+            Record Movement
+          </Link>
+          <Link href="/movements/purchases/new" className={cn(buttonVariants({ variant: "primary" }))}>
+            <PlusIcon className="size-4" />
+            Record Purchase
+          </Link>
+        </div>
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -156,6 +165,7 @@ export default async function InventoryPage() {
               message={`${material.name} is low in Godown stock — ${material.godownQuantity} ${material.unit.name} on hand against a ${material.lowStockThreshold} ${material.unit.name} configured threshold.`}
               action={
                 <Link href="/movements/godown-to-site/new" className={cn(buttonVariants({ variant: "primary", size: "sm" }))}>
+                  <ArrowsIcon className="size-4" />
                   Transfer Stock
                 </Link>
               }

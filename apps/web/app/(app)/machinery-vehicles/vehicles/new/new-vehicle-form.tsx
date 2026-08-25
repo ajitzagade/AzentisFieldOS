@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, HashIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { createVehicleAction, type CreateVehicleFormState } from "./actions";
 
 interface Option {
@@ -15,6 +15,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      <PlusIcon className="size-4" />
       Register Vehicle
     </Button>
   );
@@ -42,7 +43,15 @@ export function NewVehicleForm({ vehicleTypes }: { vehicleTypes: Option[] }) {
   return (
     <Card>
       <form action={formAction} noValidate>
-        <TextField label="Number" name="number" required maxLength={100} error={state.errors?.number?.[0]} />
+        <TextField
+          label="Number"
+          name="number"
+          required
+          maxLength={100}
+          icon={<HashIcon className="size-4" />}
+          placeholder="e.g. MH12AB1234"
+          error={state.errors?.number?.[0]}
+        />
         <SelectField
           label="Type"
           name="typeId"
@@ -54,8 +63,15 @@ export function NewVehicleForm({ vehicleTypes }: { vehicleTypes: Option[] }) {
           ]}
           error={state.errors?.typeId?.[0]}
         />
-        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} error={state.errors?.ownership?.[0]} />
-        <TextField label="Driver" name="driver" hint="Optional" maxLength={200} error={state.errors?.driver?.[0]} />
+        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} placeholder="e.g. Owned, Rented" error={state.errors?.ownership?.[0]} />
+        <TextField
+          label="Driver"
+          name="driver"
+          hint="Optional"
+          maxLength={200}
+          icon={<UserIcon className="size-4" />}
+          error={state.errors?.driver?.[0]}
+        />
 
         {state.formError ? (
           <p role="alert" className="mb-4 text-caption text-danger-700">

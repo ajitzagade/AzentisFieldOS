@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Badge, Button, Card, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { Badge, Button, Card, CheckCircleIcon, LayersIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import type { CustomFieldDefinition, CustomFieldType } from "@azentisfieldos/shared";
 import { updateMaterialAction, type UpdateMaterialFormState } from "./actions";
 import type { MaterialDetail } from "./page";
@@ -22,6 +22,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      <CheckCircleIcon className="size-4" />
       Save Changes
     </Button>
   );
@@ -61,7 +62,15 @@ export function EditMaterialForm({
   return (
     <Card>
       <form action={formAction} noValidate>
-        <TextField label="Name" name="name" required maxLength={200} defaultValue={material.name} error={state.errors?.name?.[0]} />
+        <TextField
+          label="Name"
+          name="name"
+          required
+          maxLength={200}
+          icon={<LayersIcon className="size-4" />}
+          defaultValue={material.name}
+          error={state.errors?.name?.[0]}
+        />
         <SelectField
           label="Category"
           name="categoryId"

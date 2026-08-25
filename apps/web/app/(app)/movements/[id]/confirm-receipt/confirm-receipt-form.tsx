@@ -2,13 +2,14 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, TextField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, TextField } from "@azentisfieldos/ui";
 import { confirmMovementReceiptAction, type ConfirmMovementReceiptFormState } from "./actions";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      <CheckCircleIcon className="size-4" />
       Confirm Receipt
     </Button>
   );

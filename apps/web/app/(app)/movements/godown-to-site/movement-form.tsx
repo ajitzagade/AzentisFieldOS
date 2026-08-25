@@ -2,7 +2,18 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import {
+  Button,
+  Card,
+  CheckCircleIcon,
+  LayersIcon,
+  MapPinIcon,
+  RotateCcwIcon,
+  SelectField,
+  TextField,
+  TruckIcon,
+  UserIcon,
+} from "@azentisfieldos/ui";
 import { createMovementAction, type CreateMovementFormState } from "./actions";
 
 interface MaterialSizeOption {
@@ -25,10 +36,11 @@ export interface MovementFormInitialValues {
   movedAt?: string;
 }
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({ label, correcting }: { label: string; correcting: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      {correcting ? <RotateCcwIcon className="size-4" /> : <CheckCircleIcon className="size-4" />}
       {label}
     </Button>
   );
@@ -84,6 +96,7 @@ export function MovementForm({
           label="Material / Size"
           name="materialSizeId"
           required
+          icon={<LayersIcon className="size-4" />}
           disabled={mode === "correct"}
           defaultValue={initial?.materialSizeId ?? ""}
           options={[{ value: "", label: "Select a Material" }, ...materialSizes.map((m) => ({ value: m.id, label: m.label }))]}
@@ -97,6 +110,7 @@ export function MovementForm({
               label="Source Site"
               name="sourceSiteId"
               required
+              icon={<MapPinIcon className="size-4" />}
               disabled={mode === "correct"}
               defaultValue={initial?.sourceSiteId ?? ""}
               options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
@@ -110,6 +124,7 @@ export function MovementForm({
           label="Destination Site"
           name="destinationSiteId"
           required
+          icon={<MapPinIcon className="size-4" />}
           disabled={mode === "correct"}
           defaultValue={initial?.destinationSiteId ?? ""}
           options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
@@ -143,6 +158,8 @@ export function MovementForm({
           label="Vehicle Details"
           name="vehicleDetails"
           hint="Optional"
+          icon={<TruckIcon className="size-4" />}
+          placeholder="e.g. MH12AB1234"
           defaultValue={initial?.vehicleDetails}
           error={state.errors?.vehicleDetails?.[0]}
         />
@@ -150,6 +167,7 @@ export function MovementForm({
           label="Person Responsible"
           name="personResponsible"
           hint="Optional"
+          icon={<UserIcon className="size-4" />}
           defaultValue={initial?.personResponsible}
           error={state.errors?.personResponsible?.[0]}
         />
@@ -164,6 +182,7 @@ export function MovementForm({
 
       <SubmitButton
         label={mode === "correct" ? "Submit Correction" : kind === "SITE_TO_SITE" ? "Record Transfer" : "Record Movement"}
+        correcting={mode === "correct"}
       />
     </form>
   );

@@ -1,0 +1,20 @@
+{
+  "slug": "sandeep-enterprises",
+  "displayName": "Sandeep Enterprises",
+  "domain": "sandeep-enterprises.azentisfieldos.app",
+  "branding": {
+    "logoUrl": "",
+    "primaryColorToken": "primary-600",
+    "accentColorToken": "accent-500"
+  },
+  "contact": {
+    "ownerName": "Sandeep",
+    "email": "",
+    "phone": ""
+  },
+  "notificationChannels": {
+    "whatsapp": false,
+    "email": false,
+    "inApp": true
+  }
+}

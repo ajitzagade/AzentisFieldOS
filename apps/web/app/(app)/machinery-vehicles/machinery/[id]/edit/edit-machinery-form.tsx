@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, HashIcon, LayersIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { updateMachineryAction, type UpdateMachineryFormState } from "./actions";
 import type { MachineryDetail } from "./page";
 
@@ -15,6 +15,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      <CheckCircleIcon className="size-4" />
       Save Changes
     </Button>
   );
@@ -39,7 +40,15 @@ export function EditMachineryForm({
   return (
     <Card>
       <form action={formAction} noValidate>
-        <TextField label="Name" name="name" required maxLength={200} defaultValue={machinery.name} error={state.errors?.name?.[0]} />
+        <TextField
+          label="Name"
+          name="name"
+          required
+          maxLength={200}
+          icon={<LayersIcon className="size-4" />}
+          defaultValue={machinery.name}
+          error={state.errors?.name?.[0]}
+        />
         <SelectField
           label="Type"
           name="typeId"
@@ -53,6 +62,7 @@ export function EditMachineryForm({
           name="assetNumber"
           required
           maxLength={100}
+          icon={<HashIcon className="size-4" />}
           defaultValue={machinery.assetNumber}
           error={state.errors?.assetNumber?.[0]}
         />
@@ -77,6 +87,7 @@ export function EditMachineryForm({
           name="operator"
           hint="Optional"
           maxLength={200}
+          icon={<UserIcon className="size-4" />}
           defaultValue={machinery.operator ?? undefined}
           error={state.errors?.operator?.[0]}
         />

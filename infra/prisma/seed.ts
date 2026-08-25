@@ -13,6 +13,17 @@ const DEFAULT_EMPLOYMENT_TYPES = ["Monthly", "Weekly", "Daily Wage"];
 const DEFAULT_MACHINERY_TYPES = ["Excavator", "Mixer", "Crane"];
 const DEFAULT_VEHICLE_TYPES = ["Truck", "Dumper", "Tempo"];
 
+// FR-25-ish, NFR-4: same reasoning as EmploymentType/MachineryType/VehicleType
+// above — ExpenseCategory is admin-configurable data (Epic 14 owns the admin
+// UI), these are just day-one defaults so DSR-embedded Expense entries
+// (Epic 3's dsrExpenseSchema) aren't unusable before Epic 11's own CRUD ships.
+const DEFAULT_EXPENSE_CATEGORIES = [
+  "Fuel & Transport",
+  "Site Miscellaneous",
+  "Labour Welfare",
+  "Office & Admin",
+];
+
 async function main() {
   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
   const prisma = new PrismaClient({ adapter });
@@ -35,6 +46,14 @@ async function main() {
 
   for (const name of DEFAULT_VEHICLE_TYPES) {
     await prisma.vehicleType.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+  }
+
+  for (const name of DEFAULT_EXPENSE_CATEGORIES) {
+    await prisma.expenseCategory.upsert({
       where: { name },
       update: {},
       create: { name },

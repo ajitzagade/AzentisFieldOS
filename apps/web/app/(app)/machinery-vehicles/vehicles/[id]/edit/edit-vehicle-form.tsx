@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, HashIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { updateVehicleAction, type UpdateVehicleFormState } from "./actions";
 import type { VehicleDetail } from "./page";
 
@@ -15,6 +15,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      <CheckCircleIcon className="size-4" />
       Save Changes
     </Button>
   );
@@ -33,7 +34,15 @@ export function EditVehicleForm({ vehicle, vehicleTypes }: { vehicle: VehicleDet
   return (
     <Card>
       <form action={formAction} noValidate>
-        <TextField label="Number" name="number" required maxLength={100} defaultValue={vehicle.number} error={state.errors?.number?.[0]} />
+        <TextField
+          label="Number"
+          name="number"
+          required
+          maxLength={100}
+          icon={<HashIcon className="size-4" />}
+          defaultValue={vehicle.number}
+          error={state.errors?.number?.[0]}
+        />
         <SelectField
           label="Type"
           name="typeId"
@@ -55,6 +64,7 @@ export function EditVehicleForm({ vehicle, vehicleTypes }: { vehicle: VehicleDet
           name="driver"
           hint="Optional"
           maxLength={200}
+          icon={<UserIcon className="size-4" />}
           defaultValue={vehicle.driver ?? undefined}
           error={state.errors?.driver?.[0]}
         />

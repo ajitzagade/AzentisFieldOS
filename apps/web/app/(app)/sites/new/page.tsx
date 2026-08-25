@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, HashIcon, MapPinIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createSiteAction, type CreateSiteFormState } from "./actions";
 
 const STATUS_OPTIONS = [
@@ -15,6 +15,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      <PlusIcon className="size-4" />
       Create Site
     </Button>
   );
@@ -30,8 +31,24 @@ export default function NewSitePage() {
       <h1 className="mb-6 text-page-title text-ink-900">Add Site</h1>
       <Card>
         <form action={formAction} noValidate>
-          <TextField label="Name" name="name" required maxLength={200} error={state.errors?.name?.[0]} />
-          <TextField label="Location" name="location" required maxLength={500} error={state.errors?.location?.[0]} />
+          <TextField
+            label="Name"
+            name="name"
+            required
+            maxLength={200}
+            icon={<MapPinIcon className="size-4" />}
+            placeholder="e.g. Riverside Tower"
+            error={state.errors?.name?.[0]}
+          />
+          <TextField
+            label="Location"
+            name="location"
+            required
+            maxLength={500}
+            icon={<MapPinIcon className="size-4" />}
+            placeholder="e.g. 12 MG Road, Pune"
+            error={state.errors?.location?.[0]}
+          />
           <SelectField
             label="Status"
             name="status"
@@ -44,6 +61,7 @@ export default function NewSitePage() {
             name="contractReference"
             hint="Optional"
             maxLength={200}
+            icon={<HashIcon className="size-4" />}
             error={state.errors?.contractReference?.[0]}
           />
 

@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, MapPinIcon, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createAssetMovementAction, type CreateAssetMovementFormState } from "./actions";
 
 interface SiteOption {
@@ -18,10 +18,11 @@ export interface AssetMovementFormInitialValues {
   movedAt?: string;
 }
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({ label, correcting }: { label: string; correcting: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      {correcting ? <RotateCcwIcon className="size-4" /> : <CheckCircleIcon className="size-4" />}
       {label}
     </Button>
   );
@@ -91,6 +92,7 @@ export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites,
             label="Site"
             name="siteId"
             required
+            icon={<MapPinIcon className="size-4" />}
             defaultValue={initial?.siteId ?? ""}
             options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
             error={state.errors?.siteId?.[0]}
@@ -114,7 +116,7 @@ export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites,
         </p>
       ) : null}
 
-      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Movement"} />
+      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Movement"} correcting={mode === "correct"} />
     </form>
   );
 }

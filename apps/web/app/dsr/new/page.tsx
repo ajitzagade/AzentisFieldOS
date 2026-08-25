@@ -1,12 +1,15 @@
 "use client";
 
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   Badge,
   Button,
   CameraIcon,
   Card,
   CheckCircleIcon,
+  HashIcon,
+  MapPinIcon,
   PlusIcon,
   RotateCcwIcon,
   SelectField,
@@ -318,6 +321,12 @@ export default function NewDsrPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-160 bg-surface-0 p-4">
+      <Link
+        href="/daily-activity"
+        className="mb-4 inline-block text-body-sm font-medium text-accent-teal-700 hover:underline"
+      >
+        ← Back to Daily Activity
+      </Link>
       <h1 className="mb-1 text-page-title text-ink-900">Daily Site Report</h1>
       <p className="mb-6 text-body-sm text-ink-500">Log today&apos;s activity in under 5 minutes.</p>
 
@@ -326,6 +335,7 @@ export default function NewDsrPage() {
           <SelectField
             label="Site"
             required
+            icon={<MapPinIcon className="size-4" />}
             value={siteId}
             onChange={(e) => setSiteId(e.target.value)}
             options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
@@ -373,7 +383,14 @@ export default function NewDsrPage() {
             ))}
           </ul>
           <div className="flex items-end gap-2">
-            <TextField label="Add crew member (Team Member ID)" value={newCrewId} onChange={(e) => setNewCrewId(e.target.value)} className="flex-1" />
+            <TextField
+              label="Add crew member (Team Member ID)"
+              hint="Live Team Member lookup has not shipped yet — enter their id directly."
+              icon={<HashIcon className="size-4" />}
+              value={newCrewId}
+              onChange={(e) => setNewCrewId(e.target.value)}
+              className="flex-1"
+            />
             <Button type="button" variant="secondary" onClick={addCrewMember}>
               <PlusIcon className="size-4" />
               Add
@@ -387,6 +404,8 @@ export default function NewDsrPage() {
             <div key={index} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
               <TextField
                 label="Material Size ID"
+                hint="Live Material lookup has not shipped yet — enter its id directly."
+                icon={<HashIcon className="size-4" />}
                 value={row.materialSizeId}
                 onChange={(e) =>
                   setConsumptions((rows) => rows.map((r, i) => (i === index ? { ...r, materialSizeId: e.target.value } : r)))
@@ -419,6 +438,8 @@ export default function NewDsrPage() {
             <div key={index} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
               <TextField
                 label="Vendor ID"
+                hint="Live Vendor lookup has not shipped yet — enter its id directly."
+                icon={<HashIcon className="size-4" />}
                 value={row.vendorId}
                 onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vendorId: e.target.value } : r)))}
               />
@@ -430,12 +451,14 @@ export default function NewDsrPage() {
               />
               <TextField
                 label="Grade"
+                placeholder="e.g. M20, M25"
                 value={row.grade}
                 onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, grade: e.target.value } : r)))}
               />
               <TextField
                 label="Rate per m³"
                 type="number"
+                icon={<span className="text-body-sm font-semibold">₹</span>}
                 value={row.ratePerM3}
                 onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, ratePerM3: e.target.value } : r)))}
               />
@@ -460,12 +483,15 @@ export default function NewDsrPage() {
             <div key={index} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
               <TextField
                 label="Expense Category ID"
+                hint="Live Category lookup has not shipped yet — enter its id directly."
+                icon={<HashIcon className="size-4" />}
                 value={row.categoryId}
                 onChange={(e) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, categoryId: e.target.value } : r)))}
               />
               <TextField
                 label="Amount"
                 type="number"
+                icon={<span className="text-body-sm font-semibold">₹</span>}
                 value={row.amount}
                 onChange={(e) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, amount: e.target.value } : r)))}
               />
@@ -613,6 +639,7 @@ export default function NewDsrPage() {
         ) : null}
 
         <Button type="submit" isLoading={isSubmitting} disabled={!siteId} className="w-full justify-center">
+          <CheckCircleIcon className="size-4" />
           Submit Daily Site Report
         </Button>
       </form>

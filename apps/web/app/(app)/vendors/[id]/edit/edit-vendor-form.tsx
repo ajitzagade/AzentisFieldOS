@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, TextField } from "@azentisfieldos/ui";
+import { BuildingIcon, Button, Card, CheckCircleIcon, MailIcon, MapPinIcon, PhoneIcon, TextField, UserIcon } from "@azentisfieldos/ui";
 import { MaterialsSuppliedField } from "../../materials-supplied-field";
 import { updateVendorAction, type UpdateVendorFormState } from "./actions";
 import type { Vendor } from "../../page";
@@ -11,6 +11,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      <CheckCircleIcon className="size-4" />
       Save Changes
     </Button>
   );
@@ -29,6 +30,7 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
           name="name"
           required
           maxLength={200}
+          icon={<BuildingIcon className="size-4" />}
           defaultValue={vendor.name}
           error={state.errors?.name?.[0]}
         />
@@ -37,14 +39,17 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
           name="contactPerson"
           hint="Optional"
           maxLength={200}
+          icon={<UserIcon className="size-4" />}
           defaultValue={vendor.contactPerson ?? ""}
           error={state.errors?.contactPerson?.[0]}
         />
         <TextField
           label="Phone"
           name="phone"
+          type="tel"
           hint="Optional"
           maxLength={50}
+          icon={<PhoneIcon className="size-4" />}
           defaultValue={vendor.phone ?? ""}
           error={state.errors?.phone?.[0]}
         />
@@ -54,6 +59,7 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
           type="email"
           hint="Optional"
           maxLength={200}
+          icon={<MailIcon className="size-4" />}
           defaultValue={vendor.email ?? ""}
           error={state.errors?.email?.[0]}
         />
@@ -62,6 +68,7 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
           name="address"
           hint="Optional"
           maxLength={500}
+          icon={<MapPinIcon className="size-4" />}
           defaultValue={vendor.address ?? ""}
           error={state.errors?.address?.[0]}
         />

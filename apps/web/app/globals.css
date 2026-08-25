@@ -3,20 +3,15 @@
  * defines a competing color, spacing, or radius value itself. */
 @import "@azentisfieldos/ui/styles/theme.css";
 
-:root {
-  --color-background: var(--color-neutral-0);
-  --color-foreground: var(--color-neutral-900);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: var(--color-neutral-950);
-    --color-foreground: var(--color-neutral-50);
-  }
-}
-
+/* theme.css's tokens are the only source of truth (AD-4) — bridge the page
+ * background/foreground straight to its surface-0/ink-900 tokens rather
+ * than inventing a parallel --color-neutral-* scale that doesn't exist
+ * anywhere in the theme (that mismatch left body's background/color
+ * resolving to an invalid var() — invisible in light OS themes, but a
+ * solid black body behind every page in a dark OS theme, since nothing in
+ * this app currently toggles theme.css's .dark class). */
 body {
-  background: var(--color-background);
-  color: var(--color-foreground);
+  background: var(--color-surface-0);
+  color: var(--color-ink-900);
   font-family: var(--font-sans);
 }

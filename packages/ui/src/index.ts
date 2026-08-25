@@ -1,6 +1,7 @@
 export * from "./lib/cn";
 export * from "./components/button";
 export * from "./components/card";
+export * from "./components/bar-chart";
 export * from "./components/badge";
 export * from "./components/data-table";
 export * from "./components/stat-tile";

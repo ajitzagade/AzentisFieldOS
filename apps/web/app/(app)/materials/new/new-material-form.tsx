@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, LayersIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createMaterialAction, type CreateMaterialFormState } from "./actions";
 
 interface Option {
@@ -15,6 +15,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      <PlusIcon className="size-4" />
       Create Material
     </Button>
   );
@@ -57,7 +58,15 @@ export function NewMaterialForm({ categories, units }: { categories: Option[]; u
   return (
     <Card>
       <form action={formAction} noValidate>
-        <TextField label="Name" name="name" required maxLength={200} error={state.errors?.name?.[0]} />
+        <TextField
+          label="Name"
+          name="name"
+          required
+          maxLength={200}
+          icon={<LayersIcon className="size-4" />}
+          placeholder="e.g. OPC 53 Cement"
+          error={state.errors?.name?.[0]}
+        />
         <SelectField
           label="Category"
           name="categoryId"
@@ -71,6 +80,7 @@ export function NewMaterialForm({ categories, units }: { categories: Option[]; u
           name="unitId"
           required
           defaultValue=""
+          hint="How this Material is counted — bags, tons, cubic metres..."
           options={[{ value: "", label: "Select a Unit" }, ...units.map((u) => ({ value: u.id, label: u.name }))]}
           error={state.errors?.unitId?.[0]}
         />

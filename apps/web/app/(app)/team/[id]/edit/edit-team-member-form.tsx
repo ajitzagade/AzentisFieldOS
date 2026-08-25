@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, PhoneIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { updateTeamMemberAction, type UpdateTeamMemberFormState } from "./actions";
 import type { TeamMemberDetail } from "./page";
 
@@ -15,6 +15,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" isLoading={pending}>
+      <CheckCircleIcon className="size-4" />
       Save Changes
     </Button>
   );
@@ -38,7 +39,15 @@ export function EditTeamMemberForm({
   return (
     <Card>
       <form action={formAction} noValidate>
-        <TextField label="Name" name="name" required maxLength={200} defaultValue={teamMember.name} error={state.errors?.name?.[0]} />
+        <TextField
+          label="Name"
+          name="name"
+          required
+          maxLength={200}
+          icon={<UserIcon className="size-4" />}
+          defaultValue={teamMember.name}
+          error={state.errors?.name?.[0]}
+        />
         <TextField
           label="Role / Designation"
           name="designation"
@@ -50,8 +59,10 @@ export function EditTeamMemberForm({
         <TextField
           label="Contact"
           name="contact"
+          type="tel"
           hint="Optional"
           maxLength={100}
+          icon={<PhoneIcon className="size-4" />}
           defaultValue={teamMember.contact ?? undefined}
           error={state.errors?.contact?.[0]}
         />
