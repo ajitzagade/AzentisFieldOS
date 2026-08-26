@@ -29,13 +29,13 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-12-2026 14:26
-last_updated: 08-26-2026 00:00
+last_updated: 08-26-2026 23:59
 project: AzentisFieldOS
 project_key: NOKEY
 tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 development_status:
-  epic-1: backlog
+  epic-1: in-progress
   1-1-design-token-foundation: ready-for-dev
   1-2-core-component-library-button-card-badge: ready-for-dev
   1-3-core-component-library-data-table-stat-tile-gap-flag-correct: 
@@ -45,6 +45,7 @@ development_status:
   1-6-application-shell-navigation: ready-for-dev
   1-7-accessibility-performance-ci-gate: ready-for-dev
   1-8-api-session-authentication: done
+  1-9-installable-pwa: in-progress
   epic-1-retrospective: optional
 
   epic-2: backlog
@@ -124,7 +125,7 @@ development_status:
 
   epic-14: in-progress
   14-1-branding-configuration: done
-  14-2-users-roles-permissions: ready-for-dev
+  14-2-users-roles-permissions: done
   14-3-category-configuration: ready-for-dev
   14-4-notification-channel-configuration: ready-for-dev
   14-5-report-configuration: ready-for-dev

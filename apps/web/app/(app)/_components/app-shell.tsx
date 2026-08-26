@@ -14,11 +14,10 @@ import { APP_DISPLAY_NAME } from "../../../lib/tenant";
 // in a responsive fallback, so branching on screen width alone would be
 // wrong the moment an Owner/Admin opens the app on a phone.
 //
-// No story before this one wires a real Postgres-backed User.role fetch
-// into apps/web (AD-3/AD-11), so `role` is accepted as an explicit prop
-// here — the component is role-aware and ready for a real value, but its
-// one call site (this route group's layout) currently hardcodes
-// "OWNER_ADMIN". See the AGENTS.md TODO this story adds.
+// `role` is an explicit prop resolved by the route-group layout from the real
+// Postgres-backed GET /users/me (Story 14.2, via apps/api's Clerk auth guard) —
+// the sidebar-vs-minimal-top-bar split is driven by this real value, never a
+// viewport breakpoint (AD-3/AD-11).
 export interface AppShellProps {
   role: Role;
   children: ReactNode;

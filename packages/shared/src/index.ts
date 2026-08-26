@@ -1,4 +1,5 @@
 export * from "./roles";
+export * from "./schemas/user";
 export * from "./schemas/site";
 export * from "./schemas/daily-site-report";
 export * from "./schemas/photo";

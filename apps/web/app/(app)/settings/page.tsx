@@ -1,14 +1,10 @@
+import { notFound } from "next/navigation";
 import { authedFetch } from "@/lib/api";
+import type { Role } from "@azentisfieldos/shared";
 import { BuildingIcon, Card, GearIcon, LayersIcon, UsersIcon } from "@azentisfieldos/ui";
 import { BrandingForm, type BrandingConfig } from "./branding-form";
+import { UsersRolesSection, type UserRow } from "./users-roles-section";
 
-interface TeamMemberRow {
-  id: string;
-  name: string;
-  designation: string | null;
-  employmentType: { name: string };
-  isActive: boolean;
-}
 interface EmploymentType {
   id: string;
   name: string;
@@ -29,9 +25,17 @@ async function getJSON<T>(path: string): Promise<T> {
 }
 
 export default async function SettingsPage() {
-  const [branding, teamMembers, employmentTypes, machineryTypes, vehicleTypes] = await Promise.all([
+  // Story 14.2 (AC #4): Settings is an Owner/Admin-only surface. AppShell
+  // already hides it from a Site Supervisor's minimal nav, but a directly-typed
+  // /settings URL must not render a broken page — a Supervisor hits 404 here.
+  // (The apps/api Users-admin endpoints enforce the same 403 server-side, so
+  // this is defence-in-depth, not the only gate.)
+  const me = await getJSON<{ role: Role }>("/users/me");
+  if (me.role !== "OWNER_ADMIN") notFound();
+
+  const [branding, users, employmentTypes, machineryTypes, vehicleTypes] = await Promise.all([
     getJSON<BrandingConfig>("/branding-config"),
-    getJSON<TeamMemberRow[]>("/team-members"),
+    getJSON<UserRow[]>("/users"),
     getJSON<EmploymentType[]>("/employment-types"),
     getJSON<MachineryType[]>("/machinery-types"),
     getJSON<VehicleType[]>("/vehicle-types"),
@@ -62,32 +66,16 @@ export default async function SettingsPage() {
         </Card>
 
         <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <UsersIcon className="size-4 text-accent-teal-700" />
-              <h2 className="text-card-title text-ink-900">Users &amp; Roles</h2>
-            </div>
-            <span className="text-caption text-ink-500">{teamMembers.length} people</span>
+          <div className="mb-1 flex items-center gap-2">
+            <UsersIcon className="size-4 text-accent-teal-700" />
+            <h2 className="text-card-title text-ink-900">Users &amp; Roles</h2>
           </div>
-          <div className="flex flex-col gap-2">
-            {teamMembers.map((member) => (
-              <div key={member.id} className="flex items-center justify-between border-b border-border-hairline py-2 last:border-b-0">
-                <div>
-                  <span className="text-body-sm font-medium text-ink-900">{member.name}</span>
-                  {member.designation ? (
-                    <span className="ml-2 text-caption text-ink-500">{member.designation}</span>
-                  ) : null}
-                </div>
-                <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-caption font-semibold text-ink-700">
-                  {member.employmentType.name}
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-4 text-caption text-ink-500">
-            Every write is currently attributed to a placeholder system user — per-person, permission-scoped roles are
-            planned separately from Team &amp; Labour&apos;s own records shown above.
+          <p className="mb-6 text-body-sm text-ink-500">
+            Everyone with access to this deployment. Invite a teammate as an Owner/Admin or Site
+            Supervisor — the two roles this platform has (AD-11) — and change an active user&apos;s role
+            at any time.
           </p>
+          <UsersRolesSection users={users} />
         </Card>
 
         <Card>
@@ -132,8 +120,8 @@ export default async function SettingsPage() {
 
       <p className="mt-6 flex items-center gap-2 text-caption text-ink-500">
         <GearIcon className="size-3.5 shrink-0" />
-        Branding is editable above. Inviting users and managing categories from here ships with later
-        Tenant Configuration &amp; Settings stories.
+        Branding and users are editable above. Managing category lists from here ships with a later
+        Tenant Configuration &amp; Settings story.
       </p>
     </>
   );
