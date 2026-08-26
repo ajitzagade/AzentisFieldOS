@@ -3,9 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreateReturnWastageInput } from '@azentisfieldos/shared';
+import type {
+  CreateReturnWastageInput,
+  InventoryReportFilters,
+} from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { dateRangeBounds } from '../common/date-range';
 import { decrementStockWithFloorCheck } from './stock-delta';
 
 // FR-13: Owner/Admin or Site Supervisor records a Wastage or Return as its
@@ -65,14 +69,29 @@ export class ReturnWastageService {
     }
   }
 
-  list() {
+  // Story 13.2 (FR-43): the same Return/Wastage list, optionally narrowed by
+  // Site / Material / date window. Unfiltered it is unchanged.
+  list(filters: InventoryReportFilters = {}) {
     return this.prisma.returnWastage.findMany({
+      where: this.reportWhere(filters),
       include: {
         site: true,
         materialSize: { include: { material: { include: { unit: true } } } },
       },
       orderBy: { recordedAt: 'desc' },
     });
+  }
+
+  private reportWhere(
+    filters: InventoryReportFilters,
+  ): Prisma.ReturnWastageWhereInput {
+    const where: Prisma.ReturnWastageWhereInput = {};
+    if (filters.siteId) where.siteId = filters.siteId;
+    if (filters.materialId) {
+      where.materialSize = { materialId: filters.materialId };
+    }
+    where.recordedAt = dateRangeBounds(filters.from, filters.to);
+    return where;
   }
 
   async findOne(id: string) {

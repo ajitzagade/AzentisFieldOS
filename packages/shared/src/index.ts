@@ -28,3 +28,4 @@ export * from "./schemas/rmc-entry";
 export * from "./schemas/branding-config";
 export * from "./types/activity-feed";
 export * from "./types/photo-gallery";
+export * from "./types/report-filters";

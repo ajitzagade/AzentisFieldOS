@@ -6,9 +6,11 @@ import {
 import type {
   ConfirmMovementReceiptInput,
   CreateMovementInput,
+  InventoryReportFilters,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { dateRangeBounds } from '../common/date-range';
 import { decrementStockWithFloorCheck } from './stock-delta';
 
 // FR-9: Owner/Admin records a Godown-to-Site (and, from Story 5.4,
@@ -126,8 +128,13 @@ export class MovementsService {
     });
   }
 
-  list() {
+  // Story 13.2 (FR-43): the same Movement list, optionally narrowed by Site /
+  // Material / date window. A Site filter matches a Movement touching that
+  // Site on either end (as source or destination), mirroring the Site
+  // activity feed's OR. Unfiltered it is unchanged.
+  list(filters: InventoryReportFilters = {}) {
     return this.prisma.movement.findMany({
+      where: this.reportWhere(filters),
       include: {
         sourceSite: true,
         destinationSite: true,
@@ -135,6 +142,23 @@ export class MovementsService {
       },
       orderBy: { movedAt: 'desc' },
     });
+  }
+
+  private reportWhere(
+    filters: InventoryReportFilters,
+  ): Prisma.MovementWhereInput {
+    const where: Prisma.MovementWhereInput = {};
+    if (filters.siteId) {
+      where.OR = [
+        { sourceSiteId: filters.siteId },
+        { destinationSiteId: filters.siteId },
+      ];
+    }
+    if (filters.materialId) {
+      where.materialSize = { materialId: filters.materialId };
+    }
+    where.movedAt = dateRangeBounds(filters.from, filters.to);
+    return where;
   }
 
   async findOne(id: string) {

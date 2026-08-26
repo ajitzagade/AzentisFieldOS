@@ -9,8 +9,13 @@ import { PrismaService } from '../prisma/prisma.service';
 export class StockService {
   constructor(private readonly prisma: PrismaService) {}
 
-  getGodownStock() {
+  // Story 13.2 (FR-43): the optional `materialId` lets the Inventory Reports
+  // view narrow the current-stock snapshot to a single Material. Stock is a
+  // materialized *current* balance, so it carries no from/to window — only
+  // the transaction history below is date-ranged. Unfiltered it is unchanged.
+  getGodownStock(materialId?: string) {
     return this.prisma.godownStock.findMany({
+      where: materialId ? { materialSize: { materialId } } : undefined,
       include: {
         materialSize: { include: { material: { include: { unit: true } } } },
       },
@@ -18,9 +23,12 @@ export class StockService {
     });
   }
 
-  getSiteStock(siteId: string) {
+  getSiteStock(siteId: string, materialId?: string) {
     return this.prisma.siteStock.findMany({
-      where: { siteId },
+      where: {
+        siteId,
+        materialSize: materialId ? { materialId } : undefined,
+      },
       include: {
         site: true,
         materialSize: { include: { material: { include: { unit: true } } } },

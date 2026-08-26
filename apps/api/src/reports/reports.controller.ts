@@ -10,6 +10,7 @@ import {
 import { ReportCompilerService } from './report-compiler.service';
 import { ReportDeliveryService } from './report-delivery.service';
 import { ReportsService } from './reports.service';
+import { SiteInventoryReportsService } from './site-inventory-reports.service';
 
 // Normalizes an optional YYYY-MM-DD override (or "today") to a UTC-midnight
 // Date matching DailySiteReport.reportDate (@db.Date). NOTE (open decision):
@@ -29,6 +30,7 @@ export class ReportsController {
     private readonly compiler: ReportCompilerService,
     private readonly delivery: ReportDeliveryService,
     private readonly reports: ReportsService,
+    private readonly siteInventoryReports: SiteInventoryReportsService,
   ) {}
 
   // Verifies the Vercel Cron request via the standard `Authorization: Bearer
@@ -104,5 +106,36 @@ export class ReportsController {
   @Get('reports/daily/:id')
   findDaily(@Param('id') id: string) {
     return this.reports.findDaily(id);
+  }
+
+  // Story 13.2 (FR-42): the Site Reports view — DSR history, activity/photo
+  // history for one Site within a date window. A distinct sibling path from
+  // `/reports/daily/:id` (the `daily` literal segment is required there), so
+  // it is not shadowed by that wildcard; the integration spec asserts this.
+  @Get('reports/sites')
+  siteReport(
+    @Query('siteId') siteId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.siteInventoryReports.getSiteReport({ siteId, from, to });
+  }
+
+  // Story 13.2 (FR-43): the Inventory Reports view — current stock, low-stock
+  // flags, and the four transaction histories within a date window,
+  // optionally narrowed by Site and Material.
+  @Get('reports/inventory')
+  inventoryReport(
+    @Query('siteId') siteId?: string,
+    @Query('materialId') materialId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.siteInventoryReports.getInventoryReport({
+      siteId,
+      materialId,
+      from,
+      to,
+    });
   }
 }

@@ -3,9 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreatePurchaseInput } from '@azentisfieldos/shared';
+import type {
+  CreatePurchaseInput,
+  InventoryReportFilters,
+} from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { dateRangeBounds } from '../common/date-range';
 
 // FR-8: Owner/Admin records a Purchase into Godown or a Site directly.
 @Injectable()
@@ -77,8 +81,13 @@ export class PurchasesService {
     }
   }
 
-  list() {
+  // Story 13.2 (FR-43): the same Purchase list the Inventory page shows,
+  // optionally narrowed by Site / Material / date window for the Inventory
+  // Reports view. Unfiltered (the default `{}`) it returns exactly what it
+  // did before, so the live Inventory Transactions list is unchanged.
+  list(filters: InventoryReportFilters = {}) {
     return this.prisma.purchase.findMany({
+      where: this.reportWhere(filters),
       include: {
         vendor: true,
         site: true,
@@ -86,6 +95,18 @@ export class PurchasesService {
       },
       orderBy: { purchasedAt: 'desc' },
     });
+  }
+
+  private reportWhere(
+    filters: InventoryReportFilters,
+  ): Prisma.PurchaseWhereInput {
+    const where: Prisma.PurchaseWhereInput = {};
+    if (filters.siteId) where.siteId = filters.siteId;
+    if (filters.materialId) {
+      where.materialSize = { materialId: filters.materialId };
+    }
+    where.purchasedAt = dateRangeBounds(filters.from, filters.to);
+    return where;
   }
 
   // Story 5.7's Inventory page "Purchases This Month" stat tile — a count

@@ -1,4 +1,5 @@
-import type { FeedItem } from '@azentisfieldos/shared';
+import type { FeedItem, ReportDateRange } from '@azentisfieldos/shared';
+import { dateRangeBounds } from '../common/date-range';
 import type { PrismaService } from '../prisma/prisma.service';
 
 // Ten separate findMany calls per page load, merged and sorted in
@@ -8,10 +9,18 @@ import type { PrismaService } from '../prisma/prisma.service';
 // FeedItem using the model's own business-date field (occurredAt), never
 // createdAt — they can legitimately differ (e.g. a Purchase entered today
 // for a delivery received yesterday).
+//
+// Story 13.2 (FR-42): the optional `range` narrows the feed to a report
+// window. Each model's own business-date field is filtered by the same
+// inclusive [from, to] bounds — an undefined `bounds` is passed straight
+// through and read by Prisma as "no constraint", so the unfiltered Site
+// detail feed (Story 2.3) behaves exactly as before.
 export async function getSiteActivityFeed(
   prisma: PrismaService,
   siteId: string,
+  range: ReportDateRange = {},
 ): Promise<FeedItem[]> {
+  const bounds = dateRangeBounds(range.from, range.to);
   const [
     purchases,
     movements,
@@ -25,11 +34,14 @@ export async function getSiteActivityFeed(
     vehicleMoves,
   ] = await Promise.all([
     prisma.purchase.findMany({
-      where: { siteId },
+      where: { siteId, purchasedAt: bounds },
       include: { materialSize: { include: { material: true } }, vendor: true },
     }),
     prisma.movement.findMany({
-      where: { OR: [{ sourceSiteId: siteId }, { destinationSiteId: siteId }] },
+      where: {
+        OR: [{ sourceSiteId: siteId }, { destinationSiteId: siteId }],
+        movedAt: bounds,
+      },
       include: {
         materialSize: { include: { material: true } },
         sourceSite: true,
@@ -37,29 +49,35 @@ export async function getSiteActivityFeed(
       },
     }),
     prisma.consumption.findMany({
-      where: { siteId },
+      where: { siteId, consumedAt: bounds },
       include: { materialSize: { include: { material: true } } },
     }),
     prisma.returnWastage.findMany({
-      where: { siteId },
+      where: { siteId, recordedAt: bounds },
       include: { materialSize: { include: { material: true } } },
     }),
     prisma.workRecord.findMany({
-      where: { siteId },
+      where: { siteId, workDate: bounds },
       include: { teamMember: true },
     }),
-    prisma.expense.findMany({ where: { siteId }, include: { category: true } }),
-    prisma.rmcEntry.findMany({ where: { siteId }, include: { vendor: true } }),
+    prisma.expense.findMany({
+      where: { siteId, incurredAt: bounds },
+      include: { category: true },
+    }),
+    prisma.rmcEntry.findMany({
+      where: { siteId, deliveredAt: bounds },
+      include: { vendor: true },
+    }),
     prisma.dailySiteReport.findMany({
-      where: { siteId },
+      where: { siteId, reportDate: bounds },
       include: { submittedBy: true, photos: true },
     }),
     prisma.machineryMovementLog.findMany({
-      where: { siteId },
+      where: { siteId, movedAt: bounds },
       include: { machinery: true },
     }),
     prisma.vehicleMovementLog.findMany({
-      where: { siteId },
+      where: { siteId, movedAt: bounds },
       include: { vehicle: { include: { type: true } } },
     }),
   ]);

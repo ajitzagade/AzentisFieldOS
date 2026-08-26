@@ -1,4 +1,5 @@
-import type { PhotoGalleryItem } from '@azentisfieldos/shared';
+import type { PhotoGalleryItem, ReportDateRange } from '@azentisfieldos/shared';
+import { dateRangeBounds } from '../common/date-range';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { StorageService } from '../storage/storage.service';
 
@@ -7,13 +8,20 @@ import type { StorageService } from '../storage/storage.service';
 // DSR's reportDate (not photo createdAt) so an offline-queued submission's
 // photos sort by the day they were taken, not the day they happened to
 // sync — then by createdAt within a date as a stable tiebreaker.
+//
+// Story 13.2 (FR-42): the optional `range` narrows the gallery to the report
+// window, filtered on the parent DSR's reportDate (matching the sort field)
+// — an undefined bound is read by Prisma as "no constraint", so the
+// unfiltered Site photo gallery (Story 3.3) behaves exactly as before.
 export async function getSitePhotoGallery(
   prisma: PrismaService,
   storage: StorageService,
   siteId: string,
+  range: ReportDateRange = {},
 ): Promise<PhotoGalleryItem[]> {
+  const bounds = dateRangeBounds(range.from, range.to);
   const photos = await prisma.photo.findMany({
-    where: { dailySiteReport: { siteId } },
+    where: { dailySiteReport: { siteId, reportDate: bounds } },
     include: { dailySiteReport: true, uploadedBy: true },
     orderBy: [
       { dailySiteReport: { reportDate: 'desc' } },

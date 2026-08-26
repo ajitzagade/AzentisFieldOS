@@ -3,9 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreateConsumptionInput } from '@azentisfieldos/shared';
+import type {
+  CreateConsumptionInput,
+  InventoryReportFilters,
+} from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { dateRangeBounds } from '../common/date-range';
 import { decrementStockWithFloorCheck } from './stock-delta';
 
 // FR-12: Site Supervisor or Owner/Admin records Material Consumption at a
@@ -62,14 +66,29 @@ export class ConsumptionService {
     }
   }
 
-  list() {
+  // Story 13.2 (FR-43): the same Consumption list, optionally narrowed by
+  // Site / Material / date window. Unfiltered it is unchanged.
+  list(filters: InventoryReportFilters = {}) {
     return this.prisma.consumption.findMany({
+      where: this.reportWhere(filters),
       include: {
         site: true,
         materialSize: { include: { material: { include: { unit: true } } } },
       },
       orderBy: { consumedAt: 'desc' },
     });
+  }
+
+  private reportWhere(
+    filters: InventoryReportFilters,
+  ): Prisma.ConsumptionWhereInput {
+    const where: Prisma.ConsumptionWhereInput = {};
+    if (filters.siteId) where.siteId = filters.siteId;
+    if (filters.materialId) {
+      where.materialSize = { materialId: filters.materialId };
+    }
+    where.consumedAt = dateRangeBounds(filters.from, filters.to);
+    return where;
   }
 
   async findOne(id: string) {

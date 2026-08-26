@@ -29,6 +29,15 @@ import { StockService } from './stock.service';
   // queries rather than duplicating them against Purchase directly.
   // StockService is exported so DashboardModule (Story 12.2) can reuse
   // getLowStockMaterials() rather than re-derive the low-stock set.
-  exports: [PurchasesService, StockService],
+  // The remaining transaction services are exported so ReportsModule
+  // (Story 13.2) can compose the Inventory Reports view from each epic's
+  // existing list query rather than re-query these tables itself.
+  exports: [
+    PurchasesService,
+    StockService,
+    MovementsService,
+    ConsumptionService,
+    ReturnWastageService,
+  ],
 })
 export class InventoryModule {}

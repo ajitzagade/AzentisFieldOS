@@ -6,6 +6,7 @@ import { ReportsController } from './reports.controller';
 import { ReportCompilerService } from './report-compiler.service';
 import { ReportDeliveryService } from './report-delivery.service';
 import { ReportsService } from './reports.service';
+import { SiteInventoryReportsService } from './site-inventory-reports.service';
 
 // HTTP-level route-ordering regression coverage (same harness as
 // rmc.controller.integration.spec.ts). `GET /reports/daily` resolves to
@@ -33,6 +34,23 @@ describe('ReportsController route ordering + Cron path', () => {
         listDaily: vi.fn().mockResolvedValue([{ id: 'report1' }]),
         findDaily: vi.fn().mockResolvedValue({ id: 'report1' }),
       },
+      siteInventoryReports: {
+        getSiteReport: vi.fn().mockResolvedValue({
+          site: null,
+          dsrs: [],
+          photos: [],
+          feed: [],
+        }),
+        getInventoryReport: vi.fn().mockResolvedValue({
+          godownStock: [],
+          siteStock: [],
+          lowStock: [],
+          purchases: [],
+          movements: [],
+          consumptions: [],
+          returnWastages: [],
+        }),
+      },
     };
   }
 
@@ -43,6 +61,10 @@ describe('ReportsController route ordering + Cron path', () => {
         { provide: ReportCompilerService, useValue: services.compiler },
         { provide: ReportDeliveryService, useValue: services.delivery },
         { provide: ReportsService, useValue: services.reports },
+        {
+          provide: SiteInventoryReportsService,
+          useValue: services.siteInventoryReports,
+        },
       ],
     }).compile();
     app = moduleRef.createNestApplication();
@@ -106,5 +128,46 @@ describe('ReportsController route ordering + Cron path', () => {
 
     expect(res.status).toBe(401);
     expect(services.compiler.currentDsrsForDate).not.toHaveBeenCalled();
+  });
+
+  // Story 13.2: `/reports/sites` and `/reports/inventory` are new sibling
+  // paths. `/reports/daily/:id`'s wildcard requires the literal `daily`
+  // segment, so it can never swallow these — this asserts that at the HTTP
+  // layer (a unit call on the controller method would not).
+  it('GET /reports/sites reaches getSiteReport, never findDaily', async () => {
+    const services = makeServices();
+    await bootstrap(services);
+
+    const res = await request(app.getHttpServer())
+      .get('/reports/sites')
+      .query({ siteId: 'site1', from: '2026-08-01', to: '2026-08-31' });
+
+    expect(res.status).toBe(200);
+    expect(services.siteInventoryReports.getSiteReport).toHaveBeenCalledWith({
+      siteId: 'site1',
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+    expect(services.reports.findDaily).not.toHaveBeenCalled();
+  });
+
+  it('GET /reports/inventory reaches getInventoryReport, never findDaily', async () => {
+    const services = makeServices();
+    await bootstrap(services);
+
+    const res = await request(app.getHttpServer())
+      .get('/reports/inventory')
+      .query({ siteId: 'site1', materialId: 'mat1' });
+
+    expect(res.status).toBe(200);
+    expect(
+      services.siteInventoryReports.getInventoryReport,
+    ).toHaveBeenCalledWith({
+      siteId: 'site1',
+      materialId: 'mat1',
+      from: undefined,
+      to: undefined,
+    });
+    expect(services.reports.findDaily).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import { ReportsController } from './reports.controller';
 import { ReportCompilerService } from './report-compiler.service';
 import { ReportDeliveryService } from './report-delivery.service';
 import { ReportsService } from './reports.service';
+import { SiteInventoryReportsService } from './site-inventory-reports.service';
 
 function makeController() {
   const compiler = {
@@ -15,12 +16,17 @@ function makeController() {
     retryPending: vi.fn().mockResolvedValue({ retried: 0 }),
   };
   const reports = { listDaily: vi.fn(), findDaily: vi.fn() };
+  const siteInventoryReports = {
+    getSiteReport: vi.fn(),
+    getInventoryReport: vi.fn(),
+  };
   const controller = new ReportsController(
     compiler as unknown as ReportCompilerService,
     delivery as unknown as ReportDeliveryService,
     reports as unknown as ReportsService,
+    siteInventoryReports as unknown as SiteInventoryReportsService,
   );
-  return { controller, compiler, delivery };
+  return { controller, compiler, delivery, siteInventoryReports };
 }
 
 const originalSecret = process.env.CRON_SECRET;
@@ -135,6 +141,55 @@ describe('ReportsController compile handler', () => {
       sitesWithDsr: 3,
       compiled: 2,
       failedSiteIds: ['site2'],
+    });
+  });
+});
+
+// Story 13.2 (FR-42/FR-43): the read endpoints are unauthenticated report
+// views (no CRON_SECRET gate) — they just thread their query params into the
+// composition service.
+describe('ReportsController Site & Inventory report views', () => {
+  it('threads siteId/from/to into getSiteReport', async () => {
+    const { controller, siteInventoryReports } = makeController();
+
+    await controller.siteReport('site1', '2026-08-01', '2026-08-31');
+
+    expect(siteInventoryReports.getSiteReport).toHaveBeenCalledWith({
+      siteId: 'site1',
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+  });
+
+  it('threads siteId/materialId/from/to into getInventoryReport', async () => {
+    const { controller, siteInventoryReports } = makeController();
+
+    await controller.inventoryReport('site1', 'mat1', '2026-08-01', '2026-08-31');
+
+    expect(siteInventoryReports.getInventoryReport).toHaveBeenCalledWith({
+      siteId: 'site1',
+      materialId: 'mat1',
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+  });
+
+  it('passes undefined filters straight through when no query is given', async () => {
+    const { controller, siteInventoryReports } = makeController();
+
+    await controller.siteReport();
+    await controller.inventoryReport();
+
+    expect(siteInventoryReports.getSiteReport).toHaveBeenCalledWith({
+      siteId: undefined,
+      from: undefined,
+      to: undefined,
+    });
+    expect(siteInventoryReports.getInventoryReport).toHaveBeenCalledWith({
+      siteId: undefined,
+      materialId: undefined,
+      from: undefined,
+      to: undefined,
     });
   });
 });

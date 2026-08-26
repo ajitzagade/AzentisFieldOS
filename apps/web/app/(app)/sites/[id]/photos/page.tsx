@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { PhotoGalleryItem } from "@azentisfieldos/shared";
 import { CameraIcon, EmptyState } from "@azentisfieldos/ui";
 import type { Site } from "../../page";
+import { PhotoGalleryGrid } from "../../../_components/photo-gallery-grid";
 
 async function getSite(id: string): Promise<Pick<Site, "id" | "name"> | null> {
   const res = await fetch(`${process.env.API_URL}/sites/${id}`, { cache: "no-store" });
@@ -20,10 +21,6 @@ async function getSitePhotos(id: string): Promise<PhotoGalleryItem[]> {
     throw new Error(`Failed to load Site photos (${res.status})`);
   }
   return res.json();
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export default async function SitePhotosPage({ params }: { params: Promise<{ id: string }> }) {
@@ -51,24 +48,7 @@ export default async function SitePhotosPage({ params }: { params: Promise<{ id:
       {photos.length === 0 ? (
         <EmptyState icon={<CameraIcon />} message="No photos yet for this Site." />
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {photos.map((photo) => (
-            <figure
-              key={photo.id}
-              className="overflow-hidden rounded-md border border-border-hairline bg-surface-1"
-            >
-              <div className="aspect-square bg-surface-2">
-                {/* eslint-disable-next-line @next/next/no-img-element -- a
-                    presigned R2 URL with a dynamic per-request signature,
-                    not a static/remote asset next/image can cache. */}
-                <img src={photo.url} alt="" className="size-full object-cover" />
-              </div>
-              <figcaption className="p-2 text-caption text-ink-500">
-                {formatDate(photo.reportDate)} · {photo.uploaderName}
-              </figcaption>
-            </figure>
-          ))}
-        </div>
+        <PhotoGalleryGrid photos={photos} />
       )}
     </>
   );

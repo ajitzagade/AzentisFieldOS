@@ -9,6 +9,7 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPlaceholderUserId } from '../common/get-placeholder-user-id';
 import { lockOnKey } from '../common/advisory-lock';
+import { dateRangeBounds } from '../common/date-range';
 import { StorageService } from '../storage/storage.service';
 
 // FR-28: one DSR per Site per date, with all its nested sub-records
@@ -449,6 +450,30 @@ export class DsrService {
         _count: { select: { workRecords: true, consumptions: true } },
       },
       orderBy: { createdAt: 'desc' },
+    });
+    const correctedIds = new Set(
+      rows.map((r) => r.correctsId).filter((x): x is string => x !== null),
+    );
+    return rows.filter((r) => !correctedIds.has(r.id));
+  }
+
+  // Story 13.2 (FR-42): one Site's DSR history across a date window, for the
+  // Site Reports view. Same "current version only" rule as listByDate (a
+  // superseded row that some later correction points at is filtered out via
+  // its correctsId), and the same lightweight list shape (site/submitter
+  // names + row counts) — this backs a report table linking to each DSR's
+  // detail, not a full nested read. This extends the existing
+  // DailySiteReport query capability with a from/to bound; it introduces no
+  // new aggregation of its own.
+  async listBySiteInRange(siteId: string, from?: string, to?: string) {
+    const rows = await this.prisma.dailySiteReport.findMany({
+      where: { siteId, reportDate: dateRangeBounds(from, to) },
+      include: {
+        site: { select: { id: true, name: true } },
+        submittedBy: { select: { name: true } },
+        _count: { select: { workRecords: true, consumptions: true } },
+      },
+      orderBy: { reportDate: 'desc' },
     });
     const correctedIds = new Set(
       rows.map((r) => r.correctsId).filter((x): x is string => x !== null),
