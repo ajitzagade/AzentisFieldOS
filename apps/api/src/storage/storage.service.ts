@@ -7,7 +7,7 @@ import type {
 } from '@azentisfieldos/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPlaceholderUserId } from '../common/get-placeholder-user-id';
-import { r2BucketName, r2Client } from './r2-client';
+import { r2BucketName, r2Client, r2PublicUrl } from './r2-client';
 
 const PRESIGN_EXPIRY_SECONDS = 3600;
 
@@ -39,6 +39,26 @@ export class StorageService {
     );
 
     return { uploadUrl, storageKey };
+  }
+
+  // Story 14.1 (FR-47): the exact same presign→PUT→store-URL flow the DSR
+  // photo upload uses (AD-3 — apps/api never touches the bytes), only the
+  // destination differs: the branding logo lands under a `branding/` key and
+  // its durable public URL is stored on BrandingConfig.logoUrl (via the plain
+  // PATCH /branding-config save) rather than creating a Photo row. No second
+  // upload mechanism — this reuses r2Client / getSignedUrl exactly as
+  // presignUpload above does.
+  presignBrandingLogoUpload() {
+    const storageKey = `branding/logo/${crypto.randomUUID()}`;
+    return getSignedUrl(
+      r2Client,
+      new PutObjectCommand({ Bucket: r2BucketName, Key: storageKey }),
+      { expiresIn: PRESIGN_EXPIRY_SECONDS },
+    ).then((uploadUrl) => ({
+      uploadUrl,
+      storageKey,
+      logoUrl: r2PublicUrl(storageKey),
+    }));
   }
 
   async confirmUpload(input: ConfirmPhotoUploadInput) {

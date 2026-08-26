@@ -627,13 +627,25 @@ model Expense {
 // step"). Seeded with exactly one row at deploy time (infra/prisma/seed.ts);
 // Epic 14 later adds the admin UI that edits it. `primaryColor` defaults to
 // this product's own accent-teal-700 token as a neutral placeholder.
+//
+// Story 14.1 (FR-47) extends 13.1's minimum three fields with the rest of the
+// mockup's Branding section: two more brand-colour swatches (Secondary/Accent,
+// defaulting to the accent-navy-800 / gold-500 token values), plus the
+// registered address, contact phone and GSTIN. These do NOT recreate the model
+// — 13.1's row is edited in place — so every generated report carries the full
+// business identity, not just a name + one colour.
 model BrandingConfig {
-  id           String   @id @default(uuid(7))
-  tenantName   String
-  logoUrl      String?
-  primaryColor String   @default("#0F5257")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(uuid(7))
+  tenantName        String
+  logoUrl           String?
+  primaryColor      String   @default("#0F5257")
+  secondaryColor    String   @default("#16273E")
+  accentColor       String   @default("#C7912B")
+  registeredAddress String?
+  contactPhone      String?
+  gstin             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 // Story 13.1 (FR-32): the compiled, auto-generated per-Site daily report.

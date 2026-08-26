@@ -12,6 +12,8 @@ import { MachineryVehicleReportsService } from './machinery-reports.service';
 import { FinancialReportsService } from './financial-reports.service';
 import { ReportCompilerService } from './report-compiler.service';
 import { ReportDeliveryService } from './report-delivery.service';
+import { BrandingConfigController } from './branding-config.controller';
+import { BrandingConfigService } from './branding-config.service';
 import {
   EMAIL_SENDER,
   WHATSAPP_SENDER,
@@ -38,9 +40,10 @@ import {
     TeamModule,
     AssetsModule,
   ],
-  controllers: [ReportsController],
+  controllers: [ReportsController, BrandingConfigController],
   providers: [
     ReportsService,
+    BrandingConfigService,
     SiteInventoryReportsService,
     LabourReportsService,
     MachineryVehicleReportsService,

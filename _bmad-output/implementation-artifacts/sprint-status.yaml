@@ -44,6 +44,7 @@ development_status:
   1-5-sign-in: ready-for-dev
   1-6-application-shell-navigation: ready-for-dev
   1-7-accessibility-performance-ci-gate: ready-for-dev
+  1-8-api-session-authentication: ready-for-dev
   epic-1-retrospective: optional
 
   epic-2: backlog
@@ -122,7 +123,7 @@ development_status:
   epic-13-retrospective: optional
 
   epic-14: in-progress
-  14-1-branding-configuration: ready-for-dev
+  14-1-branding-configuration: done
   14-2-users-roles-permissions: ready-for-dev
   14-3-category-configuration: ready-for-dev
   14-4-notification-channel-configuration: ready-for-dev

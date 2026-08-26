@@ -14,3 +14,18 @@ export const r2Client = new S3Client({
 });
 
 export const r2BucketName = process.env.R2_BUCKET_NAME ?? '';
+
+// A durable, public object URL for a stored key — used where a stored URL must
+// outlive a short-lived presigned GET (e.g. BrandingConfig.logoUrl, which is
+// denormalized into every compiled report and rendered as an <img src> in the
+// delivered artifact; a 1-hour presigned URL would go stale). In a real
+// deployment R2_PUBLIC_BASE_URL points at the bucket's public/custom domain;
+// absent that it falls back to the account-scoped endpoint + bucket path. Like
+// the rest of the R2 client, this has never been exercised against a real
+// bucket — verify the round-trip once one exists (infra/provisioning R2 TODO).
+export function r2PublicUrl(storageKey: string): string {
+  const base =
+    process.env.R2_PUBLIC_BASE_URL ??
+    `https://${process.env.R2_ACCOUNT_ID ?? 'account'}.r2.cloudflarestorage.com/${r2BucketName || 'bucket'}`;
+  return `${base.replace(/\/$/, '')}/${storageKey}`;
+}

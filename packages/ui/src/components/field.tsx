@@ -1,4 +1,4 @@
-import { type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, forwardRef, useId } from "react";
+import { type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, forwardRef, useId } from "react";
 import { cn } from "../lib/cn";
 
 // The single form-field implementation (AD-5) — extracted once a second
@@ -59,6 +59,54 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
   },
 );
 TextField.displayName = "TextField";
+
+// Multiline sibling of TextField — same label / error / hint layout and the
+// same focus-ring + error treatment, only the control is a <textarea>. Added
+// (AD-5: extend the shared field primitive, never hand-roll a raw <textarea>
+// per screen) once Story 14.1's Branding form needed a multiline registered
+// address. No leading-icon slot: an icon reads oddly against a multi-row box.
+export interface TextareaFieldProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label: string;
+  error?: string;
+  hint?: string;
+}
+
+export const TextareaField = forwardRef<HTMLTextAreaElement, TextareaFieldProps>(
+  ({ label, error, hint, id, className, rows = 3, ...props }, ref) => {
+    const generatedId = useId();
+    const textareaId = id ?? generatedId;
+    const errorId = `${textareaId}-error`;
+    const hintId = `${textareaId}-hint`;
+
+    return (
+      <div className="mb-4">
+        <label htmlFor={textareaId} className="mb-1 block text-caption font-semibold text-ink-700">
+          {label}
+        </label>
+        <textarea
+          ref={ref}
+          id={textareaId}
+          rows={rows}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : hint ? hintId : undefined}
+          className={cn(fieldControlClass, "resize-y", error && "border-danger-700", className)}
+          {...props}
+        />
+        {hint && !error ? (
+          <p id={hintId} className="mt-1 text-eyebrow text-ink-500">
+            {hint}
+          </p>
+        ) : null}
+        {error ? (
+          <p id={errorId} role="alert" className="mt-1 text-eyebrow text-danger-700">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+  },
+);
+TextareaField.displayName = "TextareaField";
 
 export interface SelectFieldOption {
   value: string;

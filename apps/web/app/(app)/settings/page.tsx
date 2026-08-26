@@ -1,5 +1,5 @@
 import { BuildingIcon, Card, GearIcon, LayersIcon, UsersIcon } from "@azentisfieldos/ui";
-import { APP_DISPLAY_NAME } from "../../../lib/tenant";
+import { BrandingForm, type BrandingConfig } from "./branding-form";
 
 interface TeamMemberRow {
   id: string;
@@ -28,7 +28,8 @@ async function getJSON<T>(path: string): Promise<T> {
 }
 
 export default async function SettingsPage() {
-  const [teamMembers, employmentTypes, machineryTypes, vehicleTypes] = await Promise.all([
+  const [branding, teamMembers, employmentTypes, machineryTypes, vehicleTypes] = await Promise.all([
+    getJSON<BrandingConfig>("/branding-config"),
     getJSON<TeamMemberRow[]>("/team-members"),
     getJSON<EmploymentType[]>("/employment-types"),
     getJSON<MachineryType[]>("/machinery-types"),
@@ -43,20 +44,20 @@ export default async function SettingsPage() {
       </div>
 
       <div className="flex flex-col gap-6">
+        {/* Story 14.1 owns the Branding section. Stories 14.2/14.3 add their
+            own sections (Users & Roles, Categories) to this same page — each
+            section is a self-contained <Card>, so they slot in without
+            touching this one. */}
         <Card>
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-1 flex items-center gap-2">
             <BuildingIcon className="size-4 text-accent-teal-700" />
             <h2 className="text-card-title text-ink-900">Branding</h2>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex size-14 items-center justify-center rounded-md bg-accent-teal-700 text-xl font-bold text-white">
-              {APP_DISPLAY_NAME[0]}
-            </div>
-            <div>
-              <div className="text-body font-semibold text-ink-900">{APP_DISPLAY_NAME}</div>
-              <div className="text-caption text-ink-500">Single-tenant deployment — this is the only organisation on this instance.</div>
-            </div>
-          </div>
+          <p className="mb-6 text-body-sm text-ink-500">
+            How your organisation appears on every generated report — this is fully yours to
+            configure, and changes reflect in the next report with no publish step.
+          </p>
+          <BrandingForm config={branding} />
         </Card>
 
         <Card>
@@ -130,8 +131,8 @@ export default async function SettingsPage() {
 
       <p className="mt-6 flex items-center gap-2 text-caption text-ink-500">
         <GearIcon className="size-3.5 shrink-0" />
-        This is a read-only overview. Editing branding, inviting users, and managing categories from here ships with
-        Tenant Configuration &amp; Settings.
+        Branding is editable above. Inviting users and managing categories from here ships with later
+        Tenant Configuration &amp; Settings stories.
       </p>
     </>
   );

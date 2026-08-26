@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { SelectField, TextField } from "./field";
+import { SelectField, TextField, TextareaField } from "./field";
 
 describe("TextField", () => {
   it("associates the label with the input", () => {
@@ -45,5 +45,19 @@ describe("SelectField", () => {
     render(<SelectField label="Status" options={options} error="Status is required" />);
     expect(screen.getByLabelText("Status")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByRole("alert")).toHaveTextContent("Status is required");
+  });
+});
+
+describe("TextareaField", () => {
+  it("associates the label with a textarea control", () => {
+    render(<TextareaField label="Registered address" />);
+    const control = screen.getByLabelText("Registered address");
+    expect(control.tagName).toBe("TEXTAREA");
+  });
+
+  it("renders an accessible inline error and marks the field invalid", () => {
+    render(<TextareaField label="Registered address" error="Address is too long" />);
+    expect(screen.getByLabelText("Registered address")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent("Address is too long");
   });
 });
