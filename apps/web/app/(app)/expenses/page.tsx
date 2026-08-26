@@ -1,5 +1,17 @@
 import Link from "next/link";
-import { Button, DataTable, PlusIcon, ReceiptIcon, type DataTableColumn } from "@azentisfieldos/ui";
+import {
+  CorrectAction,
+  DataTable,
+  LayersIcon,
+  PlusIcon,
+  ReceiptIcon,
+  RotateCcwIcon,
+  StatTile,
+  WalletIcon,
+  buttonVariants,
+  cn,
+  type DataTableColumn,
+} from "@azentisfieldos/ui";
 
 interface ExpenseRow {
   id: string;
@@ -12,6 +24,12 @@ interface ExpenseRow {
   category: { id: string; name: string };
 }
 
+interface ExpenseSummary {
+  totalThisMonth: number;
+  totalThisWeek: number;
+  largestCategoryThisMonth: { name: string; total: number } | null;
+}
+
 async function getExpenses(): Promise<ExpenseRow[]> {
   const res = await fetch(`${process.env.API_URL}/expenses`, { cache: "no-store" });
   if (!res.ok) {
@@ -20,8 +38,23 @@ async function getExpenses(): Promise<ExpenseRow[]> {
   return res.json();
 }
 
+// Task 4's stat tiles are server-computed aggregates (ExpensesService.summary),
+// not a client-side reduction over the unbounded list() fetch above.
+async function getSummary(): Promise<ExpenseSummary> {
+  const res = await fetch(`${process.env.API_URL}/expenses/summary`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load Expense summary (${res.status})`);
+  }
+  return res.json();
+}
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatMoney(amount: number) {
+  const sign = amount < 0 ? "−" : "";
+  return `${sign}₹${Math.abs(amount).toLocaleString("en-IN")}`;
 }
 
 const columns: DataTableColumn<ExpenseRow>[] = [
@@ -29,23 +62,29 @@ const columns: DataTableColumn<ExpenseRow>[] = [
   { header: "Site", cell: (row) => <span className="font-semibold">{row.site.name}</span> },
   { header: "Category", cell: (row) => row.category.name },
   {
+    header: "Amount",
+    align: "right",
+    cell: (row) => <span className="font-semibold text-gold-700">{formatMoney(Number(row.amount))}</span>,
+  },
+  {
     header: "Description",
     cell: (row) => row.description ?? <span className="text-ink-500">—</span>,
   },
-  { header: "Paid to", cell: (row) => row.personOrVendor ?? <span className="text-ink-500">—</span> },
-  { header: "Method", cell: (row) => row.paymentMethod ?? <span className="text-ink-500">—</span> },
+  { header: "Payment method", cell: (row) => row.paymentMethod ?? <span className="text-ink-500">—</span> },
+  { header: "Person / Vendor", cell: (row) => row.personOrVendor ?? <span className="text-ink-500">—</span> },
   {
-    header: "Amount",
-    align: "right",
-    cell: (row) => <span className="font-semibold text-gold-700">₹{Number(row.amount).toLocaleString("en-IN")}</span>,
+    header: "",
+    // AC #3: the row action is always "Correct", never Edit/Delete (AD-9).
+    cell: (row) => (
+      <div className="flex items-center justify-end">
+        <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/expenses/${row.id}/correct`} />
+      </div>
+    ),
   },
 ];
 
 export default async function ExpensesPage() {
-  const expenses = await getExpenses();
-  const totalThisMonth = expenses
-    .filter((e) => new Date(e.incurredAt).getMonth() === new Date().getMonth())
-    .reduce((sum, e) => sum + Number(e.amount), 0);
+  const [expenses, summary] = await Promise.all([getExpenses(), getSummary()]);
 
   return (
     <>
@@ -53,22 +92,35 @@ export default async function ExpensesPage() {
         <div>
           <h1 className="text-page-title text-ink-900">Expenses</h1>
           <p className="text-body-sm text-ink-500">
-            Site expenses across all Sites — fuel, labour welfare, and site miscellaneous
-            {totalThisMonth > 0 ? (
-              <>
-                {" "}
-                — <span className="font-semibold text-ink-700">₹{totalThisMonth.toLocaleString("en-IN")}</span> this
-                month
-              </>
-            ) : null}
+            Site expenses across all Sites — captured as they happen, categorized consistently
           </p>
         </div>
-        <Link href="/expenses/new">
-          <Button>
+        <div className="flex items-center gap-2">
+          <Link href="/expenses/categories" className={cn(buttonVariants({ variant: "secondary" }))}>
+            <LayersIcon className="size-4" />
+            Categories
+          </Link>
+          <Link href="/expenses/new" className={cn(buttonVariants({ variant: "primary" }))}>
             <PlusIcon className="size-4" />
             Record Expense
-          </Button>
-        </Link>
+          </Link>
+        </div>
+      </div>
+
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatTile
+          icon={<WalletIcon />}
+          value={formatMoney(summary.totalThisMonth)}
+          label="Total this month"
+          tint="gold"
+        />
+        <StatTile icon={<ReceiptIcon />} value={formatMoney(summary.totalThisWeek)} label="Total this week" />
+        <StatTile
+          icon={<LayersIcon />}
+          value={summary.largestCategoryThisMonth?.name ?? "—"}
+          label="Largest category this month"
+          tint="success"
+        />
       </div>
 
       <DataTable
@@ -81,11 +133,9 @@ export default async function ExpensesPage() {
                 icon: <ReceiptIcon />,
                 message: "No Expenses recorded yet.",
                 action: (
-                  <Link href="/expenses/new">
-                    <Button>
-                      <PlusIcon className="size-4" />
-                      Record Expense
-                    </Button>
+                  <Link href="/expenses/new" className={cn(buttonVariants({ variant: "primary" }))}>
+                    <PlusIcon className="size-4" />
+                    Record your first Expense
                   </Link>
                 ),
               }

@@ -602,6 +602,14 @@ model Expense {
   dailySiteReport   DailySiteReport? @relation(fields: [dailySiteReportId], references: [id])
   incurredAt        DateTime
   createdAt         DateTime        @default(now())
+  // Story 11.1 (AD-9, FR-41): a correction is a new, reason-carrying row
+  // linked to the one it corrects — never an edit/delete. Plain
+  // correctsId/reason pair (no pre-existing reason/note field on Expense to
+  // collide with), same convention as Purchase/Movement/RmcEntry. A
+  // correcting row's `amount` is a signed delta (Epic 5's Story 5.1 rule),
+  // not a restated total.
+  correctsId        String?
+  reason            String? // required when correctsId is set
   // Story 3.2 offline-sync idempotency key — same reasoning as
   // Consumption.clientGeneratedId.
   clientGeneratedId String? @unique

@@ -32,7 +32,7 @@ export default async function NewExpensePage() {
   return (
     <div className="max-w-160">
       <h1 className="mb-6 text-page-title text-ink-900">Record Expense</h1>
-      <ExpenseForm sites={sites} categories={categories} />
+      <ExpenseForm mode="new" sites={sites} categories={categories} />
     </div>
   );
 }

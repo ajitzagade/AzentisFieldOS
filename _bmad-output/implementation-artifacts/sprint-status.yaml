@@ -100,13 +100,13 @@ development_status:
   9-2-view-vendor-purchase-history: done
   epic-9-retrospective: optional
 
-  epic-10: in-progress
-  10-1-record-rmc-delivery: review
-  10-2-rmc-reporting: review
+  epic-10: done
+  10-1-record-rmc-delivery: done
+  10-2-rmc-reporting: done
   epic-10-retrospective: optional
 
-  epic-11: in-progress
-  11-1-record-an-expense: ready-for-dev
+  epic-11: done
+  11-1-record-an-expense: done
   epic-11-retrospective: optional
 
   epic-12: in-progress

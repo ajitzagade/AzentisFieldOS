@@ -8,6 +8,10 @@ export interface CreateExpenseFormState {
   formError?: string;
 }
 
+// One Server Action for both a plain Expense and a correction of one — the
+// API has a single POST /expenses that branches on correctsId (mirroring
+// RmcController's POST /rmc-entries), so the form layer mirrors that rather
+// than maintaining two separate submit paths.
 export async function createExpenseAction(
   _prevState: CreateExpenseFormState,
   formData: FormData,
@@ -20,6 +24,8 @@ export async function createExpenseAction(
     paymentMethod: formData.get("paymentMethod") || undefined,
     personOrVendor: formData.get("personOrVendor") || undefined,
     incurredAt: formData.get("incurredAt"),
+    correctsId: formData.get("correctsId") || undefined,
+    reason: formData.get("reason") || undefined,
   });
 
   if (!parsed.success) {
@@ -38,6 +44,12 @@ export async function createExpenseAction(
   }
 
   if (res.status === 400) {
+    // Two distinct 400 shapes reach here: ZodValidationPipe's own body
+    // (`{ error: { details: { fieldErrors } } }`) for schema failures, and
+    // Nest's default body for a plain `BadRequestException('<string>')`
+    // (`{ statusCode, message, error: 'Bad Request' }`, where `error` is a
+    // string) for the FK-violation / correction-mismatch messages — read
+    // `body.message` for the latter, not `body.error.message`.
     const body = (await res.json().catch(() => undefined)) as
       | { error?: { details?: { fieldErrors?: Record<string, string[]> } }; message?: string }
       | undefined;

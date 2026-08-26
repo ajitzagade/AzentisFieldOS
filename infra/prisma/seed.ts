@@ -13,15 +13,22 @@ const DEFAULT_EMPLOYMENT_TYPES = ["Monthly", "Weekly", "Daily Wage"];
 const DEFAULT_MACHINERY_TYPES = ["Excavator", "Mixer", "Crane"];
 const DEFAULT_VEHICLE_TYPES = ["Truck", "Dumper", "Tempo"];
 
-// FR-25-ish, NFR-4: same reasoning as EmploymentType/MachineryType/VehicleType
-// above — ExpenseCategory is admin-configurable data (Epic 14 owns the admin
-// UI), these are just day-one defaults so DSR-embedded Expense entries
-// (Epic 3's dsrExpenseSchema) aren't unusable before Epic 11's own CRUD ships.
+// FR-41/NFR-4 (Story 11.1 AC #1): ExpenseCategory is admin-configurable data
+// (Epic 14 owns the admin UI), not a hardcoded enum — these are the nine
+// day-one defaults the AC names verbatim, so the Expense form has categories
+// to pick from and DSR-embedded Expense entries (Epic 3's dsrExpenseSchema)
+// aren't unusable before Epic 14's full admin CRUD ships. Idempotent upsert
+// on the unique name, same shape as the lookup-table seeds above.
 const DEFAULT_EXPENSE_CATEGORIES = [
-  "Fuel & Transport",
-  "Site Miscellaneous",
-  "Labour Welfare",
-  "Office & Admin",
+  "Material",
+  "Labour",
+  "Machinery & Vehicle",
+  "Fuel",
+  "Repairs",
+  "Transportation",
+  "Site Expenses",
+  "RMC",
+  "Misc",
 ];
 
 async function main() {

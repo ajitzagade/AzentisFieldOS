@@ -22,6 +22,7 @@ export * from "./schemas/vehicle";
 export * from "./schemas/asset-movement";
 export * from "./schemas/asset-service-log";
 export * from "./schemas/vendor";
+export * from "./schemas/expense-category";
 export * from "./schemas/expense";
 export * from "./schemas/rmc-entry";
 export * from "./types/activity-feed";
