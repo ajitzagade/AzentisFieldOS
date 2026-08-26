@@ -29,5 +29,16 @@ import { AssetServiceLogsService } from './asset-service-logs.service';
     AssetMovementsService,
     AssetServiceLogsService,
   ],
+  // Story 13.3: ReportsModule's MachineryVehicleReportsService composes these
+  // to present the Machinery/Vehicle Reports view — asset current-status
+  // (MachineryService/VehicleService), movement history (AssetMovementsService),
+  // and service history (AssetServiceLogsService) — reusing each owning-epic
+  // method rather than re-querying those tables from the Reports layer.
+  exports: [
+    MachineryService,
+    VehicleService,
+    AssetMovementsService,
+    AssetServiceLogsService,
+  ],
 })
 export class AssetsModule {}

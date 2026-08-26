@@ -7,6 +7,8 @@ import { ReportCompilerService } from './report-compiler.service';
 import { ReportDeliveryService } from './report-delivery.service';
 import { ReportsService } from './reports.service';
 import { SiteInventoryReportsService } from './site-inventory-reports.service';
+import { LabourReportsService } from './labour-reports.service';
+import { MachineryVehicleReportsService } from './machinery-reports.service';
 
 // HTTP-level route-ordering regression coverage (same harness as
 // rmc.controller.integration.spec.ts). `GET /reports/daily` resolves to
@@ -51,6 +53,25 @@ describe('ReportsController route ordering + Cron path', () => {
           returnWastages: [],
         }),
       },
+      labourReports: {
+        getLabourReport: vi.fn().mockResolvedValue({
+          summary: {},
+          outstanding: { total: 0, byTeamMember: [] },
+          workRecords: [],
+          payments: [],
+          advances: [],
+          adjustments: [],
+        }),
+      },
+      machineryReports: {
+        getMachineryReport: vi.fn().mockResolvedValue({
+          machinery: [],
+          vehicles: [],
+          asset: null,
+          movements: [],
+          serviceLogs: [],
+        }),
+      },
     };
   }
 
@@ -64,6 +85,14 @@ describe('ReportsController route ordering + Cron path', () => {
         {
           provide: SiteInventoryReportsService,
           useValue: services.siteInventoryReports,
+        },
+        {
+          provide: LabourReportsService,
+          useValue: services.labourReports,
+        },
+        {
+          provide: MachineryVehicleReportsService,
+          useValue: services.machineryReports,
         },
       ],
     }).compile();
@@ -165,6 +194,44 @@ describe('ReportsController route ordering + Cron path', () => {
     ).toHaveBeenCalledWith({
       siteId: 'site1',
       materialId: 'mat1',
+      from: undefined,
+      to: undefined,
+    });
+    expect(services.reports.findDaily).not.toHaveBeenCalled();
+  });
+
+  // Story 13.3: `/reports/labour` and `/reports/machinery-vehicles` are new
+  // sibling paths — same reasoning as `/reports/sites` above; the
+  // `/reports/daily/:id` wildcard can never swallow them.
+  it('GET /reports/labour reaches getLabourReport, never findDaily', async () => {
+    const services = makeServices();
+    await bootstrap(services);
+
+    const res = await request(app.getHttpServer())
+      .get('/reports/labour')
+      .query({ teamMemberId: 'tm1', from: '2026-08-01', to: '2026-08-31' });
+
+    expect(res.status).toBe(200);
+    expect(services.labourReports.getLabourReport).toHaveBeenCalledWith({
+      teamMemberId: 'tm1',
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+    expect(services.reports.findDaily).not.toHaveBeenCalled();
+  });
+
+  it('GET /reports/machinery-vehicles reaches getMachineryReport, never findDaily', async () => {
+    const services = makeServices();
+    await bootstrap(services);
+
+    const res = await request(app.getHttpServer())
+      .get('/reports/machinery-vehicles')
+      .query({ assetType: 'MACHINERY', assetId: 'm1' });
+
+    expect(res.status).toBe(200);
+    expect(services.machineryReports.getMachineryReport).toHaveBeenCalledWith({
+      assetType: 'MACHINERY',
+      assetId: 'm1',
       from: undefined,
       to: undefined,
     });

@@ -32,6 +32,24 @@ const STORY_FILES = [
   resolve(repoRoot, 'packages/shared/src/types/report-filters.ts'),
 ];
 
+// Story 13.3 (AC #2 / Task 3): the same AD-1 guarantee extended to the Labour
+// and Machinery/Vehicle report composition layers and every owning-epic
+// service method they thread the report filters through. None of these files
+// may introduce tenant-scoping code — the report is Tenant-scoped by
+// construction, not by a filter this story adds.
+const STORY_13_3_FILES = [
+  resolve(here, 'labour-reports.service.ts'),
+  resolve(here, 'machinery-reports.service.ts'),
+  resolve(here, 'reports.controller.ts'),
+  resolve(apiSrc, 'team/work-records.service.ts'),
+  resolve(apiSrc, 'team/payments.service.ts'),
+  resolve(apiSrc, 'team/advances.service.ts'),
+  resolve(apiSrc, 'team/advance-adjustments.service.ts'),
+  resolve(apiSrc, 'assets/asset-movements.service.ts'),
+  resolve(apiSrc, 'assets/asset-service-logs.service.ts'),
+  resolve(repoRoot, 'packages/shared/src/types/report-filters.ts'),
+];
+
 function stripComments(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, '') // block comments
@@ -45,6 +63,16 @@ describe('Story 13.2 files carry no Tenant-scoping code (AD-1, AC #2)', () => {
       const code = stripComments(readFileSync(file, 'utf8')).toLowerCase();
       // Any casing/spelling of a current-tenant selector: tenantId, tenant_id,
       // currentTenant, tenant-scope, etc. — all collapse to containing "tenant".
+      expect(code).not.toContain('tenant');
+    },
+  );
+});
+
+describe('Story 13.3 files carry no Tenant-scoping code (AD-1, AC #2)', () => {
+  it.each(STORY_13_3_FILES)(
+    '%s has no tenant-scoping identifier in code',
+    (file) => {
+      const code = stripComments(readFileSync(file, 'utf8')).toLowerCase();
       expect(code).not.toContain('tenant');
     },
   );

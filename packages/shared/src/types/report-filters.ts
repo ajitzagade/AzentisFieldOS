@@ -22,3 +22,20 @@ export interface InventoryReportFilters extends ReportDateRange {
   siteId?: string;
   materialId?: string;
 }
+
+// Story 13.3 (FR-44): Labour reports. `teamMemberId` optional — omitted means
+// "All Team Members" (every person's data in the window), exactly as
+// InventoryReportFilters' siteId omission means "All Sites". Same AD-1 note as
+// above applies: no tenantId here, ever.
+export interface LabourReportFilters extends ReportDateRange {
+  teamMemberId?: string;
+}
+
+// Story 13.3 (FR-45): Machinery/Vehicle reports. `assetType`+`assetId` together
+// pick a single Machine/Vehicle to drill into (its usage/movement/service
+// history); omitting them shows the register (current-status) view for all
+// assets, mirroring the Site report's "pick a Site" gate.
+export interface MachineryReportFilters extends ReportDateRange {
+  assetType?: "MACHINERY" | "VEHICLE";
+  assetId?: string;
+}

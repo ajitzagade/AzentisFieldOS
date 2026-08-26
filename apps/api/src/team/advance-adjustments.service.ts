@@ -3,9 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreateAdvanceAdjustmentInput } from '@azentisfieldos/shared';
+import type {
+  CreateAdvanceAdjustmentInput,
+  LabourReportFilters,
+} from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { dateRangeBounds } from '../common/date-range';
 import { decrementOutstandingBalanceWithFloorCheck } from './outstanding-balance';
 
 // FR-23: reduces a Team Member's pooled Outstanding Balance, capped at the
@@ -57,8 +61,18 @@ export class AdvanceAdjustmentsService {
     }
   }
 
-  list() {
+  // Story 13.3 (FR-44): the Labour Reports view reuses this same Adjustment
+  // history, optionally narrowed by Team Member (via the parent Advance) and a
+  // date window (on `adjustedAt`). Unfiltered (the default `{}`) the query is
+  // unchanged, so the Advance Ledger is byte-identical.
+  list(filters: LabourReportFilters = {}) {
+    const where: Prisma.AdvanceAdjustmentWhereInput = {};
+    if (filters.teamMemberId) {
+      where.advance = { teamMemberId: filters.teamMemberId };
+    }
+    where.adjustedAt = dateRangeBounds(filters.from, filters.to);
     return this.prisma.advanceAdjustment.findMany({
+      where,
       include: { advance: { include: { teamMember: true } }, payment: true },
       orderBy: { adjustedAt: 'desc' },
     });

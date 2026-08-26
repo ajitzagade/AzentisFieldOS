@@ -6,10 +6,12 @@ import {
 import type {
   CreateWorkRecordBatchInput,
   CreateWorkRecordInput,
+  LabourReportFilters,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { lockOnKey } from '../common/advisory-lock';
+import { dateRangeBounds } from '../common/date-range';
 
 // FR-20: labour presence tracked per Site per day. WorkRecord.@@index
 // ([teamMemberId, workDate]) is a plain index, not a unique constraint
@@ -68,9 +70,19 @@ export class WorkRecordsService {
 
   // Story 6.3 AC #2: "by Site" is this same query with a siteId filter —
   // one query capability, not a second copy of it under apps/api/src/sites/.
-  list(siteId?: string) {
+  // Story 13.3 (FR-44): the Labour Reports view reuses this same capability,
+  // adding optional teamMemberId + date-window narrowing. Called the old way
+  // (`list()` / `list('site1')`) the `where` is byte-identical to before —
+  // `undefined` with no filters, `{ siteId }` with only a Site — so existing
+  // callers/tests are unaffected.
+  list(siteId?: string, filters: LabourReportFilters = {}) {
+    const where: Prisma.WorkRecordWhereInput = {};
+    if (siteId) where.siteId = siteId;
+    if (filters.teamMemberId) where.teamMemberId = filters.teamMemberId;
+    const bounds = dateRangeBounds(filters.from, filters.to);
+    if (bounds) where.workDate = bounds;
     return this.prisma.workRecord.findMany({
-      where: siteId ? { siteId } : undefined,
+      where: Object.keys(where).length > 0 ? where : undefined,
       include: { teamMember: true, site: true },
       orderBy: { workDate: 'desc' },
     });

@@ -7,10 +7,13 @@ import {
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
+import { assetTypeSchema } from '@azentisfieldos/shared';
 import { ReportCompilerService } from './report-compiler.service';
 import { ReportDeliveryService } from './report-delivery.service';
 import { ReportsService } from './reports.service';
 import { SiteInventoryReportsService } from './site-inventory-reports.service';
+import { LabourReportsService } from './labour-reports.service';
+import { MachineryVehicleReportsService } from './machinery-reports.service';
 
 // Normalizes an optional YYYY-MM-DD override (or "today") to a UTC-midnight
 // Date matching DailySiteReport.reportDate (@db.Date). NOTE (open decision):
@@ -31,6 +34,8 @@ export class ReportsController {
     private readonly delivery: ReportDeliveryService,
     private readonly reports: ReportsService,
     private readonly siteInventoryReports: SiteInventoryReportsService,
+    private readonly labourReports: LabourReportsService,
+    private readonly machineryReports: MachineryVehicleReportsService,
   ) {}
 
   // Verifies the Vercel Cron request via the standard `Authorization: Bearer
@@ -134,6 +139,42 @@ export class ReportsController {
     return this.siteInventoryReports.getInventoryReport({
       siteId,
       materialId,
+      from,
+      to,
+    });
+  }
+
+  // Story 13.3 (FR-44): the Labour Reports view — attendance/work history,
+  // payment totals + history, and the Advance/Adjustment ledger within a date
+  // window, optionally narrowed to one Team Member. A distinct sibling of
+  // `/reports/daily/:id` (that wildcard requires the literal `daily`
+  // segment), so it is not shadowed by it; the integration spec asserts this.
+  @Get('reports/labour')
+  labourReport(
+    @Query('teamMemberId') teamMemberId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.labourReports.getLabourReport({ teamMemberId, from, to });
+  }
+
+  // Story 13.3 (FR-45): the Machinery/Vehicle Reports view — the asset
+  // register (current status) always, plus one asset's movement and service
+  // history within a date window when assetType+assetId pick one. assetType
+  // is validated to MACHINERY|VEHICLE here (a malformed value is treated as
+  // "no asset selected" — the register-only view — rather than a 400, since
+  // it is an optional filter, not a required path segment).
+  @Get('reports/machinery-vehicles')
+  machineryReport(
+    @Query('assetType') assetType?: string,
+    @Query('assetId') assetId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const parsed = assetType ? assetTypeSchema.safeParse(assetType) : undefined;
+    return this.machineryReports.getMachineryReport({
+      assetType: parsed?.success ? parsed.data : undefined,
+      assetId,
       from,
       to,
     });

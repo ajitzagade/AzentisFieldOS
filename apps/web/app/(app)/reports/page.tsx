@@ -4,18 +4,26 @@ import type { FeedItem, PhotoGalleryItem } from "@azentisfieldos/shared";
 import {
   AlertTriangleIcon,
   ArrowsIcon,
+  Badge,
   BarChartIcon,
   Button,
+  CalendarIcon,
   ClipboardIcon,
   DataTable,
   GapFlag,
+  GearIcon,
   SelectField,
+  StatTile,
   TextField,
+  TruckIcon,
+  UsersIcon,
+  WalletIcon,
   buttonVariants,
   cn,
   type DataTableColumn,
 } from "@azentisfieldos/ui";
 import { PhotoGalleryGrid } from "../_components/photo-gallery-grid";
+import { statusBadge, type AssetLocationStatus } from "../machinery-vehicles/status-badge";
 import {
   DeliveryStatusBadge,
   type DeliverySummary,
@@ -34,17 +42,21 @@ import {
 // ---------------------------------------------------------------------------
 // Tabs
 // ---------------------------------------------------------------------------
-type ReportTab = "site" | "inventory" | "labour" | "financial";
+type ReportTab = "site" | "inventory" | "labour" | "machinery" | "financial";
 
 const REPORT_TABS: { tab: ReportTab; label: string }[] = [
   { tab: "site", label: "Site Reports" },
   { tab: "inventory", label: "Inventory Reports" },
   { tab: "labour", label: "Labour Reports" },
+  { tab: "machinery", label: "Machinery/Vehicle Reports" },
   { tab: "financial", label: "Financial Reports" },
 ];
 
 function resolveTab(value: string | undefined): ReportTab {
-  return value === "inventory" || value === "labour" || value === "financial"
+  return value === "inventory" ||
+    value === "labour" ||
+    value === "machinery" ||
+    value === "financial"
     ? value
     : "site";
 }
@@ -148,6 +160,116 @@ interface InventoryReport {
   returnWastages: ReturnWastageTxn[];
 }
 
+// ---- Labour report (Story 13.3, FR-44) ----
+interface TeamMemberOption {
+  id: string;
+  name: string;
+}
+
+interface LabourWorkRecord {
+  id: string;
+  workDate: string;
+  attended: boolean;
+  hours: string | null;
+  overtimeHours: string | null;
+  teamMember: { id: string; name: string };
+  site: { id: string; name: string };
+}
+
+interface LabourPayment {
+  id: string;
+  netPayable: string;
+  payPeriod: string | null;
+  status: string;
+  createdAt: string;
+  teamMember: { id: string; name: string };
+}
+
+interface LabourAdvance {
+  id: string;
+  amount: string;
+  reason: string | null;
+  givenAt: string;
+  teamMember: { id: string; name: string };
+}
+
+interface LabourAdjustment {
+  id: string;
+  amount: string;
+  note: string | null;
+  adjustedAt: string;
+  advance: { teamMember: { id: string; name: string } };
+}
+
+interface OutstandingRow {
+  teamMemberId: string;
+  name: string;
+  outstandingAdvanceBalance: string;
+}
+
+interface LabourReport {
+  summary: {
+    totalTeamMembers: number;
+    todaysWorkingHeadcount: number;
+    weeklyPaymentTotal: number;
+    monthlyPaymentTotal: number;
+  };
+  outstanding: { total: number; byTeamMember: OutstandingRow[] };
+  workRecords: LabourWorkRecord[];
+  payments: LabourPayment[];
+  advances: LabourAdvance[];
+  adjustments: LabourAdjustment[];
+}
+
+// ---- Machinery/Vehicle report (Story 13.3, FR-45) ----
+interface AssetRegisterRow {
+  id: string;
+  name?: string;
+  number?: string;
+  assetNumber?: string;
+  type: { name: string };
+  currentStatus: AssetLocationStatus;
+  currentSite: { name: string } | null;
+}
+
+interface AssetDetail {
+  id: string;
+  name?: string;
+  number?: string;
+  assetNumber?: string;
+  model?: string | null;
+  ownership?: string | null;
+  operator?: string | null;
+  driver?: string | null;
+  type: { name: string };
+  currentStatus: AssetLocationStatus;
+  currentSite: { name: string } | null;
+}
+
+interface AssetMovementRow {
+  id: string;
+  toStatus: AssetLocationStatus;
+  site: { name: string } | null;
+  movedAt: string;
+  reason: string | null;
+}
+
+interface AssetServiceRow {
+  id: string;
+  kind: "FUEL" | "MAINTENANCE" | "REPAIR";
+  notes: string | null;
+  cost: string | null;
+  serviceDate: string;
+}
+
+interface MachineryReport {
+  machinery: AssetRegisterRow[];
+  vehicles: AssetRegisterRow[];
+  asset: AssetDetail | null;
+  movements: AssetMovementRow[];
+  serviceLogs: AssetServiceRow[];
+}
+
 // ---------------------------------------------------------------------------
 // Fetchers (all through apps/api over HTTP — AD-3)
 // ---------------------------------------------------------------------------
@@ -213,6 +335,44 @@ async function getInventoryReport(params: {
   return res.json();
 }
 
+async function getTeamMembers(): Promise<TeamMemberOption[]> {
+  const res = await fetch(`${process.env.API_URL}/team-members`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load Team Members (${res.status})`);
+  }
+  return res.json();
+}
+
+async function getLabourReport(params: {
+  teamMemberId?: string;
+  from?: string;
+  to?: string;
+}): Promise<LabourReport> {
+  const res = await fetch(`${process.env.API_URL}/reports/labour${query(params)}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to load Labour report (${res.status})`);
+  }
+  return res.json();
+}
+
+async function getMachineryReport(params: {
+  assetType?: string;
+  assetId?: string;
+  from?: string;
+  to?: string;
+}): Promise<MachineryReport> {
+  const res = await fetch(
+    `${process.env.API_URL}/reports/machinery-vehicles${query(params)}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to load Machinery/Vehicle report (${res.status})`);
+  }
+  return res.json();
+}
+
 // ---------------------------------------------------------------------------
 // Formatting
 // ---------------------------------------------------------------------------
@@ -237,6 +397,10 @@ function formatDateTime(iso: string) {
 function formatMoney(amount: number) {
   const sign = amount < 0 ? "−" : "";
   return `${sign}₹${Math.abs(amount).toLocaleString("en-IN")}`;
+}
+
+function formatMoneyStr(amount: string) {
+  return formatMoney(Number(amount));
 }
 
 // ---------------------------------------------------------------------------
@@ -581,6 +745,386 @@ function InventoryReportView({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Labour report view (Story 13.3, FR-44)
+// ---------------------------------------------------------------------------
+const workRecordColumns: DataTableColumn<LabourWorkRecord>[] = [
+  { header: "Date", cell: (w) => <span className="font-semibold">{formatDate(w.workDate)}</span> },
+  { header: "Team Member", cell: (w) => w.teamMember.name },
+  { header: "Site", cell: (w) => w.site.name },
+  {
+    header: "Attendance",
+    cell: (w) =>
+      w.attended ? <Badge variant="success">Present</Badge> : <Badge variant="danger">Absent</Badge>,
+  },
+  {
+    header: "Hours / OT",
+    align: "right",
+    cell: (w) =>
+      w.attended ? (
+        <span className="tabular-nums">
+          {w.hours ?? "—"}h{w.overtimeHours ? ` / ${w.overtimeHours}h OT` : ""}
+        </span>
+      ) : (
+        <span className="text-ink-500">—</span>
+      ),
+  },
+];
+
+const paymentColumns: DataTableColumn<LabourPayment>[] = [
+  { header: "Recorded", cell: (p) => <span className="text-ink-500">{formatDate(p.createdAt)}</span> },
+  { header: "Team Member", cell: (p) => p.teamMember.name },
+  { header: "Pay Period", cell: (p) => p.payPeriod ?? <span className="text-ink-500">—</span> },
+  {
+    header: "Status",
+    cell: (p) =>
+      p.status === "paid" ? (
+        <Badge variant="success">Paid</Badge>
+      ) : (
+        <Badge variant="warning">Pending</Badge>
+      ),
+  },
+  {
+    header: "Net Payable",
+    align: "right",
+    cell: (p) => <span className="tabular-nums font-semibold text-gold-700">{formatMoneyStr(p.netPayable)}</span>,
+  },
+];
+
+const outstandingColumns: DataTableColumn<OutstandingRow>[] = [
+  { header: "Team Member", cell: (r) => r.name },
+  {
+    header: "Outstanding Balance",
+    align: "right",
+    cell: (r) => <span className="tabular-nums font-semibold">{formatMoneyStr(r.outstandingAdvanceBalance)}</span>,
+  },
+];
+
+// A single chronological Advance + Adjustment ledger, merged from the two
+// append-only sources (Epic 7 Stories 7.1/7.2) — the same combined-ledger
+// framing as the Team Member detail page, in a filtered report frame.
+interface LedgerRow {
+  key: string;
+  date: string;
+  teamMember: string;
+  type: "Advance" | "Adjustment";
+  detail: string | null;
+  amount: string;
+}
+
+const ledgerColumns: DataTableColumn<LedgerRow>[] = [
+  { header: "Date", cell: (r) => <span className="text-ink-500">{formatDate(r.date)}</span> },
+  { header: "Team Member", cell: (r) => r.teamMember },
+  {
+    header: "Type",
+    cell: (r) =>
+      r.type === "Advance" ? <Badge variant="gold">Advance</Badge> : <Badge variant="neutral">Adjustment</Badge>,
+  },
+  { header: "Reason / Note", cell: (r) => r.detail ?? <span className="text-ink-500">—</span> },
+  {
+    header: "Amount",
+    align: "right",
+    cell: (r) => <span className="tabular-nums">{formatMoneyStr(r.amount)}</span>,
+  },
+];
+
+function mergeLedger(report: LabourReport): LedgerRow[] {
+  const rows: LedgerRow[] = [
+    ...report.advances.map((a): LedgerRow => ({
+      key: `adv-${a.id}`,
+      date: a.givenAt,
+      teamMember: a.teamMember.name,
+      type: "Advance",
+      detail: a.reason,
+      amount: a.amount,
+    })),
+    // Adjustment.amount is stored as the decrement magnitude (positive reduces
+    // the balance) — negated here so the Amount column reads as the row's
+    // signed effect on the balance, matching the Team Member detail ledger.
+    ...report.adjustments.map((adj): LedgerRow => ({
+      key: `adj-${adj.id}`,
+      date: adj.adjustedAt,
+      teamMember: adj.advance.teamMember.name,
+      type: "Adjustment",
+      detail: adj.note,
+      amount: String(-Number(adj.amount)),
+    })),
+  ];
+  return rows.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function LabourReportView({
+  teamMembers,
+  report,
+  teamMemberId,
+  from,
+  to,
+}: {
+  teamMembers: TeamMemberOption[];
+  report: LabourReport;
+  teamMemberId?: string;
+  from?: string;
+  to?: string;
+}) {
+  const ledger = mergeLedger(report);
+
+  return (
+    <>
+      <FilterForm tab="labour">
+        <SelectField
+          label="Team Member"
+          name="teamMemberId"
+          defaultValue={teamMemberId ?? ""}
+          options={[
+            { value: "", label: "All Team Members" },
+            ...teamMembers.map((tm) => ({ value: tm.id, label: tm.name })),
+          ]}
+        />
+        <TextField label="From" name="from" type="date" defaultValue={from ?? ""} />
+        <TextField label="To" name="to" type="date" defaultValue={to ?? ""} />
+      </FilterForm>
+
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile icon={<UsersIcon />} value={report.summary.totalTeamMembers} label="Total Team Members" />
+        <StatTile
+          icon={<CalendarIcon />}
+          value={report.summary.todaysWorkingHeadcount}
+          label="Working Today"
+        />
+        <StatTile
+          icon={<WalletIcon />}
+          tint="gold"
+          value={formatMoney(report.summary.weeklyPaymentTotal)}
+          label="Paid This Week"
+        />
+        <StatTile
+          icon={<WalletIcon />}
+          tint="gold"
+          value={formatMoney(report.summary.monthlyPaymentTotal)}
+          label="Paid This Month"
+        />
+      </div>
+
+      <h2 className="mb-3 text-card-title text-ink-900">Attendance &amp; Work History</h2>
+      <DataTable
+        columns={workRecordColumns}
+        rowKey={(w) => w.id}
+        state={
+          report.workRecords.length === 0
+            ? {
+                status: "empty",
+                icon: <ClipboardIcon />,
+                message: "No Work Records in this date range.",
+              }
+            : { status: "success", rows: report.workRecords }
+        }
+      />
+
+      <h2 className="mb-3 mt-8 text-card-title text-ink-900">Payment History</h2>
+      <DataTable
+        columns={paymentColumns}
+        rowKey={(p) => p.id}
+        state={
+          report.payments.length === 0
+            ? { status: "empty", icon: <WalletIcon />, message: "No Payments in this date range." }
+            : { status: "success", rows: report.payments }
+        }
+      />
+
+      <h2 className="mb-3 mt-8 text-card-title text-ink-900">Outstanding Advances</h2>
+      <DataTable
+        columns={outstandingColumns}
+        rowKey={(r) => r.teamMemberId}
+        state={
+          report.outstanding.byTeamMember.length === 0
+            ? { status: "empty", message: "No Team Members with an Advance balance." }
+            : { status: "success", rows: report.outstanding.byTeamMember }
+        }
+      />
+
+      <h2 className="mb-3 mt-8 text-card-title text-ink-900">Advance &amp; Adjustment History</h2>
+      <DataTable
+        columns={ledgerColumns}
+        rowKey={(r) => r.key}
+        state={
+          ledger.length === 0
+            ? { status: "empty", icon: <WalletIcon />, message: "No Advances or Adjustments in this date range." }
+            : { status: "success", rows: ledger }
+        }
+      />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Machinery/Vehicle report view (Story 13.3, FR-45)
+// ---------------------------------------------------------------------------
+function assetOptionToken(kind: "MACHINERY" | "VEHICLE", id: string) {
+  return `${kind}:${id}`;
+}
+
+const registerColumns: DataTableColumn<AssetRegisterRow>[] = [
+  {
+    header: "Asset",
+    cell: (a) => <span className="font-semibold">{a.name ?? a.number ?? "—"}</span>,
+  },
+  { header: "Type", cell: (a) => a.type.name },
+  {
+    header: "Reg / Asset #",
+    cell: (a) => <span className="tabular-nums">{a.assetNumber ?? a.number ?? "—"}</span>,
+  },
+  { header: "Current Site", cell: (a) => a.currentSite?.name ?? <span className="text-ink-500">—</span> },
+  { header: "Status", cell: (a) => statusBadge(a.currentStatus) },
+];
+
+const assetMovementColumns: DataTableColumn<AssetMovementRow>[] = [
+  { header: "Date", cell: (m) => <span className="text-ink-500">{formatDate(m.movedAt)}</span> },
+  {
+    header: "Moved To",
+    cell: (m) =>
+      m.toStatus === "AT_SITE"
+        ? `At ${m.site?.name ?? "—"}`
+        : m.toStatus === "MAINTENANCE"
+          ? "Maintenance"
+          : "Available",
+  },
+  { header: "Reason", cell: (m) => m.reason ?? <span className="text-ink-500">—</span> },
+];
+
+function serviceKindBadge(kind: AssetServiceRow["kind"]) {
+  if (kind === "FUEL") return <Badge variant="gold">Fuel</Badge>;
+  if (kind === "MAINTENANCE") return <Badge variant="neutral">Maintenance</Badge>;
+  return <Badge variant="warning">Repair</Badge>;
+}
+
+const assetServiceColumns: DataTableColumn<AssetServiceRow>[] = [
+  { header: "Date", cell: (s) => <span className="text-ink-500">{formatDate(s.serviceDate)}</span> },
+  { header: "Kind", cell: (s) => serviceKindBadge(s.kind) },
+  { header: "Notes", cell: (s) => s.notes ?? <span className="text-ink-500">—</span> },
+  {
+    header: "Cost",
+    align: "right",
+    cell: (s) =>
+      s.cost == null ? (
+        <span className="text-ink-500">—</span>
+      ) : (
+        <span className="tabular-nums">{formatMoneyStr(s.cost)}</span>
+      ),
+  },
+];
+
+function MachineryReportView({
+  report,
+  assetToken,
+  from,
+  to,
+}: {
+  report: MachineryReport;
+  assetToken?: string;
+  from?: string;
+  to?: string;
+}) {
+  const assetOptions = [
+    ...report.machinery.map((m) => ({
+      value: assetOptionToken("MACHINERY", m.id),
+      label: `${m.name ?? m.assetNumber ?? m.id} (Machinery)`,
+    })),
+    ...report.vehicles.map((v) => ({
+      value: assetOptionToken("VEHICLE", v.id),
+      label: `${v.number ?? v.id} (Vehicle)`,
+    })),
+  ];
+  const asset = report.asset;
+
+  return (
+    <>
+      <FilterForm tab="machinery">
+        <SelectField
+          label="Asset"
+          name="asset"
+          defaultValue={assetToken ?? ""}
+          options={[{ value: "", label: "All Assets" }, ...assetOptions]}
+        />
+        <TextField label="From" name="from" type="date" defaultValue={from ?? ""} />
+        <TextField label="To" name="to" type="date" defaultValue={to ?? ""} />
+      </FilterForm>
+
+      {asset ? (
+        <>
+          <div className="mb-8 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-border-hairline bg-surface-1 px-6 py-5 shadow-1">
+            <span className="flex items-center gap-2 text-page-title text-ink-900">
+              {asset.name ? <GearIcon className="size-5 text-ink-500" /> : <TruckIcon className="size-5 text-ink-500" />}
+              {asset.name ?? asset.number}
+            </span>
+            <span className="flex flex-col gap-0.5">
+              <span className="text-eyebrow text-ink-500">Type</span>
+              <Badge variant="neutral">{asset.type.name}</Badge>
+            </span>
+            <span className="flex flex-col gap-0.5">
+              <span className="text-eyebrow text-ink-500">Current Site</span>
+              <span className="font-semibold text-ink-900">{asset.currentSite?.name ?? "—"}</span>
+            </span>
+            <span className="flex flex-col gap-0.5">
+              <span className="text-eyebrow text-ink-500">Status</span>
+              {statusBadge(asset.currentStatus)}
+            </span>
+          </div>
+
+          <h2 className="mb-3 text-card-title text-ink-900">Movement History</h2>
+          <DataTable
+            columns={assetMovementColumns}
+            rowKey={(m) => m.id}
+            state={
+              report.movements.length === 0
+                ? { status: "empty", icon: <ArrowsIcon />, message: "No movements in this date range." }
+                : { status: "success", rows: report.movements }
+            }
+          />
+
+          <h2 className="mb-3 mt-8 text-card-title text-ink-900">Fuel, Maintenance &amp; Repair History</h2>
+          <DataTable
+            columns={assetServiceColumns}
+            rowKey={(s) => s.id}
+            state={
+              report.serviceLogs.length === 0
+                ? { status: "empty", icon: <GearIcon />, message: "No service entries in this date range." }
+                : { status: "success", rows: report.serviceLogs }
+            }
+          />
+        </>
+      ) : (
+        <>
+          <h2 className="mb-3 text-card-title text-ink-900">Machinery — Current Status</h2>
+          <DataTable
+            columns={registerColumns}
+            rowKey={(a) => a.id}
+            state={
+              report.machinery.length === 0
+                ? { status: "empty", icon: <GearIcon />, message: "No Machinery registered yet." }
+                : { status: "success", rows: report.machinery }
+            }
+          />
+
+          <h2 className="mb-3 mt-8 text-card-title text-ink-900">Vehicles — Current Status</h2>
+          <DataTable
+            columns={registerColumns}
+            rowKey={(a) => a.id}
+            state={
+              report.vehicles.length === 0
+                ? { status: "empty", icon: <TruckIcon />, message: "No Vehicles registered yet." }
+                : { status: "success", rows: report.vehicles }
+            }
+          />
+
+          <p className="mt-6 text-body-sm text-ink-500">
+            Select an asset above to see its movement and service history.
+          </p>
+        </>
+      )}
+    </>
+  );
+}
+
 function PlaceholderView({ label }: { label: string }) {
   return (
     <div className="rounded-lg border border-border-hairline bg-surface-1 px-6 py-16 text-center text-ink-500 shadow-1">
@@ -599,11 +1143,21 @@ export default async function ReportsPage({
     tab?: string;
     siteId?: string;
     materialId?: string;
+    teamMemberId?: string;
+    asset?: string;
     from?: string;
     to?: string;
   }>;
 }) {
-  const { tab: tabParam, siteId, materialId, from, to } = await searchParams;
+  const {
+    tab: tabParam,
+    siteId,
+    materialId,
+    teamMemberId,
+    asset,
+    from,
+    to,
+  } = await searchParams;
   const tab = resolveTab(tabParam);
 
   // The always-visible delivery log (Story 13.1).
@@ -617,6 +1171,14 @@ export default async function ReportsPage({
   let siteReport: SiteReport | null = null;
   let effectiveSiteId: string | undefined;
   let inventoryReport: InventoryReport | null = null;
+  let teamMembers: TeamMemberOption[] = [];
+  let labourReport: LabourReport | null = null;
+  let machineryReport: MachineryReport | null = null;
+
+  // The Machinery/Vehicle picker packs assetType + assetId into one `asset`
+  // token ("MACHINERY:<id>" / "VEHICLE:<id>") so a single native <select> can
+  // drive both API params; split it back apart here.
+  const [assetType, assetId] = asset ? asset.split(":") : [];
 
   if (tab === "site") {
     sites = await getSites();
@@ -627,6 +1189,13 @@ export default async function ReportsPage({
   } else if (tab === "inventory") {
     [sites, materials] = await Promise.all([getSites(), getMaterials()]);
     inventoryReport = await getInventoryReport({ siteId, materialId, from, to });
+  } else if (tab === "labour") {
+    [teamMembers, labourReport] = await Promise.all([
+      getTeamMembers(),
+      getLabourReport({ teamMemberId, from, to }),
+    ]);
+  } else if (tab === "machinery") {
+    machineryReport = await getMachineryReport({ assetType, assetId, from, to });
   }
 
   return (
@@ -679,8 +1248,21 @@ export default async function ReportsPage({
             from={from}
             to={to}
           />
-        ) : tab === "labour" ? (
-          <PlaceholderView label="Labour Reports" />
+        ) : tab === "labour" && labourReport ? (
+          <LabourReportView
+            teamMembers={teamMembers}
+            report={labourReport}
+            teamMemberId={teamMemberId}
+            from={from}
+            to={to}
+          />
+        ) : tab === "machinery" && machineryReport ? (
+          <MachineryReportView
+            report={machineryReport}
+            assetToken={asset}
+            from={from}
+            to={to}
+          />
         ) : (
           <PlaceholderView label="Financial Reports" />
         )}

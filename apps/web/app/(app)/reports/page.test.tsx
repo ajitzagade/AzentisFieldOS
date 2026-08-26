@@ -29,13 +29,36 @@ const emptyInventoryReport = {
   consumptions: [],
   returnWastages: [],
 };
+const emptyLabourReport = {
+  summary: {
+    totalTeamMembers: 0,
+    todaysWorkingHeadcount: 0,
+    weeklyPaymentTotal: 0,
+    monthlyPaymentTotal: 0,
+  },
+  outstanding: { total: 0, byTeamMember: [] },
+  workRecords: [],
+  payments: [],
+  advances: [],
+  adjustments: [],
+};
+const emptyMachineryReport = {
+  machinery: [],
+  vehicles: [],
+  asset: null,
+  movements: [],
+  serviceLogs: [],
+};
 
 function mockFetchRouter(handlers: {
   daily?: unknown[];
   sites?: unknown[];
   materials?: unknown[];
+  teamMembers?: unknown[];
   siteReport?: unknown;
   inventoryReport?: unknown;
+  labourReport?: unknown;
+  machineryReport?: unknown;
   onUrl?: (url: string) => void;
 }) {
   global.fetch = vi.fn((url: string) => {
@@ -45,6 +68,11 @@ function mockFetchRouter(handlers: {
     if (u.includes("/reports/sites")) return jsonResponse(handlers.siteReport ?? emptySiteReport);
     if (u.includes("/reports/inventory"))
       return jsonResponse(handlers.inventoryReport ?? emptyInventoryReport);
+    if (u.includes("/reports/labour"))
+      return jsonResponse(handlers.labourReport ?? emptyLabourReport);
+    if (u.includes("/reports/machinery-vehicles"))
+      return jsonResponse(handlers.machineryReport ?? emptyMachineryReport);
+    if (u.includes("/team-members")) return jsonResponse(handlers.teamMembers ?? []);
     if (u.includes("/materials")) return jsonResponse(handlers.materials ?? []);
     if (u.includes("/sites")) return jsonResponse(handlers.sites ?? []);
     return jsonResponse([]);
@@ -131,7 +159,7 @@ describe("ReportsPage — Recent Reports delivery log (Story 13.1)", () => {
 
 // Story 13.2 — the chip-row tab selector and the Site / Inventory report views.
 describe("ReportsPage — Site & Inventory report tabs (Story 13.2)", () => {
-  it("renders all four tab chips, with Site Reports selected by default", async () => {
+  it("renders all five tab chips, with Site Reports selected by default", async () => {
     await renderReportsPage({ sites: [{ id: "site1", name: "NH-48" }] });
 
     const tabs = screen.getAllByRole("tab");
@@ -139,6 +167,7 @@ describe("ReportsPage — Site & Inventory report tabs (Story 13.2)", () => {
       "Site Reports",
       "Inventory Reports",
       "Labour Reports",
+      "Machinery/Vehicle Reports",
       "Financial Reports",
     ]);
     expect(screen.getByRole("tab", { name: "Site Reports" })).toHaveAttribute(
@@ -222,5 +251,141 @@ describe("ReportsPage — Site & Inventory report tabs (Story 13.2)", () => {
     expect(screen.getByText("Cement (50kg)")).toBeInTheDocument();
     expect(inventoryUrl).toContain("siteId=site1");
     expect(inventoryUrl).toContain("materialId=mat1");
+  });
+});
+
+// Story 13.3 — the Labour and Machinery/Vehicle report tabs.
+describe("ReportsPage — Labour & Machinery/Vehicle report tabs (Story 13.3)", () => {
+  it("Labour tab renders its sections and threads teamMemberId/from/to into the request", async () => {
+    let labourUrl = "";
+    await renderReportsPage(
+      {
+        teamMembers: [{ id: "tm1", name: "Ravi Kumar" }],
+        labourReport: {
+          summary: {
+            totalTeamMembers: 12,
+            todaysWorkingHeadcount: 8,
+            weeklyPaymentTotal: 45000,
+            monthlyPaymentTotal: 180000,
+          },
+          outstanding: {
+            total: 5000,
+            byTeamMember: [
+              { teamMemberId: "tm1", name: "Ravi Kumar", outstandingAdvanceBalance: "5000" },
+            ],
+          },
+          workRecords: [
+            {
+              id: "wr1",
+              workDate: "2026-08-11T00:00:00.000Z",
+              attended: true,
+              hours: "8",
+              overtimeHours: null,
+              teamMember: { id: "tm1", name: "Ravi Kumar" },
+              site: { id: "site1", name: "NH-48" },
+            },
+          ],
+          payments: [],
+          advances: [
+            {
+              id: "adv1",
+              amount: "5000",
+              reason: "Medical",
+              givenAt: "2026-08-05T00:00:00.000Z",
+              teamMember: { id: "tm1", name: "Ravi Kumar" },
+            },
+          ],
+          adjustments: [],
+        },
+        onUrl: (u) => {
+          if (u.includes("/reports/labour")) labourUrl = u;
+        },
+      },
+      { tab: "labour", teamMemberId: "tm1", from: "2026-08-01", to: "2026-08-31" },
+    );
+
+    expect(screen.getByText("Attendance & Work History")).toBeInTheDocument();
+    expect(screen.getByText("Payment History")).toBeInTheDocument();
+    expect(screen.getByText("Outstanding Advances")).toBeInTheDocument();
+    expect(screen.getByText("Advance & Adjustment History")).toBeInTheDocument();
+    expect(screen.getByText("Medical")).toBeInTheDocument();
+    expect(labourUrl).toContain("teamMemberId=tm1");
+    expect(labourUrl).toContain("from=2026-08-01");
+    expect(labourUrl).toContain("to=2026-08-31");
+  });
+
+  it("Machinery tab shows the register when no asset is selected", async () => {
+    await renderReportsPage(
+      {
+        machineryReport: {
+          ...emptyMachineryReport,
+          machinery: [
+            {
+              id: "m1",
+              name: "Excavator EX-01",
+              assetNumber: "EX-01",
+              type: { name: "Excavator" },
+              currentStatus: "AT_SITE",
+              currentSite: { name: "NH-48" },
+            },
+          ],
+        },
+      },
+      { tab: "machinery" },
+    );
+
+    expect(screen.getByText("Machinery — Current Status")).toBeInTheDocument();
+    expect(screen.getByText("Vehicles — Current Status")).toBeInTheDocument();
+    expect(screen.getByText("Excavator EX-01")).toBeInTheDocument();
+    expect(screen.getByText(/Select an asset above/i)).toBeInTheDocument();
+  });
+
+  it("Machinery tab drills into a selected asset and threads assetType/assetId into the request", async () => {
+    let machineryUrl = "";
+    await renderReportsPage(
+      {
+        machineryReport: {
+          ...emptyMachineryReport,
+          asset: {
+            id: "m1",
+            name: "Excavator EX-01",
+            assetNumber: "EX-01",
+            type: { name: "Excavator" },
+            currentStatus: "MAINTENANCE",
+            currentSite: null,
+          },
+          movements: [
+            {
+              id: "mov1",
+              toStatus: "MAINTENANCE",
+              site: null,
+              movedAt: "2026-08-10T00:00:00.000Z",
+              reason: "Hydraulic fault",
+            },
+          ],
+          serviceLogs: [
+            {
+              id: "svc1",
+              kind: "REPAIR",
+              notes: "Replaced hydraulic hose",
+              cost: "12000",
+              serviceDate: "2026-08-10T00:00:00.000Z",
+            },
+          ],
+        },
+        onUrl: (u) => {
+          if (u.includes("/reports/machinery-vehicles")) machineryUrl = u;
+        },
+      },
+      { tab: "machinery", asset: "MACHINERY:m1", from: "2026-08-01", to: "2026-08-31" },
+    );
+
+    expect(screen.getByText("Movement History")).toBeInTheDocument();
+    expect(screen.getByText("Fuel, Maintenance & Repair History")).toBeInTheDocument();
+    expect(screen.getByText("Hydraulic fault")).toBeInTheDocument();
+    expect(screen.getByText("Replaced hydraulic hose")).toBeInTheDocument();
+    expect(machineryUrl).toContain("assetType=MACHINERY");
+    expect(machineryUrl).toContain("assetId=m1");
+    expect(machineryUrl).toContain("from=2026-08-01");
   });
 });

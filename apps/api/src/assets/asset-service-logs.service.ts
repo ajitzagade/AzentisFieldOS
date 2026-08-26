@@ -5,10 +5,12 @@ import {
 } from '@nestjs/common';
 import type {
   CreateAssetServiceLogInput,
+  ReportDateRange,
   UpdateAssetServiceLogInput,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { dateRangeBounds } from '../common/date-range';
 
 // FR-18: fuel/maintenance/repair entries per Machine/Vehicle — purely
 // additive history. Unlike Story 8.2's AssetMovementsService, there is no
@@ -51,16 +53,25 @@ export class AssetServiceLogsService {
   }
 
   // GET /asset-service-logs?assetType=&assetId= — the asset detail page's
-  // "Service History" section (AC #1: retrievable in full at any time).
-  list(assetType: 'MACHINERY' | 'VEHICLE', assetId: string) {
+  // "Service History" section (AC #1: retrievable in full at any time). Story
+  // 13.3 (FR-45): the Machinery/Vehicle Reports view reuses this same query,
+  // adding an optional `serviceDate` date window. Unfiltered (the default
+  // `{}`) `dateRangeBounds` returns `undefined` (no constraint), so the
+  // `where` is byte-identical to the pre-13.3 asset detail query.
+  list(
+    assetType: 'MACHINERY' | 'VEHICLE',
+    assetId: string,
+    filters: ReportDateRange = {},
+  ) {
+    const serviceDate = dateRangeBounds(filters.from, filters.to);
     if (assetType === 'MACHINERY') {
       return this.prisma.machineryServiceLog.findMany({
-        where: { machineryId: assetId },
+        where: { machineryId: assetId, serviceDate },
         orderBy: { serviceDate: 'desc' },
       });
     }
     return this.prisma.vehicleServiceLog.findMany({
-      where: { vehicleId: assetId },
+      where: { vehicleId: assetId, serviceDate },
       orderBy: { serviceDate: 'desc' },
     });
   }

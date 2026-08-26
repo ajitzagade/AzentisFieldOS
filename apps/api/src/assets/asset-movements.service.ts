@@ -1,7 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { CreateAssetMovementInput } from '@azentisfieldos/shared';
+import type {
+  CreateAssetMovementInput,
+  ReportDateRange,
+} from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { dateRangeBounds } from '../common/date-range';
 
 // FR-17, FR-38: records a Machine/Vehicle's movement to a new Site or to
 // Maintenance/Available, and — in the same transaction as the append-only
@@ -104,17 +108,26 @@ export class AssetMovementsService {
   }
 
   // GET /asset-movements?assetType=&assetId= — the asset detail page's
-  // reverse-chronological "Movement History" section.
-  list(assetType: 'MACHINERY' | 'VEHICLE', assetId: string) {
+  // reverse-chronological "Movement History" section. Story 13.3 (FR-45): the
+  // Machinery/Vehicle Reports view reuses this same query, adding an optional
+  // `movedAt` date window. Unfiltered (the default `{}`) `dateRangeBounds`
+  // returns `undefined`, which Prisma reads as no constraint, so the `where`
+  // is byte-identical to the pre-13.3 asset detail query.
+  list(
+    assetType: 'MACHINERY' | 'VEHICLE',
+    assetId: string,
+    filters: ReportDateRange = {},
+  ) {
+    const movedAt = dateRangeBounds(filters.from, filters.to);
     if (assetType === 'MACHINERY') {
       return this.prisma.machineryMovementLog.findMany({
-        where: { machineryId: assetId },
+        where: { machineryId: assetId, movedAt },
         include: { site: true },
         orderBy: { movedAt: 'desc' },
       });
     }
     return this.prisma.vehicleMovementLog.findMany({
-      where: { vehicleId: assetId },
+      where: { vehicleId: assetId, movedAt },
       include: { site: true },
       orderBy: { movedAt: 'desc' },
     });

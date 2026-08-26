@@ -5,6 +5,8 @@ import { ReportCompilerService } from './report-compiler.service';
 import { ReportDeliveryService } from './report-delivery.service';
 import { ReportsService } from './reports.service';
 import { SiteInventoryReportsService } from './site-inventory-reports.service';
+import { LabourReportsService } from './labour-reports.service';
+import { MachineryVehicleReportsService } from './machinery-reports.service';
 
 function makeController() {
   const compiler = {
@@ -20,13 +22,24 @@ function makeController() {
     getSiteReport: vi.fn(),
     getInventoryReport: vi.fn(),
   };
+  const labourReports = { getLabourReport: vi.fn() };
+  const machineryReports = { getMachineryReport: vi.fn() };
   const controller = new ReportsController(
     compiler as unknown as ReportCompilerService,
     delivery as unknown as ReportDeliveryService,
     reports as unknown as ReportsService,
     siteInventoryReports as unknown as SiteInventoryReportsService,
+    labourReports as unknown as LabourReportsService,
+    machineryReports as unknown as MachineryVehicleReportsService,
   );
-  return { controller, compiler, delivery, siteInventoryReports };
+  return {
+    controller,
+    compiler,
+    delivery,
+    siteInventoryReports,
+    labourReports,
+    machineryReports,
+  };
 }
 
 const originalSecret = process.env.CRON_SECRET;
@@ -164,7 +177,12 @@ describe('ReportsController Site & Inventory report views', () => {
   it('threads siteId/materialId/from/to into getInventoryReport', async () => {
     const { controller, siteInventoryReports } = makeController();
 
-    await controller.inventoryReport('site1', 'mat1', '2026-08-01', '2026-08-31');
+    await controller.inventoryReport(
+      'site1',
+      'mat1',
+      '2026-08-01',
+      '2026-08-31',
+    );
 
     expect(siteInventoryReports.getInventoryReport).toHaveBeenCalledWith({
       siteId: 'site1',
@@ -188,6 +206,78 @@ describe('ReportsController Site & Inventory report views', () => {
     expect(siteInventoryReports.getInventoryReport).toHaveBeenCalledWith({
       siteId: undefined,
       materialId: undefined,
+      from: undefined,
+      to: undefined,
+    });
+  });
+});
+
+// Story 13.3 (FR-44/FR-45): the Labour and Machinery/Vehicle report views —
+// same unauthenticated, thread-the-query-params-through discipline.
+describe('ReportsController Labour & Machinery/Vehicle report views', () => {
+  it('threads teamMemberId/from/to into getLabourReport', async () => {
+    const { controller, labourReports } = makeController();
+
+    await controller.labourReport('tm1', '2026-08-01', '2026-08-31');
+
+    expect(labourReports.getLabourReport).toHaveBeenCalledWith({
+      teamMemberId: 'tm1',
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+  });
+
+  it('passes undefined labour filters straight through when no query is given', async () => {
+    const { controller, labourReports } = makeController();
+
+    await controller.labourReport();
+
+    expect(labourReports.getLabourReport).toHaveBeenCalledWith({
+      teamMemberId: undefined,
+      from: undefined,
+      to: undefined,
+    });
+  });
+
+  it('validates assetType to MACHINERY|VEHICLE and threads it into getMachineryReport', async () => {
+    const { controller, machineryReports } = makeController();
+
+    await controller.machineryReport(
+      'MACHINERY',
+      'm1',
+      '2026-08-01',
+      '2026-08-31',
+    );
+
+    expect(machineryReports.getMachineryReport).toHaveBeenCalledWith({
+      assetType: 'MACHINERY',
+      assetId: 'm1',
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+  });
+
+  it('treats a malformed assetType as no asset selected (register-only view), not a 400', async () => {
+    const { controller, machineryReports } = makeController();
+
+    await controller.machineryReport('NONSENSE', 'm1');
+
+    expect(machineryReports.getMachineryReport).toHaveBeenCalledWith({
+      assetType: undefined,
+      assetId: 'm1',
+      from: undefined,
+      to: undefined,
+    });
+  });
+
+  it('passes undefined asset filters straight through when no query is given', async () => {
+    const { controller, machineryReports } = makeController();
+
+    await controller.machineryReport();
+
+    expect(machineryReports.getMachineryReport).toHaveBeenCalledWith({
+      assetType: undefined,
+      assetId: undefined,
       from: undefined,
       to: undefined,
     });

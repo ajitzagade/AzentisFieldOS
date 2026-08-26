@@ -4,9 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreatePaymentInput } from '@azentisfieldos/shared';
+import type {
+  CreatePaymentInput,
+  LabourReportFilters,
+} from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { dateRangeBounds } from '../common/date-range';
 import { decrementOutstandingBalanceWithFloorCheck } from './outstanding-balance';
 
 // FR-24: Net Payable = Base Pay + Additional - Deductions - (linked
@@ -178,14 +182,31 @@ export class PaymentsService {
     return this.prisma.payment.count({ where: { status: 'pending' } });
   }
 
-  list() {
+  // Story 13.3 (FR-44): the Labour Reports view reuses this same Payment
+  // history, optionally narrowed by Team Member and a date window. The window
+  // filters on `createdAt` (when the Payment was recorded) rather than
+  // `paidAt` — `paidAt` is null until a Payment is marked paid, so a `paidAt`
+  // window would silently drop still-pending Payments from the history; the
+  // weekly/monthly *paid* totals (which do key off `paidAt`) come from
+  // TeamMembersService.getTeamSummary, composed alongside this. Unfiltered
+  // (the default `{}`) the query is unchanged, so the live Payments list is
+  // byte-identical.
+  list(filters: LabourReportFilters = {}) {
     return this.prisma.payment.findMany({
+      where: this.reportWhere(filters),
       include: {
         teamMember: true,
         advanceAdjustments: { include: { advance: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  private reportWhere(filters: LabourReportFilters): Prisma.PaymentWhereInput {
+    const where: Prisma.PaymentWhereInput = {};
+    if (filters.teamMemberId) where.teamMemberId = filters.teamMemberId;
+    where.createdAt = dateRangeBounds(filters.from, filters.to);
+    return where;
   }
 
   // The correction form (apps/web) needs the original Payment's fields to

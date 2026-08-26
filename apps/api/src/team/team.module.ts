@@ -32,6 +32,16 @@ import { WorkRecordsService } from './work-records.service';
   // Exported so DashboardModule can reuse TeamMembersService's
   // todaysWorkingHeadcount (Story 12.1) and getOutstandingAdvances, plus
   // PaymentsService.countPending (Story 12.2) — rather than recompute them.
-  exports: [TeamMembersService, PaymentsService],
+  // Story 13.3: ReportsModule's LabourReportsService additionally composes
+  // WorkRecordsService, AdvancesService, and AdvanceAdjustmentsService, so
+  // those are exported here too — the Reports layer reuses these owning-epic
+  // methods, never re-queries WorkRecord/Advance/AdvanceAdjustment directly.
+  exports: [
+    TeamMembersService,
+    PaymentsService,
+    WorkRecordsService,
+    AdvancesService,
+    AdvanceAdjustmentsService,
+  ],
 })
 export class TeamModule {}

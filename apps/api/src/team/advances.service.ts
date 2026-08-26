@@ -3,9 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreateAdvanceInput } from '@azentisfieldos/shared';
+import type {
+  CreateAdvanceInput,
+  LabourReportFilters,
+} from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { dateRangeBounds } from '../common/date-range';
 import { decrementOutstandingBalanceWithFloorCheck } from './outstanding-balance';
 
 // FR-22, NFR-3: recorded immediately, no approval gate or intermediate
@@ -65,8 +69,17 @@ export class AdvancesService {
     }
   }
 
-  list() {
+  // Story 13.3 (FR-44): the Labour Reports view reuses this same Advance
+  // history, optionally narrowed by Team Member and a date window (on
+  // `givenAt`, the Advance's business date). Unfiltered (the default `{}`)
+  // the query is unchanged, so the Team Member detail page's Advance Ledger
+  // is byte-identical.
+  list(filters: LabourReportFilters = {}) {
+    const where: Prisma.AdvanceWhereInput = {};
+    if (filters.teamMemberId) where.teamMemberId = filters.teamMemberId;
+    where.givenAt = dateRangeBounds(filters.from, filters.to);
     return this.prisma.advance.findMany({
+      where,
       include: { teamMember: true },
       orderBy: { givenAt: 'desc' },
     });
