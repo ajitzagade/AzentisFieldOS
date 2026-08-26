@@ -110,12 +110,12 @@ development_status:
   epic-11-retrospective: optional
 
   epic-12: in-progress
-  12-1-today-s-activity-missing-dsr-gap-flag: ready-for-dev
+  12-1-today-s-activity-missing-dsr-gap-flag: done
   12-2-overall-rollup: ready-for-dev
   epic-12-retrospective: optional
 
   epic-13: in-progress
-  13-1-auto-compile-deliver-branded-daily-report: ready-for-dev
+  13-1-auto-compile-deliver-branded-daily-report: in-progress
   13-2-site-inventory-reports: ready-for-dev
   13-3-labour-machinery-vehicle-reports: ready-for-dev
   13-4-financial-reports: ready-for-dev

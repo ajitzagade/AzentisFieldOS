@@ -135,3 +135,12 @@
 - `ExpensesService.list()` is unbounded (no pagination) — systemic, already logged repeatedly.
 - The seed replaces 4 old placeholder categories with the 9 named defaults but never removes the old rows (upsert-by-name), so a previously-seeded environment ends up with 13 categories. Low-impact (fresh-provision seed), no reconciliation path.
 - `translateWriteError`'s P2003→400 branch (bad `siteId`/`categoryId` on a fresh create) and `summary()`'s month/week boundary `where`-clause math are both unasserted by the current mocked-Prisma specs — the RMC equivalents did cover these; test-strengthening follow-up.
+
+## Deferred from: code review of story-12.1 (2026-08-26)
+
+- The web dashboard heading hardcodes `timeZone: "Asia/Kolkata"` while the API derives "today" from the configurable `APP_TIMEZONE` — they agree at the default but would disagree if `APP_TIMEZONE` is changed. Matches the whole web app's pervasive hardcoded `en-IN`/`₹`/IST formatting (single-market India launch); make the web share the configured zone when the product goes multi-timezone.
+- `local-day.ts`'s `zonedMidnightUtc` samples the zone offset at the UTC-midnight guess rather than at the resulting local-midnight instant — off by an hour near a DST transition. Not exercised: the default/only zone (`Asia/Kolkata`) is DST-free; revisit if a DST deployment zone is ever configured.
+- No authorization guard on `GET /dashboard/today` (FR-35 scopes it to Owner/Admin) — matches the epic-wide "no request-level auth in apps/api yet" TODO; Epic 14 Story 14.2 wires the real `ClerkAuthGuard`.
+- The dashboard page throws on a failed fetch (via `getJSON`) with no AD-6 error/loading state and `Promise.all` is fail-fast (one aggregate failing collapses the page) — established whole-codebase pattern, already logged repeatedly; the empty/zero states this story needs ARE handled.
+- Test-strengthening: no case asserts `getToday()` with no args falls back to `resolveAppTimeZone()`/current time, no zero-active-Sites case, and only Purchase's day-range `where` is asserted (consumption/rmcEntry/expense range filters aren't) — core behavior is covered, these harden it.
+- `sitesReportingToday` counts DSRs from Sites of any status while `sitesMissingDsrToday` is scoped to ACTIVE Sites — computed against different populations. Spec-conformant (Task 1 defines each that way), but a COMPLETED Site that reported would inflate the count; worth a product decision if it ever matters.

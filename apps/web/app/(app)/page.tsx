@@ -1,47 +1,34 @@
 import Link from "next/link";
 import {
   AlertTriangleIcon,
-  Badge,
-  BarChart,
   BoxIcon,
-  CheckCircleIcon,
-  ClipboardIcon,
-  Card,
+  DropletIcon,
+  GapFlag,
+  LayersIcon,
+  MapPinIcon,
+  ReceiptIcon,
   StatTile,
+  TruckIcon,
   UsersIcon,
-  WalletIcon,
+  buttonVariants,
+  cn,
 } from "@azentisfieldos/ui";
 
-interface SiteRow {
-  id: string;
-  name: string;
-  status: "ACTIVE" | "COMPLETED" | "ON_HOLD";
-}
-
-interface DsrRow {
-  site: { id: string; name: string };
-}
-
-interface TeamSummary {
-  totalTeamMembers: number;
-  todaysWorkingHeadcount: number;
-  weeklyPaymentTotal: number;
-  monthlyPaymentTotal: number;
-}
-
-interface OutstandingAdvances {
-  total: number;
-  byTeamMember: { teamMemberId: string; name: string; outstandingAdvanceBalance: string }[];
-}
-
-interface LowStockItem {
-  materialSize: { label: string; material: { name: string } };
-  quantity: string;
-}
-
-interface GodownStockRow {
-  quantity: string;
-  materialSize: { material: { name: string; unit: { name: string } } };
+// Story 12.1 (SM-3, FR-35): the Owner/Admin Dashboard's cross-Site "Today"
+// rollup. Every figure is a same-day aggregate from GET /dashboard/today
+// (apps/api owns the timezone-correct day boundary — AD-3, apps/web never
+// queries the DB directly). A zero-activity day renders 0 on every tile, not
+// an error (AD-6). Story 12.2 owns the explicit zero-Site empty state for the
+// page as a whole.
+interface TodayActivity {
+  sitesReportingToday: number;
+  labourWorkingToday: number;
+  materialsReceivedToday: number;
+  materialsConsumedToday: number;
+  rmcUsedTodayM3: number;
+  machineryInUse: number;
+  expensesToday: number;
+  sitesMissingDsrToday: { siteId: string; name: string }[];
 }
 
 async function getJSON<T>(path: string): Promise<T> {
@@ -52,164 +39,92 @@ async function getJSON<T>(path: string): Promise<T> {
   return res.json();
 }
 
-function todayDate() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export default async function DashboardPage() {
-  const date = todayDate();
-  const [sites, todaysReports, teamSummary, outstandingAdvances, lowStock, purchasesThisMonth, pendingPayments, godownStock] =
-    await Promise.all([
-      getJSON<SiteRow[]>("/sites"),
-      getJSON<DsrRow[]>(`/dsr?date=${date}`),
-      getJSON<TeamSummary>("/team-members/team-summary"),
-      getJSON<OutstandingAdvances>("/team-members/outstanding-advances"),
-      getJSON<LowStockItem[]>("/stock/low-stock"),
-      getJSON<number>("/purchases/count/this-month"),
-      getJSON<number>("/payments/count/pending"),
-      getJSON<GodownStockRow[]>("/stock/godown"),
-    ]);
+  const today = await getJSON<TodayActivity>("/dashboard/today");
 
-  const activeSites = sites.filter((s) => s.status === "ACTIVE");
-  const reportedSiteIds = new Set(todaysReports.map((r) => r.site.id));
-  const notReported = activeSites.filter((s) => !reportedSiteIds.has(s.id));
-
-  const advanceChartRows = outstandingAdvances.byTeamMember
-    .filter((m) => Number(m.outstandingAdvanceBalance) > 0)
-    .map((m) => ({
-      label: m.name,
-      value: Number(m.outstandingAdvanceBalance),
-      displayValue: `₹${Number(m.outstandingAdvanceBalance).toLocaleString("en-IN")}`,
-    }));
-
-  const stockByMaterial = new Map<string, { quantity: number; unit: string }>();
-  for (const row of godownStock) {
-    const key = row.materialSize.material.name;
-    const existing = stockByMaterial.get(key);
-    stockByMaterial.set(key, {
-      quantity: (existing?.quantity ?? 0) + Number(row.quantity),
-      unit: row.materialSize.material.unit.name,
-    });
-  }
-  const stockChartRows = Array.from(stockByMaterial.entries())
-    .map(([label, { quantity, unit }]) => ({ label, value: quantity, displayValue: `${quantity} ${unit}` }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 5);
+  const heading = new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
 
   return (
     <>
       <div className="mb-8">
         <h1 className="text-page-title text-ink-900">Dashboard</h1>
-        <p className="text-body-sm text-ink-500">
-          {new Date(date).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-        </p>
+        <p className="text-body-sm text-ink-500">{heading} — overview across all sites</p>
       </div>
 
-      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <h2 className="mb-4 text-section-header text-ink-900">Today</h2>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         <StatTile
-          icon={<ClipboardIcon />}
-          value={`${todaysReports.length}/${activeSites.length}`}
-          label="Sites reported today"
-          tint={notReported.length === 0 ? "success" : "gold"}
+          icon={<MapPinIcon />}
+          value={today.sitesReportingToday}
+          label="Sites Reporting Today"
           href="/daily-activity"
         />
-        <StatTile icon={<CheckCircleIcon />} value={activeSites.length} label="Active sites" tint="teal" href="/sites" />
         <StatTile
           icon={<UsersIcon />}
-          value={`${teamSummary.todaysWorkingHeadcount}/${teamSummary.totalTeamMembers}`}
-          label="Crew on site today"
-          tint="teal"
+          value={today.labourWorkingToday}
+          label="Labour Working Today"
           href="/team"
         />
         <StatTile
-          icon={<WalletIcon />}
-          value={`₹${outstandingAdvances.total.toLocaleString("en-IN")}`}
-          label="Outstanding advances"
-          tint={outstandingAdvances.total > 0 ? "gold" : "success"}
-          href="/payments"
-        />
-        <StatTile
           icon={<BoxIcon />}
-          value={purchasesThisMonth}
-          label="Purchases this month"
-          tint="teal"
-          href="/inventory"
+          value={today.materialsReceivedToday}
+          label="Materials Received Today"
+          href="/movements"
         />
         <StatTile
-          icon={<AlertTriangleIcon />}
-          value={lowStock.length}
-          label="Low stock alerts"
-          tint={lowStock.length > 0 ? "danger" : "success"}
-          href="/inventory"
+          icon={<LayersIcon />}
+          value={today.materialsConsumedToday}
+          label="Materials Consumed Today"
+          href="/movements"
+        />
+        <StatTile
+          icon={<DropletIcon />}
+          value={`${today.rmcUsedTodayM3.toLocaleString("en-IN")} m³`}
+          label="RMC Used Today"
+          href="/rmc"
+        />
+        <StatTile
+          icon={<TruckIcon />}
+          value={today.machineryInUse}
+          label="Machinery In Use"
+          href="/machinery-vehicles"
+        />
+        <StatTile
+          icon={<ReceiptIcon />}
+          value={`₹${today.expensesToday.toLocaleString("en-IN")}`}
+          label="Expenses Today"
+          tint="gold"
+          href="/expenses"
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-card-title text-ink-900">Today&apos;s reporting</h2>
-            <Link href="/daily-activity" className="text-caption font-semibold text-accent-teal-700 hover:underline">
-              View all →
-            </Link>
-          </div>
-          {activeSites.length === 0 ? (
-            <p className="text-body-sm text-ink-500">No active Sites yet.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {activeSites.map((site) => (
-                <li key={site.id} className="flex items-center justify-between border-b border-border-hairline py-2 last:border-b-0">
-                  <span className="text-body-sm font-medium text-ink-900">{site.name}</span>
-                  {reportedSiteIds.has(site.id) ? (
-                    <Badge variant="success" icon={<CheckCircleIcon />}>
-                      Submitted
-                    </Badge>
-                  ) : (
-                    <Badge variant="neutral">Not submitted</Badge>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-card-title text-ink-900">Advances outstanding</h2>
-            <Link href="/payments" className="text-caption font-semibold text-accent-teal-700 hover:underline">
-              View all →
-            </Link>
-          </div>
-          {advanceChartRows.length === 0 ? (
-            <p className="text-body-sm text-ink-500">No outstanding advances — everyone&apos;s settled up.</p>
-          ) : (
-            <BarChart rows={advanceChartRows} tint="gold" />
-          )}
-        </Card>
-      </div>
-
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-card-title text-ink-900">Godown stock on hand</h2>
-            <Link href="/inventory" className="text-caption font-semibold text-accent-teal-700 hover:underline">
-              View all →
-            </Link>
-          </div>
-          {stockChartRows.length === 0 ? (
-            <p className="text-body-sm text-ink-500">No stock in the godown right now.</p>
-          ) : (
-            <BarChart rows={stockChartRows} tint="teal" />
-          )}
-        </Card>
-      </div>
-
-      {pendingPayments > 0 ? (
-        <p className="mt-6 text-caption text-ink-500">
-          <Link href="/payments" className="font-semibold text-accent-teal-700 hover:underline">
-            {pendingPayments} payment{pendingPayments === 1 ? "" : "s"}
-          </Link>{" "}
-          not yet marked paid.
-        </p>
+      {today.sitesMissingDsrToday.length > 0 ? (
+        // One GapFlag per missing Site — never a single flag naming all of
+        // them at once (FR-35: "never a silent absence in a list").
+        <div className="mt-6 flex flex-col gap-3">
+          {today.sitesMissingDsrToday.map((site) => (
+            <GapFlag
+              key={site.siteId}
+              icon={<AlertTriangleIcon />}
+              message={`${site.name} has not submitted a Daily Site Report yet today.`}
+              action={
+                <Link
+                  href={`/sites/${site.siteId}`}
+                  className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+                >
+                  <MapPinIcon className="size-4" />
+                  View Site
+                </Link>
+              }
+            />
+          ))}
+        </div>
       ) : null}
     </>
   );

@@ -1,6 +1,10 @@
+---
+baseline_commit: 1218a603b227b0bc12da1fadb0953dc6baf8d127
+---
+
 # Story 12.1: Today's Activity & Missing-DSR Gap Flag
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -75,10 +79,57 @@ so that I know what happened today and what needs my attention, without phoning 
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Opus 4.8 (1M context) — claude-opus-4-8[1m]
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- New `apps/api/src/dashboard/` module — a pure read-aggregation layer that owns no Prisma models of its own (`DashboardModule` imports `TeamModule` only). `GET /dashboard/today` returns every field the story specifies; each same-day figure is a genuine aggregate, coercing Prisma's `_sum: null` to `0` at the service boundary so a zero-activity day reads `0`, not an error (AD-6).
+- **Labour reuses, doesn't reimplement.** `labourWorkingToday` comes from calling the existing `TeamMembersService.getTeamSummary().todaysWorkingHeadcount` (Epic 6 Story 6.3) — the distinct-Team-Member-with-a-Work-Record-today query is not written a second time here. Required exporting `TeamMembersService` from `TeamModule` (added `exports: [TeamMembersService]`).
+- **Timezone correctness is real, not a nicety.** Introduced `apps/api/src/dashboard/local-day.ts`: `localDayRange(now, timeZone)` computes the deployment-local calendar day (`APP_TIMEZONE` env var, default `Asia/Kolkata`) via `Intl.DateTimeFormat`, returning a `@db.Date` value for `DailySiteReport.reportDate` equality and a half-open `[startUtc, endUtc)` range for the `DateTime` columns (`purchasedAt`/`consumedAt`/`deliveredAt`/`incurredAt`). This is what prevents a DSR submitted at 11 PM IST from being wrongly flagged as a missing-DSR gap. `machineryInUse` is deliberately **not** day-scoped — it's the live `Machinery.currentStatus = 'AT_SITE'` materialized snapshot (Epic 8 Story 8.2), matching the mockup.
+- `sitesMissingDsrToday` is a set-difference (active `Site`s minus the distinct reporting-Site set), not a per-Site loop; the frontend renders one `GapFlag` per entry (never a single combined flag), each naming the Site and offering a "View Site" action to `/sites/[id]` (FR-35 — "never a silent absence").
+- **`apps/web/app/(app)/page.tsx` note:** the story describes replacing a "stub" page, but the demo-ready commit (`ae9fc63`) had already fleshed this file into a different dashboard that client-side-aggregated across many endpoints and used a `Badge` ("Not submitted") rather than a `GapFlag`. Per "the spec is the sole source of truth," I replaced it with the story-scoped Dashboard: the seven "Today" stat tiles (each a real drill-down link per AC #1) backed by the single new `GET /dashboard/today` endpoint, plus one `GapFlag` per missing Site (AC #2). The demo page's extra "Overall"/"Sites"/charts sections were **not** carried over — they are out of this story's scope (Story 12.2 owns the rest of the page, including the explicit zero-Site empty state). This is a deliberate, called-out decision; if preserving those demo sections is desired they should be folded into Story 12.2.
+- **Review patch — Labour tile now honours the same local-day boundary.** `getTeamSummary()` computed "today" as naive UTC, so on IST (UTC+5:30) the Labour tile would lag the other six same-day tiles by a full calendar day for the first 5.5 hours of every local day. Fixed by giving `getTeamSummary` an optional `{ today?: Date }` param (defaults to the prior UTC behavior, so the Team page controller's existing call is unchanged) and having `DashboardService` pass its local `dateOnly` through. Added a `dashboard.service.spec` case asserting the labour figure is derived from the local day (an instant just after IST midnight → the query is pinned to the 27th, not the UTC 26th). The Team page's own headcount still defaults to UTC — a pre-existing, already-deferred systemic item (Story 6.3 review), intentionally not widened here to avoid destabilizing Epic 6's other caller.
+- No schema change (read-only aggregation), so no migration.
+- **Verification:** `apps/api` typecheck clean; `apps/api` full Vitest suite 513 passed / 51 skipped (dashboard adds 13 tests across 3 files). `apps/web` typecheck + lint clean; full Vitest suite 495 passed (page adds 3 tests). All my changed files lint clean (`eslint` exit 0). A pre-existing lint failure in `apps/api/src/team/payments.service.spec.ts` (Epic 7, untouched by this story) surfaced during the fresh-worktree install's dependency resolution — not introduced here and out of scope. `apps/api`'s dev server cannot boot outside Vitest (documented repo limitation), so the endpoint was verified via unit tests with a mocked Prisma client and the page via component tests with mocked `fetch`, consistent with how prior epics on this project verified.
+
 ### File List
+
+- `apps/api/src/dashboard/local-day.ts` (new) — timezone-correct local-day boundary helper (`APP_TIMEZONE`, default `Asia/Kolkata`).
+- `apps/api/src/dashboard/local-day.spec.ts` (new) — IST day-boundary tests (instants just before/after local midnight, half-open-range width, non-IST zone).
+- `apps/api/src/dashboard/dashboard.service.ts` (new) — `getToday()` aggregate.
+- `apps/api/src/dashboard/dashboard.service.spec.ts` (new) — per-figure correctness, gap-flag set-difference (incl. zero-DSR-today), `_sum`-null→0, distinct-Site and AT_SITE query shapes, timezone-boundary assertion.
+- `apps/api/src/dashboard/dashboard.controller.ts` (new) — `GET /dashboard/today`.
+- `apps/api/src/dashboard/dashboard.controller.spec.ts` (new) — delegation test.
+- `apps/api/src/dashboard/dashboard.module.ts` (new) — `DashboardModule` (imports `TeamModule`).
+- `apps/api/src/app.module.ts` (modified) — registered `DashboardModule`.
+- `apps/api/src/team/team.module.ts` (modified) — exports `TeamMembersService` for reuse.
+- `apps/api/src/team/team-members.service.ts` (modified) — `getTeamSummary` takes an optional `{ today }` so the Dashboard can pin the working-headcount to its local-timezone day (default UTC behavior preserved for the Team page caller).
+- `apps/web/app/(app)/page.tsx` (modified) — real Dashboard: seven "Today" stat tiles (drill-down links) + one `GapFlag` per missing Site, from `GET /dashboard/today`.
+- `apps/web/app/(app)/page.test.tsx` (new) — seven-tile drill-down links; one GapFlag per missing Site (not combined); no flags when all reported.
+
+## Suggested Review Order
+
+**Timezone-correct day boundary (the story's core hazard)**
+
+- Entry point: the local-day helper — DST-aware `Intl`-based boundary, `@db.Date` value + half-open UTC range.
+  [`local-day.ts:1`](../../apps/api/src/dashboard/local-day.ts#L1)
+
+**Aggregation**
+
+- `getToday()` — six same-day aggregates + the reused (now local-day-pinned) labour headcount; set-difference gap flags.
+  [`dashboard.service.ts:29`](../../apps/api/src/dashboard/dashboard.service.ts#L29)
+
+- The reuse seam: `getTeamSummary` gains an optional `{ today }` (defaults to prior UTC behavior for the Team page caller).
+  [`team-members.service.ts:98`](../../apps/api/src/team/team-members.service.ts#L98)
+
+**Web UI**
+
+- Seven drill-down "Today" tiles + one `GapFlag` per missing Site (never combined), from `GET /dashboard/today`.
+  [`page.tsx:41`](../../apps/web/app/(app)/page.tsx#L41)
+
+**Tests (supporting)**
+
+- Per-figure correctness, gap-flag set-difference, and the labour local-day-boundary assertion.
+  [`dashboard.service.spec.ts:1`](../../apps/api/src/dashboard/dashboard.service.spec.ts#L1)

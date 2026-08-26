@@ -12,6 +12,7 @@ import { AssetsModule } from './assets/assets.module';
 import { VendorsModule } from './vendors/vendors.module';
 import { RmcModule } from './rmc/rmc.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ExpensesModule } from './expenses/expenses.module';
     VendorsModule,
     RmcModule,
     ExpensesModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

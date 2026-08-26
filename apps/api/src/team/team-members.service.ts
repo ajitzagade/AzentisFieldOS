@@ -95,10 +95,15 @@ export class TeamMembersService {
   // Epic 7 ships, so a plain SUM() against them already returns 0, which
   // Prisma's `_sum` reports as `null` — coerced to 0 here so the frontend
   // never has to distinguish "no data yet" from "zero total."
-  async getTeamSummary() {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const today = new Date(todayStr);
+  // `options.today` lets a caller pin the "working today" headcount to a
+  // specific calendar day — the Dashboard (Story 12.1) passes its
+  // local-timezone day boundary so the Labour figure lines up with its other
+  // same-day tiles instead of lagging by up to a full day near UTC midnight.
+  // Omitted, it defaults to the previous naive-UTC behavior, so the Team page
+  // controller's existing call is unaffected.
+  async getTeamSummary(options: { today?: Date } = {}) {
     const now = new Date();
+    const today = options.today ?? new Date(now.toISOString().slice(0, 10));
     const dayOfWeek = now.getUTCDay() === 0 ? 7 : now.getUTCDay(); // Monday = 1
     const weekStart = new Date(now);
     weekStart.setUTCDate(now.getUTCDate() - (dayOfWeek - 1));
