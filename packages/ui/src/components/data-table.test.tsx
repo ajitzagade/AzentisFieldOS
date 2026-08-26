@@ -26,6 +26,18 @@ describe("DataTable", () => {
     expect(row.className).toContain("hover:bg-accent-teal-100");
   });
 
+  it("wraps the table in a horizontal-scroll container with nowrap cells for mobile", () => {
+    const { container } = render(
+      <DataTable columns={columns} rowKey={(r) => r.id} state={{ status: "success", rows }} />,
+    );
+    // A wide table must scroll sideways on a narrow viewport, not clip/cram.
+    const scroll = container.querySelector(".overflow-x-auto");
+    expect(scroll).not.toBeNull();
+    expect(scroll?.querySelector("table")).not.toBeNull();
+    const cell = screen.getByText("Cement").closest("td") as HTMLElement;
+    expect(cell.className).toContain("whitespace-nowrap");
+  });
+
   it("renders a row as a real link when rowHref is defined", () => {
     render(
       <DataTable

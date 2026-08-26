@@ -31,21 +31,33 @@ export interface DataTableProps<T> {
   className?: string;
 }
 
+// Cells are `whitespace-nowrap` so columns keep their natural, readable width
+// instead of wrapping into cramped multi-line stacks on a narrow (mobile)
+// viewport — the table then grows past the container and the `overflow-x-auto`
+// wrapper lets it scroll horizontally, per EXPERIENCE.md's "Owner on mobile:
+// tables scroll horizontally" contract, rather than the old `overflow-hidden`
+// squeeze.
 function headerCellClass(align: DataTableColumn<unknown>["align"]) {
   return cn(
-    "px-4 py-3 text-left text-eyebrow uppercase text-ink-500 bg-surface-2 border-b border-border-hairline",
+    "px-4 py-3 text-left text-eyebrow uppercase text-ink-500 bg-surface-2 border-b border-border-hairline whitespace-nowrap",
     align === "right" && "text-right",
   );
 }
 
 function bodyCellClass(align: DataTableColumn<unknown>["align"]) {
-  return cn("px-4 py-3 align-middle text-ink-900", align === "right" && "text-right tabular-nums");
+  return cn(
+    "px-4 py-3 align-middle text-ink-900 whitespace-nowrap",
+    align === "right" && "text-right tabular-nums",
+  );
 }
 
 export function DataTable<T>({ columns, state, rowKey, rowHref, className }: DataTableProps<T>) {
   return (
     <div className={cn("bg-surface-1 border border-border-hairline rounded-lg shadow-2 overflow-hidden", className)}>
-      <table className="w-full border-collapse text-body-sm">
+      {/* Horizontal scroll container: on a phone a wide table scrolls sideways
+          instead of clipping or cramming its columns. */}
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-body-sm">
         <thead>
           <tr>
             {columns.map((column) => (
@@ -115,7 +127,8 @@ export function DataTable<T>({ columns, state, rowKey, rowHref, className }: Dat
             })
           )}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   );
 }
