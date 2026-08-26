@@ -25,5 +25,6 @@ export * from "./schemas/vendor";
 export * from "./schemas/expense-category";
 export * from "./schemas/expense";
 export * from "./schemas/rmc-entry";
+export * from "./schemas/branding-config";
 export * from "./types/activity-feed";
 export * from "./types/photo-gallery";

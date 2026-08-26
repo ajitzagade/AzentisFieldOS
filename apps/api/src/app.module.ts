@@ -13,6 +13,7 @@ import { VendorsModule } from './vendors/vendors.module';
 import { RmcModule } from './rmc/rmc.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     RmcModule,
     ExpensesModule,
     DashboardModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

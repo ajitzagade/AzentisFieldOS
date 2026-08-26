@@ -1,0 +1,7 @@
+{
+  "$comment": "Story 13.1 (AD-13): Vercel Cron drives the auto-compile + delivery of branded daily reports through apps/api routes — NO separate worker service. The compile Cron makes each delivery's first attempt inline; the retry-sweep Cron re-attempts still-PENDING deliveries up to the 3-attempt cap. The hours below (6 PM compile, then 7 PM / 9 PM retries) are PLACEHOLDERS matching the mockup's '6:45 PM' delivered-at examples — confirm the exact delivery hour (and its timezone) with the product owner; they are not a specified requirement. The '/api/...' path prefix assumes apps/api is served under /api by the deployment's routing (a rewrite that, like the apps/api dev-server boot, is not yet wired — see AGENTS.md TODOs). Requests are authenticated via Vercel Cron's 'Authorization: Bearer $CRON_SECRET' header.",
+  "crons": [
+    { "path": "/api/cron/compile-daily-reports", "schedule": "0 18 * * *" },
+    { "path": "/api/cron/retry-report-deliveries", "schedule": "0 19,21 * * *" }
+  ]
+}

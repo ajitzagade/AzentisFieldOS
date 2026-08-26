@@ -1,4 +1,6 @@
 import "dotenv/config";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../apps/api/src/generated/prisma/client";
 
@@ -30,6 +32,30 @@ const DEFAULT_EXPENSE_CATEGORIES = [
   "RMC",
   "Misc",
 ];
+
+// Story 13.1 (FR-32) AC #1: BrandingConfig must exist "from day one" with
+// sensible defaults so the auto-report compiler has a Tenant name/color/logo
+// to snapshot without hard-depending on Epic 14's admin UI. The Tenant name
+// is read from the committed infra/tenants/<slug>.json config if one is
+// present at seed time (the same per-deployment config every tenant already
+// ships), falling back to a neutral placeholder otherwise; primaryColor
+// defaults (via the schema) to this product's own accent-teal-700 token;
+// no logo. Singleton — seeded exactly once, never a second row.
+function resolveTenantName(): string {
+  try {
+    const tenantsDir = path.join(__dirname, "..", "tenants");
+    const file = readdirSync(tenantsDir).find(
+      (name) => name.endsWith(".json") && !name.startsWith("_"),
+    );
+    if (!file) return "Your Company";
+    const config = JSON.parse(
+      readFileSync(path.join(tenantsDir, file), "utf8"),
+    ) as { displayName?: string };
+    return config.displayName?.trim() || "Your Company";
+  } catch {
+    return "Your Company";
+  }
+}
 
 async function main() {
   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
@@ -64,6 +90,16 @@ async function main() {
       where: { name },
       update: {},
       create: { name },
+    });
+  }
+
+  // Singleton BrandingConfig — create exactly one row if none exists yet.
+  // Idempotent: a re-run never adds a second row and never overwrites an
+  // admin's later edits (Epic 14).
+  const existingBranding = await prisma.brandingConfig.findFirst();
+  if (!existingBranding) {
+    await prisma.brandingConfig.create({
+      data: { tenantName: resolveTenantName() },
     });
   }
 

@@ -72,6 +72,7 @@ model Site {
   expenses             Expense[]
   machineryCurrentlyHere Machinery[]
   vehiclesCurrentlyHere  Vehicle[]
+  dailyReports         DailyReport[]
 }
 
 // ---------- Material catalog (FR-4..FR-7) ----------
@@ -538,6 +539,7 @@ model DailySiteReport {
   photos        Photo[]
   expenses      Expense[]
   rmcEntries    RmcEntry[]
+  dailyReports  DailyReport[]
 
   // Informational tagging only — "JCB 3DX was in use today" is not a
   // location/status change (that's Epic 8's MachineryMovementLog /
@@ -613,4 +615,76 @@ model Expense {
   // Story 3.2 offline-sync idempotency key — same reasoning as
   // Consumption.clientGeneratedId.
   clientGeneratedId String? @unique
+}
+
+// ---------- Branding & Automated Report Delivery (FR-32, FR-33) ----------
+
+// Story 13.1: single-row app-configuration record for this deployment's own
+// branding. This is NOT a `Tenant` table in AD-1's forbidden sense — no
+// tenant_id, no cross-tenant selector; it is the same category of thing as
+// infra/tenants/*.json's committed per-deployment config, just runtime-
+// editable (a build-time/env-var config couldn't satisfy FR-47's "no publish
+// step"). Seeded with exactly one row at deploy time (infra/prisma/seed.ts);
+// Epic 14 later adds the admin UI that edits it. `primaryColor` defaults to
+// this product's own accent-teal-700 token as a neutral placeholder.
+model BrandingConfig {
+  id           String   @id @default(uuid(7))
+  tenantName   String
+  logoUrl      String?
+  primaryColor String   @default("#0F5257")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Story 13.1 (FR-32): the compiled, auto-generated per-Site daily report.
+// `content` is the fully-rendered payload — site name, date, a branding
+// snapshot, and the work/labour/material/RMC/expense summary plus the DSR's
+// free-text `equipmentUsed` tags (informational tags entered on the DSR, not
+// machinery-at-site location data) drawn from the linked DSR's own relations —
+// deliberately DENORMALIZED and stored
+// at generation time: if BrandingConfig or the underlying DSR data changes
+// afterwards, a historical report must still read exactly as it was
+// delivered, never silently re-render with today's branding.
+// `dailySiteReportId` is required — no DailyReport row exists for a Site/day
+// with no DSR at all (AC #4), so this is not a nullable "maybe compiled"
+// field.
+model DailyReport {
+  id                String          @id @default(uuid(7))
+  siteId            String
+  site              Site            @relation(fields: [siteId], references: [id])
+  dailySiteReportId String
+  dailySiteReport   DailySiteReport @relation(fields: [dailySiteReportId], references: [id])
+  reportDate        DateTime        @db.Date
+  content           Json
+  generatedAt       DateTime        @default(now())
+
+  deliveries ReportDelivery[]
+
+  @@unique([siteId, reportDate])
+}
+
+// Story 13.1 (FR-33): one row per (DailyReport, channel). `status`/
+// `attempts`/`lastError`/`deliveredAt` are narrowly mutable via retry — this
+// is lifecycle completion of an in-progress delivery event, NOT an AD-9
+// correction (the same reasoning Epic 5 Story 5.2's `confirmReceipt` and
+// Epic 7 Story 7.3's `markPaid` already established: completing an
+// in-progress event is not a transaction-history correction), so there is
+// deliberately no correctsId/reason pair here. `@@unique([dailyReportId,
+// channel])` makes delivery idempotent at the DB level: a re-run of the
+// compile Cron (or a `?date=` backfill of an already-processed day) can never
+// create a second row for the same channel, so no double-send is possible even
+// under a check-then-act race — the create's P2002 is caught and treated as
+// "already exists / skip send".
+model ReportDelivery {
+  id            String      @id @default(uuid(7))
+  dailyReportId String
+  dailyReport   DailyReport @relation(fields: [dailyReportId], references: [id])
+  channel       String
+  status        String      @default("PENDING")
+  attempts      Int         @default(0)
+  lastError     String?
+  deliveredAt   DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@unique([dailyReportId, channel])
 }
