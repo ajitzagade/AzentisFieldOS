@@ -14,6 +14,7 @@ import { ReportsService } from './reports.service';
 import { SiteInventoryReportsService } from './site-inventory-reports.service';
 import { LabourReportsService } from './labour-reports.service';
 import { MachineryVehicleReportsService } from './machinery-reports.service';
+import { FinancialReportsService } from './financial-reports.service';
 
 // Normalizes an optional YYYY-MM-DD override (or "today") to a UTC-midnight
 // Date matching DailySiteReport.reportDate (@db.Date). NOTE (open decision):
@@ -36,6 +37,7 @@ export class ReportsController {
     private readonly siteInventoryReports: SiteInventoryReportsService,
     private readonly labourReports: LabourReportsService,
     private readonly machineryReports: MachineryVehicleReportsService,
+    private readonly financialReports: FinancialReportsService,
   ) {}
 
   // Verifies the Vercel Cron request via the standard `Authorization: Bearer
@@ -178,5 +180,19 @@ export class ReportsController {
       from,
       to,
     });
+  }
+
+  // Story 13.4 (FR-46): the Financial Reports view — the five-category cost
+  // breakdown, per-Site (`bySite`) and Contractor-wide (`contractorTotal`),
+  // within a date window, optionally narrowed to one Site. A distinct sibling
+  // of `/reports/daily/:id` (that wildcard requires the literal `daily`
+  // segment), so it is not shadowed by it; the integration spec asserts this.
+  @Get('reports/financial')
+  financialReport(
+    @Query('siteId') siteId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.financialReports.getFinancialReport({ siteId, from, to });
   }
 }

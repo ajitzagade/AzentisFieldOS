@@ -9,6 +9,7 @@ import { ReportsService } from './reports.service';
 import { SiteInventoryReportsService } from './site-inventory-reports.service';
 import { LabourReportsService } from './labour-reports.service';
 import { MachineryVehicleReportsService } from './machinery-reports.service';
+import { FinancialReportsService } from './financial-reports.service';
 
 // HTTP-level route-ordering regression coverage (same harness as
 // rmc.controller.integration.spec.ts). `GET /reports/daily` resolves to
@@ -72,6 +73,19 @@ describe('ReportsController route ordering + Cron path', () => {
           serviceLogs: [],
         }),
       },
+      financialReports: {
+        getFinancialReport: vi.fn().mockResolvedValue({
+          bySite: [],
+          contractorTotal: {
+            material: 0,
+            labour: 0,
+            rmc: 0,
+            machineryVehicle: 0,
+            expenses: 0,
+            total: 0,
+          },
+        }),
+      },
     };
   }
 
@@ -93,6 +107,10 @@ describe('ReportsController route ordering + Cron path', () => {
         {
           provide: MachineryVehicleReportsService,
           useValue: services.machineryReports,
+        },
+        {
+          provide: FinancialReportsService,
+          useValue: services.financialReports,
         },
       ],
     }).compile();
@@ -234,6 +252,26 @@ describe('ReportsController route ordering + Cron path', () => {
       assetId: 'm1',
       from: undefined,
       to: undefined,
+    });
+    expect(services.reports.findDaily).not.toHaveBeenCalled();
+  });
+
+  // Story 13.4: `/reports/financial` is a new sibling path — same reasoning as
+  // `/reports/sites` above; the `/reports/daily/:id` wildcard requires the
+  // literal `daily` segment, so it can never swallow this route.
+  it('GET /reports/financial reaches getFinancialReport, never findDaily', async () => {
+    const services = makeServices();
+    await bootstrap(services);
+
+    const res = await request(app.getHttpServer())
+      .get('/reports/financial')
+      .query({ siteId: 'site1', from: '2026-08-01', to: '2026-08-31' });
+
+    expect(res.status).toBe(200);
+    expect(services.financialReports.getFinancialReport).toHaveBeenCalledWith({
+      siteId: 'site1',
+      from: '2026-08-01',
+      to: '2026-08-31',
     });
     expect(services.reports.findDaily).not.toHaveBeenCalled();
   });

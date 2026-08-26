@@ -39,3 +39,14 @@ export interface MachineryReportFilters extends ReportDateRange {
   assetType?: "MACHINERY" | "VEHICLE";
   assetId?: string;
 }
+
+// Story 13.4 (FR-46): Financial reports. `siteId` optional — omitted means the
+// per-Site breakdown lists every Site with a cost in the window; supplied
+// narrows the `bySite` breakdown to that one Site. The `contractorTotal`
+// rollup is always Contractor-wide (across every Site), independent of this
+// filter, because two of its five categories (labour, machineryVehicle) are
+// structurally not attributable to a Site at all (see FinancialReportsService).
+// Same AD-1 note as above applies: no tenantId here, ever.
+export interface FinancialReportFilters extends ReportDateRange {
+  siteId?: string;
+}

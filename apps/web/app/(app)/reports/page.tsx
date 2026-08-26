@@ -270,6 +270,34 @@ interface MachineryReport {
   serviceLogs: AssetServiceRow[];
 }
 
+// ---- Financial report (Story 13.4, FR-46) ----
+interface FinancialSiteRow {
+  siteId: string;
+  name: string;
+  material: number;
+  // Structurally Contractor-level only (Payment/ServiceLog carry no siteId), so
+  // these are null in a per-Site row — never a fabricated 0.
+  labour: null;
+  rmc: number;
+  machineryVehicle: null;
+  expenses: number;
+  total: number;
+}
+
+interface FinancialContractorTotal {
+  material: number;
+  labour: number;
+  rmc: number;
+  machineryVehicle: number;
+  expenses: number;
+  total: number;
+}
+
+interface FinancialReport {
+  bySite: FinancialSiteRow[];
+  contractorTotal: FinancialContractorTotal;
+}
+
 // ---------------------------------------------------------------------------
 // Fetchers (all through apps/api over HTTP — AD-3)
 // ---------------------------------------------------------------------------
@@ -369,6 +397,20 @@ async function getMachineryReport(params: {
   );
   if (!res.ok) {
     throw new Error(`Failed to load Machinery/Vehicle report (${res.status})`);
+  }
+  return res.json();
+}
+
+async function getFinancialReport(params: {
+  siteId?: string;
+  from?: string;
+  to?: string;
+}): Promise<FinancialReport> {
+  const res = await fetch(`${process.env.API_URL}/reports/financial${query(params)}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to load Financial report (${res.status})`);
   }
   return res.json();
 }
@@ -1125,6 +1167,218 @@ function MachineryReportView({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Financial report view (Story 13.4, FR-46)
+// ---------------------------------------------------------------------------
+// The Category/Amount cost breakdown. A category is either a real summed money
+// figure or — for the two structurally Contractor-level categories (Labour,
+// Machinery/Vehicle) when a single Site is in scope — an explanatory note, so a
+// reader sees WHY those two don't appear per-Site rather than a misleading ₹0.
+interface CategoryRow {
+  key: string;
+  category: string;
+  amount: number | null;
+  note?: string;
+  emphasis?: boolean;
+}
+
+const CONTRACTOR_ONLY_NOTE = "Not tracked per-Site — see Contractor total";
+
+const categoryColumns: DataTableColumn<CategoryRow>[] = [
+  {
+    header: "Cost Category",
+    cell: (r) => (
+      <span className={r.emphasis ? "font-semibold text-ink-900" : undefined}>
+        {r.category}
+      </span>
+    ),
+  },
+  {
+    header: "Amount",
+    align: "right",
+    cell: (r) =>
+      r.amount === null ? (
+        <span className="text-body-sm text-ink-500">{r.note}</span>
+      ) : (
+        <span
+          className={cn(
+            "tabular-nums",
+            r.emphasis ? "font-semibold text-gold-700" : "text-ink-900",
+          )}
+        >
+          {formatMoney(r.amount)}
+        </span>
+      ),
+  },
+];
+
+// The per-Site rollup: only the three genuinely Site-tagged categories are
+// columns here (material, rmc, expenses) — Labour and Machinery/Vehicle are
+// Contractor-level and shown in the summary tiles / Contractor breakdown.
+const siteBreakdownColumns: DataTableColumn<FinancialSiteRow>[] = [
+  { header: "Site", cell: (r) => <span className="font-semibold">{r.name}</span> },
+  {
+    header: "Material",
+    align: "right",
+    cell: (r) => <span className="tabular-nums">{formatMoney(r.material)}</span>,
+  },
+  {
+    header: "RMC",
+    align: "right",
+    cell: (r) => <span className="tabular-nums">{formatMoney(r.rmc)}</span>,
+  },
+  {
+    header: "Expenses",
+    align: "right",
+    cell: (r) => <span className="tabular-nums">{formatMoney(r.expenses)}</span>,
+  },
+  {
+    header: "Site Total",
+    align: "right",
+    cell: (r) => (
+      <span className="tabular-nums font-semibold text-gold-700">{formatMoney(r.total)}</span>
+    ),
+  },
+];
+
+function scopedCategoryRows(
+  scope: FinancialSiteRow | FinancialContractorTotal,
+  siteScoped: boolean,
+): CategoryRow[] {
+  return [
+    { key: "material", category: "Material", amount: scope.material },
+    {
+      key: "labour",
+      category: "Labour",
+      amount: siteScoped ? null : (scope as FinancialContractorTotal).labour,
+      note: CONTRACTOR_ONLY_NOTE,
+    },
+    { key: "rmc", category: "RMC", amount: scope.rmc },
+    {
+      key: "machineryVehicle",
+      category: "Machinery / Vehicle",
+      amount: siteScoped
+        ? null
+        : (scope as FinancialContractorTotal).machineryVehicle,
+      note: CONTRACTOR_ONLY_NOTE,
+    },
+    { key: "expenses", category: "Expenses", amount: scope.expenses },
+    { key: "total", category: "Total", amount: scope.total, emphasis: true },
+  ];
+}
+
+function FinancialReportView({
+  sites,
+  report,
+  siteId,
+  from,
+  to,
+}: {
+  sites: SiteOption[];
+  report: FinancialReport;
+  siteId?: string;
+  from?: string;
+  to?: string;
+}) {
+  const selectedRow = siteId ? report.bySite[0] : undefined;
+  const scope = selectedRow ?? report.contractorTotal;
+  const categoryRows = scopedCategoryRows(scope, Boolean(siteId));
+  const breakdownTitle = selectedRow
+    ? `Cost Breakdown — ${selectedRow.name}`
+    : "Contractor Cost Breakdown (All Sites)";
+
+  return (
+    <>
+      <FilterForm tab="financial">
+        <SelectField
+          label="Site"
+          name="siteId"
+          defaultValue={siteId ?? ""}
+          options={[
+            { value: "", label: "All Sites" },
+            ...sites.map((site) => ({ value: site.id, label: site.name })),
+          ]}
+        />
+        <TextField label="From" name="from" type="date" defaultValue={from ?? ""} />
+        <TextField label="To" name="to" type="date" defaultValue={to ?? ""} />
+      </FilterForm>
+
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <StatTile
+          icon={<TruckIcon />}
+          tint="gold"
+          value={formatMoney(report.contractorTotal.material)}
+          label="Material (Contractor)"
+        />
+        <StatTile
+          icon={<UsersIcon />}
+          tint="gold"
+          value={formatMoney(report.contractorTotal.labour)}
+          label="Labour (Contractor)"
+        />
+        <StatTile
+          icon={<ClipboardIcon />}
+          tint="gold"
+          value={formatMoney(report.contractorTotal.rmc)}
+          label="RMC (Contractor)"
+        />
+        <StatTile
+          icon={<GearIcon />}
+          tint="gold"
+          value={formatMoney(report.contractorTotal.machineryVehicle)}
+          label="Machinery / Vehicle (Contractor)"
+        />
+        <StatTile
+          icon={<WalletIcon />}
+          tint="gold"
+          value={formatMoney(report.contractorTotal.expenses)}
+          label="Expenses (Contractor)"
+        />
+      </div>
+
+      <h2 className="mb-3 text-card-title text-ink-900">{breakdownTitle}</h2>
+      {siteId ? (
+        <p className="mb-3 text-body-sm text-ink-500">
+          Labour and Machinery/Vehicle costs aren&apos;t attributable to a single
+          Site (a Team Member isn&apos;t bound to a Site, and an asset&apos;s
+          service history belongs to the asset) — they roll up to the Contractor
+          total above, not this Site.
+        </p>
+      ) : null}
+      <DataTable
+        columns={categoryColumns}
+        rowKey={(r) => r.key}
+        state={{ status: "success", rows: categoryRows }}
+      />
+
+      {siteId ? null : (
+        <>
+          <h2 className="mb-3 mt-8 text-card-title text-ink-900">
+            Per-Site Breakdown
+          </h2>
+          <p className="mb-3 text-body-sm text-ink-500">
+            Material, RMC, and Expenses attribute to a Site. Labour and
+            Machinery/Vehicle are Contractor-level only (see the totals above).
+          </p>
+          <DataTable
+            columns={siteBreakdownColumns}
+            rowKey={(r) => r.siteId}
+            state={
+              report.bySite.length === 0
+                ? {
+                    status: "empty",
+                    icon: <WalletIcon />,
+                    message: "No Site-attributable costs in this date range.",
+                  }
+                : { status: "success", rows: report.bySite }
+            }
+          />
+        </>
+      )}
+    </>
+  );
+}
+
 function PlaceholderView({ label }: { label: string }) {
   return (
     <div className="rounded-lg border border-border-hairline bg-surface-1 px-6 py-16 text-center text-ink-500 shadow-1">
@@ -1174,6 +1428,7 @@ export default async function ReportsPage({
   let teamMembers: TeamMemberOption[] = [];
   let labourReport: LabourReport | null = null;
   let machineryReport: MachineryReport | null = null;
+  let financialReport: FinancialReport | null = null;
 
   // The Machinery/Vehicle picker packs assetType + assetId into one `asset`
   // token ("MACHINERY:<id>" / "VEHICLE:<id>") so a single native <select> can
@@ -1196,6 +1451,11 @@ export default async function ReportsPage({
     ]);
   } else if (tab === "machinery") {
     machineryReport = await getMachineryReport({ assetType, assetId, from, to });
+  } else if (tab === "financial") {
+    [sites, financialReport] = await Promise.all([
+      getSites(),
+      getFinancialReport({ siteId, from, to }),
+    ]);
   }
 
   return (
@@ -1260,6 +1520,14 @@ export default async function ReportsPage({
           <MachineryReportView
             report={machineryReport}
             assetToken={asset}
+            from={from}
+            to={to}
+          />
+        ) : tab === "financial" && financialReport ? (
+          <FinancialReportView
+            sites={sites}
+            report={financialReport}
+            siteId={siteId}
             from={from}
             to={to}
           />

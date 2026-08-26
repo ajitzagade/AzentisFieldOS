@@ -50,6 +50,17 @@ const STORY_13_3_FILES = [
   resolve(repoRoot, 'packages/shared/src/types/report-filters.ts'),
 ];
 
+// Story 13.4 (AC #2 / Task 3): the same AD-1 guarantee extended to the
+// Financial report composition layer. Its five cost-category SUMs read every
+// money column in the (single-Tenant) database with no tenant filter — the
+// per-Contractor rollup is "across every Site", i.e. the whole database, by
+// construction, not by a WHERE clause this story adds.
+const STORY_13_4_FILES = [
+  resolve(here, 'financial-reports.service.ts'),
+  resolve(here, 'reports.controller.ts'),
+  resolve(repoRoot, 'packages/shared/src/types/report-filters.ts'),
+];
+
 function stripComments(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, '') // block comments
@@ -70,6 +81,16 @@ describe('Story 13.2 files carry no Tenant-scoping code (AD-1, AC #2)', () => {
 
 describe('Story 13.3 files carry no Tenant-scoping code (AD-1, AC #2)', () => {
   it.each(STORY_13_3_FILES)(
+    '%s has no tenant-scoping identifier in code',
+    (file) => {
+      const code = stripComments(readFileSync(file, 'utf8')).toLowerCase();
+      expect(code).not.toContain('tenant');
+    },
+  );
+});
+
+describe('Story 13.4 files carry no Tenant-scoping code (AD-1, AC #2)', () => {
+  it.each(STORY_13_4_FILES)(
     '%s has no tenant-scoping identifier in code',
     (file) => {
       const code = stripComments(readFileSync(file, 'utf8')).toLowerCase();

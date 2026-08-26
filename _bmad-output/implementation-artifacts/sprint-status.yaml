@@ -114,11 +114,11 @@ development_status:
   12-2-overall-rollup: done
   epic-12-retrospective: optional
 
-  epic-13: in-progress
+  epic-13: done
   13-1-auto-compile-deliver-branded-daily-report: done
   13-2-site-inventory-reports: done
   13-3-labour-machinery-vehicle-reports: done
-  13-4-financial-reports: ready-for-dev
+  13-4-financial-reports: done
   epic-13-retrospective: optional
 
   epic-14: in-progress

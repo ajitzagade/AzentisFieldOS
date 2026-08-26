@@ -9,6 +9,7 @@ import { ReportsService } from './reports.service';
 import { SiteInventoryReportsService } from './site-inventory-reports.service';
 import { LabourReportsService } from './labour-reports.service';
 import { MachineryVehicleReportsService } from './machinery-reports.service';
+import { FinancialReportsService } from './financial-reports.service';
 import { ReportCompilerService } from './report-compiler.service';
 import { ReportDeliveryService } from './report-delivery.service';
 import {
@@ -25,7 +26,10 @@ import {
 // provides the presigned-URL reads the Site photo gallery needs. Story 13.3
 // adds TeamModule (WorkRecord/Payment/Advance/AdvanceAdjustment history +
 // summary) and AssetsModule (Machinery/Vehicle status + movement/service
-// history) for the Labour and Machinery/Vehicle report views.
+// history) for the Labour and Machinery/Vehicle report views. Story 13.4's
+// FinancialReportsService needs no extra module import — its five cost-category
+// SUMs read the (global) PrismaService directly rather than re-deriving any
+// owning epic's business logic.
 @Module({
   imports: [
     DsrModule,
@@ -40,6 +44,7 @@ import {
     SiteInventoryReportsService,
     LabourReportsService,
     MachineryVehicleReportsService,
+    FinancialReportsService,
     ReportCompilerService,
     ReportDeliveryService,
     { provide: EMAIL_SENDER, useClass: ResendEmailSender },

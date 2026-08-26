@@ -7,6 +7,7 @@ import { ReportsService } from './reports.service';
 import { SiteInventoryReportsService } from './site-inventory-reports.service';
 import { LabourReportsService } from './labour-reports.service';
 import { MachineryVehicleReportsService } from './machinery-reports.service';
+import { FinancialReportsService } from './financial-reports.service';
 
 function makeController() {
   const compiler = {
@@ -24,6 +25,7 @@ function makeController() {
   };
   const labourReports = { getLabourReport: vi.fn() };
   const machineryReports = { getMachineryReport: vi.fn() };
+  const financialReports = { getFinancialReport: vi.fn() };
   const controller = new ReportsController(
     compiler as unknown as ReportCompilerService,
     delivery as unknown as ReportDeliveryService,
@@ -31,6 +33,7 @@ function makeController() {
     siteInventoryReports as unknown as SiteInventoryReportsService,
     labourReports as unknown as LabourReportsService,
     machineryReports as unknown as MachineryVehicleReportsService,
+    financialReports as unknown as FinancialReportsService,
   );
   return {
     controller,
@@ -39,6 +42,7 @@ function makeController() {
     siteInventoryReports,
     labourReports,
     machineryReports,
+    financialReports,
   };
 }
 
@@ -278,6 +282,34 @@ describe('ReportsController Labour & Machinery/Vehicle report views', () => {
     expect(machineryReports.getMachineryReport).toHaveBeenCalledWith({
       assetType: undefined,
       assetId: undefined,
+      from: undefined,
+      to: undefined,
+    });
+  });
+});
+
+// Story 13.4 (FR-46): the Financial report view — same unauthenticated,
+// thread-the-query-params-through discipline.
+describe('ReportsController Financial report view', () => {
+  it('threads siteId/from/to into getFinancialReport', async () => {
+    const { controller, financialReports } = makeController();
+
+    await controller.financialReport('site1', '2026-08-01', '2026-08-31');
+
+    expect(financialReports.getFinancialReport).toHaveBeenCalledWith({
+      siteId: 'site1',
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+  });
+
+  it('passes undefined financial filters straight through when no query is given', async () => {
+    const { controller, financialReports } = makeController();
+
+    await controller.financialReport();
+
+    expect(financialReports.getFinancialReport).toHaveBeenCalledWith({
+      siteId: undefined,
       from: undefined,
       to: undefined,
     });

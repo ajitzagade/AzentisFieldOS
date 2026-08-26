@@ -161,3 +161,8 @@
 - The report detail page footer renders a FAILED delivery in the same muted `text-ink-500` as others (no danger color/icon) — AC #3's visible-failure requirement is met by the Recent-Reports list badge, but the detail view undersells a hard failure. Minor UI polish.
 - `ReportContent` DTO is hand-redeclared in `apps/web` (and `formatDate`/`formatDateTime` duplicated across the two report pages) — established cross-boundary duplication pattern, already the norm across the app.
 - `DailyReport` uses `generatedAt` while `ReportDelivery` uses `createdAt` for the same concept, and `ReportDelivery` has no `updatedAt` despite mutating on retry — minor schema-naming/consistency nit.
+
+## Deferred from: code review of story-13.4 (2026-08-26)
+
+- The Financial report sums `material` (SUM Purchase.totalAmount) and `expenses` (SUM Expense.amount) as independent categories per the spec. If a future integration ever populates `Expense.purchaseId` (an Expense that IS a Purchase's own cost entry — reserved but never set today, since Story 11.1 explicitly left it null with no code path to populate it), that cost would be counted in BOTH categories, double-counting it in `total`. Not a bug today (no data can have `purchaseId` set); when that integration is built, the financial report must decide whether purchase-linked Expenses are excluded from the `expenses` category to avoid the double-count. Flagged in the story's Completion Notes.
+- `GET /reports/financial`'s `from`/`to` params are unvalidated (same systemic unvalidated-`@Query` class already logged) — a malformed date reaches `new Date()`/`dateRangeBounds` unguarded.
