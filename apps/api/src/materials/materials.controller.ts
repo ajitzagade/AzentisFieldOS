@@ -33,6 +33,14 @@ export class MaterialsController {
     return this.materialsService.list();
   }
 
+  // Story 14.3 (AC #3): read-only Low-stock Thresholds summary for the Settings
+  // discoverability hub. Static path — no `:id` GET exists on this controller,
+  // so it cannot be shadowed by a wildcard.
+  @Get('thresholds')
+  listThresholds() {
+    return this.materialsService.listThresholds();
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,

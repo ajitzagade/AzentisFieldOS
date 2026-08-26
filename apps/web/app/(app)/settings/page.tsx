@@ -1,21 +1,25 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { authedFetch } from "@/lib/api";
 import type { Role } from "@azentisfieldos/shared";
-import { BuildingIcon, Card, GearIcon, LayersIcon, UsersIcon } from "@azentisfieldos/ui";
+import { BellIcon, BuildingIcon, Card, GearIcon, LayersIcon, UsersIcon } from "@azentisfieldos/ui";
 import { BrandingForm, type BrandingConfig } from "./branding-form";
 import { UsersRolesSection, type UserRow } from "./users-roles-section";
+import {
+  NotificationChannelsSection,
+  type ChannelSetting,
+} from "./notification-channels-section";
 
-interface EmploymentType {
+interface NamedType {
   id: string;
   name: string;
+  isActive: boolean;
 }
-interface MachineryType {
+interface LowStockThreshold {
   id: string;
   name: string;
-}
-interface VehicleType {
-  id: string;
-  name: string;
+  lowStockThreshold: string;
+  unit: string;
 }
 
 async function getJSON<T>(path: string): Promise<T> {
@@ -33,13 +37,40 @@ export default async function SettingsPage() {
   const me = await getJSON<{ role: Role }>("/users/me");
   if (me.role !== "OWNER_ADMIN") notFound();
 
-  const [branding, users, employmentTypes, machineryTypes, vehicleTypes] = await Promise.all([
+  const [
+    branding,
+    users,
+    employmentTypes,
+    machineryTypes,
+    vehicleTypes,
+    expenseCategories,
+    materialCategories,
+    thresholds,
+    notificationSettings,
+  ] = await Promise.all([
     getJSON<BrandingConfig>("/branding-config"),
     getJSON<UserRow[]>("/users"),
-    getJSON<EmploymentType[]>("/employment-types"),
-    getJSON<MachineryType[]>("/machinery-types"),
-    getJSON<VehicleType[]>("/vehicle-types"),
+    getJSON<NamedType[]>("/employment-types"),
+    getJSON<NamedType[]>("/machinery-types"),
+    getJSON<NamedType[]>("/vehicle-types"),
+    getJSON<NamedType[]>("/expense-categories"),
+    getJSON<NamedType[]>("/material-categories"),
+    getJSON<LowStockThreshold[]>("/materials/thresholds"),
+    getJSON<ChannelSetting[]>("/notification-settings"),
   ]);
+
+  // Story 14.3 (FR-49): each category family is a compact card linking out to
+  // its own dedicated admin route (extended with rename/disable in this story),
+  // rather than an inline editor duplicated here — the Settings page is the
+  // discoverability hub (AC #3). Material Categories & Low-stock Thresholds
+  // already have full admin surfaces elsewhere, so their cards are pure links.
+  const categoryFamilies: { label: string; href: string; types: NamedType[] }[] = [
+    { label: "Employment Types", href: "/team/employment-types", types: employmentTypes },
+    { label: "Machinery Types", href: "/machinery-vehicles/machinery-types", types: machineryTypes },
+    { label: "Vehicle Types", href: "/machinery-vehicles/vehicle-types", types: vehicleTypes },
+    { label: "Expense Categories", href: "/expenses/categories", types: expenseCategories },
+    { label: "Material Categories", href: "/materials/categories", types: materialCategories },
+  ];
 
   return (
     <>
@@ -79,39 +110,92 @@ export default async function SettingsPage() {
         </Card>
 
         <Card>
-          <div className="mb-4 flex items-center gap-2">
-            <LayersIcon className="size-4 text-accent-teal-700" />
-            <h2 className="text-card-title text-ink-900">Category Configuration</h2>
+          <div className="mb-1 flex items-center gap-2">
+            <BellIcon className="size-4 text-accent-teal-700" />
+            <h2 className="text-card-title text-ink-900">Notification Channels</h2>
           </div>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-            <div>
-              <div className="mb-2 text-eyebrow uppercase text-ink-500">Employment Types</div>
-              <div className="flex flex-wrap gap-1.5">
-                {employmentTypes.map((t) => (
-                  <span key={t.id} className="rounded-full bg-surface-2 px-2.5 py-0.5 text-caption text-ink-700">
-                    {t.name}
-                  </span>
-                ))}
+          <p className="mb-6 text-body-sm text-ink-500">
+            Choose which channels deliver the automated daily report, and who receives it — the next
+            report delivers to exactly what you configure here, with no manual forwarding.
+          </p>
+          <NotificationChannelsSection settings={notificationSettings} users={users} />
+        </Card>
+
+        <Card>
+          <div className="mb-1 flex items-center gap-2">
+            <LayersIcon className="size-4 text-accent-teal-700" />
+            <h2 className="text-card-title text-ink-900">Categories &amp; Config</h2>
+          </div>
+          <p className="mb-6 text-body-sm text-ink-500">
+            Every category set is fully yours to configure — add, rename, or disable entries and the
+            change reflects immediately in the relevant entry forms. Nothing here is hardcoded.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {categoryFamilies.map((family) => {
+              const active = family.types.filter((t) => t.isActive);
+              const disabledCount = family.types.length - active.length;
+              return (
+                <div
+                  key={family.href}
+                  className="flex flex-col gap-3 rounded-lg border border-border-hairline bg-surface-1 p-4"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-eyebrow uppercase text-ink-500">{family.label}</span>
+                    <Link
+                      href={family.href}
+                      className="text-caption text-accent-teal-700 underline hover:no-underline"
+                    >
+                      Edit
+                    </Link>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {active.length === 0 ? (
+                      <span className="text-caption text-ink-500">None configured yet.</span>
+                    ) : (
+                      active.map((t) => (
+                        <span
+                          key={t.id}
+                          className="rounded-full bg-surface-2 px-2.5 py-0.5 text-caption text-ink-700"
+                        >
+                          {t.name}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                  {disabledCount > 0 ? (
+                    <span className="text-eyebrow text-ink-500">
+                      {disabledCount} disabled
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+
+            {/* Low-stock Thresholds — read/discovery-only (AC #3): each Material's
+                threshold is edited on the Material's own page, not bulk-edited here. */}
+            <div className="flex flex-col gap-3 rounded-lg border border-border-hairline bg-surface-1 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-eyebrow uppercase text-ink-500">Low-stock Thresholds</span>
+                <Link
+                  href="/materials"
+                  className="text-caption text-accent-teal-700 underline hover:no-underline"
+                >
+                  Edit
+                </Link>
               </div>
-            </div>
-            <div>
-              <div className="mb-2 text-eyebrow uppercase text-ink-500">Machinery Types</div>
               <div className="flex flex-wrap gap-1.5">
-                {machineryTypes.map((t) => (
-                  <span key={t.id} className="rounded-full bg-surface-2 px-2.5 py-0.5 text-caption text-ink-700">
-                    {t.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="mb-2 text-eyebrow uppercase text-ink-500">Vehicle Types</div>
-              <div className="flex flex-wrap gap-1.5">
-                {vehicleTypes.map((t) => (
-                  <span key={t.id} className="rounded-full bg-surface-2 px-2.5 py-0.5 text-caption text-ink-700">
-                    {t.name}
-                  </span>
-                ))}
+                {thresholds.length === 0 ? (
+                  <span className="text-caption text-ink-500">No thresholds set yet.</span>
+                ) : (
+                  thresholds.map((t) => (
+                    <span
+                      key={t.id}
+                      className="rounded-full bg-surface-2 px-2.5 py-0.5 text-caption text-ink-700"
+                    >
+                      {t.name} — {t.lowStockThreshold} {t.unit}
+                    </span>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -120,8 +204,8 @@ export default async function SettingsPage() {
 
       <p className="mt-6 flex items-center gap-2 text-caption text-ink-500">
         <GearIcon className="size-3.5 shrink-0" />
-        Branding and users are editable above. Managing category lists from here ships with a later
-        Tenant Configuration &amp; Settings story.
+        Branding, users, and every category set above are fully admin-configurable — changes take
+        effect immediately, with no publish step.
       </p>
     </>
   );

@@ -267,6 +267,11 @@ enum AssetLocationStatus {
 model MachineryType {
   id        String      @id @default(uuid(7))
   name      String      @unique
+  // Story 14.3 (FR-49, NFR-4): the full admin lifecycle Story 8.1 deferred to
+  // Epic 14. Disabling hides the type from new-asset entry forms without
+  // touching Machinery already assigned to it — master data, an in-place edit,
+  // never one of AD-9's append-only tables.
+  isActive  Boolean     @default(true)
   machinery Machinery[]
 }
 
@@ -276,6 +281,8 @@ model MachineryType {
 model VehicleType {
   id       String    @id @default(uuid(7))
   name     String    @unique
+  // Story 14.3 (FR-49, NFR-4): same admin-lifecycle addition as MachineryType.
+  isActive Boolean   @default(true)
   vehicles Vehicle[]
 }
 
@@ -585,6 +592,10 @@ model Vendor {
 model ExpenseCategory {
   id       String    @id @default(uuid(7))
   name     String    @unique
+  // Story 14.3 (FR-49, NFR-4): the full admin lifecycle Story 11.1 deferred to
+  // Epic 14. Disabling hides the category from the Expense entry form without
+  // touching Expenses already recorded against it.
+  isActive Boolean   @default(true)
   expenses Expense[]
 }
 
@@ -699,4 +710,48 @@ model ReportDelivery {
   createdAt     DateTime    @default(now())
 
   @@unique([dailyReportId, channel])
+}
+
+// Story 14.4 (FR-50): which channels receive automated reports, and to whom.
+// This replaces Story 13.1's hardcoded enabled-channels set + Owner/Admin
+// recipient default with real, admin-editable configuration. Same
+// configuration-record category as BrandingConfig (Story 13.1) — NOT an AD-9
+// transaction-history table (no correctsId/reason), edited in place. Seeded
+// (infra/prisma/seed.ts) with exactly the three rows Story 13.1's defaults
+// implied, so switching ReportDeliveryService to read from this table does not
+// change day-one delivery behaviour. `channel` is @unique — it is the natural
+// key the PATCH /notification-settings/:channel route targets. `recipientUserIds`
+// holds User.id values (resolved to emails at send time); IN_APP ignores it
+// (in-app "delivery" has no per-user targeting).
+model NotificationChannelSetting {
+  id               String   @id @default(uuid(7))
+  channel          String   @unique
+  enabled          Boolean  @default(false)
+  recipientUserIds String[] @default([])
+}
+
+// Story 14.5 (FR-51): scheduled, multi-cadence delivery of Epic 13's report set
+// (Site/Inventory/Labour/Machinery-Vehicle/Financial) — configured and run
+// entirely INDEPENDENTLY of the daily-DSR delivery (FR-50 / Story 13.1). A
+// separate model + a separate Cron job (POST /cron/run-report-schedules), never
+// a shared "reports" scheduler with a mode flag: independence is structural, not
+// conventional. Configuration record, edited in place (no correctsId/reason) —
+// same category as NotificationChannelSetting / BrandingConfig, NOT an AD-9
+// transaction-history table. `reportType`: SITE | INVENTORY | LABOUR |
+// MACHINERY_VEHICLE | FINANCIAL. `frequency`: DAILY | WEEKLY | MONTHLY. `siteId`
+// optional — a schedule can be Site-scoped or cover all Sites (null), matching
+// Epic 13's own filter shape (plain scalar, not an FK relation — it is a query
+// param the report endpoints accept, not a structural link). `lastRunAt` drives
+// due-detection: a schedule is due when frequency-worth of time has elapsed
+// since it, or immediately if null.
+model ReportSchedule {
+  id               String    @id @default(uuid(7))
+  reportType       String
+  frequency        String
+  recipientUserIds String[]  @default([])
+  enabled          Boolean   @default(false)
+  siteId           String?
+  lastRunAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }

@@ -1461,11 +1461,22 @@ export default async function ReportsPage({
 
   return (
     <>
-      <div className="mb-8">
-        <h1 className="text-page-title text-ink-900">Reports</h1>
-        <p className="text-body-sm text-ink-500">
-          Reports generate and deliver automatically — no manual step required.
-        </p>
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-page-title text-ink-900">Reports</h1>
+          <p className="text-body-sm text-ink-500">
+            Reports generate and deliver automatically — no manual step required.
+          </p>
+        </div>
+        {/* Story 14.5 (FR-51): scheduled, multi-cadence report delivery, configured
+            independently of the daily report flow. */}
+        <Link
+          href="/reports/schedules"
+          className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
+        >
+          <CalendarIcon className="size-4" />
+          Scheduled Reports
+        </Link>
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Report type">

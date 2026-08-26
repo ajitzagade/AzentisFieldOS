@@ -25,8 +25,8 @@ describe("VehicleTypesPage", () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => [
-        { id: "t1", name: "Truck" },
-        { id: "t2", name: "Dumper" },
+        { id: "t1", name: "Truck", isActive: true },
+        { id: "t2", name: "Dumper", isActive: true },
       ],
     }) as unknown as typeof fetch;
 

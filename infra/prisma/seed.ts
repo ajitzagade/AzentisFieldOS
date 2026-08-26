@@ -103,6 +103,39 @@ async function main() {
     });
   }
 
+  // Story 14.4 (FR-50): seed NotificationChannelSetting with exactly the three
+  // rows Story 13.1's hardcoded delivery default implied, so switching
+  // ReportDeliveryService to read from this table does NOT change day-one
+  // behaviour. EMAIL: enabled, recipients = the current Owner/Admin user ids
+  // (Story 13.1 mailed every Owner/Admin). IN_APP: enabled, recipients
+  // irrelevant (in-app "delivery" has no per-user targeting). WHATSAPP:
+  // disabled, empty (its BSP adapter is still the not-configured placeholder).
+  // Idempotent upsert on the unique channel; `update: {}` never clobbers an
+  // admin's later edits (Epic 14).
+  const ownerAdmins = await prisma.user.findMany({
+    where: { role: "OWNER_ADMIN" },
+    select: { id: true },
+  });
+  const ownerAdminIds = ownerAdmins.map((user) => user.id);
+
+  const notificationChannelDefaults: {
+    channel: string;
+    enabled: boolean;
+    recipientUserIds: string[];
+  }[] = [
+    { channel: "EMAIL", enabled: true, recipientUserIds: ownerAdminIds },
+    { channel: "IN_APP", enabled: true, recipientUserIds: [] },
+    { channel: "WHATSAPP", enabled: false, recipientUserIds: [] },
+  ];
+
+  for (const setting of notificationChannelDefaults) {
+    await prisma.notificationChannelSetting.upsert({
+      where: { channel: setting.channel },
+      update: {},
+      create: setting,
+    });
+  }
+
   await prisma.$disconnect();
 }
 

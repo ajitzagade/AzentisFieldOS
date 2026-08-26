@@ -14,6 +14,10 @@ import { ReportCompilerService } from './report-compiler.service';
 import { ReportDeliveryService } from './report-delivery.service';
 import { BrandingConfigController } from './branding-config.controller';
 import { BrandingConfigService } from './branding-config.service';
+import { NotificationSettingsController } from './notification-settings.controller';
+import { NotificationSettingsService } from './notification-settings.service';
+import { ReportSchedulesController } from './report-schedules.controller';
+import { ReportSchedulesService } from './report-schedules.service';
 import {
   EMAIL_SENDER,
   WHATSAPP_SENDER,
@@ -40,10 +44,17 @@ import {
     TeamModule,
     AssetsModule,
   ],
-  controllers: [ReportsController, BrandingConfigController],
+  controllers: [
+    ReportsController,
+    BrandingConfigController,
+    NotificationSettingsController,
+    ReportSchedulesController,
+  ],
   providers: [
     ReportsService,
     BrandingConfigService,
+    NotificationSettingsService,
+    ReportSchedulesService,
     SiteInventoryReportsService,
     LabourReportsService,
     MachineryVehicleReportsService,

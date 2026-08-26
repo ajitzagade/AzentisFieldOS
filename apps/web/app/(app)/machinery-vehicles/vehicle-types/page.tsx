@@ -1,11 +1,14 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
-import { DataTable, TruckIcon, type DataTableColumn } from "@azentisfieldos/ui";
+import { Badge, DataTable, TruckIcon, type DataTableColumn } from "@azentisfieldos/ui";
+import { CategoryRowActions } from "../../_components/category-row-actions";
 import { AddVehicleTypeForm } from "./add-vehicle-type-form";
+import { renameVehicleTypeAction, toggleVehicleTypeAction } from "./actions";
 
 interface VehicleTypeItem {
   id: string;
   name: string;
+  isActive: boolean;
 }
 
 async function getVehicleTypes(): Promise<VehicleTypeItem[]> {
@@ -17,7 +20,28 @@ async function getVehicleTypes(): Promise<VehicleTypeItem[]> {
 }
 
 const columns: DataTableColumn<VehicleTypeItem>[] = [
-  { header: "Name", cell: (t) => <span className="font-semibold">{t.name}</span> },
+  {
+    header: "Name",
+    cell: (t) => (
+      <span className="flex items-center gap-2 font-semibold">
+        {t.name}
+        {!t.isActive ? <Badge variant="neutral">Disabled</Badge> : null}
+      </span>
+    ),
+  },
+  {
+    header: "",
+    align: "right",
+    cell: (t) => (
+      <CategoryRowActions
+        key={`${t.id}-${t.name}`}
+        name={t.name}
+        isActive={t.isActive}
+        renameAction={renameVehicleTypeAction.bind(null, t.id)}
+        toggleAction={toggleVehicleTypeAction.bind(null, t.id, !t.isActive)}
+      />
+    ),
+  },
 ];
 
 // Minimal create+list — Epic 14 owns the full admin lifecycle (edit,

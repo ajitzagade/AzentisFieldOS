@@ -1,7 +1,9 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { Badge, DataTable, UsersIcon, type DataTableColumn } from "@azentisfieldos/ui";
+import { CategoryRowActions } from "../../_components/category-row-actions";
 import { AddEmploymentTypeForm } from "./add-employment-type-form";
+import { renameEmploymentTypeAction, toggleEmploymentTypeAction } from "./actions";
 
 interface EmploymentTypeItem {
   id: string;
@@ -25,6 +27,19 @@ const columns: DataTableColumn<EmploymentTypeItem>[] = [
         {e.name}
         {!e.isActive ? <Badge variant="neutral">Disabled</Badge> : null}
       </span>
+    ),
+  },
+  {
+    header: "",
+    align: "right",
+    cell: (e) => (
+      <CategoryRowActions
+        key={`${e.id}-${e.name}`}
+        name={e.name}
+        isActive={e.isActive}
+        renameAction={renameEmploymentTypeAction.bind(null, e.id)}
+        toggleAction={toggleEmploymentTypeAction.bind(null, e.id, !e.isActive)}
+      />
     ),
   },
 ];

@@ -16,6 +16,7 @@ const validUuid = '123e4567-e89b-42d3-a456-426614174000';
 interface FakePrismaMaterial {
   create?: ReturnType<typeof vi.fn>;
   update?: ReturnType<typeof vi.fn>;
+  findMany?: ReturnType<typeof vi.fn>;
 }
 
 interface FakePrismaMaterialSize {
@@ -28,6 +29,7 @@ describe('MaterialsController', () => {
   let service: {
     create: ReturnType<typeof vi.fn>;
     list: ReturnType<typeof vi.fn>;
+    listThresholds: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     createSize: ReturnType<typeof vi.fn>;
     listSizes: ReturnType<typeof vi.fn>;
@@ -37,6 +39,7 @@ describe('MaterialsController', () => {
     service = {
       create: vi.fn(),
       list: vi.fn(),
+      listThresholds: vi.fn(),
       update: vi.fn(),
       createSize: vi.fn(),
       listSizes: vi.fn(),
@@ -71,6 +74,19 @@ describe('MaterialsController', () => {
 
     expect(service.list).toHaveBeenCalled();
     expect(result).toEqual([{ id: '1', name: 'RCC Pipe' }]);
+  });
+
+  it('listThresholds (Story 14.3) delegates to MaterialsService.listThresholds', async () => {
+    service.listThresholds.mockResolvedValue([
+      { id: 'm1', name: 'Cement', lowStockThreshold: '200', unit: 'Bags' },
+    ]);
+
+    const result = await controller.listThresholds();
+
+    expect(service.listThresholds).toHaveBeenCalled();
+    expect(result).toEqual([
+      { id: 'm1', name: 'Cement', lowStockThreshold: '200', unit: 'Bags' },
+    ]);
   });
 
   it('update delegates to MaterialsService.update with the id and validated body', async () => {
@@ -413,6 +429,39 @@ describe('MaterialsService', () => {
 
     expect(result[0]?.customFields).toEqual([]);
     expect(result[1]?.customFields).toEqual([{ label: 'Brand', type: 'TEXT' }]);
+  });
+
+  it('listThresholds() (Story 14.3) returns only active Materials with a threshold, mapped for the Settings card', async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: 'm1',
+        name: 'Cement (OPC 53)',
+        lowStockThreshold: '200',
+        unit: { name: 'Bags' },
+      },
+    ]);
+    const service = makeService({ findMany });
+
+    const result = await service.listThresholds();
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: { isActive: true, lowStockThreshold: { not: null } },
+      select: {
+        id: true,
+        name: true,
+        lowStockThreshold: true,
+        unit: { select: { name: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    expect(result).toEqual([
+      {
+        id: 'm1',
+        name: 'Cement (OPC 53)',
+        lowStockThreshold: '200',
+        unit: 'Bags',
+      },
+    ]);
   });
 
   it('listSizes() returns the Sizes for a Material, ordered by label', async () => {

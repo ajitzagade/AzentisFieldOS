@@ -1,6 +1,10 @@
+---
+baseline_commit: 057ff73068e07b4912c7352b1dbfdf89cadbd65f
+---
+
 # Story 14.3: Category Configuration
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -18,23 +22,23 @@ so that my catalog of categories matches how my business actually operates, full
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Schema fix: add the missing `isActive` columns (AC: #1)
-  - [ ] `EmploymentType` (Epic 6 Story 6.1) already has `isActive` — no change needed there. `MachineryType`/`VehicleType` (Epic 8 Story 8.1) and `ExpenseCategory` (pre-existing) do **not** — each was deliberately scoped to create+list only by its originating story, with full lifecycle explicitly deferred to this epic. Add `isActive Boolean @default(true)` to all three. Run `pnpm db:generate`.
-- [ ] Task 2 — Shared Zod schemas (AC: #1)
-  - [ ] Extend `packages/shared/src/schemas/machinery-type.ts`, `vehicle-type.ts` (Epic 8), and create `expense-category-update.ts`-equivalent additions to `packages/shared/src/schemas/expense-category.ts` (Epic 11) with `updateXSchema` (`{ name: z.string().min(1).max(100).optional(), isActive: z.boolean().optional() }` — no default-on-partial trap here since these schemas never had a `.default()` on `isActive` to begin with, unlike `Material`'s history in Epic 4).
-  - [ ] Extend `packages/shared/src/schemas/employment-type.ts` (Epic 6) the same way — it already has the `isActive` column, just never got an update schema since Epic 6 Story 6.1 scoped that to this epic too.
-- [ ] Task 3 — `apps/api` (AC: #1)
-  - [ ] Add `PATCH /employment-types/:id`, `PATCH /machinery-types/:id`, `PATCH /vehicle-types/:id`, `PATCH /expense-categories/:id` to their respective existing controllers/services (`apps/api/src/team/`, `apps/api/src/assets/`, `apps/api/src/expenses/`) — four small additions across three existing modules, no new modules.
-  - [ ] `GET /materials/thresholds` (new, on Epic 4/5's existing `materials.controller.ts`) — every active `Material` with a non-null `lowStockThreshold`, `{ id, name, lowStockThreshold }`, for the Settings page's "Low-stock Thresholds" summary card (AC #3 — this is the one genuinely new read endpoint this story adds, everything else is either a `PATCH` on an existing resource or a link to an existing page).
-- [ ] Task 4 — `apps/web` UI (AC: #1, #2, #3)
-  - [ ] Extend `apps/web/app/(app)/settings/page.tsx` (Stories 14.1/14.2) with a "Categories & Config" section, matching `17-settings.html`'s card-grid layout: one compact `card-flat` per category family, each showing a chip list of current entries and an Edit action.
-  - [ ] Employment Types, Machinery Types, Vehicle Types, Expense Categories: each card's Edit action opens that family's existing dedicated route (`/team/employment-types`, `/machinery-vehicles/machinery-types`, `/machinery-vehicles/vehicle-types`, `/expenses/categories` — all created by their originating epics with create+list only) — **extend each of those existing pages** with rename/disable controls now that Task 3 added the `PATCH` endpoints, rather than building four new pages here.
-  - [ ] Material Categories card: Edit links to Epic 4's existing `/materials/categories` page (already full CRUD, no extension needed) — a pure discoverability link, per AC #3.
-  - [ ] Low-stock Thresholds card: reads Task 3's `GET /materials/thresholds`, shows each as a static chip (`"Cement (OPC 53) — 200 Bags"` per the mockup); its Edit action links to the specific Material's edit page (Epic 4/5, where the threshold field already lives) rather than building a bulk-edit UI here — this card is read/discovery-only, matching AC #3.
-- [ ] Task 5 — Tests (AC: all)
-  - [ ] Zod tests for each new update schema.
-  - [ ] Service tests for each new `PATCH` endpoint (rename + disable, following the exact pattern Epic 4 Story 4.1 established for `MaterialCategory`'s own `PATCH`).
-  - [ ] `apps/web` component test: a disabled category no longer appears in the relevant entry form's picker (e.g., a disabled Machinery Type is absent from the "Add Machine" form's Type `SelectField`) — the concrete proof of AC #1's "reflected immediately in the relevant entry forms."
+- [x] Task 1 — Schema fix: add the missing `isActive` columns (AC: #1)
+  - [x] `EmploymentType` (Epic 6 Story 6.1) already has `isActive` — no change needed there. `MachineryType`/`VehicleType` (Epic 8 Story 8.1) and `ExpenseCategory` (pre-existing) do **not** — each was deliberately scoped to create+list only by its originating story, with full lifecycle explicitly deferred to this epic. Add `isActive Boolean @default(true)` to all three. Run `pnpm db:generate`.
+- [x] Task 2 — Shared Zod schemas (AC: #1)
+  - [x] Extend `packages/shared/src/schemas/machinery-type.ts`, `vehicle-type.ts` (Epic 8), and create `expense-category-update.ts`-equivalent additions to `packages/shared/src/schemas/expense-category.ts` (Epic 11) with `updateXSchema` (`{ name: z.string().min(1).max(100).optional(), isActive: z.boolean().optional() }` — no default-on-partial trap here since these schemas never had a `.default()` on `isActive` to begin with, unlike `Material`'s history in Epic 4).
+  - [x] Extend `packages/shared/src/schemas/employment-type.ts` (Epic 6) the same way — it already has the `isActive` column, just never got an update schema since Epic 6 Story 6.1 scoped that to this epic too.
+- [x] Task 3 — `apps/api` (AC: #1)
+  - [x] Add `PATCH /employment-types/:id`, `PATCH /machinery-types/:id`, `PATCH /vehicle-types/:id`, `PATCH /expense-categories/:id` to their respective existing controllers/services (`apps/api/src/team/`, `apps/api/src/assets/`, `apps/api/src/expenses/`) — four small additions across three existing modules, no new modules.
+  - [x] `GET /materials/thresholds` (new, on Epic 4/5's existing `materials.controller.ts`) — every active `Material` with a non-null `lowStockThreshold`, `{ id, name, lowStockThreshold }`, for the Settings page's "Low-stock Thresholds" summary card (AC #3 — this is the one genuinely new read endpoint this story adds, everything else is either a `PATCH` on an existing resource or a link to an existing page).
+- [x] Task 4 — `apps/web` UI (AC: #1, #2, #3)
+  - [x] Extend `apps/web/app/(app)/settings/page.tsx` (Stories 14.1/14.2) with a "Categories & Config" section, matching `17-settings.html`'s card-grid layout: one compact `card-flat` per category family, each showing a chip list of current entries and an Edit action.
+  - [x] Employment Types, Machinery Types, Vehicle Types, Expense Categories: each card's Edit action opens that family's existing dedicated route (`/team/employment-types`, `/machinery-vehicles/machinery-types`, `/machinery-vehicles/vehicle-types`, `/expenses/categories` — all created by their originating epics with create+list only) — **extend each of those existing pages** with rename/disable controls now that Task 3 added the `PATCH` endpoints, rather than building four new pages here.
+  - [x] Material Categories card: Edit links to Epic 4's existing `/materials/categories` page (already full CRUD, no extension needed) — a pure discoverability link, per AC #3.
+  - [x] Low-stock Thresholds card: reads Task 3's `GET /materials/thresholds`, shows each as a static chip (`"Cement (OPC 53) — 200 Bags"` per the mockup); its Edit action links to the specific Material's edit page (Epic 4/5, where the threshold field already lives) rather than building a bulk-edit UI here — this card is read/discovery-only, matching AC #3.
+- [x] Task 5 — Tests (AC: all)
+  - [x] Zod tests for each new update schema.
+  - [x] Service tests for each new `PATCH` endpoint (rename + disable, following the exact pattern Epic 4 Story 4.1 established for `MaterialCategory`'s own `PATCH`).
+  - [x] `apps/web` component test: a disabled category no longer appears in the relevant entry form's picker (e.g., a disabled Machinery Type is absent from the "Add Machine" form's Type `SelectField`) — the concrete proof of AC #1's "reflected immediately in the relevant entry forms."
 
 ## Dev Notes
 
@@ -64,10 +68,35 @@ so that my catalog of categories matches how my business actually operates, full
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.8 (1M context) — claude-opus-4-8[1m]
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- Added `isActive Boolean @default(true)` to `MachineryType`, `VehicleType`, `ExpenseCategory` (`EmploymentType` already had it). Committed migration `infra/prisma/migrations/20260826185659_add_category_is_active_fields/` (generated + applied against the local DB).
+- Added `updateXSchema` (`name?`/`isActive?`, both bare-optional — no `.default()` trap) to the four shared schemas and `PATCH /:id` handlers on the four existing controllers/services (rename + disable). The new PATCH endpoints are role-gated with `@UseGuards(RolesGuard)` + `@Roles('OWNER_ADMIN')` (mirrors `users.controller.ts`); create/list reads stay open for the entry forms.
+- New read endpoint `GET /materials/thresholds` (only new read this story adds) powers the Settings "Low-stock Thresholds" summary card.
+- Extended the four dedicated admin pages with a shared `CategoryRowActions` client component (rename inline + disable/enable toggle, one implementation per AD-5). The editor auto-closes after a successful rename via a name-based React `key` remount (no `setState`-in-effect, which CI's jsx-a11y/react-hooks rules reject).
+- Entry forms now hide disabled types (`machinery/new`, `vehicles/new`, `expenses/new` filter `isActive`; `team/new` already did) — the concrete AC #1 proof. Web tests assert a disabled Machinery/Vehicle Type is absent from the picker.
+- Settings "Categories & Config" section rebuilt as a card grid: Employment/Machinery/Vehicle Types + Expense Categories + Material Categories each link out to their dedicated admin route (Edit), and Low-stock Thresholds is a read-only discovery card (AC #3).
+- Verified: `pnpm --filter @azentisfieldos/api test` (749 pass) + api typecheck; `pnpm --filter @azentisfieldos/web` typecheck/lint/test (539 pass)/build; `pnpm --filter @azentisfieldos/shared typecheck`.
+
 ### File List
+
+- infra/prisma/schema.prisma (MachineryType/VehicleType/ExpenseCategory isActive)
+- infra/prisma/migrations/20260826185659_add_category_is_active_fields/migration.sql (new)
+- packages/shared/src/schemas/machinery-type.ts, vehicle-type.ts, expense-category.ts, employment-type.ts (update schemas)
+- apps/api/src/team/employment-types.service.ts, employment-types.controller.ts (+ .controller.spec.ts)
+- apps/api/src/assets/machinery-types.service.ts, machinery-types.controller.ts (+ .controller.spec.ts)
+- apps/api/src/assets/vehicle-types.service.ts, vehicle-types.controller.ts (+ .controller.spec.ts)
+- apps/api/src/expenses/expense-categories.service.ts, expense-categories.controller.ts (+ .service.spec.ts)
+- apps/api/src/materials/materials.service.ts, materials.controller.ts (+ .controller.spec.ts — thresholds)
+- apps/web/app/(app)/_components/category-row-actions.tsx (new)
+- apps/web/app/(app)/team/employment-types/page.tsx, actions.ts
+- apps/web/app/(app)/machinery-vehicles/machinery-types/page.tsx, actions.ts (+ page.test.tsx)
+- apps/web/app/(app)/machinery-vehicles/vehicle-types/page.tsx, actions.ts (+ page.test.tsx)
+- apps/web/app/(app)/expenses/categories/page.tsx, actions.ts
+- apps/web/app/(app)/machinery-vehicles/machinery/new/page.tsx (+ page.test.tsx), vehicles/new/page.tsx (+ page.test.tsx)
+- apps/web/app/(app)/expenses/new/page.tsx
+- apps/web/app/(app)/settings/page.tsx (Categories & Config section)

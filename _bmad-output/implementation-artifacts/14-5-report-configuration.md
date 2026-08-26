@@ -1,6 +1,10 @@
+---
+baseline_commit: 057ff73068e07b4912c7352b1dbfdf89cadbd65f
+---
+
 # Story 14.5: Report Configuration
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -17,19 +21,19 @@ so that I can tune reporting cadence without affecting the core daily report flo
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Schema addition (AC: #1, #2)
-  - [ ] Add `model ReportSchedule { id String @id @default(uuid(7)), reportType String, frequency String, recipientUserIds String[] @default([]), enabled Boolean @default(false), siteId String?, lastRunAt DateTime?, createdAt DateTime @default(now()), updatedAt DateTime @updatedAt }`. `reportType`: `SITE | INVENTORY | LABOUR | MACHINERY_VEHICLE | FINANCIAL` (Epic 13 Stories 13.2–13.4's four report domains, machinery/vehicle counted as one per Story 13.3's own grouping). `frequency`: `DAILY | WEEKLY | MONTHLY`. `siteId` optional — a schedule can be Site-scoped or cover all Sites (`null`), matching those stories' own filter shape. No `correctsId`/`reason` — this is configuration, not transaction history, same category as `NotificationChannelSetting` (Story 14.4) and `BrandingConfig` (Story 13.1). Run `pnpm db:generate`.
-- [ ] Task 2 — Shared Zod schema (AC: #1)
-  - [ ] Create `packages/shared/src/schemas/report-schedule.ts`: `createReportScheduleSchema`/`updateReportScheduleSchema` (`reportType`/`frequency` enums, `recipientUserIds: z.array(z.uuid())`, `siteId: z.uuid().optional()`, `enabled: z.boolean().default(true)`).
-- [ ] Task 3 — `apps/api` (AC: #1, #2)
-  - [ ] `apps/api/src/reports/report-schedules.controller.ts` + `.service.ts` (`ReportsModule`, Story 13.1). `POST /report-schedules`, `GET /report-schedules`, `PATCH /report-schedules/:id`.
-  - [ ] `POST /cron/run-report-schedules` — a second Cron target alongside Story 13.1's `compile-daily-reports` (same `CRON_SECRET` verification, same `AD-13` reasoning, added as its own `vercel.json` entry with its own schedule, e.g. hourly, since different schedules have different due-times — a schedule is "due" when `frequency`-worth of time has elapsed since `lastRunAt`, or immediately if `lastRunAt` is null). For each due, enabled `ReportSchedule`: call the corresponding Epic 13 Story 13.2/13.3/13.4 endpoint (`GET /reports/sites`, `/reports/inventory`, `/reports/labour`, `/reports/machinery-vehicles`, `/reports/financial`) with a date range derived from `frequency` (daily → yesterday; weekly → last 7 days; monthly → last calendar month), then deliver the result via `ReportDeliveryService`'s existing Email/WhatsApp/in-app machinery (Story 13.1) to `recipientUserIds` — reuse that delivery service completely, this story does not build a second delivery mechanism. Update `lastRunAt` on success.
-  - [ ] This endpoint governs `ReportSchedule` rows exclusively and never touches `NotificationChannelSetting` (Story 14.4) or the daily-DSR `DailyReport`/Story 13.1 compile path — AC #1's "independently of FR-50" is satisfied by these being two entirely separate models and two separate Cron jobs, not a shared one with a mode flag.
-- [ ] Task 4 — `apps/web` UI (AC: #1)
-  - [ ] Extend `apps/web/app/(app)/reports/page.tsx` (Epic 13) with a "Scheduled Reports" section (or a `/reports/schedules` sub-route if the main Reports page is already dense after Epic 13 — either is acceptable, match whatever that page's actual layout looks like by the time this story is picked up): a list of configured schedules and a create form (report type, frequency, optional Site scope, recipient picker reusing Story 14.2's `GET /users`).
-- [ ] Task 5 — Tests (AC: all)
-  - [ ] Zod tests.
-  - [ ] `report-schedules.service.spec.ts`: due-schedule detection correctly handles `null` `lastRunAt` (immediately due) and each frequency's elapsed-time threshold; the Cron handler calls the correct Epic 13 report endpoint per `reportType` and the correct `ReportDeliveryService` channels per `recipientUserIds`, without touching `NotificationChannelSetting` or `DailyReport` at all (a concrete test of AC #1's independence claim, not just a prose assertion).
+- [x] Task 1 — Schema addition (AC: #1, #2)
+  - [x] Add `model ReportSchedule { id String @id @default(uuid(7)), reportType String, frequency String, recipientUserIds String[] @default([]), enabled Boolean @default(false), siteId String?, lastRunAt DateTime?, createdAt DateTime @default(now()), updatedAt DateTime @updatedAt }`. `reportType`: `SITE | INVENTORY | LABOUR | MACHINERY_VEHICLE | FINANCIAL` (Epic 13 Stories 13.2–13.4's four report domains, machinery/vehicle counted as one per Story 13.3's own grouping). `frequency`: `DAILY | WEEKLY | MONTHLY`. `siteId` optional — a schedule can be Site-scoped or cover all Sites (`null`), matching those stories' own filter shape. No `correctsId`/`reason` — this is configuration, not transaction history, same category as `NotificationChannelSetting` (Story 14.4) and `BrandingConfig` (Story 13.1). Run `pnpm db:generate`.
+- [x] Task 2 — Shared Zod schema (AC: #1)
+  - [x] Create `packages/shared/src/schemas/report-schedule.ts`: `createReportScheduleSchema`/`updateReportScheduleSchema` (`reportType`/`frequency` enums, `recipientUserIds: z.array(z.uuid())`, `siteId: z.uuid().optional()`, `enabled: z.boolean().default(true)`).
+- [x] Task 3 — `apps/api` (AC: #1, #2)
+  - [x] `apps/api/src/reports/report-schedules.controller.ts` + `.service.ts` (`ReportsModule`, Story 13.1). `POST /report-schedules`, `GET /report-schedules`, `PATCH /report-schedules/:id`.
+  - [x] `POST /cron/run-report-schedules` — a second Cron target alongside Story 13.1's `compile-daily-reports` (same `CRON_SECRET` verification, same `AD-13` reasoning, added as its own `vercel.json` entry with its own schedule, e.g. hourly, since different schedules have different due-times — a schedule is "due" when `frequency`-worth of time has elapsed since `lastRunAt`, or immediately if `lastRunAt` is null). For each due, enabled `ReportSchedule`: call the corresponding Epic 13 Story 13.2/13.3/13.4 endpoint (`GET /reports/sites`, `/reports/inventory`, `/reports/labour`, `/reports/machinery-vehicles`, `/reports/financial`) with a date range derived from `frequency` (daily → yesterday; weekly → last 7 days; monthly → last calendar month), then deliver the result via `ReportDeliveryService`'s existing Email/WhatsApp/in-app machinery (Story 13.1) to `recipientUserIds` — reuse that delivery service completely, this story does not build a second delivery mechanism. Update `lastRunAt` on success.
+  - [x] This endpoint governs `ReportSchedule` rows exclusively and never touches `NotificationChannelSetting` (Story 14.4) or the daily-DSR `DailyReport`/Story 13.1 compile path — AC #1's "independently of FR-50" is satisfied by these being two entirely separate models and two separate Cron jobs, not a shared one with a mode flag.
+- [x] Task 4 — `apps/web` UI (AC: #1)
+  - [x] Extend `apps/web/app/(app)/reports/page.tsx` (Epic 13) with a "Scheduled Reports" section (or a `/reports/schedules` sub-route if the main Reports page is already dense after Epic 13 — either is acceptable, match whatever that page's actual layout looks like by the time this story is picked up): a list of configured schedules and a create form (report type, frequency, optional Site scope, recipient picker reusing Story 14.2's `GET /users`).
+- [x] Task 5 — Tests (AC: all)
+  - [x] Zod tests.
+  - [x] `report-schedules.service.spec.ts`: due-schedule detection correctly handles `null` `lastRunAt` (immediately due) and each frequency's elapsed-time threshold; the Cron handler calls the correct Epic 13 report endpoint per `reportType` and the correct `ReportDeliveryService` channels per `recipientUserIds`, without touching `NotificationChannelSetting` or `DailyReport` at all (a concrete test of AC #1's independence claim, not just a prose assertion).
 
 ## Dev Notes
 
@@ -60,10 +64,29 @@ so that I can tune reporting cadence without affecting the core daily report flo
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.8 (1M context) — claude-opus-4-8[1m]
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- Added `ReportSchedule` model (reportType/frequency/recipientUserIds/enabled/siteId?/lastRunAt?/createdAt/updatedAt; `siteId` a plain scalar filter, no FK). Committed migration `infra/prisma/migrations/20260826192248_add_report_schedule/`.
+- Shared `createReportScheduleSchema`/`updateReportScheduleSchema` with `reportType`/`frequency` enums (exported `REPORT_SCHEDULE_TYPES`/`_FREQUENCIES`); update guards the enabled-re-enable-on-empty trap.
+- New `ReportSchedulesController`/`Service` in `ReportsModule`: `POST/GET /report-schedules`, `PATCH /report-schedules/:id` (all `@Roles('OWNER_ADMIN')`), plus `POST /cron/run-report-schedules` — `@Public()` + `CRON_SECRET`-gated (same pattern as Story 13.1's cron routes; RolesGuard is a no-op on the @Public route). New `vercel.json` hourly cron entry.
+- Due-detection: null `lastRunAt` = due; otherwise due when the frequency interval (DAILY/WEEKLY/MONTHLY) has elapsed. Data window derived from cadence (daily→yesterday, weekly→last 7 days, monthly→last calendar month).
+- The runner governs `ReportSchedule` rows ONLY: it calls the correct Epic 13 report-query service per `reportType` and reuses `ReportDeliveryService` via a new `deliverScheduledReport(recipientUserIds, content)` that reuses the existing Email sender — it never touches `NotificationChannelSetting` (14.4) or the daily-DSR `DailyReport`/compile path (13.1). Independence proven by a spec asserting those prisma models are never called.
+- Web `/reports/schedules` sub-route (main Reports page is dense): Owner/Admin-gated page with a create form (report type / frequency / optional Site scope / recipient multi-select over Active users) + a schedules table with pause/resume; a "Scheduled Reports" link added to the Reports page header.
+- KNOWN LIMITATION (documented in code): scheduled delivery currently sends a branded notification envelope (report type + window in the header) rather than a fully rendered per-type email body — richer per-type templates are follow-up, matching Story 13.1's "senders not yet exercised against a real provider" posture. The Epic 13 fetch still runs and gates `lastRunAt` on success.
+- Verified: api test (749 pass) + typecheck; web typecheck/lint/test/build; shared typecheck.
+
 ### File List
+
+- infra/prisma/schema.prisma (ReportSchedule)
+- infra/prisma/migrations/20260826192248_add_report_schedule/migration.sql (new)
+- packages/shared/src/schemas/report-schedule.ts (new), packages/shared/src/index.ts
+- apps/api/src/reports/report-schedules.controller.ts, report-schedules.service.ts (+ both .spec.ts) (new)
+- apps/api/src/reports/report-delivery.service.ts (deliverScheduledReport)
+- apps/api/src/reports/reports.module.ts (register controller/service)
+- vercel.json (run-report-schedules cron)
+- apps/web/app/(app)/reports/schedules/page.tsx, report-schedules-manager.tsx, actions.ts (new)
+- apps/web/app/(app)/reports/page.tsx (Scheduled Reports link)

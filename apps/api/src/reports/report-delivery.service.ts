@@ -13,10 +13,12 @@ import {
 // delivered with NO manual "Send" action (AC #2, UX-DR19); failures surface
 // in-app as a visible status, never silently dropped (AC #3).
 
-// The default enabled-channels set. WHATSAPP is deliberately excluded until a
-// real BSP adapter exists (see report-senders.ts). FR-50's full "which
-// channels, to whom" configuration is Epic 14 — this is the scoped, sensible
-// day-one default.
+// Story 14.4 (FR-50): the enabled channels and their recipients are no longer
+// hardcoded here — they are read from NotificationChannelSetting. The seed
+// (infra/prisma/seed.ts) initialises exactly the three rows Story 13.1's
+// hardcoded default implied (EMAIL + IN_APP enabled, WHATSAPP disabled), so
+// this switch does not change day-one delivery behaviour. ENABLED_CHANNELS
+// remains only as the documented seed default, not as the runtime source.
 export const ENABLED_CHANNELS = ['IN_APP', 'EMAIL'] as const;
 export type DeliveryChannel = (typeof ENABLED_CHANNELS)[number] | 'WHATSAPP';
 
@@ -51,7 +53,15 @@ export class ReportDeliveryService {
     });
     const existingChannels = new Set(existing.map((row) => row.channel));
 
-    for (const channel of ENABLED_CHANNELS) {
+    // Story 14.4: the enabled channel set is admin configuration now, read from
+    // NotificationChannelSetting. A channel toggled off here creates no
+    // ReportDelivery row (and therefore never sends) on the next compile.
+    const enabled = await this.prisma.notificationChannelSetting.findMany({
+      where: { enabled: true },
+      select: { channel: true },
+    });
+
+    for (const { channel } of enabled) {
       if (existingChannels.has(channel)) continue;
       let deliveryId: string;
       try {
@@ -137,14 +147,17 @@ export class ReportDeliveryService {
       case 'IN_APP':
         return;
       case 'EMAIL': {
-        const recipients = await this.ownerAdminEmails();
+        const recipients = await this.recipientEmailsFor('EMAIL');
         if (recipients.length === 0) {
-          throw new Error('No Owner/Admin recipients configured for email');
+          throw new Error('No recipients configured for email');
         }
         await this.emailSender.send(recipients, content);
         return;
       }
       case 'WHATSAPP':
+        // The BSP adapter is still the not-configured placeholder (Story 13.1):
+        // attempting delivery records the honest failure in-app. Recipients are
+        // irrelevant to the placeholder, so none are resolved here.
         await this.whatsAppSender.send([], content);
         return;
       default:
@@ -152,14 +165,45 @@ export class ReportDeliveryService {
     }
   }
 
-  // EMAIL goes to every Owner/Admin (FR-50's full recipient configuration is
-  // Epic 14 — this is the scoped default: notify the Owner/Admins, not an open
-  // list).
-  private async ownerAdminEmails(): Promise<string[]> {
-    const owners = await this.prisma.user.findMany({
-      where: { role: 'OWNER_ADMIN' },
+  // Story 14.4 (FR-50): a channel's recipients are the emails of the Users named
+  // in its NotificationChannelSetting.recipientUserIds — no longer every
+  // Owner/Admin. The seed initialises EMAIL's recipients to the current
+  // Owner/Admin ids, so day-one behaviour is unchanged; an admin can then edit
+  // the list and it is honoured on the very next run.
+  private async recipientEmailsFor(channel: string): Promise<string[]> {
+    const setting = await this.prisma.notificationChannelSetting.findUnique({
+      where: { channel },
+    });
+    const ids = setting?.recipientUserIds ?? [];
+    return this.emailsForUserIds(ids);
+  }
+
+  private async emailsForUserIds(ids: string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
       select: { email: true },
     });
-    return owners.map((owner) => owner.email);
+    return users.map((user) => user.email);
+  }
+
+  // Story 14.5 (FR-51): deliver a SCHEDULED (non-DSR) report to a ReportSchedule's
+  // own recipient list, reusing this service's existing Email sender adapter (no
+  // second delivery mechanism). Deliberately INDEPENDENT of the daily-DSR path:
+  // it creates NO DailyReport/ReportDelivery rows and reads NO
+  // NotificationChannelSetting — a ReportSchedule carries its own recipients, so
+  // FR-51's "independent of FR-50" is satisfied structurally. Recipients are
+  // resolved by user id (the same emailsForUserIds helper), never by role or by
+  // the daily channel config. Returns the number of recipients emailed so the
+  // Cron handler can report it.
+  async deliverScheduledReport(
+    recipientUserIds: string[],
+    content: ReportContent,
+  ): Promise<{ recipients: number }> {
+    const recipients = await this.emailsForUserIds(recipientUserIds);
+    if (recipients.length > 0) {
+      await this.emailSender.send(recipients, content);
+    }
+    return { recipients: recipients.length };
   }
 }

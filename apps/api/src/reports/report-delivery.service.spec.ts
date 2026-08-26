@@ -19,7 +19,11 @@ function makeHarness(options: {
   delivery: DeliveryRow;
   emailSend?: ReturnType<typeof vi.fn>;
   whatsAppSend?: ReturnType<typeof vi.fn>;
+  // Story 14.4: EMAIL recipients now come from NotificationChannelSetting
+  // .recipientUserIds, resolved to User emails. `recipientUserIds` seeds the
+  // channel setting; `ownerEmails` is what user.findMany returns for those ids.
   ownerEmails?: { email: string }[];
+  recipientUserIds?: string[];
 }) {
   const { delivery } = options;
   const emailSend = options.emailSend ?? vi.fn().mockResolvedValue(undefined);
@@ -40,6 +44,14 @@ function makeHarness(options: {
     return Promise.resolve(delivery);
   });
 
+  const settingFindUnique = vi.fn(({ where }: { where: { channel: string } }) =>
+    Promise.resolve({
+      channel: where.channel,
+      enabled: true,
+      recipientUserIds: options.recipientUserIds ?? ['u1'],
+    }),
+  );
+
   const prisma = {
     reportDelivery: { findUnique, update, findMany: vi.fn(), create: vi.fn() },
     user: {
@@ -49,6 +61,10 @@ function makeHarness(options: {
           options.ownerEmails ?? [{ email: 'owner@example.com' }],
         ),
     },
+    notificationChannelSetting: {
+      findUnique: settingFindUnique,
+      findMany: vi.fn(),
+    },
   };
 
   const service = new ReportDeliveryService(
@@ -57,7 +73,15 @@ function makeHarness(options: {
     { send: whatsAppSend } as unknown as WhatsAppSender,
   );
 
-  return { service, prisma, delivery, emailSend, whatsAppSend, update };
+  return {
+    service,
+    prisma,
+    delivery,
+    emailSend,
+    whatsAppSend,
+    update,
+    settingFindUnique,
+  };
 }
 
 describe('ReportDeliveryService.send — IN_APP', () => {
@@ -137,7 +161,7 @@ describe('ReportDeliveryService.send — EMAIL retry policy (AC #3)', () => {
     expect(update).toHaveBeenCalledTimes(1);
   });
 
-  it('sends via the email adapter to every Owner/Admin on success', async () => {
+  it('sends via the email adapter to the configured recipients on success (Story 14.4)', async () => {
     const emailSend = vi.fn().mockResolvedValue(undefined);
     const { service, prisma, delivery } = makeHarness({
       delivery: {
@@ -149,13 +173,16 @@ describe('ReportDeliveryService.send — EMAIL retry policy (AC #3)', () => {
         deliveredAt: null,
       },
       emailSend,
+      recipientUserIds: ['u1', 'u2'],
       ownerEmails: [{ email: 'a@x.com' }, { email: 'b@x.com' }],
     });
 
     await service.send('d1');
 
+    // Recipients are resolved from the channel setting's recipientUserIds, not
+    // by role — no longer `where: { role: 'OWNER_ADMIN' }`.
     expect(prisma.user.findMany).toHaveBeenCalledWith({
-      where: { role: 'OWNER_ADMIN' },
+      where: { id: { in: ['u1', 'u2'] } },
       select: { email: true },
     });
     expect(emailSend).toHaveBeenCalledWith(
@@ -163,6 +190,35 @@ describe('ReportDeliveryService.send — EMAIL retry policy (AC #3)', () => {
       expect.objectContaining({ siteName: 'NH-48' }),
     );
     expect(delivery.status).toBe('SENT');
+  });
+
+  it('honours a changed recipient list on the very next run (Story 14.4)', async () => {
+    const emailSend = vi.fn().mockResolvedValue(undefined);
+    const { service, prisma } = makeHarness({
+      delivery: {
+        id: 'd1',
+        channel: 'EMAIL',
+        status: 'PENDING',
+        attempts: 0,
+        lastError: null,
+        deliveredAt: null,
+      },
+      emailSend,
+      // The admin edited the recipient list to a single, different user.
+      recipientUserIds: ['u9'],
+      ownerEmails: [{ email: 'new-recipient@x.com' }],
+    });
+
+    await service.send('d1');
+
+    expect(prisma.user.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ['u9'] } },
+      select: { email: true },
+    });
+    expect(emailSend).toHaveBeenCalledWith(
+      ['new-recipient@x.com'],
+      expect.objectContaining({ siteName: 'NH-48' }),
+    );
   });
 });
 
@@ -234,6 +290,10 @@ function makeStoreHarness(
     seedRows?: { dailyReportId: string; channel: string }[];
     emailSend?: ReturnType<typeof vi.fn>;
     ownerEmails?: { email: string }[];
+    // Story 14.4: the enabled channel set now comes from
+    // NotificationChannelSetting, not the ENABLED_CHANNELS const.
+    enabledChannels?: string[];
+    recipientUserIds?: string[];
   } = {},
 ) {
   const store = new Map<string, StoredRow>();
@@ -314,6 +374,21 @@ function makeStoreHarness(
     },
   );
 
+  const settingFindMany = vi.fn(() =>
+    Promise.resolve(
+      (options.enabledChannels ?? ['IN_APP', 'EMAIL']).map((channel) => ({
+        channel,
+      })),
+    ),
+  );
+  const settingFindUnique = vi.fn(({ where }: { where: { channel: string } }) =>
+    Promise.resolve({
+      channel: where.channel,
+      enabled: true,
+      recipientUserIds: options.recipientUserIds ?? ['u1'],
+    }),
+  );
+
   const prisma = {
     reportDelivery: { findMany, create, findUnique, update },
     user: {
@@ -322,6 +397,10 @@ function makeStoreHarness(
         .mockResolvedValue(
           options.ownerEmails ?? [{ email: 'owner@example.com' }],
         ),
+    },
+    notificationChannelSetting: {
+      findMany: settingFindMany,
+      findUnique: settingFindUnique,
     },
   };
   const service = new ReportDeliveryService(
@@ -346,6 +425,21 @@ describe('ReportDeliveryService.ensureDeliveries (idempotent, no double-send)', 
     // IN_APP marks SENT with no external call; EMAIL sends via the adapter once.
     expect(rows.every((r) => r.status === 'SENT')).toBe(true);
     expect(emailSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('creates NO EMAIL row (and never emails) when the EMAIL channel is disabled (Story 14.4)', async () => {
+    // Admin disabled Email — only IN_APP is enabled in NotificationChannelSetting.
+    const { service, store, create, emailSend } = makeStoreHarness({
+      enabledChannels: ['IN_APP'],
+    });
+
+    await service.ensureDeliveries('report1');
+
+    const channels = [...store.values()].map((r) => r.channel);
+    expect(channels).toEqual(['IN_APP']);
+    expect(channels).not.toContain('EMAIL');
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(emailSend).not.toHaveBeenCalled();
   });
 
   it('creates zero rows and sends zero times when all channels already exist', async () => {

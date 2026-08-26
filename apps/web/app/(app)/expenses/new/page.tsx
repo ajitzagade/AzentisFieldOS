@@ -9,6 +9,7 @@ interface SiteOption {
 interface CategoryOption {
   id: string;
   name: string;
+  isActive: boolean;
 }
 
 async function getSites(): Promise<SiteOption[]> {
@@ -29,11 +30,14 @@ async function getCategories(): Promise<CategoryOption[]> {
 
 export default async function NewExpensePage() {
   const [sites, categories] = await Promise.all([getSites(), getCategories()]);
+  // Story 14.3 (AC #1): a disabled Expense Category is hidden from the picker
+  // on new Expenses — it stays valid for Expenses already recorded against it.
+  const activeCategories = categories.filter((c) => c.isActive);
 
   return (
     <div className="max-w-160">
       <h1 className="mb-6 text-page-title text-ink-900">Record Expense</h1>
-      <ExpenseForm mode="new" sites={sites} categories={categories} />
+      <ExpenseForm mode="new" sites={sites} categories={activeCategories} />
     </div>
   );
 }

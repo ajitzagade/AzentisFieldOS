@@ -76,6 +76,29 @@ export class MaterialsService {
     };
   }
 
+  // Story 14.3 (AC #3): the Settings "Low-stock Thresholds" summary card — every
+  // active Material that has a threshold configured (FR-36 nullable: no threshold
+  // means never flagged). Read-only discovery surface; editing the threshold
+  // itself stays on the Material's own edit page (Epic 4/5), not rebuilt here.
+  async listThresholds() {
+    const materials = await this.prisma.material.findMany({
+      where: { isActive: true, lowStockThreshold: { not: null } },
+      select: {
+        id: true,
+        name: true,
+        lowStockThreshold: true,
+        unit: { select: { name: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    return materials.map((material) => ({
+      id: material.id,
+      name: material.name,
+      lowStockThreshold: material.lowStockThreshold,
+      unit: material.unit.name,
+    }));
+  }
+
   // FR-5: Sizes are purely additive — no update/delete path exists
   // (AC #2), mirroring AD-9's append-only discipline for a different but
   // compatible reason (a Size that could silently change/disappear would

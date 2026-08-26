@@ -123,10 +123,10 @@ development_status:
   13-4-financial-reports: done
   epic-13-retrospective: optional
 
-  epic-14: in-progress
+  epic-14: done
   14-1-branding-configuration: done
   14-2-users-roles-permissions: done
-  14-3-category-configuration: in-progress
-  14-4-notification-channel-configuration: in-progress
-  14-5-report-configuration: in-progress
+  14-3-category-configuration: done
+  14-4-notification-channel-configuration: done
+  14-5-report-configuration: done
   epic-14-retrospective: optional

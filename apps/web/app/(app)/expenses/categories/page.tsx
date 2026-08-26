@@ -1,11 +1,14 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
-import { DataTable, LayersIcon, type DataTableColumn } from "@azentisfieldos/ui";
+import { Badge, DataTable, LayersIcon, type DataTableColumn } from "@azentisfieldos/ui";
+import { CategoryRowActions } from "../../_components/category-row-actions";
 import { AddExpenseCategoryForm } from "./add-expense-category-form";
+import { renameExpenseCategoryAction, toggleExpenseCategoryAction } from "./actions";
 
 interface ExpenseCategoryItem {
   id: string;
   name: string;
+  isActive: boolean;
 }
 
 async function getExpenseCategories(): Promise<ExpenseCategoryItem[]> {
@@ -17,7 +20,28 @@ async function getExpenseCategories(): Promise<ExpenseCategoryItem[]> {
 }
 
 const columns: DataTableColumn<ExpenseCategoryItem>[] = [
-  { header: "Name", cell: (c) => <span className="font-semibold">{c.name}</span> },
+  {
+    header: "Name",
+    cell: (c) => (
+      <span className="flex items-center gap-2 font-semibold">
+        {c.name}
+        {!c.isActive ? <Badge variant="neutral">Disabled</Badge> : null}
+      </span>
+    ),
+  },
+  {
+    header: "",
+    align: "right",
+    cell: (c) => (
+      <CategoryRowActions
+        key={`${c.id}-${c.name}`}
+        name={c.name}
+        isActive={c.isActive}
+        renameAction={renameExpenseCategoryAction.bind(null, c.id)}
+        toggleAction={toggleExpenseCategoryAction.bind(null, c.id, !c.isActive)}
+      />
+    ),
+  },
 ];
 
 // Minimal create+list — Epic 14 owns the full admin lifecycle (edit,

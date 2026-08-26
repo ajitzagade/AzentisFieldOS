@@ -27,6 +27,8 @@ export * from "./schemas/expense-category";
 export * from "./schemas/expense";
 export * from "./schemas/rmc-entry";
 export * from "./schemas/branding-config";
+export * from "./schemas/notification-channel-setting";
+export * from "./schemas/report-schedule";
 export * from "./types/activity-feed";
 export * from "./types/photo-gallery";
 export * from "./types/report-filters";
