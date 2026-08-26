@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowsIcon, Badge, GearIcon, PencilIcon, PlusIcon, buttonVariants, cn } from "@azentisfieldos/ui";
@@ -7,7 +8,7 @@ import { MovementTimeline, type MovementHistoryItem } from "../../movement-timel
 import { ServiceHistoryTable, type ServiceLogEntry } from "../../service-history";
 
 async function getMachinery(id: string): Promise<MachineryDetail | null> {
-  const res = await fetch(`${process.env.API_URL}/machinery/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/machinery/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Machinery (${res.status})`);
@@ -16,7 +17,7 @@ async function getMachinery(id: string): Promise<MachineryDetail | null> {
 }
 
 async function getMovements(id: string): Promise<MovementHistoryItem[]> {
-  const res = await fetch(`${process.env.API_URL}/asset-movements?assetType=MACHINERY&assetId=${id}`, {
+  const res = await authedFetch(`/asset-movements?assetType=MACHINERY&assetId=${id}`, {
     cache: "no-store",
   });
   if (!res.ok) {
@@ -26,7 +27,7 @@ async function getMovements(id: string): Promise<MovementHistoryItem[]> {
 }
 
 async function getServiceLogs(id: string): Promise<ServiceLogEntry[]> {
-  const res = await fetch(`${process.env.API_URL}/asset-service-logs?assetType=MACHINERY&assetId=${id}`, {
+  const res = await authedFetch(`/asset-service-logs?assetType=MACHINERY&assetId=${id}`, {
     cache: "no-store",
   });
   if (!res.ok) {

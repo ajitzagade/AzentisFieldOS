@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { RmcForm } from "../rmc-form";
 
 interface SiteOption {
@@ -11,7 +12,7 @@ interface VendorOption {
 }
 
 async function getSites(): Promise<SiteOption[]> {
-  const res = await fetch(`${process.env.API_URL}/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Sites (${res.status})`);
   }
@@ -19,7 +20,7 @@ async function getSites(): Promise<SiteOption[]> {
 }
 
 async function getVendors(): Promise<VendorOption[]> {
-  const res = await fetch(`${process.env.API_URL}/vendors`, { cache: "no-store" });
+  const res = await authedFetch(`/vendors`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Vendors (${res.status})`);
   }

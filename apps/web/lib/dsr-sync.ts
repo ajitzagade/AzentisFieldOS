@@ -1,4 +1,5 @@
 import { listQueuedDsrs, removeQueuedDsr } from "./offline-db";
+import type { AuthedFetch } from "./authed-fetch-core";
 
 // AC #2/#3: drains the local queue and POSTs each entry to the server.
 // Every queued payload already carries clientGeneratedId on its
@@ -12,12 +13,16 @@ import { listQueuedDsrs, removeQueuedDsr } from "./offline-db";
 // genuine conflict) is left queued and retried on the next trigger —
 // never surfaced as a failure, since "submitting never fails" from the
 // user's point of view (Task 1).
-export async function syncQueuedDsrs(apiUrl: string, onSynced?: (localKey: string) => void): Promise<void> {
+// Story 1.8 (AC #4): the caller passes the shared authed-fetch helper rather
+// than a bare base URL. Because that helper reads the Clerk token fresh on
+// every call, each queued DSR attaches a CURRENT token at the moment it
+// actually drains — never a stale token captured when it was queued offline.
+export async function syncQueuedDsrs(authedFetch: AuthedFetch, onSynced?: (localKey: string) => void): Promise<void> {
   const queued = await listQueuedDsrs();
 
   for (const item of queued) {
     try {
-      const res = await fetch(`${apiUrl}/dsr`, {
+      const res = await authedFetch(`/dsr`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(item.payload),

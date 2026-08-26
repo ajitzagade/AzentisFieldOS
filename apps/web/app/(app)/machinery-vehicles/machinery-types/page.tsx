@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { DataTable, GearIcon, type DataTableColumn } from "@azentisfieldos/ui";
 import { AddMachineryTypeForm } from "./add-machinery-type-form";
@@ -8,7 +9,7 @@ interface MachineryTypeItem {
 }
 
 async function getMachineryTypes(): Promise<MachineryTypeItem[]> {
-  const res = await fetch(`${process.env.API_URL}/machinery-types`, { cache: "no-store" });
+  const res = await authedFetch(`/machinery-types`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Machinery Types (${res.status})`);
   }

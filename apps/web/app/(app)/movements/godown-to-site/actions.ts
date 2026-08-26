@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { createMovementSchema } from "@azentisfieldos/shared";
 
@@ -33,7 +34,7 @@ export async function createMovementAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/movements`, {
+  const res = await authedFetch(`/movements`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

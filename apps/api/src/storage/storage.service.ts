@@ -6,7 +6,6 @@ import type {
   PresignPhotoUploadInput,
 } from '@azentisfieldos/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { getPlaceholderUserId } from '../common/get-placeholder-user-id';
 import { r2BucketName, r2Client, r2PublicUrl } from './r2-client';
 
 const PRESIGN_EXPIRY_SECONDS = 3600;
@@ -61,7 +60,13 @@ export class StorageService {
     }));
   }
 
-  async confirmUpload(input: ConfirmPhotoUploadInput) {
+  // Story 1.8 (AC #1): `uploadedByUserId` is the real authenticated user,
+  // threaded in from the controller (req.user, set by ClerkAuthGuard) — no
+  // longer a placeholder resolved inside the service.
+  async confirmUpload(
+    input: ConfirmPhotoUploadInput,
+    uploadedByUserId: string,
+  ) {
     const dsr = await this.prisma.dailySiteReport.findUnique({
       where: { id: input.dailySiteReportId },
     });
@@ -70,8 +75,6 @@ export class StorageService {
         `Daily Site Report ${input.dailySiteReportId} not found`,
       );
     }
-
-    const uploadedByUserId = await getPlaceholderUserId(this.prisma);
 
     return this.prisma.photo.create({
       data: {

@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import {
   Badge,
@@ -41,7 +42,7 @@ interface OutstandingAdvances {
 }
 
 async function getTeamMembers(): Promise<TeamMemberListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/team-members`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Team Members (${res.status})`);
   }
@@ -49,7 +50,7 @@ async function getTeamMembers(): Promise<TeamMemberListItem[]> {
 }
 
 async function getTeamSummary(): Promise<TeamSummary> {
-  const res = await fetch(`${process.env.API_URL}/team-members/team-summary`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members/team-summary`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Team Summary (${res.status})`);
   }
@@ -59,7 +60,7 @@ async function getTeamSummary(): Promise<TeamSummary> {
 // Story 7.4 (AC #1): the one shared Outstanding Advances number — Story
 // 7.3's Payments list reads the same endpoint, never a second computation.
 async function getOutstandingAdvances(): Promise<OutstandingAdvances> {
-  const res = await fetch(`${process.env.API_URL}/team-members/outstanding-advances`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members/outstanding-advances`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Outstanding Advances (${res.status})`);
   }

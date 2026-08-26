@@ -38,6 +38,9 @@ importers:
       '@azentisfieldos/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@clerk/backend':
+        specifier: 3.16.3
+        version: 3.16.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@nestjs/common':
         specifier: 11.1.28
         version: 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)

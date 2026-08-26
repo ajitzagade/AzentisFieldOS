@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { createMaterialSchema } from "@azentisfieldos/shared";
 
@@ -23,7 +24,7 @@ export async function createMaterialAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/materials`, {
+  const res = await authedFetch(`/materials`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

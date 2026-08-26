@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { PhotoGalleryItem } from "@azentisfieldos/shared";
@@ -6,7 +7,7 @@ import type { Site } from "../../page";
 import { PhotoGalleryGrid } from "../../../_components/photo-gallery-grid";
 
 async function getSite(id: string): Promise<Pick<Site, "id" | "name"> | null> {
-  const res = await fetch(`${process.env.API_URL}/sites/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/sites/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Site (${res.status})`);
@@ -16,7 +17,7 @@ async function getSite(id: string): Promise<Pick<Site, "id" | "name"> | null> {
 
 // FR-31: every photo from every DSR at this Site, newest-first.
 async function getSitePhotos(id: string): Promise<PhotoGalleryItem[]> {
-  const res = await fetch(`${process.env.API_URL}/sites/${id}/photos`, { cache: "no-store" });
+  const res = await authedFetch(`/sites/${id}/photos`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Site photos (${res.status})`);
   }

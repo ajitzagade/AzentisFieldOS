@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { type ReactNode } from "react";
 import Link from "next/link";
 import {
@@ -63,7 +64,7 @@ const SITE_STATUS_BADGE: Record<
 };
 
 async function getJSON<T>(path: string): Promise<T> {
-  const res = await fetch(`${process.env.API_URL}${path}`, { cache: "no-store" });
+  const res = await authedFetch(`${path}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load ${path} (${res.status})`);
   }

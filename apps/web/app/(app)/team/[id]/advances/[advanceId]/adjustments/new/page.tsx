@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdjustmentForm } from "../adjustment-form";
@@ -9,7 +10,7 @@ interface TeamMemberOption {
 }
 
 async function getTeamMember(id: string): Promise<TeamMemberOption | null> {
-  const res = await fetch(`${process.env.API_URL}/team-members/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Team Member (${res.status})`);

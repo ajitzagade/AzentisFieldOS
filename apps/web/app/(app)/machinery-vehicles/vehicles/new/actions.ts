@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { createVehicleSchema } from "@azentisfieldos/shared";
 
@@ -27,7 +28,7 @@ export async function createVehicleAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/vehicles`, {
+  const res = await authedFetch(`/vehicles`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AssetMovementForm } from "../../../asset-movement-form";
@@ -13,7 +14,7 @@ interface SiteOption {
 }
 
 async function getVehicle(id: string): Promise<VehicleListItem | null> {
-  const res = await fetch(`${process.env.API_URL}/vehicles/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/vehicles/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Vehicle (${res.status})`);
@@ -22,7 +23,7 @@ async function getVehicle(id: string): Promise<VehicleListItem | null> {
 }
 
 async function getSites(): Promise<SiteOption[]> {
-  const res = await fetch(`${process.env.API_URL}/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Sites (${res.status})`);
   }

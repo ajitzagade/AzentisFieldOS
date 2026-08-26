@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { createAssetMovementSchema, createAssetServiceLogSchema, updateAssetServiceLogSchema } from "@azentisfieldos/shared";
 
@@ -37,7 +38,7 @@ export async function createAssetMovementAction(
 
   let res: Response;
   try {
-    res = await fetch(`${process.env.API_URL}/asset-movements`, {
+    res = await authedFetch(`/asset-movements`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),
@@ -106,7 +107,7 @@ export async function createServiceLogAction(
 
   let res: Response;
   try {
-    res = await fetch(`${process.env.API_URL}/asset-service-logs`, {
+    res = await authedFetch(`/asset-service-logs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),
@@ -162,7 +163,7 @@ export async function updateServiceLogAction(
 
   let res: Response;
   try {
-    res = await fetch(`${process.env.API_URL}/asset-service-logs/${logId}?assetType=${assetType}`, {
+    res = await authedFetch(`/asset-service-logs/${logId}?assetType=${assetType}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),

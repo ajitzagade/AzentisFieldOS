@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { WorkRecordForm } from "./work-record-form";
 
 interface SiteOption {
@@ -12,7 +13,7 @@ interface TeamMemberOption {
 }
 
 async function getSites(): Promise<SiteOption[]> {
-  const res = await fetch(`${process.env.API_URL}/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Sites (${res.status})`);
   }
@@ -20,7 +21,7 @@ async function getSites(): Promise<SiteOption[]> {
 }
 
 async function getTeamMembers(): Promise<TeamMemberOption[]> {
-  const res = await fetch(`${process.env.API_URL}/team-members`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Team Members (${res.status})`);
   }

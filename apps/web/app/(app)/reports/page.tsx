@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import type { FeedItem, PhotoGalleryItem } from "@azentisfieldos/shared";
@@ -311,7 +312,7 @@ function query(params: Record<string, string | undefined>) {
 }
 
 async function getDailyReports(): Promise<DailyReportRow[]> {
-  const res = await fetch(`${process.env.API_URL}/reports/daily`, { cache: "no-store" });
+  const res = await authedFetch(`/reports/daily`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load reports (${res.status})`);
   }
@@ -319,7 +320,7 @@ async function getDailyReports(): Promise<DailyReportRow[]> {
 }
 
 async function getSites(): Promise<SiteOption[]> {
-  const res = await fetch(`${process.env.API_URL}/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Sites (${res.status})`);
   }
@@ -327,7 +328,7 @@ async function getSites(): Promise<SiteOption[]> {
 }
 
 async function getMaterials(): Promise<MaterialOption[]> {
-  const res = await fetch(`${process.env.API_URL}/materials`, { cache: "no-store" });
+  const res = await authedFetch(`/materials`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Materials (${res.status})`);
   }
@@ -339,7 +340,7 @@ async function getSiteReport(params: {
   from?: string;
   to?: string;
 }): Promise<SiteReport> {
-  const res = await fetch(`${process.env.API_URL}/reports/sites${query(params)}`, {
+  const res = await authedFetch(`/reports/sites${query(params)}`, {
     cache: "no-store",
   });
   if (!res.ok) {
@@ -354,7 +355,7 @@ async function getInventoryReport(params: {
   from?: string;
   to?: string;
 }): Promise<InventoryReport> {
-  const res = await fetch(`${process.env.API_URL}/reports/inventory${query(params)}`, {
+  const res = await authedFetch(`/reports/inventory${query(params)}`, {
     cache: "no-store",
   });
   if (!res.ok) {
@@ -364,7 +365,7 @@ async function getInventoryReport(params: {
 }
 
 async function getTeamMembers(): Promise<TeamMemberOption[]> {
-  const res = await fetch(`${process.env.API_URL}/team-members`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Team Members (${res.status})`);
   }
@@ -376,7 +377,7 @@ async function getLabourReport(params: {
   from?: string;
   to?: string;
 }): Promise<LabourReport> {
-  const res = await fetch(`${process.env.API_URL}/reports/labour${query(params)}`, {
+  const res = await authedFetch(`/reports/labour${query(params)}`, {
     cache: "no-store",
   });
   if (!res.ok) {
@@ -391,8 +392,8 @@ async function getMachineryReport(params: {
   from?: string;
   to?: string;
 }): Promise<MachineryReport> {
-  const res = await fetch(
-    `${process.env.API_URL}/reports/machinery-vehicles${query(params)}`,
+  const res = await authedFetch(
+    `/reports/machinery-vehicles${query(params)}`,
     { cache: "no-store" },
   );
   if (!res.ok) {
@@ -406,7 +407,7 @@ async function getFinancialReport(params: {
   from?: string;
   to?: string;
 }): Promise<FinancialReport> {
-  const res = await fetch(`${process.env.API_URL}/reports/financial${query(params)}`, {
+  const res = await authedFetch(`/reports/financial${query(params)}`, {
     cache: "no-store",
   });
   if (!res.ok) {

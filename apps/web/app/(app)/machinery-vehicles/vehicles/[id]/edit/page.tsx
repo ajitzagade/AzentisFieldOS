@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { EditVehicleForm } from "./edit-vehicle-form";
 
@@ -20,7 +21,7 @@ interface VehicleTypeOption {
 }
 
 async function getVehicle(id: string): Promise<VehicleDetail | null> {
-  const res = await fetch(`${process.env.API_URL}/vehicles/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/vehicles/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Vehicle (${res.status})`);
@@ -29,7 +30,7 @@ async function getVehicle(id: string): Promise<VehicleDetail | null> {
 }
 
 async function getVehicleTypes(): Promise<VehicleTypeOption[]> {
-  const res = await fetch(`${process.env.API_URL}/vehicle-types`, { cache: "no-store" });
+  const res = await authedFetch(`/vehicle-types`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Vehicle Types (${res.status})`);
   }

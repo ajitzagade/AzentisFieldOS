@@ -6,6 +6,7 @@ import {
   type PresignPhotoUploadInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
+import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import { StorageService } from './storage.service';
 
 @Controller('photos')
@@ -18,9 +19,14 @@ export class StorageController {
     return this.storageService.presignUpload(body);
   }
 
+  // Story 1.8 (AC #1): the Photo is attributed to the real signed-in user
+  // (req.user, resolved by ClerkAuthGuard), threaded into the service.
   @Post()
   @UsePipes(new ZodValidationPipe(confirmPhotoUploadSchema))
-  confirm(@Body() body: ConfirmPhotoUploadInput) {
-    return this.storageService.confirmUpload(body);
+  confirm(
+    @CurrentUser() user: AuthUser,
+    @Body() body: ConfirmPhotoUploadInput,
+  ) {
+    return this.storageService.confirmUpload(body, user.id);
   }
 }

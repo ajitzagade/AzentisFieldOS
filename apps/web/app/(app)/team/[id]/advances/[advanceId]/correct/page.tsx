@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdvanceForm, type AdvanceFormInitialValues } from "../../advance-form";
@@ -12,7 +13,7 @@ interface AdvanceForCorrection {
 }
 
 async function getAdvance(id: string): Promise<AdvanceForCorrection | null> {
-  const res = await fetch(`${process.env.API_URL}/advances/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/advances/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Advance (${res.status})`);

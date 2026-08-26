@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { Badge, DataTable, LayersIcon, PencilIcon, PlusIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
 import type { CustomFieldDefinition } from "@azentisfieldos/shared";
@@ -16,7 +17,7 @@ export interface MaterialListItem {
 }
 
 async function getMaterials(): Promise<MaterialListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/materials`, { cache: "no-store" });
+  const res = await authedFetch(`/materials`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Materials (${res.status})`);
   }

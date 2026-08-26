@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { EditTeamMemberForm } from "./edit-team-member-form";
 
@@ -18,7 +19,7 @@ interface EmploymentTypeOption {
 }
 
 async function getTeamMember(id: string): Promise<TeamMemberDetail | null> {
-  const res = await fetch(`${process.env.API_URL}/team-members/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Team Member (${res.status})`);
@@ -27,7 +28,7 @@ async function getTeamMember(id: string): Promise<TeamMemberDetail | null> {
 }
 
 async function getEmploymentTypes(): Promise<EmploymentTypeOption[]> {
-  const res = await fetch(`${process.env.API_URL}/employment-types`, { cache: "no-store" });
+  const res = await authedFetch(`/employment-types`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Employment Types (${res.status})`);
   }

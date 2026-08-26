@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -66,7 +67,7 @@ interface DsrDetail {
 }
 
 async function getDsrDetail(id: string): Promise<DsrDetail | null> {
-  const res = await fetch(`${process.env.API_URL}/dsr/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/dsr/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Daily Site Report (${res.status})`);

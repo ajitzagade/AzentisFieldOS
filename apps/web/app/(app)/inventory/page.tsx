@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import {
   AlertTriangleIcon,
@@ -41,7 +42,7 @@ interface SiteOption {
 }
 
 async function getGodownStock(): Promise<GodownStockRow[]> {
-  const res = await fetch(`${process.env.API_URL}/stock/godown`, { cache: "no-store" });
+  const res = await authedFetch(`/stock/godown`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Godown Stock (${res.status})`);
   }
@@ -49,7 +50,7 @@ async function getGodownStock(): Promise<GodownStockRow[]> {
 }
 
 async function getSites(): Promise<SiteOption[]> {
-  const res = await fetch(`${process.env.API_URL}/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Sites (${res.status})`);
   }
@@ -62,7 +63,7 @@ async function getSites(): Promise<SiteOption[]> {
 async function getAllSiteStock(sites: SiteOption[]): Promise<SiteStockRow[]> {
   const perSite = await Promise.all(
     sites.map(async (site) => {
-      const res = await fetch(`${process.env.API_URL}/stock/site/${site.id}`, { cache: "no-store" });
+      const res = await authedFetch(`/stock/site/${site.id}`, { cache: "no-store" });
       if (!res.ok) {
         throw new Error(`Failed to load Site Stock for ${site.name} (${res.status})`);
       }
@@ -73,7 +74,7 @@ async function getAllSiteStock(sites: SiteOption[]): Promise<SiteStockRow[]> {
 }
 
 async function getLowStockMaterials(): Promise<LowStockMaterial[]> {
-  const res = await fetch(`${process.env.API_URL}/stock/low-stock`, { cache: "no-store" });
+  const res = await authedFetch(`/stock/low-stock`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load low-stock Materials (${res.status})`);
   }
@@ -81,7 +82,7 @@ async function getLowStockMaterials(): Promise<LowStockMaterial[]> {
 }
 
 async function getPurchasesThisMonthCount(): Promise<number> {
-  const res = await fetch(`${process.env.API_URL}/purchases/count/this-month`, { cache: "no-store" });
+  const res = await authedFetch(`/purchases/count/this-month`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Purchases This Month count (${res.status})`);
   }

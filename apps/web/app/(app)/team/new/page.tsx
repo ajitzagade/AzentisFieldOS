@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { NewTeamMemberForm } from "./new-team-member-form";
 
 interface EmploymentTypeOption {
@@ -7,7 +8,7 @@ interface EmploymentTypeOption {
 }
 
 async function getEmploymentTypes(): Promise<EmploymentTypeOption[]> {
-  const res = await fetch(`${process.env.API_URL}/employment-types`, { cache: "no-store" });
+  const res = await authedFetch(`/employment-types`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Employment Types (${res.status})`);
   }

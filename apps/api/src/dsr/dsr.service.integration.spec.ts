@@ -33,6 +33,19 @@ describeIfDb('DsrService (integration)', () => {
   let teamMemberId: string;
   let vendorId: string;
   let categoryId: string;
+  let testUserId: string;
+
+  // Story 1.8: create/correct now take the authenticated user id explicitly
+  // (threaded from req.user in the controller), instead of resolving a
+  // placeholder internally. These thin wrappers pass a real test User so every
+  // existing case below reads unchanged.
+  const create = (input: Parameters<DsrService['create']>[0]) =>
+    service.create(input, testUserId);
+  const correct = (
+    originalId: string,
+    input: Parameters<DsrService['correct']>[1],
+    reason: string,
+  ) => service.correct(originalId, input, reason, testUserId);
 
   beforeAll(async () => {
     prisma = new PrismaService();
@@ -41,6 +54,16 @@ describeIfDb('DsrService (integration)', () => {
       getReadUrl: vi.fn().mockResolvedValue('https://r2.example/signed'),
     } as unknown as StorageService;
     service = new DsrService(prisma, storage);
+
+    const user = await prisma.user.create({
+      data: {
+        clerkId: `test-submitter-${crypto.randomUUID()}`,
+        name: 'Test Submitter',
+        email: `test-submitter-${crypto.randomUUID()}@example.com`,
+        role: 'OWNER_ADMIN',
+      },
+    });
+    testUserId = user.id;
 
     const site = await prisma.site.create({
       data: { name: 'Test Site', location: 'Test Location' },
@@ -108,14 +131,12 @@ describeIfDb('DsrService (integration)', () => {
     await prisma.vendor.deleteMany({ where: { id: vendorId } });
     await prisma.expenseCategory.deleteMany({ where: { id: categoryId } });
     await prisma.site.deleteMany({ where: { id: siteId } });
-    await prisma.user.deleteMany({
-      where: { email: 'system-placeholder@internal.local' },
-    });
+    await prisma.user.deleteMany({ where: { id: testUserId } });
     await prisma.onModuleDestroy();
   });
 
   it('creates a DSR with all nested sub-records in a single transaction, with server-computed RMC totals', async () => {
-    const result = await service.create({
+    const result = await create({
       siteId,
       reportDate: '2026-08-10',
       workCompleted: 'RCC pour completed',
@@ -138,7 +159,7 @@ describeIfDb('DsrService (integration)', () => {
   });
 
   it('upserts a second submission for the same Site/date instead of duplicating it (story 3.2: retried offline sync must be idempotent)', async () => {
-    const first = await service.create({
+    const first = await create({
       siteId,
       reportDate: '2026-08-11',
       workCompleted: 'First pass',
@@ -149,7 +170,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
     });
 
-    const second = await service.create({
+    const second = await create({
       siteId,
       reportDate: '2026-08-11',
       workCompleted: 'Retried/edited submission',
@@ -172,7 +193,7 @@ describeIfDb('DsrService (integration)', () => {
 
   it('upserts a Consumption/RmcEntry/Expense by clientGeneratedId instead of duplicating it on a retried sync', async () => {
     const clientGeneratedId = 'offline-consumption-1';
-    await service.create({
+    await create({
       siteId,
       reportDate: '2026-08-14',
       workRecords: [],
@@ -184,7 +205,7 @@ describeIfDb('DsrService (integration)', () => {
 
     // Same clientGeneratedId, different quantity — simulates the offline
     // queue retrying (or a local edit before the first sync landed).
-    const result = await service.create({
+    const result = await create({
       siteId,
       reportDate: '2026-08-14',
       workRecords: [],
@@ -203,7 +224,7 @@ describeIfDb('DsrService (integration)', () => {
       data: { name: 'Other Site', location: 'Elsewhere' },
     });
 
-    await service.create({
+    await create({
       siteId,
       reportDate: '2026-08-12',
       workRecords: [{ teamMemberId, attended: true }],
@@ -214,7 +235,7 @@ describeIfDb('DsrService (integration)', () => {
     });
 
     await expect(
-      service.create({
+      create({
         siteId: otherSite.id,
         reportDate: '2026-08-12',
         workRecords: [{ teamMemberId, attended: true }],
@@ -230,7 +251,7 @@ describeIfDb('DsrService (integration)', () => {
 
   it('does not leave a partial write when a sub-record create fails mid-transaction', async () => {
     await expect(
-      service.create({
+      create({
         siteId,
         reportDate: '2026-08-13',
         workRecords: [],
@@ -249,7 +270,7 @@ describeIfDb('DsrService (integration)', () => {
 
   it("computes crew defaults from the Site's most recent prior attendance, not literally yesterday", async () => {
     // Attendance recorded 3 days before reportDate — Site skipped two days.
-    await service.create({
+    await create({
       siteId,
       reportDate: '2026-08-01',
       workRecords: [{ teamMemberId, attended: true }],
@@ -270,7 +291,7 @@ describeIfDb('DsrService (integration)', () => {
   });
 
   it('listByDate returns lightweight rows (site/submitter names, sub-record counts) for a given date, not full nested detail', async () => {
-    await service.create({
+    await create({
       siteId,
       reportDate: '2026-08-15',
       workRecords: [{ teamMemberId, attended: true }],
@@ -284,9 +305,7 @@ describeIfDb('DsrService (integration)', () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.site).toEqual({ id: siteId, name: 'Test Site' });
-    expect(rows[0]?.submittedBy.name).toBe(
-      'System (placeholder — no apps/api auth wired yet)',
-    );
+    expect(rows[0]?.submittedBy.name).toBe('Test Submitter');
     expect(rows[0]?._count).toEqual({ workRecords: 1, consumptions: 1 });
   });
 
@@ -296,7 +315,7 @@ describeIfDb('DsrService (integration)', () => {
   });
 
   it('findOne returns the full nested detail — crew, materials, RMC, expenses, photos', async () => {
-    const created = await service.create({
+    const created = await create({
       siteId,
       reportDate: '2026-08-16',
       workCompleted: 'RCC pour completed',
@@ -320,7 +339,7 @@ describeIfDb('DsrService (integration)', () => {
   });
 
   it('findOne resolves each photo to a read URL via StorageService, not the raw storageKey', async () => {
-    const created = await service.create({
+    const created = await create({
       siteId,
       reportDate: '2026-08-17',
       workRecords: [],
@@ -351,7 +370,7 @@ describeIfDb('DsrService (integration)', () => {
   });
 
   it('correct(): succeeds against a Site/date that already has a DSR, and never touches the original report (AD-9, AC #4)', async () => {
-    const original = await service.create({
+    const original = await create({
       siteId,
       reportDate: '2026-08-18',
       workCompleted: 'Original text',
@@ -362,7 +381,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
     });
 
-    const correction = await service.correct(
+    const correction = await correct(
       original.id,
       {
         siteId,
@@ -390,7 +409,7 @@ describeIfDb('DsrService (integration)', () => {
   });
 
   it("correct(): changing a crew member's attendance inserts a fresh WorkRecord row, never updating the original's (AD-9)", async () => {
-    const original = await service.create({
+    const original = await create({
       siteId,
       reportDate: '2026-08-19',
       workRecords: [{ teamMemberId, attended: false }],
@@ -401,7 +420,7 @@ describeIfDb('DsrService (integration)', () => {
     });
     const originalWorkRecordId = original.workRecords[0]?.id;
 
-    await service.correct(
+    await correct(
       original.id,
       {
         siteId,
@@ -430,7 +449,7 @@ describeIfDb('DsrService (integration)', () => {
 
   it('correct(): throws NotFoundException for an original id that does not exist', async () => {
     await expect(
-      service.correct(
+      correct(
         'does-not-exist',
         {
           siteId,
@@ -447,7 +466,7 @@ describeIfDb('DsrService (integration)', () => {
   });
 
   it('correct(): rejects a Site/date that does not match the report being corrected (AC #4)', async () => {
-    const original = await service.create({
+    const original = await create({
       siteId,
       reportDate: '2026-08-20',
       workRecords: [],
@@ -461,7 +480,7 @@ describeIfDb('DsrService (integration)', () => {
     });
 
     await expect(
-      service.correct(
+      correct(
         original.id,
         {
           siteId: otherSite.id,
@@ -477,7 +496,7 @@ describeIfDb('DsrService (integration)', () => {
     ).rejects.toThrow(BadRequestException);
 
     await expect(
-      service.correct(
+      correct(
         original.id,
         {
           siteId,
@@ -500,7 +519,7 @@ describeIfDb('DsrService (integration)', () => {
 
     const results = await Promise.all(
       Array.from({ length: 5 }, (_, i) =>
-        service.create({
+        create({
           siteId,
           reportDate,
           workCompleted: `Attempt ${i}`,
@@ -527,7 +546,7 @@ describeIfDb('DsrService (integration)', () => {
 
     await Promise.all(
       Array.from({ length: 5 }, () =>
-        service.create({
+        create({
           siteId,
           reportDate,
           workRecords: [{ teamMemberId, attended: true }],
@@ -551,7 +570,7 @@ describeIfDb('DsrService (integration)', () => {
   });
 
   it('listByDate(): shows only the current (uncorrected-over) version, not both the original and its correction', async () => {
-    const original = await service.create({
+    const original = await create({
       siteId,
       reportDate: '2026-08-21',
       workCompleted: 'Original',
@@ -561,7 +580,7 @@ describeIfDb('DsrService (integration)', () => {
       expenses: [],
       equipmentUsed: [],
     });
-    const correction = await service.correct(
+    const correction = await correct(
       original.id,
       {
         siteId,
@@ -584,7 +603,7 @@ describeIfDb('DsrService (integration)', () => {
   });
 
   it('findCurrentForSiteAndDate(): returns the tip of a correction chain, not the original', async () => {
-    const original = await service.create({
+    const original = await create({
       siteId,
       reportDate: '2026-08-22',
       workRecords: [],
@@ -593,7 +612,7 @@ describeIfDb('DsrService (integration)', () => {
       expenses: [],
       equipmentUsed: [],
     });
-    const firstCorrection = await service.correct(
+    const firstCorrection = await correct(
       original.id,
       {
         siteId,
@@ -606,7 +625,7 @@ describeIfDb('DsrService (integration)', () => {
       },
       'First fix',
     );
-    const secondCorrection = await service.correct(
+    const secondCorrection = await correct(
       firstCorrection.id,
       {
         siteId,
@@ -629,7 +648,7 @@ describeIfDb('DsrService (integration)', () => {
   });
 
   it('findOne(): reports correctedById when a report has since been corrected, so a stale view can point at the current one', async () => {
-    const original = await service.create({
+    const original = await create({
       siteId,
       reportDate: '2026-08-23',
       workRecords: [],
@@ -642,7 +661,7 @@ describeIfDb('DsrService (integration)', () => {
     const uncorrected = await service.findOne(original.id);
     expect(uncorrected.correctedById).toBeNull();
 
-    const correction = await service.correct(
+    const correction = await correct(
       original.id,
       {
         siteId,
@@ -661,7 +680,7 @@ describeIfDb('DsrService (integration)', () => {
   });
 
   it('create(): a plain resubmission after a correction has been filed still updates the original, never the correction', async () => {
-    const original = await service.create({
+    const original = await create({
       siteId,
       reportDate: '2026-08-24',
       workCompleted: 'Original',
@@ -671,7 +690,7 @@ describeIfDb('DsrService (integration)', () => {
       expenses: [],
       equipmentUsed: [],
     });
-    const correction = await service.correct(
+    const correction = await correct(
       original.id,
       {
         siteId,
@@ -685,7 +704,7 @@ describeIfDb('DsrService (integration)', () => {
       'A fix',
     );
 
-    const resubmitted = await service.create({
+    const resubmitted = await create({
       siteId,
       reportDate: '2026-08-24',
       workCompleted: 'Edited again',

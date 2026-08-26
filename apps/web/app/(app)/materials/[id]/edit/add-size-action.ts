@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { revalidatePath } from "next/cache";
 import { createMaterialSizeSchema } from "@azentisfieldos/shared";
 
@@ -23,7 +24,7 @@ export async function addMaterialSizeAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/materials/${materialId}/sizes`, {
+  const res = await authedFetch(`/materials/${materialId}/sizes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

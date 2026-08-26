@@ -14,23 +14,30 @@ import {
   type CreateDsrInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
+import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import { DsrService } from './dsr.service';
 
 @Controller('dsr')
 export class DsrController {
   constructor(private readonly dsrService: DsrService) {}
 
+  // Story 1.8 (AC #1): the DSR is attributed to the real signed-in user
+  // (req.user, resolved by ClerkAuthGuard), threaded into the service.
   @Post()
   @UsePipes(new ZodValidationPipe(createDsrSchema))
-  create(@Body() body: CreateDsrInput) {
-    return this.dsrService.create(body);
+  create(@CurrentUser() user: AuthUser, @Body() body: CreateDsrInput) {
+    return this.dsrService.create(body, user.id);
   }
 
   @Post(':id/correct')
   @UsePipes(new ZodValidationPipe(correctDsrSchema))
-  correct(@Param('id') id: string, @Body() body: CorrectDsrInput) {
+  correct(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() body: CorrectDsrInput,
+  ) {
     const { reason, ...input } = body;
-    return this.dsrService.correct(id, input, reason);
+    return this.dsrService.correct(id, input, reason, user.id);
   }
 
   // Static-path routes are declared before the `:id` wildcard below — Nest

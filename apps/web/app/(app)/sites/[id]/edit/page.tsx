@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { EditSiteForm } from "./edit-site-form";
 import type { Site } from "../../page";
@@ -7,7 +8,7 @@ import type { Site } from "../../page";
 // alone. Do not add a dedicated endpoint here just to make this cleaner;
 // that would duplicate 2.3's work ahead of it.
 async function getSite(id: string): Promise<Site | undefined> {
-  const res = await fetch(`${process.env.API_URL}/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load sites (${res.status})`);
   }

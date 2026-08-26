@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { NewMachineryForm } from "./new-machinery-form";
 
 interface MachineryTypeOption {
@@ -6,7 +7,7 @@ interface MachineryTypeOption {
 }
 
 async function getMachineryTypes(): Promise<MachineryTypeOption[]> {
-  const res = await fetch(`${process.env.API_URL}/machinery-types`, { cache: "no-store" });
+  const res = await authedFetch(`/machinery-types`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Machinery Types (${res.status})`);
   }

@@ -44,7 +44,7 @@ development_status:
   1-5-sign-in: ready-for-dev
   1-6-application-shell-navigation: ready-for-dev
   1-7-accessibility-performance-ci-gate: ready-for-dev
-  1-8-api-session-authentication: ready-for-dev
+  1-8-api-session-authentication: done
   epic-1-retrospective: optional
 
   epic-2: backlog

@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Button, Card, CheckCircleIcon, MapPinIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { useAuthedFetch } from "../../../../../lib/use-authed-fetch";
 
 interface SiteOption {
   id: string;
@@ -28,6 +29,7 @@ function todayDate() {
 
 export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; teamMembers: TeamMemberOption[] }) {
   const router = useRouter();
+  const authedFetch = useAuthedFetch();
 
   const [siteId, setSiteId] = useState("");
   const [workDate, setWorkDate] = useState(todayDate());
@@ -47,7 +49,7 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
   useEffect(() => {
     if (!siteId || !workDate) return;
     let cancelled = false;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/work-records/default-crew?siteId=${siteId}&date=${workDate}`)
+    authedFetch(`/work-records/default-crew?siteId=${siteId}&date=${workDate}`)
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load default crew (${res.status})`);
         return res.json() as Promise<{ teamMemberId: string; name: string; attended: boolean }[]>;
@@ -65,7 +67,7 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
     return () => {
       cancelled = true;
     };
-  }, [siteId, workDate]);
+  }, [siteId, workDate, authedFetch]);
 
   function toggleAttended(teamMemberId: string) {
     setCrew((rows) => rows.map((r) => (r.teamMemberId === teamMemberId ? { ...r, attended: !r.attended } : r)));
@@ -99,7 +101,7 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
         overtimeHours: row.attended && row.overtimeHours ? Number(row.overtimeHours) : undefined,
       }));
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/work-records/batch`, {
+      const res = await authedFetch(`/work-records/batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

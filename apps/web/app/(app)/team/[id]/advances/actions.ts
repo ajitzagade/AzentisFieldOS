@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { createAdvanceSchema } from "@azentisfieldos/shared";
 
@@ -33,7 +34,7 @@ export async function createAdvanceAction(
 
   let res: Response;
   try {
-    res = await fetch(`${process.env.API_URL}/advances`, {
+    res = await authedFetch(`/advances`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),

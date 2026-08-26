@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import {
   CorrectAction,
@@ -31,7 +32,7 @@ interface ExpenseSummary {
 }
 
 async function getExpenses(): Promise<ExpenseRow[]> {
-  const res = await fetch(`${process.env.API_URL}/expenses`, { cache: "no-store" });
+  const res = await authedFetch(`/expenses`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Expenses (${res.status})`);
   }
@@ -41,7 +42,7 @@ async function getExpenses(): Promise<ExpenseRow[]> {
 // Task 4's stat tiles are server-computed aggregates (ExpensesService.summary),
 // not a client-side reduction over the unbounded list() fetch above.
 async function getSummary(): Promise<ExpenseSummary> {
-  const res = await fetch(`${process.env.API_URL}/expenses/summary`, { cache: "no-store" });
+  const res = await authedFetch(`/expenses/summary`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Expense summary (${res.status})`);
   }

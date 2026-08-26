@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { revalidatePath } from "next/cache";
 import { createMaterialCategorySchema } from "@azentisfieldos/shared";
 
@@ -18,7 +19,7 @@ export async function createMaterialCategoryAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/material-categories`, {
+  const res = await authedFetch(`/material-categories`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),
@@ -54,7 +55,7 @@ export async function toggleMaterialCategoryAction(
   id: string,
   nextIsActive: boolean,
 ): Promise<ToggleMaterialCategoryFormState> {
-  const res = await fetch(`${process.env.API_URL}/material-categories/${id}`, {
+  const res = await authedFetch(`/material-categories/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isActive: nextIsActive }),

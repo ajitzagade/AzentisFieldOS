@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PaymentForm, type PaymentFormInitialValues } from "../../payment-form";
@@ -27,7 +28,7 @@ interface PaymentForCorrection {
 }
 
 async function getPayment(id: string): Promise<PaymentForCorrection | null> {
-  const res = await fetch(`${process.env.API_URL}/payments/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/payments/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Payment (${res.status})`);
@@ -36,7 +37,7 @@ async function getPayment(id: string): Promise<PaymentForCorrection | null> {
 }
 
 async function getTeamMembers(): Promise<TeamMemberListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/team-members`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Team Members (${res.status})`);
   }
@@ -44,7 +45,7 @@ async function getTeamMembers(): Promise<TeamMemberListItem[]> {
 }
 
 async function getAdvances(): Promise<AdvanceListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/advances`, { cache: "no-store" });
+  const res = await authedFetch(`/advances`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Advances (${res.status})`);
   }

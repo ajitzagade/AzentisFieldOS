@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { revalidatePath } from "next/cache";
 import { createUnitSchema } from "@azentisfieldos/shared";
 
@@ -18,7 +19,7 @@ export async function createUnitAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/units`, {
+  const res = await authedFetch(`/units`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

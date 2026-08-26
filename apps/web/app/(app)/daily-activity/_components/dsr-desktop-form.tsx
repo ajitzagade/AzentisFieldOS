@@ -18,6 +18,7 @@ import {
 } from "@azentisfieldos/ui";
 import type { CreateDsrInput } from "@azentisfieldos/shared";
 import { uploadPhoto } from "../../../../lib/photo-upload";
+import { useAuthedFetch } from "../../../../lib/use-authed-fetch";
 
 interface SiteOption {
   id: string;
@@ -99,6 +100,7 @@ export function DsrDesktopForm({
   initial?: DsrFormInitialValues;
 }) {
   const router = useRouter();
+  const authedFetch = useAuthedFetch();
 
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [vendors, setVendors] = useState<VendorOption[]>([]);
@@ -124,31 +126,31 @@ export function DsrDesktopForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/sites`)
+    authedFetch(`/sites`)
       .then((res) => res.json())
       .then((data: SiteOption[]) => setSites(data))
       .catch(() => setSites([]));
-  }, []);
+  }, [authedFetch]);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/vendors`)
+    authedFetch(`/vendors`)
       .then((res) => res.json())
       .then((data: VendorOption[]) => setVendors(data))
       .catch(() => setVendors([]));
-  }, []);
+  }, [authedFetch]);
 
   // AC #1: crew checklist pre-populated from the Site's most recent prior
   // attendance — same behavior as the mobile flow. Not applicable in
   // "correct" mode, which pre-fills from the report being corrected instead.
   useEffect(() => {
     if (mode !== "new" || !siteId || !reportDate) return;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/dsr/defaults?siteId=${siteId}&date=${reportDate}`)
+    authedFetch(`/dsr/defaults?siteId=${siteId}&date=${reportDate}`)
       .then((res) => res.json())
       .then((defaults: { teamMemberId: string; name: string }[]) => {
         setCrew(defaults.map((d) => ({ teamMemberId: d.teamMemberId, name: d.name, attended: true })));
       })
       .catch(() => setCrew([]));
-  }, [mode, siteId, reportDate]);
+  }, [mode, siteId, reportDate, authedFetch]);
 
   function toggleAttended(teamMemberId: string) {
     setCrew((rows) => rows.map((r) => (r.teamMemberId === teamMemberId ? { ...r, attended: !r.attended } : r)));
@@ -179,7 +181,7 @@ export function DsrDesktopForm({
     for (const photo of items) {
       setPhotos((rows) => rows.map((p) => (p.localId === photo.localId ? { ...p, status: "uploading" } : p)));
       try {
-        await uploadPhoto(process.env.NEXT_PUBLIC_API_URL ?? "", dailySiteReportId, photo.file);
+        await uploadPhoto(authedFetch, dailySiteReportId, photo.file);
         setPhotos((rows) => rows.map((p) => (p.localId === photo.localId ? { ...p, status: "uploaded" } : p)));
       } catch {
         setPhotos((rows) => rows.map((p) => (p.localId === photo.localId ? { ...p, status: "failed" } : p)));
@@ -220,11 +222,10 @@ export function DsrDesktopForm({
         equipmentUsed,
       };
 
-      const url =
-        mode === "correct" ? `${process.env.NEXT_PUBLIC_API_URL}/dsr/${originalId}/correct` : `${process.env.NEXT_PUBLIC_API_URL}/dsr`;
+      const path = mode === "correct" ? `/dsr/${originalId}/correct` : `/dsr`;
       const body = mode === "correct" ? { ...payload, reason } : payload;
 
-      const res = await fetch(url, {
+      const res = await authedFetch(path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

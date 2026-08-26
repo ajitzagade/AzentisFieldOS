@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { DataTable, LayersIcon, type DataTableColumn } from "@azentisfieldos/ui";
 import { AddUnitForm } from "./add-unit-form";
@@ -8,7 +9,7 @@ interface UnitItem {
 }
 
 async function getUnits(): Promise<UnitItem[]> {
-  const res = await fetch(`${process.env.API_URL}/units`, { cache: "no-store" });
+  const res = await authedFetch(`/units`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Units (${res.status})`);
   }

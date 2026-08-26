@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
@@ -67,7 +68,7 @@ interface ReturnWastageListItem {
 }
 
 async function getPurchases(): Promise<PurchaseListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/purchases`, { cache: "no-store" });
+  const res = await authedFetch(`/purchases`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Purchases (${res.status})`);
   }
@@ -75,7 +76,7 @@ async function getPurchases(): Promise<PurchaseListItem[]> {
 }
 
 async function getMovements(): Promise<MovementListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/movements`, { cache: "no-store" });
+  const res = await authedFetch(`/movements`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Movements (${res.status})`);
   }
@@ -83,7 +84,7 @@ async function getMovements(): Promise<MovementListItem[]> {
 }
 
 async function getConsumption(): Promise<ConsumptionListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/consumption`, { cache: "no-store" });
+  const res = await authedFetch(`/consumption`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Consumption (${res.status})`);
   }
@@ -91,7 +92,7 @@ async function getConsumption(): Promise<ConsumptionListItem[]> {
 }
 
 async function getReturnWastage(): Promise<ReturnWastageListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/return-wastage`, { cache: "no-store" });
+  const res = await authedFetch(`/return-wastage`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Wastage/Return entries (${res.status})`);
   }

@@ -6,6 +6,13 @@ import type {
 } from '@azentisfieldos/shared';
 import { StorageController } from './storage.controller';
 import { StorageService } from './storage.service';
+import type { AuthUser } from '../auth/current-user.decorator';
+
+const currentUser: AuthUser = {
+  id: 'user-1',
+  clerkId: 'clerk-1',
+  role: 'OWNER_ADMIN',
+};
 
 describe('StorageController', () => {
   let controller: StorageController;
@@ -48,9 +55,9 @@ describe('StorageController', () => {
     };
     service.confirmUpload.mockResolvedValue({ id: 'photo-1', ...input });
 
-    const result = await controller.confirm(input);
+    const result = await controller.confirm(currentUser, input);
 
-    expect(service.confirmUpload).toHaveBeenCalledWith(input);
+    expect(service.confirmUpload).toHaveBeenCalledWith(input, currentUser.id);
     expect(result).toEqual({ id: 'photo-1', ...input });
   });
 });

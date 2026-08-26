@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import {
   Badge,
@@ -24,7 +25,7 @@ const STATUS_BADGE: Record<Site["status"], { variant: "success" | "warning" | "n
 };
 
 async function getSites(): Promise<Site[]> {
-  const res = await fetch(`${process.env.API_URL}/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load sites (${res.status})`);
   }

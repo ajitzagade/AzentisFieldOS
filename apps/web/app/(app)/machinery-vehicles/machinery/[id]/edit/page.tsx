@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { EditMachineryForm } from "./edit-machinery-form";
 
@@ -22,7 +23,7 @@ interface MachineryTypeOption {
 }
 
 async function getMachinery(id: string): Promise<MachineryDetail | null> {
-  const res = await fetch(`${process.env.API_URL}/machinery/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/machinery/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Machinery (${res.status})`);
@@ -31,7 +32,7 @@ async function getMachinery(id: string): Promise<MachineryDetail | null> {
 }
 
 async function getMachineryTypes(): Promise<MachineryTypeOption[]> {
-  const res = await fetch(`${process.env.API_URL}/machinery-types`, { cache: "no-store" });
+  const res = await authedFetch(`/machinery-types`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Machinery Types (${res.status})`);
   }

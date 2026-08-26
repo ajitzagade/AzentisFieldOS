@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, ClipboardIcon, DataTable, PencilIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
@@ -15,7 +16,7 @@ interface VendorPurchase {
 }
 
 async function getVendor(id: string): Promise<Vendor | null> {
-  const res = await fetch(`${process.env.API_URL}/vendors/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/vendors/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Vendor (${res.status})`);
@@ -24,7 +25,7 @@ async function getVendor(id: string): Promise<Vendor | null> {
 }
 
 async function getVendorPurchases(id: string): Promise<VendorPurchase[]> {
-  const res = await fetch(`${process.env.API_URL}/vendors/${id}/purchases`, { cache: "no-store" });
+  const res = await authedFetch(`/vendors/${id}/purchases`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Vendor purchases (${res.status})`);
   }

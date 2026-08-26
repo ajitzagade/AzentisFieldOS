@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { updateTeamMemberSchema } from "@azentisfieldos/shared";
 
@@ -34,7 +35,7 @@ export async function updateTeamMemberAction(
 
   let res: Response;
   try {
-    res = await fetch(`${process.env.API_URL}/team-members/${id}`, {
+    res = await authedFetch(`/team-members/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),

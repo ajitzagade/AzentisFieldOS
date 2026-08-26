@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { Badge, DataTable, UsersIcon, type DataTableColumn } from "@azentisfieldos/ui";
 import { AddEmploymentTypeForm } from "./add-employment-type-form";
@@ -9,7 +10,7 @@ interface EmploymentTypeItem {
 }
 
 async function getEmploymentTypes(): Promise<EmploymentTypeItem[]> {
-  const res = await fetch(`${process.env.API_URL}/employment-types`, { cache: "no-store" });
+  const res = await authedFetch(`/employment-types`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Employment Types (${res.status})`);
   }

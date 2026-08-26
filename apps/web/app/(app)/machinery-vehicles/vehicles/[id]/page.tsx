@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowsIcon, Badge, PencilIcon, PlusIcon, TruckIcon, buttonVariants, cn } from "@azentisfieldos/ui";
@@ -7,7 +8,7 @@ import { MovementTimeline, type MovementHistoryItem } from "../../movement-timel
 import { ServiceHistoryTable, type ServiceLogEntry } from "../../service-history";
 
 async function getVehicle(id: string): Promise<VehicleDetail | null> {
-  const res = await fetch(`${process.env.API_URL}/vehicles/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/vehicles/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Vehicle (${res.status})`);
@@ -16,7 +17,7 @@ async function getVehicle(id: string): Promise<VehicleDetail | null> {
 }
 
 async function getMovements(id: string): Promise<MovementHistoryItem[]> {
-  const res = await fetch(`${process.env.API_URL}/asset-movements?assetType=VEHICLE&assetId=${id}`, {
+  const res = await authedFetch(`/asset-movements?assetType=VEHICLE&assetId=${id}`, {
     cache: "no-store",
   });
   if (!res.ok) {
@@ -26,7 +27,7 @@ async function getMovements(id: string): Promise<MovementHistoryItem[]> {
 }
 
 async function getServiceLogs(id: string): Promise<ServiceLogEntry[]> {
-  const res = await fetch(`${process.env.API_URL}/asset-service-logs?assetType=VEHICLE&assetId=${id}`, {
+  const res = await authedFetch(`/asset-service-logs?assetType=VEHICLE&assetId=${id}`, {
     cache: "no-store",
   });
   if (!res.ok) {

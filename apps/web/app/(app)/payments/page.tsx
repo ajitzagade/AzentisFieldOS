@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import {
   AlertTriangleIcon,
@@ -36,7 +37,7 @@ interface OutstandingAdvances {
 }
 
 async function getPayments(): Promise<PaymentListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/payments`, { cache: "no-store" });
+  const res = await authedFetch(`/payments`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Payments (${res.status})`);
   }
@@ -44,7 +45,7 @@ async function getPayments(): Promise<PaymentListItem[]> {
 }
 
 async function getPendingCount(): Promise<number> {
-  const res = await fetch(`${process.env.API_URL}/payments/count/pending`, { cache: "no-store" });
+  const res = await authedFetch(`/payments/count/pending`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load pending Payments count (${res.status})`);
   }
@@ -52,7 +53,7 @@ async function getPendingCount(): Promise<number> {
 }
 
 async function getTeamSummary(): Promise<TeamSummary> {
-  const res = await fetch(`${process.env.API_URL}/team-members/team-summary`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members/team-summary`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Team Summary (${res.status})`);
   }
@@ -62,7 +63,7 @@ async function getTeamSummary(): Promise<TeamSummary> {
 // Story 7.4 (AC #1): the one shared Outstanding Advances number — the
 // Team list page reads the same endpoint, never a second computation.
 async function getOutstandingAdvances(): Promise<OutstandingAdvances> {
-  const res = await fetch(`${process.env.API_URL}/team-members/outstanding-advances`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members/outstanding-advances`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Outstanding Advances (${res.status})`);
   }

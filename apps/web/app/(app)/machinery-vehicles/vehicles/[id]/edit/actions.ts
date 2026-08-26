@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { updateVehicleSchema } from "@azentisfieldos/shared";
 
@@ -33,7 +34,7 @@ export async function updateVehicleAction(
 
   let res: Response;
   try {
-    res = await fetch(`${process.env.API_URL}/vehicles/${id}`, {
+    res = await authedFetch(`/vehicles/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),

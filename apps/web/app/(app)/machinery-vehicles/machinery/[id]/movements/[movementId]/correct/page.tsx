@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AssetMovementForm, type AssetMovementFormInitialValues } from "../../../../../asset-movement-form";
@@ -20,7 +21,7 @@ interface MovementLogItem {
 }
 
 async function getMachinery(id: string): Promise<MachineryListItem | null> {
-  const res = await fetch(`${process.env.API_URL}/machinery/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/machinery/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Machinery (${res.status})`);
@@ -29,7 +30,7 @@ async function getMachinery(id: string): Promise<MachineryListItem | null> {
 }
 
 async function getSites(): Promise<SiteOption[]> {
-  const res = await fetch(`${process.env.API_URL}/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Sites (${res.status})`);
   }
@@ -37,7 +38,7 @@ async function getSites(): Promise<SiteOption[]> {
 }
 
 async function getMovements(assetId: string): Promise<MovementLogItem[]> {
-  const res = await fetch(`${process.env.API_URL}/asset-movements?assetType=MACHINERY&assetId=${assetId}`, {
+  const res = await authedFetch(`/asset-movements?assetType=MACHINERY&assetId=${assetId}`, {
     cache: "no-store",
   });
   if (!res.ok) {

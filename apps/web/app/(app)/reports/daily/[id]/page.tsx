@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { CheckCircleIcon } from "@azentisfieldos/ui";
 
@@ -44,7 +45,7 @@ interface DailyReportDetail {
 }
 
 async function getReport(id: string): Promise<DailyReportDetail | null> {
-  const res = await fetch(`${process.env.API_URL}/reports/daily/${id}`, {
+  const res = await authedFetch(`/reports/daily/${id}`, {
     cache: "no-store",
   });
   if (res.status === 404) return null;

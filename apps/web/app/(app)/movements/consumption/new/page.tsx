@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { ConsumptionForm } from "../consumption-form";
 
 interface SiteOption {
@@ -12,7 +13,7 @@ interface MaterialListItem {
 }
 
 async function getSites(): Promise<SiteOption[]> {
-  const res = await fetch(`${process.env.API_URL}/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Sites (${res.status})`);
   }
@@ -20,7 +21,7 @@ async function getSites(): Promise<SiteOption[]> {
 }
 
 async function getMaterials(): Promise<MaterialListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/materials`, { cache: "no-store" });
+  const res = await authedFetch(`/materials`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Materials (${res.status})`);
   }

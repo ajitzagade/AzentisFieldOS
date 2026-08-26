@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { updateMaterialSchema } from "@azentisfieldos/shared";
 
@@ -53,7 +54,7 @@ export async function updateMaterialAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/materials/${id}`, {
+  const res = await authedFetch(`/materials/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

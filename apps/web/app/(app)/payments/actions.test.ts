@@ -169,7 +169,12 @@ describe("markPaymentPaidAction", () => {
 
     const result = await markPaymentPaidAction("p1");
 
-    expect(global.fetch).toHaveBeenCalledWith("http://localhost:3001/payments/p1/mark-paid", { method: "PATCH" });
+    // Story 1.8: the shared authed-fetch helper also attaches an Authorization
+    // header, so the init object now carries `headers` alongside `method`.
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://localhost:3001/payments/p1/mark-paid",
+      expect.objectContaining({ method: "PATCH" }),
+    );
     expect(revalidatePathMock).toHaveBeenCalledWith("/payments");
     expect(result).toEqual({});
   });

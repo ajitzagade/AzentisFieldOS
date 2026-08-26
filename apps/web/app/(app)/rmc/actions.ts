@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { createRmcEntrySchema } from "@azentisfieldos/shared";
 
@@ -35,7 +36,7 @@ export async function createRmcEntryAction(
 
   let res: Response;
   try {
-    res = await fetch(`${process.env.API_URL}/rmc-entries`, {
+    res = await authedFetch(`/rmc-entries`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),

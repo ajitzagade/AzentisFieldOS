@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ServiceLogForm } from "../../../../service-log-form";
@@ -8,7 +9,7 @@ interface VehicleListItem {
 }
 
 async function getVehicle(id: string): Promise<VehicleListItem | null> {
-  const res = await fetch(`${process.env.API_URL}/vehicles/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/vehicles/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Vehicle (${res.status})`);

@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ConfirmReceiptForm } from "./confirm-receipt-form";
@@ -11,7 +12,7 @@ interface MovementForReceipt {
 }
 
 async function getMovement(id: string): Promise<MovementForReceipt | null> {
-  const res = await fetch(`${process.env.API_URL}/movements/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/movements/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Movement (${res.status})`);

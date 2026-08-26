@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RmcForm, type RmcFormInitialValues } from "../../rmc-form";
@@ -24,7 +25,7 @@ interface RmcEntryForCorrection {
 }
 
 async function getRmcEntry(id: string): Promise<RmcEntryForCorrection | null> {
-  const res = await fetch(`${process.env.API_URL}/rmc-entries/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/rmc-entries/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load RMC delivery (${res.status})`);
@@ -33,7 +34,7 @@ async function getRmcEntry(id: string): Promise<RmcEntryForCorrection | null> {
 }
 
 async function getSites(): Promise<SiteOption[]> {
-  const res = await fetch(`${process.env.API_URL}/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Sites (${res.status})`);
   }
@@ -41,7 +42,7 @@ async function getSites(): Promise<SiteOption[]> {
 }
 
 async function getVendors(): Promise<VendorOption[]> {
-  const res = await fetch(`${process.env.API_URL}/vendors`, { cache: "no-store" });
+  const res = await authedFetch(`/vendors`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Vendors (${res.status})`);
   }

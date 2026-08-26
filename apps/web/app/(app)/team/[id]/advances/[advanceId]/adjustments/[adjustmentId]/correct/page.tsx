@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdjustmentForm, type AdjustmentFormInitialValues } from "../../adjustment-form";
@@ -13,7 +14,7 @@ interface AdjustmentForCorrection {
 }
 
 async function getAdjustment(id: string): Promise<AdjustmentForCorrection | null> {
-  const res = await fetch(`${process.env.API_URL}/advance-adjustments/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/advance-adjustments/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Advance Adjustment (${res.status})`);

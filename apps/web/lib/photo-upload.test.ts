@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { uploadPhoto } from "./photo-upload";
+import type { AuthedFetch } from "./authed-fetch-core";
 
 const originalFetch = global.fetch;
 
@@ -12,50 +13,54 @@ function fakeFile(): File {
   return new File(["fake-bytes"], "site.jpg", { type: "image/jpeg" });
 }
 
+// Story 1.8: the API calls (presign, confirm) now go through the shared
+// authed-fetch helper (Clerk token attached), which takes a PATH and resolves
+// it against apps/api. The direct-to-R2 PUT must stay a raw `fetch` with no
+// Authorization header — the presigned URL is its own bearer of authority.
 describe("uploadPhoto", () => {
-  it("presigns, PUTs the file directly to R2 (not through the API), then confirms", async () => {
-    const calls: { url: string; method?: string }[] = [];
-    global.fetch = vi.fn((url: string, init?: RequestInit) => {
-      calls.push({ url: String(url), method: init?.method });
-      if (String(url).endsWith("/photos/presign")) {
-        return Promise.resolve({
+  it("presigns + confirms via the authed helper, and PUTs the file directly to R2 with a raw fetch (no auth)", async () => {
+    const authedCalls: string[] = [];
+    const authedFetch = vi.fn(async (path: string) => {
+      authedCalls.push(path);
+      if (path === "/photos/presign") {
+        return {
           ok: true,
           json: async () => ({ uploadUrl: "https://r2.example/put?sig=abc", storageKey: "dsr/dsr-1/x.jpg" }),
-        });
+        } as Response;
       }
-      if (String(url) === "https://r2.example/put?sig=abc") {
-        return Promise.resolve({ ok: true });
+      if (path === "/photos") {
+        return { ok: true, json: async () => ({ id: "photo-1" }) } as Response;
       }
-      if (String(url).endsWith("/photos")) {
-        return Promise.resolve({ ok: true, json: async () => ({ id: "photo-1" }) });
-      }
-      return Promise.resolve({ ok: false });
+      return { ok: false } as Response;
+    }) as unknown as AuthedFetch;
+
+    const putCalls: { url: string; method?: string }[] = [];
+    global.fetch = vi.fn((url: string, init?: RequestInit) => {
+      putCalls.push({ url: String(url), method: init?.method });
+      return Promise.resolve({ ok: true } as Response);
     }) as unknown as typeof fetch;
 
-    const result = await uploadPhoto("http://localhost:3001", "dsr-1", fakeFile());
+    const result = await uploadPhoto(authedFetch, "dsr-1", fakeFile());
 
     expect(result).toEqual({ storageKey: "dsr/dsr-1/x.jpg" });
-    expect(calls.map((c) => c.url)).toEqual([
-      "http://localhost:3001/photos/presign",
-      "https://r2.example/put?sig=abc",
-      "http://localhost:3001/photos",
-    ]);
-    expect(calls[1]?.method).toBe("PUT");
+    expect(authedCalls).toEqual(["/photos/presign", "/photos"]);
+    expect(putCalls).toEqual([{ url: "https://r2.example/put?sig=abc", method: "PUT" }]);
   });
 
   it("throws when the presign step fails", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false }) as unknown as typeof fetch;
-    await expect(uploadPhoto("http://localhost:3001", "dsr-1", fakeFile())).rejects.toThrow();
+    const authedFetch = vi.fn(async () => ({ ok: false }) as Response) as unknown as AuthedFetch;
+    await expect(uploadPhoto(authedFetch, "dsr-1", fakeFile())).rejects.toThrow();
   });
 
   it("throws when the direct-to-R2 PUT fails, without confirming", async () => {
-    global.fetch = vi.fn((url: string) => {
-      if (String(url).endsWith("/photos/presign")) {
-        return Promise.resolve({ ok: true, json: async () => ({ uploadUrl: "https://r2.example/put", storageKey: "k" }) });
+    const authedFetch = vi.fn(async (path: string) => {
+      if (path === "/photos/presign") {
+        return { ok: true, json: async () => ({ uploadUrl: "https://r2.example/put", storageKey: "k" }) } as Response;
       }
-      return Promise.resolve({ ok: false });
-    }) as unknown as typeof fetch;
+      return { ok: false } as Response;
+    }) as unknown as AuthedFetch;
+    global.fetch = vi.fn(() => Promise.resolve({ ok: false } as Response)) as unknown as typeof fetch;
 
-    await expect(uploadPhoto("http://localhost:3001", "dsr-1", fakeFile())).rejects.toThrow();
+    await expect(uploadPhoto(authedFetch, "dsr-1", fakeFile())).rejects.toThrow();
   });
 });

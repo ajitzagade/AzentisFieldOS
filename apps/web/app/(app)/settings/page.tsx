@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { BuildingIcon, Card, GearIcon, LayersIcon, UsersIcon } from "@azentisfieldos/ui";
 import { BrandingForm, type BrandingConfig } from "./branding-form";
 
@@ -22,7 +23,7 @@ interface VehicleType {
 }
 
 async function getJSON<T>(path: string): Promise<T> {
-  const res = await fetch(`${process.env.API_URL}${path}`, { cache: "no-store" });
+  const res = await authedFetch(`${path}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to load ${path} (${res.status})`);
   return res.json();
 }

@@ -1,3 +1,5 @@
+import type { AuthedFetch } from "./authed-fetch-core";
+
 // Story 14.1 (FR-47, AD-3): the branding logo reuses Epic 3's exact
 // presign→PUT→store-URL upload flow (see photo-upload.ts) — apps/api grants a
 // short-lived presigned URL, the browser PUTs the bytes straight to R2, and the
@@ -5,11 +7,15 @@
 // difference from the DSR photo path is the destination: the URL is stored on
 // BrandingConfig.logoUrl (via PATCH /branding-config) instead of creating a
 // Photo row, so there is no separate confirm step here.
+//
+// Story 1.8 (AC #4): the presign call goes through the shared authed-fetch
+// helper (Clerk token attached); the direct-to-R2 PUT stays a raw `fetch`, as
+// the presigned URL carries its own scoped authority.
 export async function uploadBrandingLogo(
-  apiUrl: string,
+  authedFetch: AuthedFetch,
   file: File,
 ): Promise<{ logoUrl: string }> {
-  const presignRes = await fetch(`${apiUrl}/branding-config/logo/presign`, {
+  const presignRes = await authedFetch(`/branding-config/logo/presign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: "{}",

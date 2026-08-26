@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { revalidatePath } from "next/cache";
 import { createExpenseCategorySchema } from "@azentisfieldos/shared";
 
@@ -20,7 +21,7 @@ export async function createExpenseCategoryAction(
 
   let res: Response;
   try {
-    res = await fetch(`${process.env.API_URL}/expense-categories`, {
+    res = await authedFetch(`/expense-categories`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),

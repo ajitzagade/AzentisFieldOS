@@ -3,6 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CreateDsrInput } from '@azentisfieldos/shared';
 import { DsrController } from './dsr.controller';
 import { DsrService } from './dsr.service';
+import type { AuthUser } from '../auth/current-user.decorator';
+
+const currentUser: AuthUser = {
+  id: 'user-1',
+  clerkId: 'clerk-1',
+  role: 'OWNER_ADMIN',
+};
 
 describe('DsrController', () => {
   let controller: DsrController;
@@ -43,9 +50,9 @@ describe('DsrController', () => {
     };
     service.create.mockResolvedValue({ id: 'dsr-1', ...input });
 
-    const result = await controller.create(input);
+    const result = await controller.create(currentUser, input);
 
-    expect(service.create).toHaveBeenCalledWith(input);
+    expect(service.create).toHaveBeenCalledWith(input, currentUser.id);
     expect(result).toEqual({ id: 'dsr-1', ...input });
   });
 
@@ -65,7 +72,7 @@ describe('DsrController', () => {
       ...input,
     });
 
-    const result = await controller.correct('dsr-1', {
+    const result = await controller.correct(currentUser, 'dsr-1', {
       ...input,
       reason: 'Ravi was actually present',
     });
@@ -74,6 +81,7 @@ describe('DsrController', () => {
       'dsr-1',
       input,
       'Ravi was actually present',
+      currentUser.id,
     );
     expect(result).toEqual({ id: 'dsr-2', correctsId: 'dsr-1', ...input });
   });

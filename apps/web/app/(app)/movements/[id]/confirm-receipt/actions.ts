@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { confirmMovementReceiptSchema } from "@azentisfieldos/shared";
 
@@ -24,7 +25,7 @@ export async function confirmMovementReceiptAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/movements/${id}/confirm-receipt`, {
+  const res = await authedFetch(`/movements/${id}/confirm-receipt`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

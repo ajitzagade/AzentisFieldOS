@@ -1,9 +1,10 @@
+import { authedFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { EditVendorForm } from "./edit-vendor-form";
 import type { Vendor } from "../../page";
 
 async function getVendor(id: string): Promise<Vendor | null> {
-  const res = await fetch(`${process.env.API_URL}/vendors/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/vendors/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Vendor (${res.status})`);

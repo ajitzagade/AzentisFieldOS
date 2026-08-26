@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { DataTable, LayersIcon, type DataTableColumn } from "@azentisfieldos/ui";
 import { AddExpenseCategoryForm } from "./add-expense-category-form";
@@ -8,7 +9,7 @@ interface ExpenseCategoryItem {
 }
 
 async function getExpenseCategories(): Promise<ExpenseCategoryItem[]> {
-  const res = await fetch(`${process.env.API_URL}/expense-categories`, { cache: "no-store" });
+  const res = await authedFetch(`/expense-categories`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Expense Categories (${res.status})`);
   }

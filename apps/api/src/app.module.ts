@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ClerkAuthGuard } from './auth/clerk-auth.guard';
 import { PrismaModule } from './prisma/prisma.module';
 import { SitesModule } from './sites/sites.module';
 import { DsrModule } from './dsr/dsr.module';
@@ -32,6 +34,12 @@ import { ReportsModule } from './reports/reports.module';
     ReportsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Story 1.8 (AC #1/#2/#5): request-level Clerk auth for EVERY apps/api
+    // route by construction. Registered globally so a new controller is
+    // protected by default — a route only opts out via an explicit @Public().
+    { provide: APP_GUARD, useClass: ClerkAuthGuard },
+  ],
 })
 export class AppModule {}

@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { updateVendorSchema } from "@azentisfieldos/shared";
 
@@ -33,7 +34,7 @@ export async function updateVendorAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/vendors/${id}`, {
+  const res = await authedFetch(`/vendors/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

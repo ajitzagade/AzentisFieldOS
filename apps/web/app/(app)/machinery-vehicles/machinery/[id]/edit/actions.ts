@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { updateMachinerySchema } from "@azentisfieldos/shared";
 
@@ -35,7 +36,7 @@ export async function updateMachineryAction(
 
   let res: Response;
   try {
-    res = await fetch(`${process.env.API_URL}/machinery/${id}`, {
+    res = await authedFetch(`/machinery/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),

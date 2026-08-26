@@ -42,7 +42,12 @@ describe("WorkRecordForm", () => {
     await waitFor(() => {
       expect(screen.getByText("Ravi Kumar")).toBeInTheDocument();
     });
-    expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining("/work-records/default-crew?siteId=site1&date="));
+    // Story 1.8: the shared authed-fetch helper always passes an init object
+    // (carrying the Authorization header), so the GET now has a second arg.
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/work-records/default-crew?siteId=site1&date="),
+      expect.anything(),
+    );
   });
 
   it("shows hours/overtime inputs only for a checked (attended) row, and hides them when unchecked", async () => {

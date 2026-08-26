@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { createTeamMemberSchema } from "@azentisfieldos/shared";
 
@@ -25,7 +26,7 @@ export async function createTeamMemberAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/team-members`, {
+  const res = await authedFetch(`/team-members`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

@@ -7,7 +7,6 @@ import {
 import type { CreateDsrInput } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { getPlaceholderUserId } from '../common/get-placeholder-user-id';
 import { lockOnKey } from '../common/advisory-lock';
 import { dateRangeBounds } from '../common/date-range';
 import { StorageService } from '../storage/storage.service';
@@ -70,8 +69,10 @@ export class DsrService {
     );
   }
 
-  async create(input: CreateDsrInput) {
-    const submittedByUserId = await getPlaceholderUserId(this.prisma);
+  // Story 1.8 (AC #1): `submittedByUserId` is the real authenticated user,
+  // threaded in from the controller (req.user, set by ClerkAuthGuard) — no
+  // longer a placeholder resolved inside the service.
+  async create(input: CreateDsrInput, submittedByUserId: string) {
     const reportDate = new Date(input.reportDate);
 
     try {
@@ -259,7 +260,12 @@ export class DsrService {
   // deliberately does NOT go through create()'s "find the existing
   // non-corrected row for this Site/date" logic — a correction is expected
   // to coexist with the row it corrects, not merge into it.
-  async correct(originalId: string, input: CreateDsrInput, reason: string) {
+  async correct(
+    originalId: string,
+    input: CreateDsrInput,
+    reason: string,
+    submittedByUserId: string,
+  ) {
     const original = await this.prisma.dailySiteReport.findUnique({
       where: { id: originalId },
     });
@@ -283,7 +289,6 @@ export class DsrService {
       );
     }
 
-    const submittedByUserId = await getPlaceholderUserId(this.prisma);
     const reportDate = new Date(input.reportDate);
 
     try {

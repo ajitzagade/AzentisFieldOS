@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createPaymentSchema } from "@azentisfieldos/shared";
@@ -43,7 +44,7 @@ export async function createPaymentAction(
 
   let res: Response;
   try {
-    res = await fetch(`${process.env.API_URL}/payments`, {
+    res = await authedFetch(`/payments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),
@@ -97,7 +98,7 @@ export interface MarkPaymentPaidFormState {
 export async function markPaymentPaidAction(id: string): Promise<MarkPaymentPaidFormState> {
   let res: Response;
   try {
-    res = await fetch(`${process.env.API_URL}/payments/${id}/mark-paid`, { method: "PATCH" });
+    res = await authedFetch(`/payments/${id}/mark-paid`, { method: "PATCH" });
   } catch {
     return { formError: "Could not mark this Payment as paid. Please try again." };
   }

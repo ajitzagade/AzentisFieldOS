@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { updateSiteSchema } from "@azentisfieldos/shared";
 
@@ -28,7 +29,7 @@ export async function updateSiteAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/sites/${id}`, {
+  const res = await authedFetch(`/sites/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { NewVehicleForm } from "./new-vehicle-form";
 
 interface VehicleTypeOption {
@@ -6,7 +7,7 @@ interface VehicleTypeOption {
 }
 
 async function getVehicleTypes(): Promise<VehicleTypeOption[]> {
-  const res = await fetch(`${process.env.API_URL}/vehicle-types`, { cache: "no-store" });
+  const res = await authedFetch(`/vehicle-types`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Vehicle Types (${res.status})`);
   }

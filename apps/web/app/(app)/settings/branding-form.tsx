@@ -14,6 +14,7 @@ import {
 } from "@azentisfieldos/ui";
 import { updateBrandingConfigSchema } from "@azentisfieldos/shared";
 import { uploadBrandingLogo } from "../../../lib/logo-upload";
+import { useAuthedFetch } from "../../../lib/use-authed-fetch";
 
 export interface BrandingConfig {
   id: string;
@@ -64,6 +65,7 @@ function SwatchInput({ label, value, onChange, error }: SwatchInputProps) {
 
 export function BrandingForm({ config }: { config: BrandingConfig }) {
   const router = useRouter();
+  const authedFetch = useAuthedFetch();
 
   const [tenantName, setTenantName] = useState(config.tenantName);
   const [logoUrl, setLogoUrl] = useState<string | null>(config.logoUrl);
@@ -89,10 +91,7 @@ export function BrandingForm({ config }: { config: BrandingConfig }) {
     setLogoError(null);
     setLogoUploading(true);
     try {
-      const { logoUrl: uploadedUrl } = await uploadBrandingLogo(
-        process.env.NEXT_PUBLIC_API_URL ?? "",
-        file,
-      );
+      const { logoUrl: uploadedUrl } = await uploadBrandingLogo(authedFetch, file);
       setLogoUrl(uploadedUrl);
       setSaved(false);
     } catch {
@@ -129,7 +128,7 @@ export function BrandingForm({ config }: { config: BrandingConfig }) {
 
     setSaving(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/branding-config`, {
+      const res = await authedFetch(`/branding-config`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data),

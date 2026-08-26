@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { Badge, Button, CheckCircleIcon, ClipboardIcon, DataTable, PlusIcon, type DataTableColumn } from "@azentisfieldos/ui";
 import type { Site } from "../sites/page";
@@ -16,7 +17,7 @@ interface LogRow {
 }
 
 async function getSites(): Promise<Site[]> {
-  const res = await fetch(`${process.env.API_URL}/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Sites (${res.status})`);
   }
@@ -29,7 +30,7 @@ async function getSites(): Promise<Site[]> {
 // offline queue (story 3.2) and is not something this endpoint can ever
 // observe, so it is deliberately not represented here (Task 0).
 async function getTodaysReports(date: string): Promise<DsrListRow[]> {
-  const res = await fetch(`${process.env.API_URL}/dsr?date=${date}`, { cache: "no-store" });
+  const res = await authedFetch(`/dsr?date=${date}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Daily Site Reports (${res.status})`);
   }

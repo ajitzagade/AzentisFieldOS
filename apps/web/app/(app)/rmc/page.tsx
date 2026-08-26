@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import {
   BuildingIcon,
@@ -53,7 +54,7 @@ function resolveGroupBy(value: string | undefined): ReportGroupBy {
 }
 
 async function getRmcEntries(): Promise<RmcEntryRow[]> {
-  const res = await fetch(`${process.env.API_URL}/rmc-entries`, { cache: "no-store" });
+  const res = await authedFetch(`/rmc-entries`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load RMC deliveries (${res.status})`);
   }
@@ -63,7 +64,7 @@ async function getRmcEntries(): Promise<RmcEntryRow[]> {
 // Server-computed grouped aggregate (RmcService.report) — the totals here
 // reconcile exactly to the sum of individual RmcEntry rows (AC #1).
 async function getRmcReport(groupBy: ReportGroupBy): Promise<RmcReportRow[]> {
-  const res = await fetch(`${process.env.API_URL}/rmc-entries/report?groupBy=${groupBy}`, { cache: "no-store" });
+  const res = await authedFetch(`/rmc-entries/report?groupBy=${groupBy}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load RMC report (${res.status})`);
   }
@@ -73,7 +74,7 @@ async function getRmcReport(groupBy: ReportGroupBy): Promise<RmcReportRow[]> {
 // Task 4's stat tiles are server-computed aggregates (RmcService.statsThisMonth),
 // not a client-side reduction over the unbounded list() fetch above.
 async function getRmcStats(): Promise<RmcStats> {
-  const res = await fetch(`${process.env.API_URL}/rmc-entries/stats/this-month`, { cache: "no-store" });
+  const res = await authedFetch(`/rmc-entries/stats/this-month`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load RMC stats (${res.status})`);
   }

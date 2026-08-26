@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { NewMaterialForm } from "./new-material-form";
 
 interface Category {
@@ -12,7 +13,7 @@ interface Unit {
 }
 
 async function getCategories(): Promise<Category[]> {
-  const res = await fetch(`${process.env.API_URL}/material-categories`, { cache: "no-store" });
+  const res = await authedFetch(`/material-categories`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Material Categories (${res.status})`);
   }
@@ -20,7 +21,7 @@ async function getCategories(): Promise<Category[]> {
 }
 
 async function getUnits(): Promise<Unit[]> {
-  const res = await fetch(`${process.env.API_URL}/units`, { cache: "no-store" });
+  const res = await authedFetch(`/units`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Units (${res.status})`);
   }

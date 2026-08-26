@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { Badge, DataTable, LayersIcon, type DataTableColumn } from "@azentisfieldos/ui";
 import { AddCategoryForm } from "./add-category-form";
@@ -10,7 +11,7 @@ export interface MaterialCategoryItem {
 }
 
 async function getCategories(): Promise<MaterialCategoryItem[]> {
-  const res = await fetch(`${process.env.API_URL}/material-categories`, { cache: "no-store" });
+  const res = await authedFetch(`/material-categories`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Material Categories (${res.status})`);
   }

@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { createMachinerySchema } from "@azentisfieldos/shared";
 
@@ -28,7 +29,7 @@ export async function createMachineryAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/machinery`, {
+  const res = await authedFetch(`/machinery`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

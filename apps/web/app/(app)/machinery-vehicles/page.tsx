@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import {
   ChevronRightIcon,
@@ -39,7 +40,7 @@ interface VehicleListItem {
 }
 
 async function getMachinery(): Promise<MachineryListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/machinery`, { cache: "no-store" });
+  const res = await authedFetch(`/machinery`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Machinery (${res.status})`);
   }
@@ -47,7 +48,7 @@ async function getMachinery(): Promise<MachineryListItem[]> {
 }
 
 async function getVehicles(): Promise<VehicleListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/vehicles`, { cache: "no-store" });
+  const res = await authedFetch(`/vehicles`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Vehicles (${res.status})`);
   }

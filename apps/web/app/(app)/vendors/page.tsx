@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { Badge, BuildingIcon, DataTable, PlusIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
 
@@ -21,7 +22,7 @@ interface VendorRow extends Vendor {
 }
 
 async function getVendors(): Promise<Vendor[]> {
-  const res = await fetch(`${process.env.API_URL}/vendors`, { cache: "no-store" });
+  const res = await authedFetch(`/vendors`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Vendors (${res.status})`);
   }
@@ -29,7 +30,7 @@ async function getVendors(): Promise<Vendor[]> {
 }
 
 export async function getVendorPurchaseSummary(id: string): Promise<VendorPurchaseSummary> {
-  const res = await fetch(`${process.env.API_URL}/vendors/${id}/purchase-summary`, { cache: "no-store" });
+  const res = await authedFetch(`/vendors/${id}/purchase-summary`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Vendor purchase summary (${res.status})`);
   }

@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ExpenseForm, type ExpenseFormInitialValues } from "../../expense-form";
@@ -23,7 +24,7 @@ interface ExpenseForCorrection {
 }
 
 async function getExpense(id: string): Promise<ExpenseForCorrection | null> {
-  const res = await fetch(`${process.env.API_URL}/expenses/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/expenses/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Expense (${res.status})`);
@@ -32,7 +33,7 @@ async function getExpense(id: string): Promise<ExpenseForCorrection | null> {
 }
 
 async function getSites(): Promise<SiteOption[]> {
-  const res = await fetch(`${process.env.API_URL}/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Sites (${res.status})`);
   }
@@ -40,7 +41,7 @@ async function getSites(): Promise<SiteOption[]> {
 }
 
 async function getCategories(): Promise<CategoryOption[]> {
-  const res = await fetch(`${process.env.API_URL}/expense-categories`, { cache: "no-store" });
+  const res = await authedFetch(`/expense-categories`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Expense Categories (${res.status})`);
   }

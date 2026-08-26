@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { revalidatePath } from "next/cache";
 import { createMachineryTypeSchema } from "@azentisfieldos/shared";
 
@@ -18,7 +19,7 @@ export async function createMachineryTypeAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await fetch(`${process.env.API_URL}/machinery-types`, {
+  const res = await authedFetch(`/machinery-types`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

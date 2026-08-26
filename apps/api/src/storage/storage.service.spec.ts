@@ -67,17 +67,18 @@ describe('StorageService.confirmUpload', () => {
       dailySiteReport: {
         findUnique: vi.fn().mockResolvedValue({ id: 'dsr-1' }),
       },
-      user: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'user-1' }),
-        create: vi.fn(),
-      },
       photo: { create: photoCreate },
     });
 
-    const result = await service.confirmUpload({
-      dailySiteReportId: 'dsr-1',
-      storageKey: 'dsr/dsr-1/x.jpg',
-    });
+    // Story 1.8: the uploader id is passed in by the controller (req.user),
+    // no longer resolved to a placeholder inside the service.
+    const result = await service.confirmUpload(
+      {
+        dailySiteReportId: 'dsr-1',
+        storageKey: 'dsr/dsr-1/x.jpg',
+      },
+      'user-1',
+    );
 
     expect(photoCreate).toHaveBeenCalledWith({
       data: {
@@ -99,10 +100,13 @@ describe('StorageService.confirmUpload', () => {
     });
 
     await expect(
-      service.confirmUpload({
-        dailySiteReportId: 'missing',
-        storageKey: 'dsr/missing/x.jpg',
-      }),
+      service.confirmUpload(
+        {
+          dailySiteReportId: 'missing',
+          storageKey: 'dsr/missing/x.jpg',
+        },
+        'user-1',
+      ),
     ).rejects.toThrow(NotFoundException);
   });
 });

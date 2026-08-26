@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { DataTable, TruckIcon, type DataTableColumn } from "@azentisfieldos/ui";
 import { AddVehicleTypeForm } from "./add-vehicle-type-form";
@@ -8,7 +9,7 @@ interface VehicleTypeItem {
 }
 
 async function getVehicleTypes(): Promise<VehicleTypeItem[]> {
-  const res = await fetch(`${process.env.API_URL}/vehicle-types`, { cache: "no-store" });
+  const res = await authedFetch(`/vehicle-types`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Vehicle Types (${res.status})`);
   }

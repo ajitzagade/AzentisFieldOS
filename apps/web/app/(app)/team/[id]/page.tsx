@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -56,7 +57,7 @@ interface LedgerRow {
 }
 
 async function getTeamMember(id: string): Promise<TeamMemberDetail | null> {
-  const res = await fetch(`${process.env.API_URL}/team-members/${id}`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Failed to load Team Member (${res.status})`);
@@ -65,7 +66,7 @@ async function getTeamMember(id: string): Promise<TeamMemberDetail | null> {
 }
 
 async function getWorkHistory(id: string): Promise<WorkHistoryEntry[]> {
-  const res = await fetch(`${process.env.API_URL}/team-members/${id}/work-history`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members/${id}/work-history`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Work Record History (${res.status})`);
   }
@@ -76,7 +77,7 @@ async function getWorkHistory(id: string): Promise<WorkHistoryEntry[]> {
 // combined Advances page will also read; there is no per-Team-Member
 // endpoint, so this page filters client-side.
 async function getAdvances(id: string): Promise<AdvanceListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/advances`, { cache: "no-store" });
+  const res = await authedFetch(`/advances`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Advances (${res.status})`);
   }
@@ -85,7 +86,7 @@ async function getAdvances(id: string): Promise<AdvanceListItem[]> {
 }
 
 async function getAdjustments(id: string): Promise<AdjustmentListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/advance-adjustments`, { cache: "no-store" });
+  const res = await authedFetch(`/advance-adjustments`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Advance Adjustments (${res.status})`);
   }

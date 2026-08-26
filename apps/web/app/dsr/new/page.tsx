@@ -20,6 +20,7 @@ import type { CreateDsrInput } from "@azentisfieldos/shared";
 import { isQueued, localDsrKey, queueDsr, withClientGeneratedIds } from "../../../lib/offline-db";
 import { syncQueuedDsrs } from "../../../lib/dsr-sync";
 import { uploadPhoto } from "../../../lib/photo-upload";
+import { useAuthedFetch } from "../../../lib/use-authed-fetch";
 
 interface SiteOption {
   id: string;
@@ -77,6 +78,7 @@ function todayDate() {
 // field with the identical unbuilt-data-source gap, not silently ignored
 // for the ones the story didn't explicitly call out.
 export default function NewDsrPage() {
+  const authedFetch = useAuthedFetch();
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [siteId, setSiteId] = useState("");
   const [reportDate, setReportDate] = useState(todayDate());
@@ -129,11 +131,11 @@ export default function NewDsrPage() {
   const currentKeyRef = useRef(localDsrKey(siteId, reportDate));
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/sites`)
+    authedFetch(`/sites`)
       .then((res) => res.json())
       .then((data: SiteOption[]) => setSites(data))
       .catch(() => setSites([]));
-  }, []);
+  }, [authedFetch]);
 
   // Reflect whether the currently-selected Site/date already has a queued
   // (not-yet-synced) local entry — covers the Supervisor reopening the app
@@ -156,9 +158,8 @@ export default function NewDsrPage() {
   // as a fallback since mobile browsers don't always fire `online`
   // reliably. Silent on success — no dialog, no navigation change.
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
     const trigger = () => {
-      syncQueuedDsrs(apiUrl, (localKey) => {
+      syncQueuedDsrs(authedFetch, (localKey) => {
         if (localKey === currentKeyRef.current) setSyncState("synced");
       });
     };
@@ -171,19 +172,19 @@ export default function NewDsrPage() {
       window.removeEventListener("online", trigger);
       clearInterval(interval);
     };
-  }, []);
+  }, [authedFetch]);
 
   // AC #1: crew checklist pre-populated from the Site's most recent prior
   // attendance ("yesterday" = last day this Site had any, not date - 1).
   useEffect(() => {
     if (!siteId || !reportDate) return;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/dsr/defaults?siteId=${siteId}&date=${reportDate}`)
+    authedFetch(`/dsr/defaults?siteId=${siteId}&date=${reportDate}`)
       .then((res) => res.json())
       .then((defaults: { teamMemberId: string; name: string }[]) => {
         setCrew(defaults.map((d) => ({ teamMemberId: d.teamMemberId, name: d.name, attended: true })));
       })
       .catch(() => setCrew([]));
-  }, [siteId, reportDate]);
+  }, [siteId, reportDate, authedFetch]);
 
   function toggleAttended(teamMemberId: string) {
     setCrew((rows) => rows.map((r) => (r.teamMemberId === teamMemberId ? { ...r, attended: !r.attended } : r)));
@@ -198,7 +199,7 @@ export default function NewDsrPage() {
   async function uploadStagedPhoto(dsrId: string, localId: string, file: File) {
     setPhotos((rows) => rows.map((p) => (p.localId === localId ? { ...p, status: "uploading" } : p)));
     try {
-      await uploadPhoto(process.env.NEXT_PUBLIC_API_URL ?? "", dsrId, file);
+      await uploadPhoto(authedFetch, dsrId, file);
       setPhotos((rows) => rows.map((p) => (p.localId === localId ? { ...p, status: "uploaded" } : p)));
     } catch {
       setPhotos((rows) => rows.map((p) => (p.localId === localId ? { ...p, status: "failed" } : p)));
@@ -278,7 +279,7 @@ export default function NewDsrPage() {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
-        res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dsr`, {
+        res = await authedFetch(`/dsr`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),

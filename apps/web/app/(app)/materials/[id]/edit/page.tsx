@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { EditMaterialForm } from "./edit-material-form";
 import { SizesSection } from "./sizes-section";
@@ -21,7 +22,7 @@ interface Unit {
 // approach story 2.1's Sites edit page originally used before a dedicated
 // detail endpoint existed.
 async function getMaterial(id: string): Promise<MaterialDetail | undefined> {
-  const res = await fetch(`${process.env.API_URL}/materials`, { cache: "no-store" });
+  const res = await authedFetch(`/materials`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Materials (${res.status})`);
   }
@@ -30,7 +31,7 @@ async function getMaterial(id: string): Promise<MaterialDetail | undefined> {
 }
 
 async function getCategories(): Promise<Category[]> {
-  const res = await fetch(`${process.env.API_URL}/material-categories`, { cache: "no-store" });
+  const res = await authedFetch(`/material-categories`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Material Categories (${res.status})`);
   }
@@ -38,7 +39,7 @@ async function getCategories(): Promise<Category[]> {
 }
 
 async function getUnits(): Promise<Unit[]> {
-  const res = await fetch(`${process.env.API_URL}/units`, { cache: "no-store" });
+  const res = await authedFetch(`/units`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Units (${res.status})`);
   }

@@ -1,5 +1,6 @@
 "use server";
 
+import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { createPurchaseSchema } from "@azentisfieldos/shared";
 
@@ -41,7 +42,7 @@ export async function createPurchaseAction(
 
   let res: Response;
   try {
-    res = await fetch(`${process.env.API_URL}/purchases`, {
+    res = await authedFetch(`/purchases`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),

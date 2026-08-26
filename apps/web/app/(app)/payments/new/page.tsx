@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 import { PaymentForm } from "../payment-form";
 
 interface TeamMemberListItem {
@@ -15,7 +16,7 @@ interface AdvanceListItem {
 }
 
 async function getTeamMembers(): Promise<TeamMemberListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/team-members`, { cache: "no-store" });
+  const res = await authedFetch(`/team-members`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Team Members (${res.status})`);
   }
@@ -23,7 +24,7 @@ async function getTeamMembers(): Promise<TeamMemberListItem[]> {
 }
 
 async function getAdvances(): Promise<AdvanceListItem[]> {
-  const res = await fetch(`${process.env.API_URL}/advances`, { cache: "no-store" });
+  const res = await authedFetch(`/advances`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Advances (${res.status})`);
   }
