@@ -4,7 +4,7 @@ baseline_commit: cc34b1537ee7c18a7645110216eff8f49822a276
 
 # Story 12.2: Overall Rollup
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -94,3 +94,26 @@ Opus 4.8 (1M context) — claude-opus-4-8[1m]
 - `apps/api/src/dashboard/dashboard.controller.spec.ts` (modified) — delegation tests for the two new endpoints.
 - `apps/web/app/(app)/page.tsx` (modified) — Overall section (four cards) + Sites preview grid + the whole-page zero-Sites empty state (AC #1); local `OverallCard` helper on the shared `Card`.
 - `apps/web/app/(app)/page.test.tsx` (modified) — per-path fetch mock; Overall/Sites drill-down + zero-Sites single-empty-state tests.
+
+## Suggested Review Order
+
+**Composition layer (the story's core discipline)**
+
+- Entry point: `getOverall()` — four parallel calls into owning-epic services, never a direct Prisma query here.
+  [`dashboard.service.ts:130`](../../apps/api/src/dashboard/dashboard.service.ts#L130)
+
+- The reuse seam: `SitesService.list(status?)` gains an optional filter (default behavior unchanged for existing callers).
+  [`sites.service.ts:30`](../../apps/api/src/sites/sites.service.ts#L30)
+
+- Module wiring — Dashboard imports Sites/Inventory/Team; those export their services.
+  [`dashboard.module.ts:1`](../../apps/api/src/dashboard/dashboard.module.ts#L1)
+
+**Web UI — AC #1 headline deliverable**
+
+- The whole-page zero-Sites empty state gates Today/Overall/Sites behind one check (never a wall of 0-tiles).
+  [`page.tsx:74`](../../apps/web/app/(app)/page.tsx#L74)
+
+**Tests (supporting)**
+
+- `getOverall` composes from each owning service (asserts no direct `Site` query); zero-Sites whole-page empty state.
+  [`dashboard.service.spec.ts:263`](../../apps/api/src/dashboard/dashboard.service.spec.ts#L263)

@@ -109,9 +109,9 @@ development_status:
   11-1-record-an-expense: done
   epic-11-retrospective: optional
 
-  epic-12: in-progress
+  epic-12: done
   12-1-today-s-activity-missing-dsr-gap-flag: done
-  12-2-overall-rollup: ready-for-dev
+  12-2-overall-rollup: done
   epic-12-retrospective: optional
 
   epic-13: in-progress
