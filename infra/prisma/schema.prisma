@@ -506,6 +506,8 @@ model RmcEntry {
   invoiceOrChallanNo String?
   deliveredAt   DateTime
   createdAt     DateTime @default(now())
+  correctsId    String?
+  reason        String?             // required when correctsId is set
 
   dailySiteReportId String?
   dailySiteReport   DailySiteReport? @relation(fields: [dailySiteReportId], references: [id])

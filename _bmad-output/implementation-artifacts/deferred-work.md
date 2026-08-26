@@ -111,3 +111,9 @@
 ## Deferred from: code review of story-9.2 (2026-08-17)
 
 - No pagination on `GET /vendors/:id/purchases` — systemic, already logged repeatedly under Story 5.1 and elsewhere.
+
+## Deferred from: code review of story-10.1 (2026-08-26)
+
+- The delta-correction schema pattern (`createRmcEntrySchema`, mirroring `createPurchaseSchema` from Epic 5) lets the quantity go negative on a correction but keeps `ratePerM3`/`totalAmount` (`rate`/`totalAmount` on Purchase) `.positive()` unconditionally — a downward correction can't express a negative cost delta, so it silently inflates `RmcService.statsThisMonth`'s (and Purchase's equivalent) monthly totals instead of reducing them. Pre-existing since Epic 5's Purchase; RMC just faithfully inherited the same gap.
+- No list page anywhere in the app (Purchase, Movement, Consumption, Payment, Asset Movement, and now RMC) shows any indicator — badge, icon, or `reason` tooltip — that a row is itself a correction rather than an original entry. Systemic, cross-epic UI gap, not introduced by this story.
+- `GET /rmc-entries?date=`/`?siteId=`/`?vendorId=` (and `DsrService.listByDate`'s identical pre-existing `date` param) do no format validation — an unparseable date string reaches `new Date()` unguarded, and a duplicate query key parses to an array Prisma wasn't expecting — both would surface as a raw 500 instead of a 400. Matches the codebase's existing, already-unvalidated `@Query()` string param convention.
