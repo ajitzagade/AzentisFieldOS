@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RmcPage from "./page";
 
-async function renderRmcPage() {
-  const element = await RmcPage();
+async function renderRmcPage(searchParams: { report?: string } = {}) {
+  const element = await RmcPage({ searchParams: Promise.resolve(searchParams) });
   render(element);
 }
 
@@ -20,7 +20,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function mockFetchRouter(handlers: { entries?: unknown; stats?: unknown }) {
+function mockFetchRouter(handlers: {
+  entries?: unknown;
+  stats?: unknown;
+  report?: unknown;
+  onReportUrl?: (url: string) => void;
+}) {
   global.fetch = vi.fn((url: string) => {
     const urlStr = String(url);
     if (urlStr.includes("/rmc-entries/stats/this-month")) {
@@ -28,6 +33,10 @@ function mockFetchRouter(handlers: { entries?: unknown; stats?: unknown }) {
         ok: true,
         json: async () => handlers.stats ?? { totalQuantityM3: 0, totalCost: 0, activeVendorCount: 0 },
       });
+    }
+    if (urlStr.includes("/rmc-entries/report")) {
+      handlers.onReportUrl?.(urlStr);
+      return Promise.resolve({ ok: true, json: async () => handlers.report ?? [] });
     }
     return Promise.resolve({ ok: true, json: async () => handlers.entries ?? [] });
   }) as unknown as typeof fetch;
@@ -97,5 +106,49 @@ describe("RmcPage", () => {
     await renderRmcPage();
 
     expect(screen.getByRole("link", { name: "Add RMC Delivery" })).toHaveAttribute("href", "/rmc/new");
+  });
+
+  it("renders the Daily / By Site / By Vendor reporting slice-selector tabs (FR-27)", async () => {
+    mockFetchRouter({});
+
+    await renderRmcPage();
+
+    expect(screen.getByRole("tab", { name: "Daily" })).toHaveAttribute("href", "/rmc");
+    expect(screen.getByRole("tab", { name: "By Site" })).toHaveAttribute("href", "/rmc?report=site");
+    expect(screen.getByRole("tab", { name: "By Vendor" })).toHaveAttribute("href", "/rmc?report=vendor");
+  });
+
+  it("defaults to the daily slice and fetches groupBy=day", async () => {
+    let reportUrl = "";
+    mockFetchRouter({ onReportUrl: (url) => (reportUrl = url), report: [] });
+
+    await renderRmcPage();
+
+    expect(reportUrl).toContain("groupBy=day");
+    expect(screen.getByRole("tab", { name: "Daily" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("selects and fetches the Site-wise slice when ?report=site is active", async () => {
+    let reportUrl = "";
+    mockFetchRouter({
+      onReportUrl: (url) => (reportUrl = url),
+      report: [{ key: "site1", label: "NH-48 Highway Widening", totalQuantityM3: 50, totalCost: 304000, entryCount: 2 }],
+    });
+
+    await renderRmcPage({ report: "site" });
+
+    expect(reportUrl).toContain("groupBy=site");
+    expect(screen.getByRole("tab", { name: "By Site" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("NH-48 Highway Widening")).toBeInTheDocument();
+    expect(screen.getByText("₹3,04,000")).toBeInTheDocument();
+    expect(screen.getByText("50 m³")).toBeInTheDocument();
+  });
+
+  it("renders a genuine empty state for the report when there are no RMC deliveries", async () => {
+    mockFetchRouter({ report: [] });
+
+    await renderRmcPage();
+
+    expect(screen.getByText("No RMC deliveries to report on yet.")).toBeInTheDocument();
   });
 });

@@ -13,6 +13,26 @@ export interface RmcEntryListFilters {
   date?: string;
 }
 
+// Story 10.2: RMC reporting — the three slices are the same aggregate with
+// a different grouping key, never three separate endpoints/queries.
+export const RMC_REPORT_GROUP_BYS = ['day', 'site', 'vendor'] as const;
+export type RmcReportGroupBy = (typeof RMC_REPORT_GROUP_BYS)[number];
+
+export interface RmcReportFilters {
+  from?: string;
+  to?: string;
+}
+
+export interface RmcReportRow {
+  // Grouping key: ISO calendar day (day), siteId (site), vendorId (vendor).
+  key: string;
+  // Human-readable label: the ISO day, Site name, or Vendor name.
+  label: string;
+  totalQuantityM3: number;
+  totalCost: number;
+  entryCount: number;
+}
+
 // FR-26: RMC deliveries are their own entity, stored separately from the
 // Material Catalog/Inventory Transactions data model (AC #1) — this
 // service deliberately never reads or writes GodownStock/SiteStock. RMC
@@ -78,6 +98,88 @@ export class RmcService {
       include: { site: true, vendor: true },
       orderBy: { deliveredAt: 'desc' },
     });
+  }
+
+  // Story 10.2 / FR-27: daily, Site-wise, and Vendor-wise RMC
+  // consumption/cost reporting. One grouped-aggregate method with a
+  // `groupBy` key, not three near-identical queries. Every figure is a
+  // live aggregate summed over the individual RmcEntry rows themselves
+  // (there is no materialized rollup), so AC #1's "totals reconcile
+  // exactly to the sum of individual entries" is true by construction —
+  // each entry (including negative-quantity corrections, AD-9) lands in
+  // exactly one bucket, so the three slices always share one grand total.
+  async report(
+    groupBy: RmcReportGroupBy,
+    filters: RmcReportFilters = {},
+  ): Promise<RmcReportRow[]> {
+    const where: Prisma.RmcEntryWhereInput = {};
+    if (filters.from || filters.to) {
+      const deliveredAt: { gte?: Date; lt?: Date } = {};
+      if (filters.from) {
+        deliveredAt.gte = new Date(filters.from);
+      }
+      if (filters.to) {
+        // `to` names a calendar day and is inclusive of that whole day.
+        const toEnd = new Date(filters.to);
+        toEnd.setDate(toEnd.getDate() + 1);
+        deliveredAt.lt = toEnd;
+      }
+      where.deliveredAt = deliveredAt;
+    }
+
+    const entries = await this.prisma.rmcEntry.findMany({
+      where,
+      include: { site: true, vendor: true },
+      orderBy: { deliveredAt: 'desc' },
+    });
+
+    const groups = new Map<string, RmcReportRow>();
+    for (const entry of entries) {
+      const { key, label } = this.reportGroupOf(entry, groupBy);
+      const bucket = groups.get(key) ?? {
+        key,
+        label,
+        totalQuantityM3: 0,
+        totalCost: 0,
+        entryCount: 0,
+      };
+      bucket.totalQuantityM3 += entry.quantityM3.toNumber();
+      bucket.totalCost += entry.totalAmount.toNumber();
+      bucket.entryCount += 1;
+      groups.set(key, bucket);
+    }
+
+    const rows = [...groups.values()];
+    // Deterministic display order: most-recent-first for the daily slice,
+    // alphabetical by name for the Site/Vendor slices.
+    if (groupBy === 'day') {
+      rows.sort((a, b) => b.key.localeCompare(a.key));
+    } else {
+      rows.sort((a, b) => a.label.localeCompare(b.label));
+    }
+    return rows;
+  }
+
+  private reportGroupOf(
+    entry: {
+      deliveredAt: Date;
+      siteId: string;
+      vendorId: string;
+      site: { name: string };
+      vendor: { name: string };
+    },
+    groupBy: RmcReportGroupBy,
+  ): { key: string; label: string } {
+    if (groupBy === 'site') {
+      return { key: entry.siteId, label: entry.site.name };
+    }
+    if (groupBy === 'vendor') {
+      return { key: entry.vendorId, label: entry.vendor.name };
+    }
+    // day: bucket by calendar day (YYYY-MM-DD), matching the single-day
+    // list() filter's UTC-midnight day boundary.
+    const day = new Date(entry.deliveredAt).toISOString().slice(0, 10);
+    return { key: day, label: day };
   }
 
   // The correction form (apps/web) needs the original RMC delivery's

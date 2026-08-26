@@ -227,6 +227,196 @@ describe('RmcService.list', () => {
   });
 });
 
+// Prisma Decimal stand-in — only .toNumber() is exercised by report().
+function dec(n: number) {
+  return {
+    toNumber: () => n,
+  } as unknown as import('../generated/prisma/client').Prisma.Decimal;
+}
+
+// A multi-Site / multi-Vendor / multi-date fixture set including a
+// negative-quantity correction (AD-9). Grand total: qty 95, cost 583000,
+// 4 entries — every groupBy slice must reconcile back to exactly this.
+const reportFixtures = [
+  {
+    id: 'e1',
+    siteId: 'siteA',
+    vendorId: 'vendorX',
+    grade: 'M25',
+    deliveredAt: new Date('2026-08-10T09:00:00Z'),
+    quantityM3: dec(30),
+    totalAmount: dec(180000),
+    site: { name: 'Alpha Site' },
+    vendor: { name: 'X Concrete' },
+  },
+  {
+    id: 'e2',
+    siteId: 'siteA',
+    vendorId: 'vendorY',
+    grade: 'M25',
+    deliveredAt: new Date('2026-08-10T14:00:00Z'),
+    quantityM3: dec(20),
+    totalAmount: dec(124000),
+    site: { name: 'Alpha Site' },
+    vendor: { name: 'Y Concrete' },
+  },
+  {
+    id: 'e3',
+    siteId: 'siteB',
+    vendorId: 'vendorX',
+    grade: 'M30',
+    deliveredAt: new Date('2026-08-11T10:00:00Z'),
+    quantityM3: dec(50),
+    totalAmount: dec(310000),
+    site: { name: 'Bravo Site' },
+    vendor: { name: 'X Concrete' },
+  },
+  {
+    id: 'e4',
+    siteId: 'siteB',
+    vendorId: 'vendorX',
+    grade: 'M30',
+    deliveredAt: new Date('2026-08-11T16:00:00Z'),
+    quantityM3: dec(-5),
+    totalAmount: dec(-31000),
+    site: { name: 'Bravo Site' },
+    vendor: { name: 'X Concrete' },
+  },
+];
+
+const GRAND_QTY = 95;
+const GRAND_COST = 583000;
+const GRAND_COUNT = 4;
+
+function makeReportService() {
+  const rmcEntryFindMany = vi.fn().mockResolvedValue(reportFixtures);
+  return { ...makeService({ rmcEntryFindMany }), rmcEntryFindMany };
+}
+
+describe('RmcService.report', () => {
+  it('groups the daily slice by calendar day, summing qty/cost/count per day', async () => {
+    const { service } = makeReportService();
+
+    const rows = await service.report('day');
+
+    // Sorted most-recent-first.
+    expect(rows.map((r) => r.key)).toEqual(['2026-08-11', '2026-08-10']);
+    expect(rows).toEqual([
+      {
+        key: '2026-08-11',
+        label: '2026-08-11',
+        totalQuantityM3: 45,
+        totalCost: 279000,
+        entryCount: 2,
+      },
+      {
+        key: '2026-08-10',
+        label: '2026-08-10',
+        totalQuantityM3: 50,
+        totalCost: 304000,
+        entryCount: 2,
+      },
+    ]);
+  });
+
+  it('groups the Site-wise slice by siteId, labelled by Site name and sorted by name', async () => {
+    const { service } = makeReportService();
+
+    const rows = await service.report('site');
+
+    expect(rows).toEqual([
+      {
+        key: 'siteA',
+        label: 'Alpha Site',
+        totalQuantityM3: 50,
+        totalCost: 304000,
+        entryCount: 2,
+      },
+      {
+        key: 'siteB',
+        label: 'Bravo Site',
+        totalQuantityM3: 45,
+        totalCost: 279000,
+        entryCount: 2,
+      },
+    ]);
+  });
+
+  it('groups the Vendor-wise slice by vendorId, netting a correction into its vendor bucket', async () => {
+    const { service } = makeReportService();
+
+    const rows = await service.report('vendor');
+
+    expect(rows).toEqual([
+      {
+        key: 'vendorX',
+        label: 'X Concrete',
+        totalQuantityM3: 75,
+        totalCost: 459000,
+        entryCount: 3,
+      },
+      {
+        key: 'vendorY',
+        label: 'Y Concrete',
+        totalQuantityM3: 20,
+        totalCost: 124000,
+        entryCount: 1,
+      },
+    ]);
+  });
+
+  // AC #1: the concrete proof — all three slices reconcile to one grand total.
+  it('reconciles all three slices to the same grand total (AC #1)', async () => {
+    const { service } = makeReportService();
+
+    const [day, site, vendor] = await Promise.all([
+      service.report('day'),
+      service.report('site'),
+      service.report('vendor'),
+    ]);
+
+    for (const rows of [day, site, vendor]) {
+      const qty = rows.reduce((sum, r) => sum + r.totalQuantityM3, 0);
+      const cost = rows.reduce((sum, r) => sum + r.totalCost, 0);
+      const count = rows.reduce((sum, r) => sum + r.entryCount, 0);
+      expect(qty).toBe(GRAND_QTY);
+      expect(cost).toBe(GRAND_COST);
+      expect(count).toBe(GRAND_COUNT);
+    }
+  });
+
+  it('passes a deliveredAt gte/lt window when from/to are given (to is inclusive of the whole day)', async () => {
+    const { service, rmcEntryFindMany } = makeReportService();
+
+    await service.report('day', { from: '2026-08-01', to: '2026-08-31' });
+
+    const call = rmcEntryFindMany.mock.calls[0]![0] as {
+      where: { deliveredAt: { gte: Date; lt: Date } };
+    };
+    expect(call.where.deliveredAt.gte).toEqual(new Date('2026-08-01'));
+    const expectedLt = new Date('2026-08-31');
+    expectedLt.setDate(expectedLt.getDate() + 1);
+    expect(call.where.deliveredAt.lt).toEqual(expectedLt);
+  });
+
+  it('passes no deliveredAt filter when no range is given', async () => {
+    const { service, rmcEntryFindMany } = makeReportService();
+
+    await service.report('day');
+
+    expect(rmcEntryFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: {} }),
+    );
+  });
+
+  it('returns an empty array for a Tenant/range with no RMC deliveries (empty state, not an error)', async () => {
+    const rmcEntryFindMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ rmcEntryFindMany });
+
+    await expect(service.report('site')).resolves.toEqual([]);
+  });
+});
+
 describe('RmcService.findOne', () => {
   it('throws NotFoundException when no RmcEntry matches the id', async () => {
     const { service } = makeService({

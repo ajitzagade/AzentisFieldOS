@@ -11,6 +11,7 @@ describe('RmcController', () => {
   let service: {
     create: ReturnType<typeof vi.fn>;
     list: ReturnType<typeof vi.fn>;
+    report: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
     statsThisMonth: ReturnType<typeof vi.fn>;
   };
@@ -19,6 +20,7 @@ describe('RmcController', () => {
     service = {
       create: vi.fn(),
       list: vi.fn(),
+      report: vi.fn(),
       findOne: vi.fn(),
       statsThisMonth: vi.fn(),
     };
@@ -72,6 +74,34 @@ describe('RmcController', () => {
       vendorId: undefined,
       date: undefined,
     });
+  });
+
+  it('report delegates to RmcService.report with the groupBy key and from/to range (FR-27)', async () => {
+    service.report.mockResolvedValue([{ key: 'site1', label: 'Site 1' }]);
+
+    const result = await controller.report('site', '2026-08-01', '2026-08-31');
+
+    expect(service.report).toHaveBeenCalledWith('site', {
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+    expect(result).toEqual([{ key: 'site1', label: 'Site 1' }]);
+  });
+
+  it('report defaults to the daily slice when no groupBy is given', async () => {
+    service.report.mockResolvedValue([]);
+
+    await controller.report(undefined, undefined, undefined);
+
+    expect(service.report).toHaveBeenCalledWith('day', {
+      from: undefined,
+      to: undefined,
+    });
+  });
+
+  it('report rejects an unrecognized groupBy with a 400, never reaching the service', () => {
+    expect(() => controller.report('bogus')).toThrow(BadRequestException);
+    expect(service.report).not.toHaveBeenCalled();
   });
 
   it('findOne delegates to RmcService.findOne', async () => {

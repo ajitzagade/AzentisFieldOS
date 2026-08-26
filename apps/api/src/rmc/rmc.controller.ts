@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -12,7 +13,11 @@ import {
   type CreateRmcEntryInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
-import { RmcService } from './rmc.service';
+import {
+  RMC_REPORT_GROUP_BYS,
+  RmcService,
+  type RmcReportGroupBy,
+} from './rmc.service';
 
 @Controller('rmc-entries')
 export class RmcController {
@@ -41,6 +46,24 @@ export class RmcController {
   @Get('stats/this-month')
   statsThisMonth() {
     return this.rmcService.statsThisMonth();
+  }
+
+  // Story 10.2 (FR-27): daily / Site-wise / Vendor-wise RMC reporting — one
+  // grouped-aggregate endpoint keyed by `groupBy`, not three. Static path
+  // declared before `:id` (same reasoning as `stats/this-month` above).
+  @Get('report')
+  report(
+    @Query('groupBy') groupBy?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const resolved = groupBy ?? 'day';
+    if (!RMC_REPORT_GROUP_BYS.includes(resolved as RmcReportGroupBy)) {
+      throw new BadRequestException(
+        `groupBy must be one of: ${RMC_REPORT_GROUP_BYS.join(', ')}`,
+      );
+    }
+    return this.rmcService.report(resolved as RmcReportGroupBy, { from, to });
   }
 
   @Get(':id')
