@@ -11,6 +11,15 @@ interface Overrides {
   machineryCount?: number;
   expenseSum?: Prisma.Decimal | null;
   activeSites?: { id: string; name: string }[];
+  // Story 12.2 overrides — each stands in for the owning service's method.
+  sitesList?: { id: string; name: string; location: string; status: string }[];
+  activeSitesList?: { id: string; name: string }[];
+  lowStockMaterials?: unknown[];
+  outstandingAdvances?: {
+    total: number;
+    byTeamMember: { teamMemberId: string; name: string }[];
+  };
+  pendingCount?: number;
 }
 
 function makeService(overrides: Overrides = {}) {
@@ -50,13 +59,46 @@ function makeService(overrides: Overrides = {}) {
     weeklyPaymentTotal: 0,
     monthlyPaymentTotal: 0,
   });
-  const teamMembersService = { getTeamSummary };
+  const getOutstandingAdvances = vi
+    .fn()
+    .mockResolvedValue(
+      overrides.outstandingAdvances ?? { total: 0, byTeamMember: [] },
+    );
+  const teamMembersService = { getTeamSummary, getOutstandingAdvances };
+
+  // SitesService.list(status?) — returns the ACTIVE-filtered subset when a
+  // status arg is passed (getOverall), the full list otherwise (sites preview).
+  const sitesList = vi.fn((status?: string) =>
+    Promise.resolve(
+      status === 'ACTIVE'
+        ? (overrides.activeSitesList ?? [])
+        : (overrides.sitesList ?? []),
+    ),
+  );
+  const sitesService = { list: sitesList };
+
+  const getLowStockMaterials = vi
+    .fn()
+    .mockResolvedValue(overrides.lowStockMaterials ?? []);
+  const stockService = { getLowStockMaterials };
+
+  const countPending = vi.fn().mockResolvedValue(overrides.pendingCount ?? 0);
+  const paymentsService = { countPending };
 
   const service = new DashboardService(
     prisma as unknown as ConstructorParameters<typeof DashboardService>[0],
     teamMembersService as unknown as ConstructorParameters<
       typeof DashboardService
     >[1],
+    sitesService as unknown as ConstructorParameters<
+      typeof DashboardService
+    >[2],
+    stockService as unknown as ConstructorParameters<
+      typeof DashboardService
+    >[3],
+    paymentsService as unknown as ConstructorParameters<
+      typeof DashboardService
+    >[4],
   );
 
   return {
@@ -66,6 +108,11 @@ function makeService(overrides: Overrides = {}) {
     consumptionCount,
     machineryCount,
     getTeamSummary,
+    sitesList,
+    getLowStockMaterials,
+    getOutstandingAdvances,
+    countPending,
+    siteFindMany,
   };
 }
 
@@ -211,5 +258,111 @@ describe('DashboardService.getToday', () => {
       where: { currentStatus: 'AT_SITE' },
     });
     expect(result.machineryInUse).toBe(3);
+  });
+});
+
+describe('DashboardService.getOverall', () => {
+  it('composes every figure from its owning service (AC #2), not a re-query', async () => {
+    const {
+      service,
+      sitesList,
+      getLowStockMaterials,
+      getOutstandingAdvances,
+      countPending,
+      siteFindMany,
+    } = makeService({
+      activeSitesList: [
+        { id: 's1', name: 'NH-48 Widening' },
+        { id: 's2', name: 'Metro Depot' },
+      ],
+      lowStockMaterials: [{}, {}, {}],
+      outstandingAdvances: {
+        total: 314200,
+        byTeamMember: [
+          { teamMemberId: 't1', name: 'A' },
+          { teamMemberId: 't2', name: 'B' },
+          { teamMemberId: 't3', name: 'C' },
+        ],
+      },
+      pendingCount: 4,
+    });
+
+    const result = await service.getOverall();
+
+    expect(result).toEqual({
+      activeSites: { count: 2, names: ['NH-48 Widening', 'Metro Depot'] },
+      inventory: { lowStockCount: 3 },
+      outstandingAdvances: { total: 314200, teamMemberCount: 3 },
+      pendingPayments: { count: 4 },
+    });
+
+    // Active Sites come through SitesService.list('ACTIVE'), never a direct
+    // `Site` query from DashboardService.
+    expect(sitesList).toHaveBeenCalledWith('ACTIVE');
+    expect(siteFindMany).not.toHaveBeenCalled();
+    // Low-stock reuses Story 5.7's service method.
+    expect(getLowStockMaterials).toHaveBeenCalledTimes(1);
+    // Advances reuse Story 7.4's response as-is.
+    expect(getOutstandingAdvances).toHaveBeenCalledTimes(1);
+    // Pending count comes from the new PaymentsService method (Story 7.3).
+    expect(countPending).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports an empty, zeroed rollup for a Tenant with no data — valid, not an error', async () => {
+    const { service } = makeService();
+    const result = await service.getOverall();
+    expect(result).toEqual({
+      activeSites: { count: 0, names: [] },
+      inventory: { lowStockCount: 0 },
+      outstandingAdvances: { total: 0, teamMemberCount: 0 },
+      pendingPayments: { count: 0 },
+    });
+  });
+});
+
+describe('DashboardService.getSitesPreview', () => {
+  it('reuses SitesService.list() (unfiltered, newest-first) rather than a new query shape', async () => {
+    const { service, sitesList } = makeService({
+      sitesList: [
+        {
+          id: 's1',
+          name: 'NH-48 Widening',
+          location: 'Nashik',
+          status: 'ACTIVE',
+        },
+        { id: 's2', name: 'Metro Depot', location: 'Pune', status: 'ON_HOLD' },
+      ],
+    });
+
+    const result = await service.getSitesPreview();
+
+    expect(sitesList).toHaveBeenCalledWith();
+    expect(result).toEqual([
+      {
+        id: 's1',
+        name: 'NH-48 Widening',
+        location: 'Nashik',
+        status: 'ACTIVE',
+      },
+      { id: 's2', name: 'Metro Depot', location: 'Pune', status: 'ON_HOLD' },
+    ]);
+  });
+
+  it('caps the preview at six Sites, leaving the full roster to /sites', async () => {
+    const sitesList = Array.from({ length: 9 }, (_, i) => ({
+      id: `s${i}`,
+      name: `Site ${i}`,
+      location: 'Somewhere',
+      status: 'ACTIVE',
+    }));
+    const { service } = makeService({ sitesList });
+    const result = await service.getSitesPreview();
+    expect(result).toHaveLength(6);
+    expect(result[0]?.id).toBe('s0');
+  });
+
+  it('returns an empty preview for a Tenant with zero Sites (drives AC #1 whole-page empty state)', async () => {
+    const { service } = makeService({ sitesList: [] });
+    await expect(service.getSitesPreview()).resolves.toEqual([]);
   });
 });

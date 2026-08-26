@@ -11,4 +11,18 @@ export class DashboardController {
   getToday() {
     return this.dashboardService.getToday();
   }
+
+  // Story 12.2 (FR-34): the cross-Site "Overall" rollup — active Sites,
+  // inventory status, outstanding Advances, pending payments — each composed
+  // from its owning epic's service.
+  @Get('overall')
+  getOverall() {
+    return this.dashboardService.getOverall();
+  }
+
+  // The small Site-card grid below Overall (Story 12.2).
+  @Get('sites-preview')
+  getSitesPreview() {
+    return this.dashboardService.getSitesPreview();
+  }
 }

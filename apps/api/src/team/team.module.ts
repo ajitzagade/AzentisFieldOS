@@ -29,8 +29,9 @@ import { WorkRecordsService } from './work-records.service';
     TeamMembersService,
     WorkRecordsService,
   ],
-  // Exported so DashboardModule (Story 12.1) can reuse getTeamSummary()'s
-  // todaysWorkingHeadcount rather than recompute it.
-  exports: [TeamMembersService],
+  // Exported so DashboardModule can reuse TeamMembersService's
+  // todaysWorkingHeadcount (Story 12.1) and getOutstandingAdvances, plus
+  // PaymentsService.countPending (Story 12.2) — rather than recompute them.
+  exports: [TeamMembersService, PaymentsService],
 })
 export class TeamModule {}

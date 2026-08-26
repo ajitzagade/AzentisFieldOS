@@ -27,6 +27,8 @@ import { StockService } from './stock.service';
   ],
   // VendorsModule (Story 9.2) reuses PurchasesService's Vendor-filtered
   // queries rather than duplicating them against Purchase directly.
-  exports: [PurchasesService],
+  // StockService is exported so DashboardModule (Story 12.2) can reuse
+  // getLowStockMaterials() rather than re-derive the low-stock set.
+  exports: [PurchasesService, StockService],
 })
 export class InventoryModule {}

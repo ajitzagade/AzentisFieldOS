@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SitesService } from '../sites/sites.service';
+import { StockService } from '../inventory/stock.service';
+import { PaymentsService } from '../team/payments.service';
 import { TeamMembersService } from '../team/team-members.service';
 import { localDayRange, resolveAppTimeZone } from './local-day';
 
@@ -14,6 +17,28 @@ export interface TodayActivity {
   sitesMissingDsrToday: { siteId: string; name: string }[];
 }
 
+// Story 12.2 (FR-34): the cross-Site "Overall" rollup — every figure a direct
+// call into its owning epic's existing service, never a re-derivation here.
+export interface OverallRollup {
+  activeSites: { count: number; names: string[] };
+  inventory: { lowStockCount: number };
+  outstandingAdvances: { total: number; teamMemberCount: number };
+  pendingPayments: { count: number };
+}
+
+// The small Site-card grid below the Overall section — the same summary shape
+// SitesService already returns, so each card can drill into /sites/[id].
+export interface SitePreview {
+  id: string;
+  name: string;
+  location: string;
+  status: string;
+}
+
+// A handful of the most-recently-created Sites for the Dashboard card grid;
+// the full list lives at /sites (Epic 2).
+const SITES_PREVIEW_LIMIT = 6;
+
 // Story 12.1 (FR-35, SM-3): a pure read-aggregation layer over seven other
 // epics' already-existing tables. This module owns no Prisma models of its own
 // and never writes — every figure below is a genuine same-day aggregate, and a
@@ -24,6 +49,9 @@ export class DashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly teamMembersService: TeamMembersService,
+    private readonly sitesService: SitesService,
+    private readonly stockService: StockService,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   // `now`/`timeZone` are injectable so the local-day boundary can be tested
@@ -95,5 +123,50 @@ export class DashboardService {
         .filter((site) => !reportingSiteIds.has(site.id))
         .map((site) => ({ siteId: site.id, name: site.name })),
     };
+  }
+
+  // Story 12.2 (FR-34, AC #2): a pure composition layer. Every figure is a
+  // direct call into the epic that owns it — SitesService (Epic 2),
+  // StockService.getLowStockMaterials (Epic 5 Story 5.7),
+  // TeamMembersService.getOutstandingAdvances (Epic 7 Story 7.4),
+  // PaymentsService.countPending (Epic 7 Story 7.3) — so each figure
+  // reconciles with its source screen by construction, never re-derived here.
+  async getOverall(): Promise<OverallRollup> {
+    const [activeSites, lowStockMaterials, outstanding, pendingCount] =
+      await Promise.all([
+        this.sitesService.list('ACTIVE'),
+        this.stockService.getLowStockMaterials(),
+        this.teamMembersService.getOutstandingAdvances(),
+        this.paymentsService.countPending(),
+      ]);
+
+    return {
+      activeSites: {
+        count: activeSites.length,
+        names: activeSites.map((site) => site.name),
+      },
+      inventory: { lowStockCount: lowStockMaterials.length },
+      outstandingAdvances: {
+        total: outstanding.total,
+        teamMemberCount: outstanding.byTeamMember.length,
+      },
+      pendingPayments: { count: pendingCount },
+    };
+  }
+
+  // The Dashboard's Site-card grid: the most-recently-created Sites, reusing
+  // SitesService.list() (newest-first) and taking the first few — not a new
+  // query shape. Returned unfiltered by status so the grid mirrors the full
+  // Site roster (Active/On Hold/Completed) and its emptiness is a faithful
+  // "this Tenant has no Sites at all" signal for the page-level zero-Sites
+  // empty state (AC #1).
+  async getSitesPreview(): Promise<SitePreview[]> {
+    const sites = await this.sitesService.list();
+    return sites.slice(0, SITES_PREVIEW_LIMIT).map((site) => ({
+      id: site.id,
+      name: site.name,
+      location: site.location,
+      status: site.status,
+    }));
   }
 }

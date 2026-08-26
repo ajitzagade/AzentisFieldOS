@@ -7,5 +7,8 @@ import { SitesService } from './sites.service';
   imports: [StorageModule],
   controllers: [SitesController],
   providers: [SitesService],
+  // Exported so DashboardModule (Story 12.2) can reuse SitesService.list()'s
+  // Site query rather than re-query `Site` from DashboardService.
+  exports: [SitesService],
 })
 export class SitesModule {}

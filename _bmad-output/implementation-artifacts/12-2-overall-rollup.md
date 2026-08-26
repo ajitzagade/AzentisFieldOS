@@ -1,6 +1,10 @@
+---
+baseline_commit: cc34b1537ee7c18a7645110216eff8f49822a276
+---
+
 # Story 12.2: Overall Rollup
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -60,10 +64,33 @@ so that I understand business-wide state at a glance.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Opus 4.8 (1M context) — claude-opus-4-8[1m]
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- **Pure composition, no new Prisma queries in `DashboardService`.** `getOverall()` is four parallel calls into the epics that own each figure: `SitesService.list('ACTIVE')` (Epic 2), `StockService.getLowStockMaterials()` (Epic 5 Story 5.7), `TeamMembersService.getOutstandingAdvances()` (Epic 7 Story 7.4), `PaymentsService.countPending()` (Epic 7 Story 7.3). It maps their results to `{ activeSites: { count, names }, inventory: { lowStockCount }, outstandingAdvances: { total, teamMemberCount }, pendingPayments: { count } }` and does not touch `this.prisma` at all — so every Overall figure reconciles with its source screen by construction (AC #2).
+- **`PaymentsService.countPending()` already existed** (added in Epic 7 Story 7.3 for the Payments page's Pending stat tile — `COUNT(*) WHERE status = 'pending'`). Task 1 anticipated adding it "if no existing service method returns exactly this count today"; it does, so this story reuses it rather than adding a duplicate — the same discipline the task insists on.
+- **`SitesService.list()` gained an optional `status?: SiteStatus` filter param** (per Task 1) so the ACTIVE-Sites figure flows through the existing Site query rather than a fresh `Site` query in `DashboardService`. Default (no arg) behavior is unchanged, so Epic 2's existing `/sites` caller is untouched.
+- **`getSitesPreview()`** reuses `SitesService.list()` (unfiltered, newest-first) and slices to the first 6 — "ordered/limited, not a new query shape." Returned across all statuses (Active/On Hold/Completed) so the grid mirrors the full Site roster; this also makes its emptiness a faithful "this Tenant has no Sites at all" signal, which the page uses for the AC #1 gate. Two endpoints (`GET /dashboard/overall`, `GET /dashboard/sites-preview`) were used rather than folding sites-preview into overall (the story allows either).
+- **AC #1's whole-page empty state is the headline deliverable, gated once at the page level.** `apps/web/app/(app)/page.tsx` fetches all three Dashboard endpoints in parallel, then — when `sitesPreview.length === 0` (⟺ zero total Sites, since the preview is drawn from the full roster) — returns a single centered `EmptyState` (BuildingIcon, "No Sites yet — every report and figure on this Dashboard starts with your first Site," primary "Create your first Site" → `/sites/new`) instead of the Today/Overall/Sites layout. The seven `0`-tiles + four `0`-cards + empty grid are never rendered for a brand-new Tenant. I gate on total-Sites-zero rather than the spec's literal `activeSites.count === 0` because a Tenant that has only Completed/On-Hold Sites (activeSites.count 0 but total > 0) is a real non-empty state that should show `0 active`, not the create-your-first-Site screen — total-Sites-zero is the truer reading of AC #1 ("a Tenant with zero Sites") and coincides with `activeSites.count === 0` for the brand-new-Tenant case the spec's parenthetical names.
+- **Fourth Overall card (Pending Payments) added per Dev Notes**, resolving the AC-vs-mockup mismatch in favor of the AC text (the mockup's `overall-grid` shows three cards; the AC lists four concepts). Built the four Overall figures on the shared `Card` primitive via a small local `OverallCard` presentation helper (AD-5 — no new UI primitive), styled entirely through design tokens (AD-4). Inventory links to `/inventory`; both Outstanding Advances and Pending Payments link to `/payments`. The Sites grid uses interactive `Card`s wrapped in `Link` to `/sites/[id]` with a `Badge` status, plus a "View all sites" → `/sites` link.
+- **`outstandingAdvances.teamMemberCount` = `byTeamMember.length`** exactly as Task 1 specifies (the Story 7.4 response reused as-is). Note this counts every Team Member the outstanding-advances endpoint returns, which includes ₹0 balances — so it can exceed the mockup meta's "N Team Members with open advance balances." This is the spec's explicit transform; flagged as a minor semantic point rather than changed, since the spec is the source of truth. If "with an open balance" is wanted, filter `byTeamMember` to `outstandingAdvanceBalance > 0` here.
+- No schema change (read-only aggregation), so no migration.
+- **Module wiring:** exported `SitesService` from `SitesModule`, `StockService` from `InventoryModule`, and `PaymentsService` from `TeamModule` (which already exported `TeamMembersService`); `DashboardModule` now imports `SitesModule` + `InventoryModule` alongside the existing `TeamModule`.
+- **Verification:** worktree branched from `cc34b15` (Story 12.1). `pnpm install` + `pnpm db:generate` (Prisma client is gitignored, regenerated in the worktree). `apps/api` typecheck clean; full Vitest suite **521 passed / 51 skipped** (was 513 at baseline — +8 across the two new endpoints: getOverall composition/zeroed-rollup, getSitesPreview reuse/limit/empty). `apps/web` typecheck clean; full Vitest suite **498 passed** (page test adds Overall drill-down, Sites-grid drill-down, and the zero-Sites whole-page empty-state cases). All my changed files lint clean (`eslint` exit 0 on each). Pre-existing lint failures in `apps/api/src/team/payments.service.spec.ts` (Epic 7) and `no-unsafe-argument` warnings in `rmc.controller.integration.spec.ts` are on the baseline and untouched here — already documented in Story 12.1's notes. `apps/api`'s dev server cannot boot outside Vitest (documented repo limitation), so the endpoints were verified via unit tests with mocked owning-services and a mocked Prisma client, and the page via component tests with per-path mocked `fetch` — consistent with how prior epics on this project verified.
+
 ### File List
+
+- `apps/api/src/sites/sites.service.ts` (modified) — `list()` gains an optional `status?: SiteStatus` filter (reused by the Dashboard's ACTIVE-Sites figure).
+- `apps/api/src/sites/sites.module.ts` (modified) — exports `SitesService`.
+- `apps/api/src/inventory/inventory.module.ts` (modified) — exports `StockService`.
+- `apps/api/src/team/team.module.ts` (modified) — exports `PaymentsService` (alongside `TeamMembersService`).
+- `apps/api/src/dashboard/dashboard.module.ts` (modified) — imports `SitesModule` + `InventoryModule`.
+- `apps/api/src/dashboard/dashboard.service.ts` (modified) — `getOverall()` (four-service composition) + `getSitesPreview()` (reuses `SitesService.list()`, sliced); `OverallRollup`/`SitePreview` types.
+- `apps/api/src/dashboard/dashboard.controller.ts` (modified) — `GET /dashboard/overall`, `GET /dashboard/sites-preview`.
+- `apps/api/src/dashboard/dashboard.service.spec.ts` (modified) — extended `makeService` for the new services; `getOverall` composition + zeroed-rollup, `getSitesPreview` reuse/limit/empty tests.
+- `apps/api/src/dashboard/dashboard.controller.spec.ts` (modified) — delegation tests for the two new endpoints.
+- `apps/web/app/(app)/page.tsx` (modified) — Overall section (four cards) + Sites preview grid + the whole-page zero-Sites empty state (AC #1); local `OverallCard` helper on the shared `Card`.
+- `apps/web/app/(app)/page.test.tsx` (modified) — per-path fetch mock; Overall/Sites drill-down + zero-Sites single-empty-state tests.

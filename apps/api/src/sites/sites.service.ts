@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { CreateSiteInput, UpdateSiteInput } from '@azentisfieldos/shared';
-import { Prisma } from '../generated/prisma/client';
+import { Prisma, type SiteStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { getSiteActivityFeed } from './site-activity-feed';
@@ -27,8 +27,14 @@ export class SitesService {
 
   // FR-3: consolidated cross-Site rollup — a new Site is included with no
   // separate config step, so this is just "all Sites," ordered newest first.
-  list() {
-    return this.prisma.site.findMany({ orderBy: { createdAt: 'desc' } });
+  // The optional `status` filter lets Story 12.2's Dashboard rollup ask for
+  // just ACTIVE Sites through this same query rather than re-querying `Site`
+  // from DashboardService (each domain owns its own queries).
+  list(status?: SiteStatus) {
+    return this.prisma.site.findMany({
+      where: status ? { status } : undefined,
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   // Site master data uses a normal in-place update — it is not one of
