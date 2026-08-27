@@ -52,9 +52,10 @@ describe("uploadBrandingLogo", () => {
 
     expect(result).toEqual({ logoUrl: signed.logoUrl });
     expect(postCalls).toHaveLength(1);
-    expect(postCalls[0].url).toBe(signed.uploadUrl);
-    expect(postCalls[0].method).toBe("POST");
-    const form = postCalls[0].body as FormData;
+    const post = postCalls[0]!;
+    expect(post.url).toBe(signed.uploadUrl);
+    expect(post.method).toBe("POST");
+    const form = post.body as FormData;
     expect(form).toBeInstanceOf(FormData);
     expect(form.get("signature")).toBe("test-signature");
     expect(form.get("public_id")).toBe("branding/logo/abc");

@@ -22,7 +22,7 @@ This list is per **tenant deployment** (single-tenant by construction — AD-1/A
 - [ ] **Set every env var** in the deployment. `.env.example` is now complete (this session added the 6 that were missing). Required:
   - Core: `DATABASE_URL`, `API_URL`, `NEXT_PUBLIC_API_URL`, `PORT`, `CORS_ORIGIN` (browser origins), `APP_TIMEZONE`
   - Clerk: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`
-  - R2: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_BASE_URL`
+  - Cloudinary: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (or `CLOUDINARY_URL`) — server-only, apps/api alone
   - Email: `RESEND_API_KEY`, `REPORT_EMAIL_FROM` (a Resend-verified sender)
   - Cron: `CRON_SECRET` (same value in the code env and Vercel Cron config)
 - [ ] **Run migrations against the real DB**: `pnpm db:migrate:deploy`.
@@ -38,7 +38,7 @@ This list is per **tenant deployment** (single-tenant by construction — AD-1/A
 Tests mock every external service. Each of these needs one real end-to-end pass:
 
 - [ ] **Clerk accept-path** — sign in on web → session token → `apps/api` validates it → `GET /users/me` returns the real role → `AppShell` renders Owner/Admin vs Site-Supervisor correctly. *(Only the reject/401 path is proven so far.)*
-- [ ] **R2 round-trip** — DSR photo AND branding-logo presigned upload → object lands in the bucket → the stored `R2_PUBLIC_BASE_URL`-derived URL loads. (No `R2_*` creds have run in any environment.)
+- [ ] **Cloudinary round-trip** — DSR photo AND branding-logo signed direct upload → object lands in Cloudinary → the stored `res.cloudinary.com/<cloud>/image/upload/<public_id>` delivery URL loads. (No `CLOUDINARY_*` creds have run against a real account in any environment.)
 - [ ] **Resend** — a real auto-compiled daily report email delivers, branded and HTML-escaped, to the configured recipients.
 - [ ] **Cron firing** — Vercel actually invokes `compile-daily-reports`, `retry-report-deliveries`, and `run-report-schedules` on schedule and the `CRON_SECRET` bearer check passes with Vercel's real header.
 - [ ] **WhatsApp** — still blocked on BSP selection (PRD Open Question 3). Today `NotConfiguredWhatsAppSender` fails honestly and the channel is seeded disabled. Either pick a BSP + implement the sender, or leave WHATSAPP disabled and confirm the UI's "not yet available" framing is acceptable for launch.

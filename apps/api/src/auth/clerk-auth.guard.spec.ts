@@ -6,7 +6,7 @@ import { ClerkAuthGuard } from './clerk-auth.guard';
 import { Prisma } from '../generated/prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 
-// Mirrors the @aws-sdk/s3-request-presigner mock style in the storage tests:
+// Mirrors the Cloudinary-client mock style in the storage tests:
 // token verification is delegated to Clerk's backend SDK, so the SDK is
 // mocked here and the guard's own logic (header parsing, user resolution,
 // req.user attach, 401 mapping) is exercised against it.

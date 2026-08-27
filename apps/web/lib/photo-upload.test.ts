@@ -62,15 +62,16 @@ describe("uploadPhoto", () => {
       "/photos",
     ]);
     // confirm carries the Cloudinary-returned public_id as storageKey
-    expect(JSON.parse(authedCalls[1].body as string)).toEqual({
+    expect(JSON.parse(authedCalls[1]!.body as string)).toEqual({
       dailySiteReportId: "dsr-1",
       storageKey: "dsr/dsr-1/abc",
     });
     // one direct POST to Cloudinary, multipart form, no Authorization header
     expect(postCalls).toHaveLength(1);
-    expect(postCalls[0].url).toBe(signed.uploadUrl);
-    expect(postCalls[0].method).toBe("POST");
-    const form = postCalls[0].body as FormData;
+    const post = postCalls[0]!;
+    expect(post.url).toBe(signed.uploadUrl);
+    expect(post.method).toBe("POST");
+    const form = post.body as FormData;
     expect(form).toBeInstanceOf(FormData);
     expect(form.get("api_key")).toBe("test-key");
     expect(form.get("timestamp")).toBe("1735689600");
