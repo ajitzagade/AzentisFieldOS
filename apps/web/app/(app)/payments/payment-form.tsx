@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, RotateCcwIcon, SelectField, TextField, UserIcon, WalletIcon } from "@azentisfieldos/ui";
+import { Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, SelectField, TextField, UserIcon, WalletIcon } from "@azentisfieldos/ui";
 import { createPaymentAction, type CreatePaymentFormState } from "./actions";
 
 interface TeamMemberOption {
@@ -98,7 +98,7 @@ export function PaymentForm({
             correct set of values below, not a delta.
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required error={state.errors?.reason?.[0]} />
+          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
         </Card>
       ) : null}
 
@@ -153,6 +153,7 @@ export function PaymentForm({
         <TextField
           label="Period"
           name="payPeriod"
+          icon={<CalendarIcon className="size-4" />}
           hint="Optional — e.g. 1-15 Aug 2026"
           defaultValue={initial?.payPeriod}
           error={state.errors?.payPeriod?.[0]}
@@ -202,7 +203,7 @@ export function PaymentForm({
               }
               error={state.errors?.adjustmentAmount?.[0]}
             />
-            <TextField label="Adjustment Note" name="adjustmentNote" hint="Optional" error={state.errors?.adjustmentNote?.[0]} />
+            <TextField label="Adjustment Note" name="adjustmentNote" hint="Optional" icon={<PencilIcon className="size-4" />} error={state.errors?.adjustmentNote?.[0]} />
           </>
         ) : null}
       </Card>

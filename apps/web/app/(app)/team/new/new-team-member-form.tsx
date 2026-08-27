@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, PhoneIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { Button, Card, ClipboardIcon, LayersIcon, PhoneIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { createTeamMemberAction, type CreateTeamMemberFormState } from "./actions";
 
 interface Option {
@@ -56,6 +56,7 @@ export function NewTeamMemberForm({ employmentTypes }: { employmentTypes: Option
           name="designation"
           hint="Optional"
           maxLength={200}
+          icon={<ClipboardIcon className="size-4" />}
           placeholder="e.g. Site Supervisor, Mason, Helper"
           error={state.errors?.designation?.[0]}
         />
@@ -72,6 +73,7 @@ export function NewTeamMemberForm({ employmentTypes }: { employmentTypes: Option
           label="Employment Type"
           name="employmentTypeId"
           required
+          icon={<LayersIcon className="size-4" />}
           defaultValue=""
           options={[
             { value: "", label: "Select an Employment Type" },

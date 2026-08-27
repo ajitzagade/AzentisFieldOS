@@ -4,11 +4,14 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   Button,
+  CalendarIcon,
   Card,
   CheckCircleIcon,
   ClipboardIcon,
+  HashIcon,
   LayersIcon,
   MapPinIcon,
+  PencilIcon,
   RotateCcwIcon,
   SelectField,
   TextField,
@@ -79,7 +82,7 @@ export function ConsumptionForm({
             quantity to add or remove as a signed adjustment (e.g. -4), not the corrected total.
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required error={state.errors?.reason?.[0]} />
+          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
         </Card>
       ) : null}
 
@@ -116,6 +119,7 @@ export function ConsumptionForm({
           type="number"
           step="any"
           required
+          icon={<HashIcon className="size-4" />}
           hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -4." : undefined}
           error={state.errors?.quantity?.[0]}
         />
@@ -124,6 +128,7 @@ export function ConsumptionForm({
           name="consumedAt"
           type="date"
           required
+          icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.consumedAt ?? todayDate()}
           error={state.errors?.consumedAt?.[0]}
         />
@@ -138,7 +143,7 @@ export function ConsumptionForm({
           defaultValue={initial?.activityReference}
           error={state.errors?.activityReference?.[0]}
         />
-        <TextField label="Notes" name="notes" hint="Optional" defaultValue={initial?.notes} error={state.errors?.notes?.[0]} />
+        <TextField label="Notes" name="notes" hint="Optional" icon={<PencilIcon className="size-4" />} defaultValue={initial?.notes} error={state.errors?.notes?.[0]} />
         <TextField
           label="Recorded By User ID"
           name="recordedByUserId"

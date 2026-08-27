@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, LayersIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { BoxIcon, Button, Card, FilterIcon, LayersIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createMaterialAction, type CreateMaterialFormState } from "./actions";
 
 interface Option {
@@ -72,6 +72,7 @@ export function NewMaterialForm({ categories, units }: { categories: Option[]; u
           name="categoryId"
           required
           defaultValue=""
+          icon={<FilterIcon className="size-4" />}
           options={[{ value: "", label: "Select a Category" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
           error={state.errors?.categoryId?.[0]}
         />
@@ -80,6 +81,7 @@ export function NewMaterialForm({ categories, units }: { categories: Option[]; u
           name="unitId"
           required
           defaultValue=""
+          icon={<BoxIcon className="size-4" />}
           hint="How this Material is counted — bags, tons, cubic metres..."
           options={[{ value: "", label: "Select a Unit" }, ...units.map((u) => ({ value: u.id, label: u.name }))]}
           error={state.errors?.unitId?.[0]}

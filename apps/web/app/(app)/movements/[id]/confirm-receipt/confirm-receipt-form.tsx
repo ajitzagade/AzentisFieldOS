@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, TextField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, HashIcon, TextField } from "@azentisfieldos/ui";
 import { confirmMovementReceiptAction, type ConfirmMovementReceiptFormState } from "./actions";
 
 function SubmitButton() {
@@ -29,6 +29,7 @@ export function ConfirmReceiptForm({ movementId, sentQuantity }: { movementId: s
           type="number"
           step="any"
           required
+          icon={<HashIcon className="size-4" />}
           hint={`Sent: ${sentQuantity}. Any shortfall stays visible — never auto-reconciled to the sent amount.`}
           error={state.errors?.receivedQuantity?.[0]}
         />

@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Badge, Button, Card, CheckCircleIcon, LayersIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { Badge, BoxIcon, Button, Card, CheckCircleIcon, FilterIcon, HashIcon, LayersIcon, PencilIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import type { CustomFieldDefinition, CustomFieldType } from "@azentisfieldos/shared";
 import { updateMaterialAction, type UpdateMaterialFormState } from "./actions";
 import type { MaterialDetail } from "./page";
@@ -76,6 +76,7 @@ export function EditMaterialForm({
           name="categoryId"
           required
           defaultValue={material.category.id}
+          icon={<FilterIcon className="size-4" />}
           options={categories.map((c) => ({ value: c.id, label: c.name }))}
           error={state.errors?.categoryId?.[0]}
         />
@@ -84,6 +85,7 @@ export function EditMaterialForm({
           name="unitId"
           required
           defaultValue={material.unit.id}
+          icon={<BoxIcon className="size-4" />}
           options={units.map((u) => ({ value: u.id, label: u.name }))}
           error={state.errors?.unitId?.[0]}
         />
@@ -93,6 +95,7 @@ export function EditMaterialForm({
           type="number"
           step="any"
           min={0}
+          icon={<HashIcon className="size-4" />}
           hint="Optional — flags this Material on the Inventory page once its Godown stock (summed across all Sizes) falls below this. Leave blank to never flag it."
           defaultValue={material.lowStockThreshold ?? undefined}
           error={state.errors?.lowStockThreshold?.[0]}
@@ -132,12 +135,14 @@ export function EditMaterialForm({
               <TextField
                 label="New field label"
                 hint="e.g. Brand, Warranty Expiry"
+                icon={<PencilIcon className="size-4" />}
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
               />
             </div>
             <SelectField
               label="Type"
+              icon={<FilterIcon className="size-4" />}
               value={newType}
               onChange={(e) => setNewType(e.target.value as CustomFieldType)}
               options={CUSTOM_FIELD_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}

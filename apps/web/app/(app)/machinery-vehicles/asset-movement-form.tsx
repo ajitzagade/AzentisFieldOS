@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, MapPinIcon, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { ArrowsIcon, Button, CalendarIcon, Card, CheckCircleIcon, MapPinIcon, PencilIcon, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createAssetMovementAction, type CreateAssetMovementFormState } from "./actions";
 
 interface SiteOption {
@@ -68,7 +68,7 @@ export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites,
             actual, correct destination below — this is a manually recorded fact, not a delta.
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required error={state.errors?.reason?.[0]} />
+          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
         </Card>
       ) : null}
 
@@ -77,6 +77,7 @@ export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites,
           label="Move To"
           name="toStatus"
           required
+          icon={<ArrowsIcon className="size-4" />}
           value={toStatus}
           onChange={(e) => setToStatus(e.target.value as AssetLocationStatus)}
           options={[
@@ -104,6 +105,7 @@ export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites,
           name="movedAt"
           type="date"
           required
+          icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.movedAt ?? todayDate()}
           error={state.errors?.movedAt?.[0]}
         />

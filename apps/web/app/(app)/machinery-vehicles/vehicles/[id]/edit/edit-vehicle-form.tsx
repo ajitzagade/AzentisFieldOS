@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, HashIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { BuildingIcon, Button, Card, CheckCircleIcon, FilterIcon, HashIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { updateVehicleAction, type UpdateVehicleFormState } from "./actions";
 import type { VehicleDetail } from "./page";
 
@@ -48,6 +48,7 @@ export function EditVehicleForm({ vehicle, vehicleTypes }: { vehicle: VehicleDet
           name="typeId"
           required
           defaultValue={vehicle.type.id}
+          icon={<FilterIcon className="size-4" />}
           options={vehicleTypes.map((t) => ({ value: t.id, label: t.name }))}
           error={state.errors?.typeId?.[0]}
         />
@@ -56,6 +57,7 @@ export function EditVehicleForm({ vehicle, vehicleTypes }: { vehicle: VehicleDet
           name="ownership"
           hint="Optional"
           maxLength={200}
+          icon={<BuildingIcon className="size-4" />}
           defaultValue={vehicle.ownership ?? undefined}
           error={state.errors?.ownership?.[0]}
         />

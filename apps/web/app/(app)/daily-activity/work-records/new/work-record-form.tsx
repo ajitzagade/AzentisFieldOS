@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Badge, Button, Card, CheckCircleIcon, MapPinIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { Badge, Button, CalendarIcon, Card, CheckCircleIcon, MapPinIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { useAuthedFetch } from "../../../../../lib/use-authed-fetch";
 
 interface SiteOption {
@@ -137,7 +137,7 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
           onChange={(e) => setSiteId(e.target.value)}
           options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
         />
-        <TextField label="Date" type="date" required value={workDate} onChange={(e) => setWorkDate(e.target.value)} />
+        <TextField label="Date" type="date" required icon={<CalendarIcon className="size-4" />} value={workDate} onChange={(e) => setWorkDate(e.target.value)} />
       </Card>
 
       <Card className="mb-4">

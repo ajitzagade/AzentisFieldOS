@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, HashIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { BuildingIcon, Button, Card, FilterIcon, HashIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { createVehicleAction, type CreateVehicleFormState } from "./actions";
 
 interface Option {
@@ -57,13 +57,14 @@ export function NewVehicleForm({ vehicleTypes }: { vehicleTypes: Option[] }) {
           name="typeId"
           required
           defaultValue=""
+          icon={<FilterIcon className="size-4" />}
           options={[
             { value: "", label: "Select a Vehicle Type" },
             ...vehicleTypes.map((t) => ({ value: t.id, label: t.name })),
           ]}
           error={state.errors?.typeId?.[0]}
         />
-        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} placeholder="e.g. Owned, Rented" error={state.errors?.ownership?.[0]} />
+        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} icon={<BuildingIcon className="size-4" />} placeholder="e.g. Owned, Rented" error={state.errors?.ownership?.[0]} />
         <TextField
           label="Driver"
           name="driver"

@@ -4,10 +4,13 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   Button,
+  CalendarIcon,
   Card,
   CheckCircleIcon,
+  HashIcon,
   LayersIcon,
   MapPinIcon,
+  PencilIcon,
   RotateCcwIcon,
   SelectField,
   TextField,
@@ -87,7 +90,7 @@ export function MovementForm({
             quantity to add or remove as a signed adjustment (e.g. -20), not the corrected total.
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required error={state.errors?.reason?.[0]} />
+          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
         </Card>
       ) : null}
 
@@ -140,6 +143,7 @@ export function MovementForm({
           type="number"
           step="any"
           required
+          icon={<HashIcon className="size-4" />}
           hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -20." : undefined}
           error={state.errors?.sentQuantity?.[0]}
         />
@@ -148,6 +152,7 @@ export function MovementForm({
           name="movedAt"
           type="date"
           required
+          icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.movedAt ?? todayDate()}
           error={state.errors?.movedAt?.[0]}
         />
@@ -171,7 +176,7 @@ export function MovementForm({
           defaultValue={initial?.personResponsible}
           error={state.errors?.personResponsible?.[0]}
         />
-        <TextField label="Notes" name="notes" hint="Optional" defaultValue={initial?.notes} error={state.errors?.notes?.[0]} />
+        <TextField label="Notes" name="notes" hint="Optional" icon={<PencilIcon className="size-4" />} defaultValue={initial?.notes} error={state.errors?.notes?.[0]} />
       </Card>
 
       {state.formError ? (

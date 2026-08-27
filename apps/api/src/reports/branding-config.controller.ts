@@ -35,10 +35,10 @@ export class BrandingConfigController {
     return this.brandingConfig.update(body);
   }
 
-  // Logo upload presign — reuses Epic 3's R2 presign→PUT→store-URL flow
+  // Logo upload presign — reuses Epic 3's Cloudinary sign→POST→store-URL flow
   // (StorageService, the DSR photo path) rather than a second upload mechanism.
-  // The client PUTs the bytes directly to R2 (AD-3), then persists the returned
-  // durable `logoUrl` via the PATCH above on Save.
+  // The client POSTs the bytes directly to Cloudinary (AD-3), then persists the
+  // returned durable `logoUrl` via the PATCH above on Save.
   @Post('logo/presign')
   presignLogo() {
     return this.storage.presignBrandingLogoUpload();

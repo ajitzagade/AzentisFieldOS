@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, HashIcon, LayersIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { BuildingIcon, Button, Card, FilterIcon, GearIcon, HashIcon, LayersIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { createMachineryAction, type CreateMachineryFormState } from "./actions";
 
 interface Option {
@@ -57,6 +57,7 @@ export function NewMachineryForm({ machineryTypes }: { machineryTypes: Option[] 
           name="typeId"
           required
           defaultValue=""
+          icon={<FilterIcon className="size-4" />}
           options={[
             { value: "", label: "Select a Machinery Type" },
             ...machineryTypes.map((t) => ({ value: t.id, label: t.name })),
@@ -71,8 +72,8 @@ export function NewMachineryForm({ machineryTypes }: { machineryTypes: Option[] 
           icon={<HashIcon className="size-4" />}
           error={state.errors?.assetNumber?.[0]}
         />
-        <TextField label="Model" name="model" hint="Optional" maxLength={200} error={state.errors?.model?.[0]} />
-        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} placeholder="e.g. Owned, Rented" error={state.errors?.ownership?.[0]} />
+        <TextField label="Model" name="model" hint="Optional" maxLength={200} icon={<GearIcon className="size-4" />} error={state.errors?.model?.[0]} />
+        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} icon={<BuildingIcon className="size-4" />} placeholder="e.g. Owned, Rented" error={state.errors?.ownership?.[0]} />
         <TextField
           label="Operator"
           name="operator"

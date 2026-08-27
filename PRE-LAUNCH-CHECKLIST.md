@@ -18,7 +18,7 @@ This list is per **tenant deployment** (single-tenant by construction — AD-1/A
 
 ## 1. Provisioning & environment (BLOCKING)
 
-- [ ] **Provision the tenant stack** — Neon Postgres, Clerk instance, Cloudflare R2 bucket, Resend, Vercel project. Do this through `pnpm provision <tenant-slug>` (`infra/provisioning/provision.ts`), **never a cloud console by hand** (AD-2). ⚠️ The provisioning script is currently a **skeleton — the provider API calls are not implemented** (AGENTS.md TODO). Implementing it is itself a pre-launch task, or provision via a documented, repeatable script.
+- [ ] **Provision the tenant stack** — Neon Postgres, Clerk instance, Cloudinary account, Resend, Vercel project. Do this through `pnpm provision <tenant-slug>` (`infra/provisioning/provision.ts`), **never a cloud console by hand** (AD-2). ⚠️ The provisioning script is currently a **skeleton — the provider API calls are not implemented** (AGENTS.md TODO). Implementing it is itself a pre-launch task, or provision via a documented, repeatable script.
 - [ ] **Set every env var** in the deployment. `.env.example` is now complete (this session added the 6 that were missing). Required:
   - Core: `DATABASE_URL`, `API_URL`, `NEXT_PUBLIC_API_URL`, `PORT`, `CORS_ORIGIN` (browser origins), `APP_TIMEZONE`
   - Clerk: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`

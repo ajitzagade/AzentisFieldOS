@@ -4,14 +4,17 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   Button,
+  CalendarIcon,
   Card,
   CheckCircleIcon,
   LayersIcon,
   MapPinIcon,
+  PencilIcon,
   RotateCcwIcon,
   SelectField,
   TextField,
   UserIcon,
+  WalletIcon,
 } from "@azentisfieldos/ui";
 import { createExpenseAction, type CreateExpenseFormState } from "./actions";
 
@@ -82,7 +85,7 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
             amount to add or remove as a signed adjustment (e.g. -500), not the corrected total.
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required error={state.errors?.reason?.[0]} />
+          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
         </Card>
       ) : null}
 
@@ -132,6 +135,7 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
           name="incurredAt"
           type="date"
           required
+          icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.incurredAt ?? todayDate()}
           error={state.errors?.incurredAt?.[0]}
         />
@@ -139,6 +143,7 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
           label="Description"
           name="description"
           hint="Optional"
+          icon={<PencilIcon className="size-4" />}
           placeholder="e.g. Diesel for site generator"
           defaultValue={initial?.description}
           error={state.errors?.description?.[0]}
@@ -147,6 +152,7 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
           label="Payment Method"
           name="paymentMethod"
           hint="Optional"
+          icon={<WalletIcon className="size-4" />}
           placeholder="e.g. Cash, UPI"
           defaultValue={initial?.paymentMethod}
           error={state.errors?.paymentMethod?.[0]}

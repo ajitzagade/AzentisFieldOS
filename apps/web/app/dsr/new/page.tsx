@@ -5,11 +5,13 @@ import Link from "next/link";
 import {
   Badge,
   Button,
+  CalendarIcon,
   CameraIcon,
   Card,
   CheckCircleIcon,
   HashIcon,
   MapPinIcon,
+  PencilIcon,
   PlusIcon,
   RotateCcwIcon,
   SelectField,
@@ -345,16 +347,19 @@ export default function NewDsrPage() {
             label="Date"
             type="date"
             required
+            icon={<CalendarIcon className="size-4" />}
             value={reportDate}
             onChange={(e) => setReportDate(e.target.value)}
           />
           <TextField
             label="Work completed"
+            icon={<PencilIcon className="size-4" />}
             value={workCompleted}
             onChange={(e) => setWorkCompleted(e.target.value)}
           />
           <TextField
             label="Issues / blockers"
+            icon={<PencilIcon className="size-4" />}
             hint="Optional"
             value={issuesBlockers}
             onChange={(e) => setIssuesBlockers(e.target.value)}

@@ -5,16 +5,20 @@ import { useFormStatus } from "react-dom";
 import {
   BuildingIcon,
   Button,
+  CalendarIcon,
   Card,
   CheckCircleIcon,
+  FilterIcon,
   HashIcon,
   LayersIcon,
   MapPinIcon,
+  PencilIcon,
   RotateCcwIcon,
   SelectField,
   TextField,
   TruckIcon,
   UserIcon,
+  WalletIcon,
 } from "@azentisfieldos/ui";
 import { createPurchaseAction, type CreatePurchaseFormState } from "./actions";
 
@@ -95,7 +99,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
             quantity to add or remove as a signed adjustment (e.g. -20), not the corrected total.
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required error={state.errors?.reason?.[0]} />
+          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
         </Card>
       ) : null}
 
@@ -131,6 +135,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
             label="Destination"
             name="destination"
             required
+            icon={<FilterIcon className="size-4" />}
             disabled={mode === "correct"}
             value={destination}
             onChange={(e) => setDestination(e.target.value as "GODOWN" | "SITE")}
@@ -167,6 +172,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           type="number"
           step="any"
           required
+          icon={<HashIcon className="size-4" />}
           hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -20." : undefined}
           error={state.errors?.quantity?.[0]}
         />
@@ -194,6 +200,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           label="Payment Status"
           name="paymentStatus"
           required
+          icon={<WalletIcon className="size-4" />}
           defaultValue={initial?.paymentStatus ?? "PAID"}
           options={[
             { value: "PAID", label: "Paid" },
@@ -207,6 +214,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           name="purchasedAt"
           type="date"
           required
+          icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.purchasedAt ?? todayDate()}
           error={state.errors?.purchasedAt?.[0]}
         />
@@ -246,7 +254,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           defaultValue={initial?.receiverName}
           error={state.errors?.receiverName?.[0]}
         />
-        <TextField label="Notes" name="notes" hint="Optional" defaultValue={initial?.notes} error={state.errors?.notes?.[0]} />
+        <TextField label="Notes" name="notes" hint="Optional" icon={<PencilIcon className="size-4" />} defaultValue={initial?.notes} error={state.errors?.notes?.[0]} />
       </Card>
 
       {state.formError ? (

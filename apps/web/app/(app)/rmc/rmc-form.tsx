@@ -5,11 +5,13 @@ import { useFormStatus } from "react-dom";
 import {
   BuildingIcon,
   Button,
+  CalendarIcon,
   Card,
   CheckCircleIcon,
   DropletIcon,
   HashIcon,
   MapPinIcon,
+  PencilIcon,
   RotateCcwIcon,
   SelectField,
   TextField,
@@ -83,7 +85,7 @@ export function RmcForm({ mode, correctsId, sites, vendors, initial }: RmcFormPr
             the quantity to add or remove as a signed adjustment (e.g. -6), not the corrected total.
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required error={state.errors?.reason?.[0]} />
+          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
         </Card>
       ) : null}
 
@@ -132,6 +134,7 @@ export function RmcForm({ mode, correctsId, sites, vendors, initial }: RmcFormPr
           type="number"
           step="any"
           required
+          icon={<HashIcon className="size-4" />}
           hint={mode === "correct" ? "Signed delta applied on top of the current total — e.g. -6." : undefined}
           error={state.errors?.quantityM3?.[0]}
         />
@@ -160,6 +163,7 @@ export function RmcForm({ mode, correctsId, sites, vendors, initial }: RmcFormPr
           name="deliveredAt"
           type="date"
           required
+          icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.deliveredAt ?? todayDate()}
           error={state.errors?.deliveredAt?.[0]}
         />

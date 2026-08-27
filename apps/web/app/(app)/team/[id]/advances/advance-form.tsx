@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, RotateCcwIcon, TextField, WalletIcon } from "@azentisfieldos/ui";
+import { Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, TextField, WalletIcon } from "@azentisfieldos/ui";
 import { createAdvanceAction, type CreateAdvanceFormState } from "./actions";
 
 export interface AdvanceFormInitialValues {
@@ -60,6 +60,7 @@ export function AdvanceForm({
             label="Reason for this correction"
             name="correctionReason"
             required
+            icon={<PencilIcon className="size-4" />}
             error={state.errors?.correctionReason?.[0]}
           />
         </Card>
@@ -82,6 +83,7 @@ export function AdvanceForm({
           name="givenAt"
           type="date"
           required
+          icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.givenAt ?? todayDate()}
           error={state.errors?.givenAt?.[0]}
         />
@@ -92,6 +94,7 @@ export function AdvanceForm({
           label="Reason"
           name="reason"
           hint="Optional — why this Advance was given, e.g. medical emergency"
+          icon={<PencilIcon className="size-4" />}
           defaultValue={initial?.reason}
           error={state.errors?.reason?.[0]}
         />

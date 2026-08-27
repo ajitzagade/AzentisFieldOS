@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, HashIcon, MapPinIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, FilterIcon, HashIcon, MapPinIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createSiteAction, type CreateSiteFormState } from "./actions";
 
 const STATUS_OPTIONS = [
@@ -53,6 +53,7 @@ export default function NewSitePage() {
             label="Status"
             name="status"
             defaultValue="ACTIVE"
+            icon={<FilterIcon className="size-4" />}
             options={STATUS_OPTIONS}
             error={state.errors?.status?.[0]}
           />

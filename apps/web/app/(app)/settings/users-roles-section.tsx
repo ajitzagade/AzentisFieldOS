@@ -6,9 +6,11 @@ import {
   Badge,
   Button,
   DataTable,
+  MailIcon,
   SelectField,
   TextField,
   PlusIcon,
+  UsersIcon,
   type DataTableColumn,
 } from "@azentisfieldos/ui";
 import { ROLES, inviteUserSchema, type Role } from "@azentisfieldos/shared";
@@ -148,6 +150,7 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
         <TextField
           label="Invite by email"
           type="email"
+          icon={<MailIcon className="size-4" />}
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
@@ -159,6 +162,7 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
         />
         <SelectField
           label="Role"
+          icon={<UsersIcon className="size-4" />}
           options={ROLE_OPTIONS}
           value={role}
           onChange={(e) => setRole(e.target.value as Role)}

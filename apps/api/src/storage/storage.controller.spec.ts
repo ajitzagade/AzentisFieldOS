@@ -34,18 +34,20 @@ describe('StorageController', () => {
 
   it('presign delegates to StorageService.presignUpload with the validated body', async () => {
     const input: PresignPhotoUploadInput = { dailySiteReportId: 'dsr-1' };
-    service.presignUpload.mockResolvedValue({
-      uploadUrl: 'https://r2.example/put',
-      storageKey: 'dsr/dsr-1/x.jpg',
-    });
+    const signed = {
+      uploadUrl: 'https://api.cloudinary.com/v1_1/test-cloud/image/upload',
+      apiKey: 'test-key',
+      timestamp: 1735689600,
+      signature: 'test-signature',
+      publicId: 'dsr/dsr-1/x',
+      storageKey: 'dsr/dsr-1/x',
+    };
+    service.presignUpload.mockResolvedValue(signed);
 
     const result = await controller.presign(input);
 
     expect(service.presignUpload).toHaveBeenCalledWith(input);
-    expect(result).toEqual({
-      uploadUrl: 'https://r2.example/put',
-      storageKey: 'dsr/dsr-1/x.jpg',
-    });
+    expect(result).toEqual(signed);
   });
 
   it('confirm delegates to StorageService.confirmUpload with the validated body', async () => {

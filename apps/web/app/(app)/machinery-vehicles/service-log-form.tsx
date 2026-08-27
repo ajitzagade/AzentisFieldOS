@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, CalendarIcon, Card, CheckCircleIcon, FilterIcon, PencilIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createServiceLogAction, updateServiceLogAction, type ServiceLogFormState } from "./actions";
 import type { ServiceLogKind } from "./service-history";
 
@@ -56,6 +56,7 @@ export function ServiceLogForm(props: ServiceLogFormProps) {
           label="Kind"
           name="kind"
           required
+          icon={<FilterIcon className="size-4" />}
           defaultValue={initial?.kind ?? "FUEL"}
           options={[
             { value: "FUEL", label: "Fuel" },
@@ -69,6 +70,7 @@ export function ServiceLogForm(props: ServiceLogFormProps) {
           name="serviceDate"
           type="date"
           required
+          icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.serviceDate ?? todayDate()}
           error={state.errors?.serviceDate?.[0]}
         />
@@ -88,6 +90,7 @@ export function ServiceLogForm(props: ServiceLogFormProps) {
           name="notes"
           hint="Optional"
           maxLength={1000}
+          icon={<PencilIcon className="size-4" />}
           defaultValue={initial?.notes}
           error={state.errors?.notes?.[0]}
         />

@@ -6,11 +6,13 @@ import {
   Badge,
   BuildingIcon,
   Button,
+  CalendarIcon,
   Card,
   CameraIcon,
   CheckCircleIcon,
   HashIcon,
   MapPinIcon,
+  PencilIcon,
   PlusIcon,
   RotateCcwIcon,
   SelectField,
@@ -265,6 +267,7 @@ export function DsrDesktopForm({
           <TextField
             label="Reason for this correction"
             required
+            icon={<PencilIcon className="size-4" />}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />
@@ -285,13 +288,14 @@ export function DsrDesktopForm({
           label="Date"
           type="date"
           required
+          icon={<CalendarIcon className="size-4" />}
           disabled={mode === "correct"}
           hint={mode === "correct" ? "A correction keeps the same Site and date as the report it corrects." : undefined}
           value={reportDate}
           onChange={(e) => setReportDate(e.target.value)}
         />
-        <TextField label="Work completed" value={workCompleted} onChange={(e) => setWorkCompleted(e.target.value)} />
-        <TextField label="Issues / blockers" hint="Optional" value={issuesBlockers} onChange={(e) => setIssuesBlockers(e.target.value)} />
+        <TextField label="Work completed" icon={<PencilIcon className="size-4" />} value={workCompleted} onChange={(e) => setWorkCompleted(e.target.value)} />
+        <TextField label="Issues / blockers" icon={<PencilIcon className="size-4" />} hint="Optional" value={issuesBlockers} onChange={(e) => setIssuesBlockers(e.target.value)} />
       </Card>
 
       <Card className="mb-4">

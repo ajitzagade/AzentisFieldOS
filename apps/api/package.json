@@ -16,10 +16,9 @@
     "test:cov": "vitest run --coverage"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1107.0",
-    "@aws-sdk/s3-request-presigner": "^3.1107.0",
     "@azentisfieldos/shared": "workspace:*",
     "@clerk/backend": "3.16.3",
+    "cloudinary": "^2.5.1",
     "dotenv": "^16.4.7",
     "@nestjs/common": "11.1.28",
     "@nestjs/core": "11.1.28",

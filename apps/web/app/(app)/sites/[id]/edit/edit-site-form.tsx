@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, HashIcon, MapPinIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, FilterIcon, HashIcon, MapPinIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { updateSiteAction, type UpdateSiteFormState } from "./actions";
 import type { Site } from "../../page";
 
@@ -52,6 +52,7 @@ export function EditSiteForm({ site }: { site: Site }) {
           label="Status"
           name="status"
           defaultValue={site.status}
+          icon={<FilterIcon className="size-4" />}
           options={STATUS_OPTIONS}
           error={state.errors?.status?.[0]}
         />

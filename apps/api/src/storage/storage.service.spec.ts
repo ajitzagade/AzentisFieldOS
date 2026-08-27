@@ -3,11 +3,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StorageService } from './storage.service';
 import type { PrismaService } from '../prisma/prisma.service';
 
-const getSignedUrlMock = vi.hoisted(() => vi.fn());
-vi.mock('@aws-sdk/s3-request-presigner', () => ({
-  getSignedUrl: getSignedUrlMock,
+const apiSignRequestMock = vi.hoisted(() => vi.fn(() => 'test-signature'));
+// Mock the Cloudinary client wrapper: a deterministic signature + config, and a
+// pure cloudinaryUrl matching the real `res.cloudinary.com/<cloud>/image/upload`
+// shape so URL assertions are exact.
+vi.mock('./cloudinary-client', () => ({
+  cloudinary: {
+    config: () => ({
+      cloud_name: 'test-cloud',
+      api_key: 'test-key',
+      api_secret: 'test-secret',
+    }),
+    utils: { api_sign_request: apiSignRequestMock },
+  },
+  cloudinaryUrl: (publicId: string) =>
+    `https://res.cloudinary.com/test-cloud/image/upload/${publicId}`,
 }));
-vi.mock('./r2-client', () => ({ r2Client: {}, r2BucketName: 'test-bucket' }));
 
 function makeService(overrides: {
   dailySiteReport?: { findUnique: ReturnType<typeof vi.fn> };
@@ -26,12 +37,11 @@ function makeService(overrides: {
 }
 
 beforeEach(() => {
-  getSignedUrlMock.mockReset();
-  getSignedUrlMock.mockResolvedValue('https://r2.example/signed');
+  apiSignRequestMock.mockClear();
 });
 
 describe('StorageService.presignUpload', () => {
-  it('grants a presigned PUT URL and a storageKey scoped to the DSR, once the DSR is confirmed to exist', async () => {
+  it('returns a Cloudinary-signed param set with a public_id scoped to the DSR, once the DSR is confirmed to exist', async () => {
     const service = makeService({
       dailySiteReport: {
         findUnique: vi.fn().mockResolvedValue({ id: 'dsr-1' }),
@@ -40,8 +50,19 @@ describe('StorageService.presignUpload', () => {
 
     const result = await service.presignUpload({ dailySiteReportId: 'dsr-1' });
 
-    expect(result.uploadUrl).toBe('https://r2.example/signed');
-    expect(result.storageKey).toMatch(/^dsr\/dsr-1\/[0-9a-f-]{36}\.jpg$/);
+    expect(result.uploadUrl).toBe(
+      'https://api.cloudinary.com/v1_1/test-cloud/image/upload',
+    );
+    expect(result.apiKey).toBe('test-key');
+    expect(result.signature).toBe('test-signature');
+    expect(typeof result.timestamp).toBe('number');
+    expect(result.publicId).toMatch(/^dsr\/dsr-1\/[0-9a-f-]{36}$/);
+    expect(result.storageKey).toBe(result.publicId);
+    // Signed via the SDK over exactly { public_id, timestamp }.
+    expect(apiSignRequestMock).toHaveBeenCalledWith(
+      { public_id: result.publicId, timestamp: result.timestamp },
+      'test-secret',
+    );
   });
 
   it('throws NotFoundException, not a raw error, for a DSR that does not exist', async () => {
@@ -52,7 +73,24 @@ describe('StorageService.presignUpload', () => {
     await expect(
       service.presignUpload({ dailySiteReportId: 'missing' }),
     ).rejects.toThrow(NotFoundException);
-    expect(getSignedUrlMock).not.toHaveBeenCalled();
+    expect(apiSignRequestMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('StorageService.presignBrandingLogoUpload', () => {
+  it('returns a signed param set plus a durable public logoUrl for the branding public_id', () => {
+    const service = makeService({});
+
+    const result = service.presignBrandingLogoUpload();
+
+    expect(result.publicId).toMatch(/^branding\/logo\/[0-9a-f-]{36}$/);
+    expect(result.uploadUrl).toBe(
+      'https://api.cloudinary.com/v1_1/test-cloud/image/upload',
+    );
+    expect(result.signature).toBe('test-signature');
+    expect(result.logoUrl).toBe(
+      `https://res.cloudinary.com/test-cloud/image/upload/${result.publicId}`,
+    );
   });
 });
 
@@ -112,11 +150,13 @@ describe('StorageService.confirmUpload', () => {
 });
 
 describe('StorageService.getReadUrl', () => {
-  it('returns a presigned GET URL for the given storageKey', async () => {
+  it('returns the public Cloudinary delivery URL for the given storageKey', async () => {
     const service = makeService({});
 
-    const url = await service.getReadUrl('dsr/dsr-1/x.jpg');
+    const url = await service.getReadUrl('dsr/dsr-1/x');
 
-    expect(url).toBe('https://r2.example/signed');
+    expect(url).toBe(
+      'https://res.cloudinary.com/test-cloud/image/upload/dsr/dsr-1/x',
+    );
   });
 });

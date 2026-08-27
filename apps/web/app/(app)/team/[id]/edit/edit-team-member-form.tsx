@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, PhoneIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, ClipboardIcon, LayersIcon, PhoneIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { updateTeamMemberAction, type UpdateTeamMemberFormState } from "./actions";
 import type { TeamMemberDetail } from "./page";
 
@@ -53,6 +53,7 @@ export function EditTeamMemberForm({
           name="designation"
           hint="Optional"
           maxLength={200}
+          icon={<ClipboardIcon className="size-4" />}
           defaultValue={teamMember.designation ?? undefined}
           error={state.errors?.designation?.[0]}
         />
@@ -70,6 +71,7 @@ export function EditTeamMemberForm({
           label="Employment Type"
           name="employmentTypeId"
           required
+          icon={<LayersIcon className="size-4" />}
           defaultValue={teamMember.employmentType.id}
           options={employmentTypes.map((e) => ({ value: e.id, label: e.name }))}
           error={state.errors?.employmentTypeId?.[0]}

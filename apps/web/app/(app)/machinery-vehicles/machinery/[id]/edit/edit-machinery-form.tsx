@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, HashIcon, LayersIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { BuildingIcon, Button, Card, CheckCircleIcon, FilterIcon, GearIcon, HashIcon, LayersIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { updateMachineryAction, type UpdateMachineryFormState } from "./actions";
 import type { MachineryDetail } from "./page";
 
@@ -54,6 +54,7 @@ export function EditMachineryForm({
           name="typeId"
           required
           defaultValue={machinery.type.id}
+          icon={<FilterIcon className="size-4" />}
           options={machineryTypes.map((t) => ({ value: t.id, label: t.name }))}
           error={state.errors?.typeId?.[0]}
         />
@@ -71,6 +72,7 @@ export function EditMachineryForm({
           name="model"
           hint="Optional"
           maxLength={200}
+          icon={<GearIcon className="size-4" />}
           defaultValue={machinery.model ?? undefined}
           error={state.errors?.model?.[0]}
         />
@@ -79,6 +81,7 @@ export function EditMachineryForm({
           name="ownership"
           hint="Optional"
           maxLength={200}
+          icon={<BuildingIcon className="size-4" />}
           defaultValue={machinery.ownership ?? undefined}
           error={state.errors?.ownership?.[0]}
         />

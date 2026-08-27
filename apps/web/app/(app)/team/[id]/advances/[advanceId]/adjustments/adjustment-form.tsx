@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, RotateCcwIcon, TextField } from "@azentisfieldos/ui";
+import { Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, TextField } from "@azentisfieldos/ui";
 import { createAdvanceAdjustmentAction, type CreateAdvanceAdjustmentFormState } from "./actions";
 
 export interface AdjustmentFormInitialValues {
@@ -67,6 +67,7 @@ export function AdjustmentForm({
             label="Reason for this correction"
             name="correctionReason"
             required
+            icon={<PencilIcon className="size-4" />}
             error={state.errors?.correctionReason?.[0]}
           />
         </Card>
@@ -92,6 +93,7 @@ export function AdjustmentForm({
           name="adjustedAt"
           type="date"
           required
+          icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.adjustedAt ?? todayDate()}
           error={state.errors?.adjustedAt?.[0]}
         />
@@ -102,6 +104,7 @@ export function AdjustmentForm({
           label="Reason"
           name="note"
           hint="Optional — e.g. adjusted against this week's payment"
+          icon={<PencilIcon className="size-4" />}
           defaultValue={initial?.note}
           error={state.errors?.note?.[0]}
         />
