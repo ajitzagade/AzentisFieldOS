@@ -12,8 +12,8 @@ const iconEntries = Object.entries(Icons).filter(
 ) as [string, React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement>>][];
 
 describe("icon set", () => {
-  it("exports exactly 33 distinct icon components (26 from _shared-kit.html + PencilIcon from story 2.3 + Mail/Phone/Calendar/Lock/Hash/User added for form-field leading icons)", () => {
-    expect(iconEntries).toHaveLength(33);
+  it("exports exactly 35 distinct icon components (26 from _shared-kit.html + PencilIcon from story 2.3 + Mail/Phone/Calendar/Lock/Hash/User added for form-field leading icons + Menu/X added for the responsive mobile-nav drawer)", () => {
+    expect(iconEntries).toHaveLength(35);
   });
 
   it.each(iconEntries)("%s renders a 24x24 currentColor svg and forwards className", (name, Icon) => {

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppShell } from "./app-shell";
 
@@ -68,6 +68,47 @@ describe("AppShell", () => {
     );
     expect(screen.getByRole("link", { name: /Dashboard/ }).className).not.toContain("bg-accent-teal-700");
     expect(screen.getByRole("link", { name: /Sites/ }).className).toContain("bg-accent-teal-700");
+  });
+
+  it("exposes an accessible mobile nav toggle for OWNER_ADMIN that opens the drawer", () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="OWNER_ADMIN">
+        <div>content</div>
+      </AppShell>,
+    );
+    const toggle = screen.getByRole("button", { name: /Open navigation menu/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-controls", "app-mobile-nav");
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    // The drawer is now mounted with its own close control.
+    expect(screen.getAllByRole("button", { name: /Close navigation menu/ }).length).toBeGreaterThan(0);
+  });
+
+  it("closes the mobile drawer on Escape", () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="OWNER_ADMIN">
+        <div>content</div>
+      </AppShell>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Open navigation menu/ }));
+    expect(screen.getByRole("button", { name: /Open navigation menu/ })).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByRole("button", { name: /Open navigation menu/ })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("does not render the mobile nav toggle for SITE_SUPERVISOR", () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="SITE_SUPERVISOR">
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(screen.queryByRole("button", { name: /Open navigation menu/ })).not.toBeInTheDocument();
   });
 
   it("renders the minimal top bar, no sidebar, for SITE_SUPERVISOR", () => {

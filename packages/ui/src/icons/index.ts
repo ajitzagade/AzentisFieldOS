@@ -31,3 +31,5 @@ export * from "./calendar-icon";
 export * from "./lock-icon";
 export * from "./hash-icon";
 export * from "./user-icon";
+export * from "./menu-icon";
+export * from "./x-icon";
