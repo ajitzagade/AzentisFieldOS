@@ -131,7 +131,7 @@ export default async function PaymentsPage() {
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-page-title text-ink-900">Payments</h1>
           <p className="text-body-sm text-ink-500">Base + Additional − Deductions − Advance Adjustment = Net Payable</p>

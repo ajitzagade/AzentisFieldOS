@@ -121,12 +121,12 @@ export default async function TeamPage() {
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-page-title text-ink-900">Team &amp; Labour</h1>
           <p className="text-body-sm text-ink-500">Team Members across all active Sites, with today&apos;s attendance and Advance status</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href="/team/employment-types" className={cn(buttonVariants({ variant: "secondary" }))}>
             Employment Types
           </Link>

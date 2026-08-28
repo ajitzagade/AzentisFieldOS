@@ -199,7 +199,7 @@ export function PaymentForm({
         ) : null}
       </Card>
 
-      <Card className="mb-4 flex items-center justify-between">
+      <Card className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <span className="text-body-sm text-ink-500">Net Payable</span>
         <span className="text-card-title font-bold text-gold-700 tabular-nums">{formatMoney(netPayable)}</span>
       </Card>

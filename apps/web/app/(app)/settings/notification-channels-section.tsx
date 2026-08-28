@@ -151,16 +151,16 @@ function ChannelRow({
             </p>
           ) : (
             recipients.map((user) => (
-              <label key={user.id} className="flex items-center gap-2 text-body-sm text-ink-700">
+              <label key={user.id} className="flex items-start gap-2 text-body-sm text-ink-700">
                 <input
                   type="checkbox"
                   checked={selected.includes(user.id)}
                   onChange={() => toggleRecipient(user.id)}
-                  className="size-4 rounded border-border-hairline"
+                  className="mt-0.5 size-4 shrink-0 rounded border-border-hairline"
                 />
-                <span>
+                <span className="min-w-0 break-words">
                   {user.name ?? user.email}{" "}
-                  <span className="text-ink-500">({user.email})</span>
+                  <span className="break-all text-ink-500">({user.email})</span>
                 </span>
               </label>
             ))

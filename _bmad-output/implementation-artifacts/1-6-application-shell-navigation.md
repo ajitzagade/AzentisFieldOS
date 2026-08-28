@@ -128,3 +128,6 @@ claude-sonnet-5
 - `apps/web/vitest.setup.ts` (new)
 - `AGENTS.md` (modified — new TODO line)
 - `pnpm-lock.yaml` (modified)
+
+## Change Log
+- **2026-08-28 — app-wide mobile breakage fixed and verified in a real browser:** a Playwright audit (signed in via a Clerk sign-in-token ticket, all 56 routes, at 360/375/768px, measuring `document.scrollWidth` against the viewport) found 11 routes horizontally broken at phone widths. Root cause on 10 of them: page-header rows (`flex items-center justify-between` + a non-wrapping action cluster) forced the document wider than the viewport, crushing the page title and dragging tables off-screen. Fixed by making every page-level header row and action cluster wrap (`flex-wrap`, 20 files); the remaining two offenders were long unbreakable email strings in Settings' notification recipients and Report Schedules' recipient checkboxes (`break-words`/`break-all` + `min-w-0`). Re-audit: 0/56 routes overflow at 360, 375, and 768px, and the mobile DSR flow (picker search → select → submit → Synced → SiteStock decrement in Postgres) passes end-to-end in headless Chromium at 375px. The audit script lives in the session scratchpad (`audit.mjs`) — worth promoting into a committed Playwright suite when e2e tooling lands.

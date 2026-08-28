@@ -72,12 +72,12 @@ export default async function MaterialsPage() {
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-page-title text-ink-900">Materials</h1>
           <p className="text-body-sm text-ink-500">Your material catalog — Categories, Materials, Sizes, and Units</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href="/materials/categories" className={cn(buttonVariants({ variant: "secondary" }))}>
             Categories
           </Link>

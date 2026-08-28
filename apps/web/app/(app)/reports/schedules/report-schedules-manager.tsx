@@ -210,8 +210,8 @@ export function ReportSchedulesManager({
                   value={user.id}
                   className="size-4 rounded border-border-hairline"
                 />
-                <span>
-                  {user.name ?? user.email} <span className="text-ink-500">({user.email})</span>
+                <span className="min-w-0 break-words">
+                  {user.name ?? user.email} <span className="break-all text-ink-500">({user.email})</span>
                 </span>
               </label>
             ))

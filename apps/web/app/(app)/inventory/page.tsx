@@ -121,12 +121,12 @@ export default async function InventoryPage() {
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-page-title text-ink-900">Inventory</h1>
           <p className="text-body-sm text-ink-500">Godown and site-wise material stock across all Sites</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href="/movements/godown-to-site/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <ArrowsIcon className="size-4" />
             Record Movement

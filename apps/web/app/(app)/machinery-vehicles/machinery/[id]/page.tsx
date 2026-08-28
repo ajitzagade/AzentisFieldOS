@@ -57,7 +57,7 @@ export default async function MachineryDetailPage({ params }: { params: Promise<
         / {machinery.name}
       </div>
 
-      <div className="mb-8 flex items-start justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="mb-2 flex items-center gap-3 text-page-title text-ink-900">
             <GearIcon className="size-6 text-ink-500" />
@@ -94,7 +94,7 @@ export default async function MachineryDetailPage({ params }: { params: Promise<
             </span>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href={`/machinery-vehicles/machinery/${machinery.id}/move`} className={cn(buttonVariants({ variant: "primary" }))}>
             <ArrowsIcon className="size-4" />
             Record Movement
@@ -109,7 +109,7 @@ export default async function MachineryDetailPage({ params }: { params: Promise<
       <h2 className="mb-4 text-section-header text-ink-900">Movement &amp; Maintenance History</h2>
       <MovementTimeline movements={movements} basePath="machinery" assetId={machinery.id} />
 
-      <div className="mb-4 mt-8 flex items-center justify-between">
+      <div className="mb-4 mt-8 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-section-header text-ink-900">Fuel, Maintenance &amp; Repair History</h2>
         <Link
           href={`/machinery-vehicles/machinery/${machinery.id}/service-log/new`}

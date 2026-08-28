@@ -122,12 +122,12 @@ export default async function MachineryVehiclesPage() {
 
   return (
     <>
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-page-title text-ink-900">Machinery &amp; Vehicles</h1>
           <p className="text-body-sm text-ink-500">Current location is manually recorded at each Movement — not live GPS tracking.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href="/machinery-vehicles/machinery/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <PlusIcon className="size-4" />
             Add Machine
@@ -150,7 +150,7 @@ export default async function MachineryVehiclesPage() {
         </a>
       </div>
 
-      <div id="machinery" className="mb-4 flex items-center justify-between">
+      <div id="machinery" className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-section-header text-ink-900">
           <GearIcon className="size-4" />
           Machinery
@@ -179,7 +179,7 @@ export default async function MachineryVehiclesPage() {
         }
       />
 
-      <div id="vehicles" className="mb-4 mt-8 flex items-center justify-between">
+      <div id="vehicles" className="mb-4 mt-8 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-section-header text-ink-900">
           <TruckIcon className="size-4" />
           Vehicles

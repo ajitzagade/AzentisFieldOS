@@ -89,14 +89,14 @@ export default async function ExpensesPage() {
 
   return (
     <>
-      <div className="mb-8 flex items-start justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-page-title text-ink-900">Expenses</h1>
           <p className="text-body-sm text-ink-500">
             Site expenses across all Sites — captured as they happen, categorized consistently
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href="/expenses/categories" className={cn(buttonVariants({ variant: "secondary" }))}>
             <LayersIcon className="size-4" />
             Categories

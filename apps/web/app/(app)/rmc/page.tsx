@@ -148,7 +148,7 @@ export default async function RmcPage({
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-page-title text-ink-900">RMC</h1>
           <p className="text-body-sm text-ink-500">Ready-Mix Concrete deliveries — tracked separately from Material inventory</p>

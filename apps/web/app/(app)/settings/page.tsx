@@ -139,7 +139,7 @@ export default async function SettingsPage() {
                   key={family.href}
                   className="flex flex-col gap-3 rounded-lg border border-border-hairline bg-surface-1 p-4"
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-eyebrow uppercase text-ink-500">{family.label}</span>
                     <Link
                       href={family.href}
@@ -174,7 +174,7 @@ export default async function SettingsPage() {
             {/* Low-stock Thresholds — read/discovery-only (AC #3): each Material's
                 threshold is edited on the Material's own page, not bulk-edited here. */}
             <div className="flex flex-col gap-3 rounded-lg border border-border-hairline bg-surface-1 p-4">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-eyebrow uppercase text-ink-500">Low-stock Thresholds</span>
                 <Link
                   href="/materials"

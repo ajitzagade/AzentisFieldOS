@@ -240,7 +240,7 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="mt-10 mb-4 flex items-center justify-between">
+      <div className="mt-10 mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-section-header text-ink-900">Sites</h2>
         <Link href="/sites" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
           View all sites
@@ -253,7 +253,7 @@ export default async function DashboardPage() {
           return (
             <Link key={site.id} href={`/sites/${site.id}`} className="block">
               <Card interactive className="h-full">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <h3 className="text-body font-semibold text-ink-900">{site.name}</h3>
                     <div className="mt-1 flex items-center gap-1.5 text-caption text-ink-500">

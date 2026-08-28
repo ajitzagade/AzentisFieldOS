@@ -212,7 +212,7 @@ export default async function TeamMemberDetailPage({ params }: { params: Promise
         / {teamMember.name}
       </div>
 
-      <div className="mb-8 flex items-start justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="mb-2 flex items-center gap-3 text-page-title text-ink-900">
             {teamMember.name}
@@ -266,7 +266,7 @@ export default async function TeamMemberDetailPage({ params }: { params: Promise
         }
       />
 
-      <div className="mb-4 mt-8 flex items-center justify-between">
+      <div className="mb-4 mt-8 flex flex-wrap items-center justify-between gap-3">
         <div className="text-section-header text-ink-900">Advance Ledger</div>
         <Link href={`/team/${teamMember.id}/advances/new`} className={cn(buttonVariants({ variant: "secondary" }))}>
           <PlusIcon className="size-4" />

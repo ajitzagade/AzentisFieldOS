@@ -105,7 +105,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
         / {site.name}
       </div>
 
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="mb-2 flex items-center gap-3 text-page-title text-ink-900">
             {site.name}

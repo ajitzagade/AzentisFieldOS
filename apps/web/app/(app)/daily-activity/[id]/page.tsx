@@ -106,7 +106,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
         </Link>{" "}
         / {dsr.site.name}
       </div>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-page-title text-ink-900">
             {dsr.site.name} — {formatDate(dsr.reportDate)}
