@@ -44,17 +44,31 @@ export async function createAdvanceAction(
   }
 
   if (res.status === 400) {
-    // Two distinct 400 shapes reach here: ZodValidationPipe's own body
-    // (`{ error: { details: { fieldErrors } } }`) for schema failures, and
-    // Nest's default body for a plain `BadRequestException('<string>')`
+    // Three distinct 400 shapes reach here: ZodValidationPipe's own body
+    // (`{ error: { details: { fieldErrors } } }`) for schema failures,
+    // decrementOutstandingBalanceWithFloorCheck's own
+    // `{ error: { code: 'ADJUSTMENT_EXCEEDS_BALANCE', message } }` when a
+    // negative correction would take the Outstanding Balance below zero
+    // (surfaced inline next to Amount, not a generic toast — same handling
+    // as Story 7.2's createAdvanceAdjustmentAction), and Nest's default
+    // body for a plain `BadRequestException('<string>')`
     // (`{ statusCode, message, error: 'Bad Request' }`, where `error` is a
-    // string) for translateWriteError/the correction-mismatch message —
-    // read `body.message` for the latter, not `body.error.message`.
+    // string) for translateWriteError/the correction-mismatch message.
     const body = (await res.json().catch(() => undefined)) as
-      | { error?: { details?: { fieldErrors?: Record<string, string[]> } }; message?: string }
+      | {
+          error?: {
+            code?: string;
+            message?: string;
+            details?: { fieldErrors?: Record<string, string[]> };
+          };
+          message?: string;
+        }
       | undefined;
     if (body?.error?.details?.fieldErrors) {
       return { errors: body.error.details.fieldErrors };
+    }
+    if (body?.error?.code === "ADJUSTMENT_EXCEEDS_BALANCE") {
+      return { errors: { amount: [body.error.message ?? "This correction would take the Outstanding Balance below zero."] } };
     }
     return { formError: body?.message ?? "This Advance references a Team Member that does not exist." };
   }

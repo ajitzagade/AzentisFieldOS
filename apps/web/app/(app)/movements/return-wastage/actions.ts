@@ -43,20 +43,28 @@ export async function createReturnWastageAction(
   }
 
   if (res.status === 400) {
-    // Two distinct 400 shapes reach here: ZodValidationPipe's own body
-    // (`{ error: { details: { fieldErrors } } }`) for schema failures, and
+    // Three distinct 400 shapes reach here: ZodValidationPipe's own body
+    // (`{ error: { details: { fieldErrors } } }`) for schema failures,
     // Nest's default body for a plain `BadRequestException('<string>')`
     // (`{ statusCode, message, error: 'Bad Request' }`, where `error` is a
-    // string) for translateWriteError's FK-violation message — read
-    // `body.message` for the latter, not `body.error.message`.
+    // string) for translateWriteError's FK-violation message, and the
+    // stock-safety floor check's own shape
+    // (`{ error: { code: 'INSUFFICIENT_STOCK', message } }`) — read
+    // `body.error.message` for that one, not `body.message`.
     const body = (await res.json().catch(() => undefined)) as
-      | { error?: { details?: { fieldErrors?: Record<string, string[]> } }; message?: string }
+      | {
+          error?: { details?: { fieldErrors?: Record<string, string[]> }; message?: string };
+          message?: string;
+        }
       | undefined;
     if (body?.error?.details?.fieldErrors) {
       return { errors: body.error.details.fieldErrors };
     }
     return {
-      formError: body?.message ?? "This Return/Wastage entry references a Site or Material Size that does not exist.",
+      formError:
+        body?.error?.message ??
+        body?.message ??
+        "This Return/Wastage entry references a Site or Material Size that does not exist.",
     };
   }
 

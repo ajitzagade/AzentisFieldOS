@@ -106,6 +106,32 @@ describe("createAdvanceAction", () => {
     expect(result.formError).toBe("This Advance references a Team Member that does not exist");
   });
 
+  it("surfaces decrementOutstandingBalanceWithFloorCheck's own message as a field error on Amount, not the generic FK fallback", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: {
+          code: "ADJUSTMENT_EXCEEDS_BALANCE",
+          message: "This correction would take the Team Member's Outstanding Balance below zero.",
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    const result = await createAdvanceAction(
+      {},
+      formData({
+        ...validFields,
+        amount: "-999999",
+        correctsId: "44444444-4444-4444-8444-444444444444",
+        correctionReason: "Testing floor-check error surfacing",
+      }),
+    );
+
+    expect(result.errors?.amount).toEqual(["This correction would take the Team Member's Outstanding Balance below zero."]);
+    expect(result.formError).toBeUndefined();
+  });
+
   it("returns a generic form error for a non-400 failure", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
 

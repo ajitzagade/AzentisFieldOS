@@ -96,6 +96,20 @@ describe("createReturnWastageAction", () => {
     expect(result.formError).toBe("This Return/Wastage entry references a Site that does not exist");
   });
 
+  it("surfaces the stock-safety floor check's own message, not the generic FK fallback (decrementStockWithFloorCheck's `{ error: { code, message } }` shape)", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: { code: "INSUFFICIENT_STOCK", message: "Not enough Site Stock for this Return/Wastage entry." },
+      }),
+    }) as unknown as typeof fetch;
+
+    const result = await createReturnWastageAction({}, formData(validFields));
+
+    expect(result.formError).toBe("Not enough Site Stock for this Return/Wastage entry.");
+  });
+
   it("returns a generic form error for a non-400 failure", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
 
