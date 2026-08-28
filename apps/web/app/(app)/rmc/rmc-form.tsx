@@ -63,6 +63,9 @@ function todayDate() {
 type RmcFormProps = {
   sites: SiteOption[];
   vendors: VendorOption[];
+  /** Grade names from the "RMC" Material Category (lib/rmc-grades) — when
+   * empty the Grade field stays free text. */
+  gradeOptions?: string[];
 } & (
   | { mode: "new"; correctsId?: undefined; initial?: RmcFormInitialValues }
   | { mode: "correct"; correctsId: string; initial: RmcFormInitialValues }
@@ -75,12 +78,13 @@ type RmcFormProps = {
 // correcting, not a restated total, and Site/Vendor/Grade lock in correct
 // mode because RmcService.create validates a correction stays tied to the
 // same delivery context.
-export function RmcForm({ mode, correctsId, sites, vendors, initial }: RmcFormProps) {
+export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], initial }: RmcFormProps) {
   const [state, formAction] = useActionState(createRmcEntryAction, initialState);
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
   const [vendorId, setVendorId] = useState(initial?.vendorId ?? "");
+  const [grade, setGrade] = useState(initial?.grade ?? "");
 
   return (
     <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
@@ -126,17 +130,36 @@ export function RmcForm({ mode, correctsId, sites, vendors, initial }: RmcFormPr
         />
         <input type="hidden" name="vendorId" value={vendorId} />
 
-        <TextField
-          label="Grade"
-          name="grade"
-          required
-          placeholder="e.g. M25"
-          icon={<DropletIcon className="size-4" />}
-          disabled={mode === "correct"}
-          defaultValue={initial?.grade}
-          error={state.errors?.grade?.[0]}
-        />
-        {mode === "correct" ? <input type="hidden" name="grade" value={initial?.grade} /> : null}
+        {mode === "new" && gradeOptions.length > 0 ? (
+          <>
+            <ComboboxField
+              label="Grade"
+              required
+              icon={<DropletIcon className="size-4" />}
+              options={gradeOptions.map((g) => ({ value: g, label: g }))}
+              value={grade || null}
+              onValueChange={(value) => setGrade(value ?? "")}
+              placeholder="Type a grade — e.g. M25"
+              emptyMessage="No matching grade — add it under Materials → RMC"
+              error={state.errors?.grade?.[0]}
+            />
+            <input type="hidden" name="grade" value={grade} />
+          </>
+        ) : (
+          <>
+            <TextField
+              label="Grade"
+              name="grade"
+              required
+              placeholder="e.g. M25"
+              icon={<DropletIcon className="size-4" />}
+              disabled={mode === "correct"}
+              defaultValue={initial?.grade}
+              error={state.errors?.grade?.[0]}
+            />
+            {mode === "correct" ? <input type="hidden" name="grade" value={initial?.grade} /> : null}
+          </>
+        )}
       </Card>
 
       <Card className="mb-4">

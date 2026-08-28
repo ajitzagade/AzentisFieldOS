@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ComboboxFieldOption } from "@azentisfieldos/ui";
+import { rmcGradeOptions } from "./rmc-grades";
 import { useAuthedFetch } from "./use-authed-fetch";
 
 // One load of every reference list the DSR entry surfaces need for their
@@ -20,6 +21,9 @@ export interface DsrReferenceData {
   vendorOptions: ComboboxFieldOption[];
   expenseCategoryOptions: ComboboxFieldOption[];
   equipmentOptions: EquipmentOption[];
+  /** Grade names from the "RMC" Material Category — empty when the tenant
+   * hasn't configured one, in which case Grade stays free text. */
+  rmcGradeOptions: string[];
   loading: boolean;
   /** True when any list failed to load (e.g. offline) — pickers stay
    * usable-empty rather than looking broken. */
@@ -29,6 +33,8 @@ export interface DsrReferenceData {
 interface MaterialListItem {
   id: string;
   name: string;
+  isActive: boolean;
+  category: { name: string };
   unit: { name: string } | null;
   sizes: { id: string; label: string }[];
 }
@@ -64,6 +70,7 @@ const EMPTY: Omit<DsrReferenceData, "loading" | "loadFailed"> = {
   vendorOptions: [],
   expenseCategoryOptions: [],
   equipmentOptions: [],
+  rmcGradeOptions: [],
 };
 
 export function useDsrReferenceData(): DsrReferenceData {
@@ -109,6 +116,7 @@ export function useDsrReferenceData(): DsrReferenceData {
             description: member.designation ?? member.employmentType?.name ?? undefined,
           })),
           vendorOptions: vendors.map((vendor) => ({ value: vendor.id, label: vendor.name })),
+          rmcGradeOptions: rmcGradeOptions(materials),
           expenseCategoryOptions: categories.map((category) => ({ value: category.id, label: category.name })),
           equipmentOptions: [
             ...machinery.map(

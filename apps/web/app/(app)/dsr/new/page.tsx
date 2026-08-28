@@ -541,14 +541,26 @@ function NewDsrForm() {
                   onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, quantityM3: e.target.value } : r)))}
                 />
               </div>
-              <div className="sm:col-span-2">
-                <TextField
+              {reference.rmcGradeOptions.length > 0 ? (
+                <ComboboxField
                   label="Grade"
-                  placeholder="e.g. M20, M25"
-                  value={row.grade}
-                  onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, grade: e.target.value } : r)))}
+                  className="sm:col-span-2"
+                  options={reference.rmcGradeOptions.map((g) => ({ value: g, label: g }))}
+                  value={row.grade || null}
+                  onValueChange={(value) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, grade: value ?? "" } : r)))}
+                  placeholder="e.g. M25"
+                  emptyMessage="No matching grade — add it under Materials → RMC"
                 />
-              </div>
+              ) : (
+                <div className="sm:col-span-2">
+                  <TextField
+                    label="Grade"
+                    placeholder="e.g. M20, M25"
+                    value={row.grade}
+                    onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, grade: e.target.value } : r)))}
+                  />
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <AmountField
                   label="Rate per m³"
