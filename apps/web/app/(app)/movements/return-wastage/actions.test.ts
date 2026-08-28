@@ -54,7 +54,7 @@ describe("createReturnWastageAction", () => {
 
     const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]![1].body);
     expect(body.kind).toBe("WASTAGE");
-    expect(redirectMock).toHaveBeenCalledWith("/movements");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/movements\?flash=/));
   });
 
   it("posts kind RETURN when the form submits a Return", async () => {

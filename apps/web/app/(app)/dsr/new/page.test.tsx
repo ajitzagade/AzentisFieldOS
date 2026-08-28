@@ -23,12 +23,14 @@ function mockFetchRouter(handlers: {
   expenseCategories?: unknown;
   machinery?: unknown;
   vehicles?: unknown;
+  siteStock?: unknown;
   dsr?: { status: number; body?: unknown } | "network-error";
 }) {
   global.fetch = vi.fn((url: string, init?: RequestInit) => {
     const urlStr = String(url);
     const ok = (body: unknown) => Promise.resolve({ ok: true, status: 200, json: async () => body });
     if (urlStr.includes("/dsr/defaults")) return ok(handlers.defaults ?? []);
+    if (urlStr.includes("/stock/site/")) return ok(handlers.siteStock ?? []);
     if (urlStr.includes("/dsr") && init?.method === "POST") {
       const dsr = handlers.dsr;
       if (dsr === "network-error") {
@@ -166,6 +168,34 @@ describe("NewDsrPage", () => {
     expect(payload.consumptions[0]?.materialSizeId).toBe("ms-1");
     expect(payload.consumptions[0]?.quantity).toBe(20);
     expect(payload.consumptions[0]?.clientGeneratedId).toBeTruthy();
+  });
+
+  it("shows the current Site Stock for a selected Material (FR-14 visibility)", async () => {
+    mockFetchRouter({
+      sites: [{ id: "site-1", name: "NH-48" }],
+      materials: [{ id: "mat-1", name: "Cement", unit: { name: "Bags" }, sizes: [{ id: "ms-1", label: "OPC 43" }] }],
+      siteStock: [
+        {
+          materialSizeId: "ms-1",
+          quantity: "80",
+          materialSize: { material: { unit: { name: "Bags" } } },
+        },
+      ],
+    });
+
+    render(<NewDsrPage />);
+    await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Site"), "site-1");
+    await user.click(screen.getByRole("button", { name: "Add material" }));
+
+    const materialPicker = screen.getByLabelText("Material");
+    await waitFor(() => expect(materialPicker).toBeEnabled());
+    await user.type(materialPicker, "cem");
+    await user.click(await screen.findByText("Cement — OPC 43"));
+
+    await screen.findByText("80 Bags available at this Site");
   });
 
   it("adds equipment from the Machinery/Vehicle registers, carrying type, id, and name", async () => {

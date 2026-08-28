@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  currentDsrRowsWhere,
+  supersededDsrIds,
+} from '../common/superseded-dsrs';
 import { SitesService } from '../sites/sites.service';
 import { StockService } from '../inventory/stock.service';
 import { PaymentsService } from '../team/payments.service';
@@ -62,6 +66,12 @@ export class DashboardService {
   ): Promise<TodayActivity> {
     const { dateOnly, startUtc, endUtc } = localDayRange(now, timeZone);
     const dayRange = { gte: startUtc, lt: endUtc };
+    // A corrected DSR's original sub-rows stay in the ledger (AD-9) —
+    // count only the current version's rows, or every corrected report
+    // inflates today's tiles (same rule as ConsumptionService.list).
+    const currentRows = currentDsrRowsWhere(
+      await supersededDsrIds(this.prisma),
+    );
 
     const [
       reportingSites,
@@ -85,16 +95,18 @@ export class DashboardService {
       // Labour figure never lags them by a calendar day near UTC midnight.
       this.teamMembersService.getTeamSummary({ today: dateOnly }),
       this.prisma.purchase.count({ where: { purchasedAt: dayRange } }),
-      this.prisma.consumption.count({ where: { consumedAt: dayRange } }),
+      this.prisma.consumption.count({
+        where: { consumedAt: dayRange, ...currentRows },
+      }),
       this.prisma.rmcEntry.aggregate({
-        where: { deliveredAt: dayRange },
+        where: { deliveredAt: dayRange, ...currentRows },
         _sum: { quantityM3: true },
       }),
       // Live materialized current state (Epic 8 Story 8.2), not a "today"
       // delta — consistent with the mockup showing it as a snapshot.
       this.prisma.machinery.count({ where: { currentStatus: 'AT_SITE' } }),
       this.prisma.expense.aggregate({
-        where: { incurredAt: dayRange },
+        where: { incurredAt: dayRange, ...currentRows },
         _sum: { amount: true },
       }),
       // Every active Site, for the set-difference that produces the gap flags.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   Button,
@@ -8,6 +8,8 @@ import {
   Card,
   CheckCircleIcon,
   ClipboardIcon,
+  ConfirmDialog,
+  ConfirmDialogRow,
   HashIcon,
   LayersIcon,
   MapPinIcon,
@@ -15,8 +17,9 @@ import {
   RotateCcwIcon,
   SelectField,
   TextField,
-  UserIcon,
+  useSubmitConfirmation,
 } from "@azentisfieldos/ui";
+import { formatAvailableStock, useSiteStock } from "../../../../lib/use-site-stock";
 import { createConsumptionAction, type CreateConsumptionFormState } from "./actions";
 
 interface MaterialSizeOption {
@@ -35,7 +38,6 @@ export interface ConsumptionFormInitialValues {
   activityReference?: string;
   notes?: string;
   consumedAt?: string;
-  recordedByUserId?: string;
 }
 
 function SubmitButton({ label, correcting }: { label: string; correcting: boolean }) {
@@ -69,8 +71,24 @@ export function ConsumptionForm({
 }) {
   const [state, formAction] = useActionState(createConsumptionAction, initialState);
 
+  // Selection is tracked (the controls stay uncontrolled for FormData)
+  // so current Site Stock can be shown for the chosen Material (FR-14)
+  // and the correction dialog can play the entry back by name.
+  const [selectedSiteId, setSelectedSiteId] = useState(initial?.siteId ?? "");
+  const [selectedMaterialSizeId, setSelectedMaterialSizeId] = useState(initial?.materialSizeId ?? "");
+  const [quantity, setQuantity] = useState("");
+  const [reason, setReason] = useState("");
+  const siteStock = useSiteStock(selectedSiteId || null);
+
+  // A correction is append-only and cannot be deleted (FR-54) — hold the
+  // submission and have the user re-verify the entered details first.
+  const confirmation = useSubmitConfirmation();
+
+  const siteName = sites.find((s) => s.id === selectedSiteId)?.name ?? "—";
+  const materialLabel = materialSizes.find((m) => m.id === selectedMaterialSizeId)?.label ?? "—";
+
   return (
-    <form action={formAction} noValidate>
+    <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
       {mode === "correct" ? (
         <Card className="mb-4 border-warning-700 bg-warning-100">
           <h2 className="mb-1 flex items-center gap-2 text-card-title text-warning-700">
@@ -82,7 +100,14 @@ export function ConsumptionForm({
             quantity to add or remove as a signed adjustment (e.g. -4), not the corrected total.
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
+          <TextField
+            label="Reason for this correction"
+            name="reason"
+            required
+            icon={<PencilIcon className="size-4" />}
+            onChange={(e) => setReason(e.target.value)}
+            error={state.errors?.reason?.[0]}
+          />
         </Card>
       ) : null}
 
@@ -94,6 +119,7 @@ export function ConsumptionForm({
           icon={<MapPinIcon className="size-4" />}
           disabled={mode === "correct"}
           defaultValue={initial?.siteId ?? ""}
+          onChange={(e) => setSelectedSiteId(e.target.value)}
           options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
           error={state.errors?.siteId?.[0]}
         />
@@ -106,7 +132,13 @@ export function ConsumptionForm({
           icon={<LayersIcon className="size-4" />}
           disabled={mode === "correct"}
           defaultValue={initial?.materialSizeId ?? ""}
+          onChange={(e) => setSelectedMaterialSizeId(e.target.value)}
           options={[{ value: "", label: "Select a Material" }, ...materialSizes.map((m) => ({ value: m.id, label: m.label }))]}
+          hint={
+            selectedSiteId && selectedMaterialSizeId
+              ? formatAvailableStock(siteStock.bySizeId.get(selectedMaterialSizeId))
+              : undefined
+          }
           error={state.errors?.materialSizeId?.[0]}
         />
         {mode === "correct" ? <input type="hidden" name="materialSizeId" value={initial?.materialSizeId} /> : null}
@@ -120,6 +152,7 @@ export function ConsumptionForm({
           step="any"
           required
           icon={<HashIcon className="size-4" />}
+          onChange={(e) => setQuantity(e.target.value)}
           hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -4." : undefined}
           error={state.errors?.quantity?.[0]}
         />
@@ -144,17 +177,6 @@ export function ConsumptionForm({
           error={state.errors?.activityReference?.[0]}
         />
         <TextField label="Notes" name="notes" hint="Optional" icon={<PencilIcon className="size-4" />} defaultValue={initial?.notes} error={state.errors?.notes?.[0]} />
-        <TextField
-          label="Recorded By User ID"
-          name="recordedByUserId"
-          required
-          icon={<UserIcon className="size-4" />}
-          defaultValue={initial?.recordedByUserId}
-          disabled={mode === "correct"}
-          hint="Signed-in user lookup has not shipped yet — enter the recording User's id directly."
-          error={state.errors?.recordedByUserId?.[0]}
-        />
-        {mode === "correct" ? <input type="hidden" name="recordedByUserId" value={initial?.recordedByUserId} /> : null}
       </Card>
 
       {state.formError ? (
@@ -164,6 +186,20 @@ export function ConsumptionForm({
       ) : null}
 
       <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Consumption"} correcting={mode === "correct"} />
+
+      <ConfirmDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title="Submit this correction?"
+        description="A correction is a new, permanent ledger entry — please re-verify the details."
+        confirmLabel="Submit Correction"
+        onConfirm={confirmation.confirm}
+      >
+        <ConfirmDialogRow label="Site" value={siteName} />
+        <ConfirmDialogRow label="Material" value={materialLabel} />
+        <ConfirmDialogRow label="Quantity adjustment" value={quantity || "—"} />
+        <ConfirmDialogRow label="Reason" value={reason || "—"} />
+      </ConfirmDialog>
     </form>
   );
 }

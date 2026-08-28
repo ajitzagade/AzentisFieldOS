@@ -44,5 +44,5 @@ export async function createTeamMemberAction(
     return { formError: "Something went wrong creating the Team Member. Please try again." };
   }
 
-  redirect("/team");
+  redirect(`/team?flash=${encodeURIComponent("Team Member added")}`);
 }

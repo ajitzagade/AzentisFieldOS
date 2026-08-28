@@ -1,33 +1,35 @@
 "use client";
 
-import { type DragEvent, type FormEvent, useEffect, useRef, useState } from "react";
+import { type DragEvent, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AmountField,
   Badge,
-  BuildingIcon,
   Button,
   CalendarIcon,
   Card,
   CameraIcon,
   CheckCircleIcon,
-  HashIcon,
+  ComboboxField,
+  ConfirmDialog,
+  ConfirmDialogRow,
   MapPinIcon,
   PencilIcon,
   PlusIcon,
   RotateCcwIcon,
   SelectField,
   TextField,
+  TruckIcon,
+  UserIcon,
+  useSubmitConfirmation,
 } from "@azentisfieldos/ui";
 import type { CreateDsrInput } from "@azentisfieldos/shared";
 import { uploadPhoto } from "../../../../lib/photo-upload";
 import { useAuthedFetch } from "../../../../lib/use-authed-fetch";
+import { useDsrReferenceData } from "../../../../lib/use-dsr-reference-data";
+import { formatAvailableStock, useSiteStock } from "../../../../lib/use-site-stock";
 
 interface SiteOption {
-  id: string;
-  name: string;
-}
-
-interface VendorOption {
   id: string;
   name: string;
 }
@@ -39,20 +41,23 @@ interface CrewRow {
 }
 
 interface ConsumptionRow {
-  materialSizeId: string;
+  clientGeneratedId: string;
+  materialSizeId: string | null;
   quantity: string;
   activityReference: string;
 }
 
 interface RmcRow {
-  vendorId: string;
+  clientGeneratedId: string;
+  vendorId: string | null;
   quantityM3: string;
   grade: string;
   ratePerM3: string;
 }
 
 interface ExpenseRow {
-  categoryId: string;
+  clientGeneratedId: string;
+  categoryId: string | null;
   amount: string;
   description: string;
 }
@@ -76,10 +81,18 @@ export interface DsrFormInitialValues {
   workCompleted: string;
   issuesBlockers: string;
   workRecords: CrewRow[];
-  consumptions: ConsumptionRow[];
-  rmcEntries: RmcRow[];
-  expenses: ExpenseRow[];
+  consumptions: Omit<ConsumptionRow, "clientGeneratedId">[];
+  rmcEntries: Omit<RmcRow, "clientGeneratedId">[];
+  expenses: Omit<ExpenseRow, "clientGeneratedId">[];
   equipmentUsed: EquipmentRow[];
+}
+
+// Rows carry a client-generated id from the moment they exist in the form
+// (AD-8) so a re-submit upserts the same sub-records instead of
+// duplicating them. Pre-filled correction rows get fresh ids — a
+// correction always inserts brand-new rows server-side (AD-9).
+function withRowIds<T>(rows: T[] | undefined): (T & { clientGeneratedId: string })[] {
+  return (rows ?? []).map((row) => ({ ...row, clientGeneratedId: crypto.randomUUID() }));
 }
 
 function todayDate() {
@@ -105,20 +118,37 @@ export function DsrDesktopForm({
   const authedFetch = useAuthedFetch();
 
   const [sites, setSites] = useState<SiteOption[]>([]);
-  const [vendors, setVendors] = useState<VendorOption[]>([]);
+  const reference = useDsrReferenceData();
   const [siteId, setSiteId] = useState(initial?.siteId ?? "");
+  // FR-14: current availability at the selected Site, inside the Material
+  // picker options and under each selected Material.
+  const siteStock = useSiteStock(siteId);
+  const materialOptions = useMemo(
+    () =>
+      reference.materialOptions.map((option) => {
+        const stock = siteStock.bySizeId.get(option.value);
+        return stock
+          ? {
+              ...option,
+              description: `${option.description ? `${option.description} · ` : ""}${stock.quantity.toLocaleString("en-IN")} available`,
+            }
+          : option;
+      }),
+    [reference.materialOptions, siteStock.bySizeId],
+  );
   const [reportDate, setReportDate] = useState(initial?.reportDate ?? todayDate());
   const [workCompleted, setWorkCompleted] = useState(initial?.workCompleted ?? "");
   const [issuesBlockers, setIssuesBlockers] = useState(initial?.issuesBlockers ?? "");
   const [reason, setReason] = useState("");
 
   const [crew, setCrew] = useState<CrewRow[]>(initial?.workRecords ?? []);
-  const [newCrewId, setNewCrewId] = useState("");
+  const [newCrewId, setNewCrewId] = useState<string | null>(null);
 
-  const [consumptions, setConsumptions] = useState<ConsumptionRow[]>(initial?.consumptions ?? []);
-  const [rmcEntries, setRmcEntries] = useState<RmcRow[]>(initial?.rmcEntries ?? []);
-  const [expenses, setExpenses] = useState<ExpenseRow[]>(initial?.expenses ?? []);
+  const [consumptions, setConsumptions] = useState<ConsumptionRow[]>(() => withRowIds(initial?.consumptions));
+  const [rmcEntries, setRmcEntries] = useState<RmcRow[]>(() => withRowIds(initial?.rmcEntries));
+  const [expenses, setExpenses] = useState<ExpenseRow[]>(() => withRowIds(initial?.expenses));
   const [equipmentUsed, setEquipmentUsed] = useState<EquipmentRow[]>(initial?.equipmentUsed ?? []);
+  const [newEquipmentId, setNewEquipmentId] = useState<string | null>(null);
 
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -126,19 +156,15 @@ export function DsrDesktopForm({
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // A DSR correction supersedes the whole report and adjusts Site Stock —
+  // held for re-verification before it goes to the ledger (FR-54).
+  const confirmation = useSubmitConfirmation();
 
   useEffect(() => {
     authedFetch(`/sites`)
       .then((res) => res.json())
       .then((data: SiteOption[]) => setSites(data))
       .catch(() => setSites([]));
-  }, [authedFetch]);
-
-  useEffect(() => {
-    authedFetch(`/vendors`)
-      .then((res) => res.json())
-      .then((data: VendorOption[]) => setVendors(data))
-      .catch(() => setVendors([]));
   }, [authedFetch]);
 
   // AC #1: crew checklist pre-populated from the Site's most recent prior
@@ -158,10 +184,28 @@ export function DsrDesktopForm({
     setCrew((rows) => rows.map((r) => (r.teamMemberId === teamMemberId ? { ...r, attended: !r.attended } : r)));
   }
 
-  function addCrewMember() {
-    if (!newCrewId.trim()) return;
-    setCrew((rows) => [...rows, { teamMemberId: newCrewId.trim(), attended: true }]);
-    setNewCrewId("");
+  function addCrewMember(teamMemberId: string | null) {
+    setNewCrewId(teamMemberId);
+    if (!teamMemberId) return;
+    const option = reference.teamMemberOptions.find((o) => o.value === teamMemberId);
+    setCrew((rows) =>
+      rows.some((r) => r.teamMemberId === teamMemberId)
+        ? rows
+        : [...rows, { teamMemberId, name: option?.label, attended: true }],
+    );
+    setNewCrewId(null);
+  }
+
+  function addEquipment(optionValue: string | null) {
+    setNewEquipmentId(optionValue);
+    if (!optionValue) return;
+    const option = reference.equipmentOptions.find((o) => o.value === optionValue);
+    if (!option) return;
+    const id = optionValue.split(":")[1] ?? optionValue;
+    setEquipmentUsed((rows) =>
+      rows.some((r) => r.id === id) ? rows : [...rows, { type: option.equipmentType, id, name: option.name }],
+    );
+    setNewEquipmentId(null);
   }
 
   function addPhotoFiles(fileList: FileList | null) {
@@ -206,21 +250,28 @@ export function DsrDesktopForm({
         consumptions: consumptions
           .filter((c) => c.materialSizeId && c.quantity)
           .map((c) => ({
-            materialSizeId: c.materialSizeId,
+            clientGeneratedId: c.clientGeneratedId,
+            materialSizeId: c.materialSizeId!,
             quantity: Number(c.quantity),
             activityReference: c.activityReference || undefined,
           })),
         rmcEntries: rmcEntries
           .filter((r) => r.vendorId && r.quantityM3 && r.grade && r.ratePerM3)
           .map((r) => ({
-            vendorId: r.vendorId,
+            clientGeneratedId: r.clientGeneratedId,
+            vendorId: r.vendorId!,
             quantityM3: Number(r.quantityM3),
             grade: r.grade,
             ratePerM3: Number(r.ratePerM3),
           })),
         expenses: expenses
           .filter((e) => e.categoryId && e.amount)
-          .map((e) => ({ categoryId: e.categoryId, amount: Number(e.amount), description: e.description || undefined })),
+          .map((e) => ({
+            clientGeneratedId: e.clientGeneratedId,
+            categoryId: e.categoryId!,
+            amount: Number(e.amount),
+            description: e.description || undefined,
+          })),
         equipmentUsed,
       };
 
@@ -239,7 +290,14 @@ export function DsrDesktopForm({
         return;
       }
       if (!res.ok) {
-        setError("Something went wrong submitting this report. Please try again.");
+        const responseBody = (await res.json().catch(() => null)) as {
+          error?: { code?: string; message?: string };
+        } | null;
+        setError(
+          responseBody?.error?.code === "INSUFFICIENT_STOCK"
+            ? (responseBody.error.message ?? "Not enough Site Stock for a Material on this report.")
+            : "Something went wrong submitting this report. Please try again.",
+        );
         return;
       }
 
@@ -247,14 +305,19 @@ export function DsrDesktopForm({
       if (photos.length > 0) {
         await uploadAllPhotos(dsr.id, photos);
       }
-      router.push(`/daily-activity/${dsr.id}`);
+      router.push(
+        `/daily-activity/${dsr.id}?flash=${encodeURIComponent(mode === "correct" ? "Correction submitted" : "Daily Site Report submitted")}`,
+      );
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-3xl">
+    <form
+      onSubmit={mode === "correct" ? confirmation.guard(handleSubmit) : handleSubmit}
+      className="mx-auto max-w-3xl"
+    >
       {mode === "correct" ? (
         <Card className="mb-4 border-warning-700 bg-warning-100">
           <h2 className="mb-1 flex items-center gap-2 text-card-title text-warning-700">
@@ -312,38 +375,38 @@ export function DsrDesktopForm({
                 className="size-4 accent-accent-teal-700"
               />
               <label htmlFor={`crew-${row.teamMemberId}`} className="text-body-sm text-ink-900">
-                {row.name ?? row.teamMemberId}
+                {row.name ?? "Crew member"}
               </label>
               {row.attended ? <Badge variant="success">Present</Badge> : <Badge variant="neutral">Absent</Badge>}
             </li>
           ))}
         </ul>
-        <div className="flex items-end gap-2">
-          <TextField
-            label="Add crew member (Team Member ID)"
-            hint="Live Team Member lookup has not shipped yet — enter their id directly."
-            icon={<HashIcon className="size-4" />}
-            value={newCrewId}
-            onChange={(e) => setNewCrewId(e.target.value)}
-            className="flex-1"
-          />
-          <Button type="button" variant="secondary" onClick={addCrewMember}>
-            <PlusIcon className="size-4" />
-            Add
-          </Button>
-        </div>
+        <ComboboxField
+          label="Add crew member"
+          icon={<UserIcon className="size-4" />}
+          options={reference.teamMemberOptions}
+          value={newCrewId}
+          onValueChange={addCrewMember}
+          loading={reference.loading}
+          placeholder="Type a name…"
+          emptyMessage={reference.loadFailed ? "Couldn't load Team Members — try reloading" : "No matching Team Member"}
+        />
       </Card>
 
       <Card className="mb-4">
         <h2 className="mb-3 text-card-title text-ink-900">Materials consumed</h2>
         {consumptions.map((row, index) => (
-          <div key={index} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
-            <TextField
-              label="Material Size ID"
-              hint="Live Material lookup has not shipped yet — enter its id directly."
-              icon={<HashIcon className="size-4" />}
+          <div key={row.clientGeneratedId} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
+            <ComboboxField
+              label="Material"
+              className="min-w-48 flex-1"
+              options={materialOptions}
               value={row.materialSizeId}
-              onChange={(e) => setConsumptions((rows) => rows.map((r, i) => (i === index ? { ...r, materialSizeId: e.target.value } : r)))}
+              onValueChange={(value) => setConsumptions((rows) => rows.map((r, i) => (i === index ? { ...r, materialSizeId: value } : r)))}
+              loading={reference.loading}
+              placeholder="Type a Material name…"
+              hint={row.materialSizeId && siteId ? formatAvailableStock(siteStock.bySizeId.get(row.materialSizeId)) : undefined}
+              emptyMessage={reference.loadFailed ? "Couldn't load Materials — try reloading" : "No matching Material"}
             />
             <TextField
               label="Quantity"
@@ -359,7 +422,12 @@ export function DsrDesktopForm({
         <Button
           type="button"
           variant="secondary"
-          onClick={() => setConsumptions((rows) => [...rows, { materialSizeId: "", quantity: "", activityReference: "" }])}
+          onClick={() =>
+            setConsumptions((rows) => [
+              ...rows,
+              { clientGeneratedId: crypto.randomUUID(), materialSizeId: null, quantity: "", activityReference: "" },
+            ])
+          }
         >
           <PlusIcon className="size-4" />
           Add material
@@ -369,13 +437,16 @@ export function DsrDesktopForm({
       <Card className="mb-4">
         <h2 className="mb-3 text-card-title text-ink-900">RMC used</h2>
         {rmcEntries.map((row, index) => (
-          <div key={index} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
-            <SelectField
+          <div key={row.clientGeneratedId} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
+            <ComboboxField
               label="Vendor"
-              icon={<BuildingIcon className="size-4" />}
+              className="min-w-48 flex-1"
+              options={reference.vendorOptions}
               value={row.vendorId}
-              onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vendorId: e.target.value } : r)))}
-              options={[{ value: "", label: "Select a Vendor" }, ...vendors.map((v) => ({ value: v.id, label: v.name }))]}
+              onValueChange={(value) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vendorId: value } : r)))}
+              loading={reference.loading}
+              placeholder="Type a Vendor name…"
+              emptyMessage={reference.loadFailed ? "Couldn't load Vendors — try reloading" : "No matching Vendor"}
             />
             <TextField
               label="Quantity (m³)"
@@ -389,10 +460,8 @@ export function DsrDesktopForm({
               value={row.grade}
               onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, grade: e.target.value } : r)))}
             />
-            <TextField
+            <AmountField
               label="Rate per m³"
-              type="number"
-              icon={<span className="text-body-sm font-semibold">₹</span>}
               value={row.ratePerM3}
               onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, ratePerM3: e.target.value } : r)))}
             />
@@ -404,7 +473,12 @@ export function DsrDesktopForm({
         <Button
           type="button"
           variant="secondary"
-          onClick={() => setRmcEntries((rows) => [...rows, { vendorId: "", quantityM3: "", grade: "", ratePerM3: "" }])}
+          onClick={() =>
+            setRmcEntries((rows) => [
+              ...rows,
+              { clientGeneratedId: crypto.randomUUID(), vendorId: null, quantityM3: "", grade: "", ratePerM3: "" },
+            ])
+          }
         >
           <PlusIcon className="size-4" />
           Add RMC delivery
@@ -414,18 +488,19 @@ export function DsrDesktopForm({
       <Card className="mb-4">
         <h2 className="mb-3 text-card-title text-ink-900">Expenses</h2>
         {expenses.map((row, index) => (
-          <div key={index} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
-            <TextField
-              label="Expense Category ID"
-              hint="Live Category lookup has not shipped yet — enter its id directly."
-              icon={<HashIcon className="size-4" />}
+          <div key={row.clientGeneratedId} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
+            <ComboboxField
+              label="Category"
+              className="min-w-48 flex-1"
+              options={reference.expenseCategoryOptions}
               value={row.categoryId}
-              onChange={(e) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, categoryId: e.target.value } : r)))}
+              onValueChange={(value) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, categoryId: value } : r)))}
+              loading={reference.loading}
+              placeholder="Type a Category…"
+              emptyMessage={reference.loadFailed ? "Couldn't load Categories — try reloading" : "No matching Category"}
             />
-            <TextField
+            <AmountField
               label="Amount"
-              type="number"
-              icon={<span className="text-body-sm font-semibold">₹</span>}
               value={row.amount}
               onChange={(e) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, amount: e.target.value } : r)))}
             />
@@ -440,7 +515,16 @@ export function DsrDesktopForm({
             </Button>
           </div>
         ))}
-        <Button type="button" variant="secondary" onClick={() => setExpenses((rows) => [...rows, { categoryId: "", amount: "", description: "" }])}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() =>
+            setExpenses((rows) => [
+              ...rows,
+              { clientGeneratedId: crypto.randomUUID(), categoryId: null, amount: "", description: "" },
+            ])
+          }
+        >
           <PlusIcon className="size-4" />
           Add expense
         </Button>
@@ -448,32 +532,39 @@ export function DsrDesktopForm({
 
       <Card className="mb-4">
         <h2 className="mb-3 text-card-title text-ink-900">Equipment used</h2>
-        {equipmentUsed.map((row, index) => (
-          <div key={index} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
-            <SelectField
-              label="Type"
-              value={row.type}
-              onChange={(e) => setEquipmentUsed((rows) => rows.map((r, i) => (i === index ? { ...r, type: e.target.value as "MACHINERY" | "VEHICLE" } : r)))}
-              options={[
-                { value: "MACHINERY", label: "Machinery" },
-                { value: "VEHICLE", label: "Vehicle" },
-              ]}
-            />
-            <TextField
-              label="Name"
-              hint="e.g. JCB 3DX"
-              value={row.name}
-              onChange={(e) => setEquipmentUsed((rows) => rows.map((r, i) => (i === index ? { ...r, name: e.target.value } : r)))}
-            />
-            <Button type="button" variant="ghost" onClick={() => setEquipmentUsed((rows) => rows.filter((_, i) => i !== index))}>
-              Remove
-            </Button>
-          </div>
-        ))}
-        <Button type="button" variant="secondary" onClick={() => setEquipmentUsed((rows) => [...rows, { type: "MACHINERY", id: crypto.randomUUID(), name: "" }])}>
-          <PlusIcon className="size-4" />
-          Add equipment
-        </Button>
+        {equipmentUsed.length > 0 ? (
+          <ul className="mb-3 flex flex-col gap-2">
+            {equipmentUsed.map((row) => (
+              <li key={row.id} className="flex items-center gap-2">
+                <TruckIcon className="size-4 text-ink-500" />
+                <span className="flex-1 text-body-sm text-ink-900">{row.name}</span>
+                <Badge variant="neutral">{row.type === "MACHINERY" ? "Machinery" : "Vehicle"}</Badge>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEquipmentUsed((rows) => rows.filter((r) => r.id !== row.id))}
+                >
+                  Remove
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <ComboboxField
+          label="Add machinery or vehicle"
+          icon={<TruckIcon className="size-4" />}
+          options={reference.equipmentOptions}
+          value={newEquipmentId}
+          onValueChange={addEquipment}
+          loading={reference.loading}
+          placeholder="Type a machine name or vehicle number…"
+          emptyMessage={
+            reference.loadFailed
+              ? "Couldn't load the registers — try reloading"
+              : "No matching Machinery or Vehicle in the registers"
+          }
+        />
       </Card>
 
       <Card className="mb-4">
@@ -544,6 +635,21 @@ export function DsrDesktopForm({
         {mode === "correct" ? <RotateCcwIcon className="size-4" /> : <CheckCircleIcon className="size-4" />}
         {mode === "correct" ? "Submit Correction" : "Submit Daily Activity"}
       </Button>
+
+      <ConfirmDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title="Submit this correction?"
+        description="This supersedes the original report with the restated details below — the original stays on record (AD-9)."
+        confirmLabel="Submit Correction"
+        onConfirm={confirmation.confirm}
+      >
+        <ConfirmDialogRow label="Crew present" value={crew.filter((c) => c.attended).length} />
+        <ConfirmDialogRow label="Materials consumed" value={consumptions.filter((c) => c.materialSizeId && c.quantity).length} />
+        <ConfirmDialogRow label="RMC deliveries" value={rmcEntries.filter((r) => r.vendorId && r.quantityM3).length} />
+        <ConfirmDialogRow label="Expenses" value={expenses.filter((e) => e.categoryId && e.amount).length} />
+        <ConfirmDialogRow label="Reason" value={reason || "—"} />
+      </ConfirmDialog>
     </form>
   );
 }

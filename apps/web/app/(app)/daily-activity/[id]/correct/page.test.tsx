@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,7 +8,7 @@ const notFoundMock = vi.hoisted(() =>
   }),
 );
 const pushMock = vi.hoisted(() => vi.fn());
-vi.mock("next/navigation", () => ({ notFound: notFoundMock, useRouter: () => ({ push: pushMock }) }));
+vi.mock("next/navigation", () => ({ notFound: notFoundMock, useRouter: () => ({ push: pushMock }), useSearchParams: () => new URLSearchParams() }));
 
 import CorrectDsrPage from "./page";
 
@@ -116,6 +116,12 @@ describe("CorrectDsrPage", () => {
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Reason for this correction"), "Ravi was actually present");
     await user.click(screen.getByRole("button", { name: "Submit Correction" }));
+
+    // The submission is held for re-verification first (FR-54 UX) — the
+    // dialog plays the entry back, then Confirm dispatches the real POST.
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Ravi was actually present")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Submit Correction" }));
 
     await waitFor(() => {
       const correctCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find((call) =>

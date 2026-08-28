@@ -29,6 +29,21 @@ async function getSiteDetail(id: string): Promise<SiteDetail | null> {
   return res.json();
 }
 
+// FR-28's daily loop starts from the Site, not from a separate form:
+// "Site → Today's DSR". If today's report exists, the action opens it;
+// otherwise it deep-links the DSR form with this Site pre-selected.
+async function getTodaysDsrId(siteId: string): Promise<string | null> {
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    const res = await authedFetch(`/dsr?date=${today}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const reports = (await res.json()) as { id: string; site: { id: string } }[];
+    return reports.find((report) => report.site.id === siteId)?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const STATUS_BADGE: Record<Site["status"], { variant: "success" | "warning" | "neutral"; label: string }> = {
   ACTIVE: { variant: "success", label: "Active" },
   ON_HOLD: { variant: "warning", label: "On Hold" },
@@ -73,7 +88,7 @@ const feedColumns: DataTableColumn<FeedItem>[] = [
 
 export default async function SiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const site = await getSiteDetail(id);
+  const [site, todaysDsrId] = await Promise.all([getSiteDetail(id), getTodaysDsrId(id)]);
 
   if (!site) {
     notFound();
@@ -109,7 +124,14 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             ) : null}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Link
+            href={todaysDsrId ? `/daily-activity/${todaysDsrId}` : `/dsr/new?siteId=${site.id}`}
+            className={cn(buttonVariants({ variant: "primary" }))}
+          >
+            <ClipboardIcon className="size-4" />
+            Today&apos;s DSR
+          </Link>
           <Link href={`/sites/${site.id}/photos`} className={cn(buttonVariants({ variant: "secondary" }))}>
             <CameraIcon className="size-4" />
             Site Photos

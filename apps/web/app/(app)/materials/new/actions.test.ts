@@ -47,7 +47,7 @@ describe("createMaterialAction", () => {
         body: JSON.stringify({ name: "RCC Pipe", categoryId: validUuid, unitId: validUuid }),
       }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/materials");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/materials\?flash=/));
   });
 
   it("surfaces a foreign-key-violation 400 (non-existent Category/Unit) as a form error, not a raw status (AC #5)", async () => {

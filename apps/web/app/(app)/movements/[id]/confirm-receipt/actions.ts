@@ -47,5 +47,5 @@ export async function confirmMovementReceiptAction(
     return { formError: "Something went wrong confirming receipt. Please try again." };
   }
 
-  redirect("/movements");
+  redirect(`/movements?flash=${encodeURIComponent("Receipt confirmed — Site Stock updated")}`);
 }

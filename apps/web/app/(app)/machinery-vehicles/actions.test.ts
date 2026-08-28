@@ -55,7 +55,7 @@ describe("createAssetMovementAction", () => {
     const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]![1].body);
     expect(body.assetType).toBe("MACHINERY");
     expect(body.toStatus).toBe("AT_SITE");
-    expect(redirectMock).toHaveBeenCalledWith("/machinery-vehicles/machinery/11111111-1111-4111-8111-111111111111");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/machinery-vehicles\/machinery\/11111111-1111-4111-8111-111111111111\?flash=/));
   });
 
   it("redirects to the Vehicle's detail page for a VEHICLE movement", async () => {
@@ -65,7 +65,7 @@ describe("createAssetMovementAction", () => {
       createAssetMovementAction({}, formData({ ...validFields, assetType: "VEHICLE", toStatus: "MAINTENANCE", siteId: "" })),
     ).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(redirectMock).toHaveBeenCalledWith("/machinery-vehicles/vehicles/11111111-1111-4111-8111-111111111111");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/machinery-vehicles\/vehicles\/11111111-1111-4111-8111-111111111111\?flash=/));
   });
 
   it("omits siteId from the payload for a MAINTENANCE/AVAILABLE movement even if the form somehow retained one", async () => {
@@ -125,7 +125,7 @@ describe("createServiceLogAction", () => {
     const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]![1].body);
     expect(body.assetType).toBe("MACHINERY");
     expect(body.kind).toBe("FUEL");
-    expect(redirectMock).toHaveBeenCalledWith("/machinery-vehicles/machinery/11111111-1111-4111-8111-111111111111");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/machinery-vehicles\/machinery\/11111111-1111-4111-8111-111111111111\?flash=/));
   });
 
   it("redirects to the Vehicle's detail page for a VEHICLE entry", async () => {
@@ -135,7 +135,7 @@ describe("createServiceLogAction", () => {
       createServiceLogAction({}, formData({ ...validServiceLogFields, assetType: "VEHICLE", kind: "REPAIR" })),
     ).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(redirectMock).toHaveBeenCalledWith("/machinery-vehicles/vehicles/11111111-1111-4111-8111-111111111111");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/machinery-vehicles\/vehicles\/11111111-1111-4111-8111-111111111111\?flash=/));
   });
 
   it("omits notes/cost from the payload when left blank", async () => {
@@ -196,7 +196,7 @@ describe("updateServiceLogAction", () => {
     expect(init.method).toBe("PATCH");
     const body = JSON.parse(init.body);
     expect(body.kind).toBe("FUEL");
-    expect(redirectMock).toHaveBeenCalledWith("/machinery-vehicles/machinery/11111111-1111-4111-8111-111111111111");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/machinery-vehicles\/machinery\/11111111-1111-4111-8111-111111111111\?flash=/));
   });
 
   it("sends an explicit null for a blanked optional field rather than omitting it", async () => {

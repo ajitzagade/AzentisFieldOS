@@ -3,6 +3,10 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import {
+  ConfirmDialog,
+  ConfirmDialogRow,
+  formValue,
+  useSubmitConfirmation,
   Button,
   CalendarIcon,
   Card,
@@ -74,9 +78,12 @@ export function MovementForm({
   initial?: MovementFormInitialValues;
 }) {
   const [state, formAction] = useActionState(createMovementAction, initialState);
+  // Hard-to-take-back submission (FR-54 / money movement) — held for
+  // re-verification of the entered details before it goes to the ledger.
+  const confirmation = useSubmitConfirmation();
 
   return (
-    <form action={formAction} noValidate>
+    <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
       <input type="hidden" name="kind" value={kind} />
 
       {mode === "correct" ? (
@@ -189,6 +196,19 @@ export function MovementForm({
         label={mode === "correct" ? "Submit Correction" : kind === "SITE_TO_SITE" ? "Record Transfer" : "Record Movement"}
         correcting={mode === "correct"}
       />
+
+      <ConfirmDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title={"Submit this correction?"}
+        description={"A correction is a new, permanent ledger entry — please re-verify the details."}
+        confirmLabel={"Submit Correction"}
+        onConfirm={confirmation.confirm}
+      >
+        <ConfirmDialogRow label="Sent quantity adjustment" value={formValue(confirmation.values, "sentQuantity")} />
+        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
+      </ConfirmDialog>
+
     </form>
   );
 }

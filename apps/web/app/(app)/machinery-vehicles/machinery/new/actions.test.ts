@@ -61,7 +61,7 @@ describe("createMachineryAction", () => {
         body: JSON.stringify({ name: "JCB 3DX", typeId: validTypeId, assetNumber: "AST-001" }),
       }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/machinery-vehicles");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/machinery-vehicles\?flash=/));
   });
 
   it("includes optional model/ownership/operator when provided", async () => {

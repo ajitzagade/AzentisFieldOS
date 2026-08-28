@@ -75,5 +75,7 @@ export async function createAdvanceAdjustmentAction(
     return { formError: "Something went wrong recording the Adjustment. Please try again." };
   }
 
-  redirect(`/team/${teamMemberId}`);
+  redirect(
+    `/team/${teamMemberId}?flash=${encodeURIComponent(formData.get("correctsId") ? "Adjustment correction recorded" : "Advance Adjustment recorded")}`,
+  );
 }

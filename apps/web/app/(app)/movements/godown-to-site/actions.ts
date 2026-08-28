@@ -52,5 +52,7 @@ export async function createMovementAction(
     return { formError: "Something went wrong recording the Movement. Please try again." };
   }
 
-  redirect("/movements");
+  redirect(
+    `/movements?flash=${encodeURIComponent(formData.get("correctsId") ? "Movement correction recorded" : "Movement recorded")}`,
+  );
 }

@@ -53,5 +53,5 @@ export async function updateVendorAction(
     return { formError: "Something went wrong updating the Vendor. Please try again." };
   }
 
-  redirect("/vendors");
+  redirect(`/vendors?flash=${encodeURIComponent("Vendor updated")}`);
 }

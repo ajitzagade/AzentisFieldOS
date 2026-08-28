@@ -7,12 +7,16 @@ import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   it,
   vi,
 } from 'vitest';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConsumptionService } from '../inventory/consumption.service';
+import { RmcService } from '../rmc/rmc.service';
+import { ExpensesService } from '../expenses/expenses.service';
 import { DsrService } from './dsr.service';
 import type { StorageService } from '../storage/storage.service';
 
@@ -108,26 +112,60 @@ describeIfDb('DsrService (integration)', () => {
     categoryId = expenseCategory.id;
   });
 
+  // FR-12: DSR-embedded Consumption now decrements SiteStock, so every
+  // test starts from a known balance (and the floor check would reject a
+  // consumption against a Site/Material with no stock at all).
+  const seedSiteStock = (quantity: number) =>
+    prisma.siteStock.upsert({
+      where: { siteId_materialSizeId: { siteId, materialSizeId } },
+      update: { quantity },
+      create: { siteId, materialSizeId, quantity },
+    });
+
+  const siteStockQuantity = async () => {
+    const stock = await prisma.siteStock.findUnique({
+      where: { siteId_materialSizeId: { siteId, materialSizeId } },
+    });
+    return stock?.quantity.toString();
+  };
+
+  beforeEach(async () => {
+    await seedSiteStock(1000);
+  });
+
   afterEach(async () => {
     // Clean slate between tests without tearing down the shared fixtures.
-    await prisma.expense.deleteMany({});
-    await prisma.rmcEntry.deleteMany({});
-    await prisma.consumption.deleteMany({});
-    await prisma.workRecord.deleteMany({});
-    await prisma.dailySiteReport.deleteMany({});
+    // Every delete is scoped to this spec's own fixture Site — the
+    // integration specs share one database and run in parallel workers,
+    // so a blanket deleteMany({}) here races other suites' fixtures.
+    await prisma.expense.deleteMany({ where: { siteId } });
+    await prisma.rmcEntry.deleteMany({ where: { siteId } });
+    await prisma.consumption.deleteMany({ where: { siteId } });
+    await prisma.workRecord.deleteMany({ where: { siteId } });
+    await prisma.dailySiteReport.deleteMany({ where: { siteId } });
+    await prisma.siteStock.deleteMany({ where: { siteId } });
   });
 
   afterAll(async () => {
-    await prisma.expense.deleteMany({});
-    await prisma.rmcEntry.deleteMany({});
-    await prisma.consumption.deleteMany({});
-    await prisma.workRecord.deleteMany({});
-    await prisma.dailySiteReport.deleteMany({});
+    await prisma.expense.deleteMany({ where: { siteId } });
+    await prisma.rmcEntry.deleteMany({ where: { siteId } });
+    await prisma.consumption.deleteMany({ where: { siteId } });
+    await prisma.workRecord.deleteMany({ where: { siteId } });
+    await prisma.dailySiteReport.deleteMany({ where: { siteId } });
+    await prisma.siteStock.deleteMany({ where: { siteId } });
     await prisma.teamMember.deleteMany({ where: { id: teamMemberId } });
+    const size = await prisma.materialSize.findUnique({
+      where: { id: materialSizeId },
+      include: { material: true },
+    });
     await prisma.materialSize.deleteMany({ where: { id: materialSizeId } });
-    await prisma.material.deleteMany({});
-    await prisma.materialCategory.deleteMany({});
-    await prisma.unit.deleteMany({});
+    if (size) {
+      await prisma.material.deleteMany({ where: { id: size.materialId } });
+      await prisma.materialCategory.deleteMany({
+        where: { id: size.material.categoryId },
+      });
+      await prisma.unit.deleteMany({ where: { id: size.material.unitId } });
+    }
     await prisma.vendor.deleteMany({ where: { id: vendorId } });
     await prisma.expenseCategory.deleteMany({ where: { id: categoryId } });
     await prisma.site.deleteMany({ where: { id: siteId } });
@@ -217,6 +255,9 @@ describeIfDb('DsrService (integration)', () => {
 
     expect(result.consumptions).toHaveLength(1);
     expect(result.consumptions[0]?.quantity.toString()).toBe('25');
+    // Stock reflects the final quantity once, not 10 + 25 — the retried
+    // sync applied only the delta against the row it already wrote.
+    expect(await siteStockQuantity()).toBe('975');
   });
 
   it('rejects a crew member double-booked at another Site on the same date, not a raw constraint error', async () => {
@@ -722,5 +763,169 @@ describeIfDb('DsrService (integration)', () => {
       where: { id: correction.id },
     });
     expect(untouchedCorrection.correctsId).toBe(original.id);
+  });
+
+  // ---------------------------------------------------------------------
+  // FR-12 / FR-14: DSR ↔ Site Stock synchronization (the DSR is an entry
+  // surface over the same ledger the standalone Consumption path writes).
+  // ---------------------------------------------------------------------
+
+  it('a DSR Consumption decrements SiteStock at the database level (100 − 20 = 80)', async () => {
+    await seedSiteStock(100);
+
+    await create({
+      siteId,
+      reportDate: '2026-08-20',
+      workRecords: [],
+      consumptions: [{ materialSizeId, quantity: 20 }],
+      rmcEntries: [],
+      expenses: [],
+      equipmentUsed: [],
+    });
+
+    expect(await siteStockQuantity()).toBe('80');
+    // And the ledger row exists, linked to the DSR (FR-12's retrievability).
+    const rows = await prisma.consumption.findMany({ where: { siteId } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.quantity.toString()).toBe('20');
+    expect(rows[0]?.dailySiteReportId).not.toBeNull();
+  });
+
+  it('rejects a DSR whose Consumption would take SiteStock below zero, leaving no partial write', async () => {
+    await seedSiteStock(5);
+
+    await expect(
+      create({
+        siteId,
+        reportDate: '2026-08-21',
+        workRecords: [],
+        consumptions: [{ materialSizeId, quantity: 10 }],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(await siteStockQuantity()).toBe('5');
+    expect(
+      await prisma.dailySiteReport.findFirst({
+        where: { siteId, reportDate: new Date('2026-08-21') },
+      }),
+    ).toBeNull();
+  });
+
+  it("a correction reverses the superseded report's stock effect and applies the restated rows (net = restated − original)", async () => {
+    await seedSiteStock(100);
+
+    const original = await create({
+      siteId,
+      reportDate: '2026-08-22',
+      workRecords: [],
+      consumptions: [{ materialSizeId, quantity: 20 }],
+      rmcEntries: [],
+      expenses: [],
+      equipmentUsed: [],
+    });
+    expect(await siteStockQuantity()).toBe('80');
+
+    await correct(
+      original.id,
+      {
+        siteId,
+        reportDate: '2026-08-22',
+        workRecords: [],
+        consumptions: [{ materialSizeId, quantity: 12 }],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+      },
+      'Recount: 12 bags used, not 20',
+    );
+
+    // +20 back, −12 restated → 88. The original's rows are untouched (AD-9).
+    expect(await siteStockQuantity()).toBe('88');
+    const originalRows = await prisma.consumption.findMany({
+      where: { dailySiteReportId: original.id },
+    });
+    expect(originalRows).toHaveLength(1);
+    expect(originalRows[0]?.quantity.toString()).toBe('20');
+  });
+
+  it("aggregates skip the superseded report's sub-rows — only the correction's restated rows count (FR-54, no double-counting)", async () => {
+    await seedSiteStock(100);
+
+    const original = await create({
+      siteId,
+      reportDate: '2026-08-23',
+      workRecords: [],
+      consumptions: [{ materialSizeId, quantity: 20 }],
+      rmcEntries: [{ vendorId, quantityM3: 5, grade: 'M25', ratePerM3: 6000 }],
+      expenses: [{ categoryId, amount: 500 }],
+      equipmentUsed: [],
+    });
+    await correct(
+      original.id,
+      {
+        siteId,
+        reportDate: '2026-08-23',
+        workRecords: [],
+        consumptions: [{ materialSizeId, quantity: 12 }],
+        rmcEntries: [
+          { vendorId, quantityM3: 4, grade: 'M25', ratePerM3: 6000 },
+        ],
+        expenses: [{ categoryId, amount: 450 }],
+        equipmentUsed: [],
+      },
+      'Recount',
+    );
+
+    const consumptionService = new ConsumptionService(prisma);
+    const consumptions = await consumptionService.list({ siteId });
+    expect(consumptions).toHaveLength(1);
+    expect(consumptions[0]?.quantity.toString()).toBe('12');
+
+    const rmcService = new RmcService(prisma);
+    const rmcEntries = await rmcService.list({ siteId });
+    expect(rmcEntries).toHaveLength(1);
+    expect(rmcEntries[0]?.quantityM3.toString()).toBe('4');
+
+    const expensesService = new ExpensesService(prisma);
+    const expenses = await expensesService.list({ siteId });
+    expect(expenses).toHaveLength(1);
+    expect(expenses[0]?.amount.toString()).toBe('450');
+
+    // The materialized stock reconciles to the re-summed ledger under the
+    // same rule: superseded-DSR rows are excluded (their effect was
+    // reversed when the correction was filed) — FR-14 extended to DSRs.
+    expect(await siteStockQuantity()).toBe('88');
+  });
+
+  it('rejects a second correction of an already-corrected report — the stock reversal must only ever run once', async () => {
+    await seedSiteStock(100);
+
+    const original = await create({
+      siteId,
+      reportDate: '2026-08-24',
+      workRecords: [],
+      consumptions: [{ materialSizeId, quantity: 20 }],
+      rmcEntries: [],
+      expenses: [],
+      equipmentUsed: [],
+    });
+    const payload = {
+      siteId,
+      reportDate: '2026-08-24',
+      workRecords: [],
+      consumptions: [{ materialSizeId, quantity: 12 }],
+      rmcEntries: [],
+      expenses: [],
+      equipmentUsed: [],
+    };
+    await correct(original.id, payload, 'First correction');
+
+    await expect(
+      correct(original.id, payload, 'Second correction of the same report'),
+    ).rejects.toThrow(ConflictException);
+    expect(await siteStockQuantity()).toBe('88');
   });
 });

@@ -5,6 +5,8 @@ import { AppShell } from "./app-shell";
 let mockPathname = "/";
 vi.mock("next/navigation", () => ({
   usePathname: () => mockPathname,
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ push: () => {}, replace: () => {} }),
 }));
 vi.mock("next/link", () => ({
   default: ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => (
@@ -101,25 +103,28 @@ describe("AppShell", () => {
     expect(screen.getByRole("button", { name: /Open navigation menu/ })).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("does not render the mobile nav toggle for SITE_SUPERVISOR", () => {
+  it("exposes the mobile nav toggle for SITE_SUPERVISOR too (sidebar shell for all roles)", () => {
     mockPathname = "/";
     render(
       <AppShell role="SITE_SUPERVISOR">
         <div>content</div>
       </AppShell>,
     );
-    expect(screen.queryByRole("button", { name: /Open navigation menu/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Open navigation menu/ })).toBeInTheDocument();
   });
 
-  it("renders the minimal top bar, no sidebar, for SITE_SUPERVISOR", () => {
+  it("renders the sidebar for SITE_SUPERVISOR, but hides the Owner/Admin-only Settings item", () => {
     mockPathname = "/";
     render(
       <AppShell role="SITE_SUPERVISOR">
         <div>content</div>
       </AppShell>,
     );
-    expect(screen.queryByRole("link", { name: /Dashboard/ })).not.toBeInTheDocument();
-    expect(screen.queryByText("Materials")).not.toBeInTheDocument();
+    // Sidebar nav is present for the Supervisor now (same shell as Owner/Admin).
+    expect(screen.getByRole("link", { name: /Dashboard/ })).toBeInTheDocument();
+    expect(screen.getAllByText("Materials").length).toBeGreaterThan(0);
+    // Settings hard-404s for a Supervisor, so it must not appear as a link.
+    expect(screen.queryByRole("link", { name: /Settings/ })).not.toBeInTheDocument();
     expect(screen.getByText("content")).toBeInTheDocument();
   });
 });

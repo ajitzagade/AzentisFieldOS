@@ -41,7 +41,7 @@ describe("updateMachineryAction", () => {
       "http://localhost:3001/machinery/m1",
       expect.objectContaining({ method: "PATCH" }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/machinery-vehicles");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/machinery-vehicles\?flash=/));
   });
 
   it("sends an explicit null (not an omitted key) for a blanked Model/Ownership/Operator, so the API actually clears it", async () => {

@@ -54,7 +54,7 @@ describe("createMovementAction", () => {
 
     const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]![1].body);
     expect(body.kind).toBe("GODOWN_TO_SITE");
-    expect(redirectMock).toHaveBeenCalledWith("/movements");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/movements\?flash=/));
   });
 
   it("Story 5.4: posts sourceSiteId and kind SITE_TO_SITE when the form submits a transfer", async () => {

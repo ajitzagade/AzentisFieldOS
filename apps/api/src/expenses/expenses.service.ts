@@ -6,6 +6,10 @@ import {
 import type { CreateExpenseInput } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  currentDsrRowsWhere,
+  supersededDsrIds,
+} from '../common/superseded-dsrs';
 
 export interface ExpenseListFilters {
   siteId?: string;
@@ -68,9 +72,14 @@ export class ExpensesService {
 
   // FR-41 / AC #2: queryable by Site, Category, and date range so the
   // Expense list and Financial reporting can slice committed history —
-  // filter params on the one list endpoint, not several.
-  list(filters: ExpenseListFilters = {}) {
-    const where: Prisma.ExpenseWhereInput = {};
+  // filter params on the one list endpoint, not several. Expenses
+  // belonging to a superseded (since corrected) DSR are excluded — the
+  // correction's restated rows already represent that report (same rule
+  // as ConsumptionService.list).
+  async list(filters: ExpenseListFilters = {}) {
+    const where: Prisma.ExpenseWhereInput = {
+      ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
+    };
     if (filters.siteId) {
       where.siteId = filters.siteId;
     }
@@ -119,8 +128,12 @@ export class ExpensesService {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const currentRows = currentDsrRowsWhere(
+      await supersededDsrIds(this.prisma),
+    );
     const whereThisMonth: Prisma.ExpenseWhereInput = {
       incurredAt: { gte: monthStart, lt: nextMonthStart },
+      ...currentRows,
     };
 
     // Week starts Monday, server-local — same server-local convention the
@@ -135,7 +148,10 @@ export class ExpensesService {
         _sum: { amount: true },
       }),
       this.prisma.expense.aggregate({
-        where: { incurredAt: { gte: weekStart, lt: nextWeekStart } },
+        where: {
+          incurredAt: { gte: weekStart, lt: nextWeekStart },
+          ...currentRows,
+        },
         _sum: { amount: true },
       }),
       this.prisma.expense.groupBy({

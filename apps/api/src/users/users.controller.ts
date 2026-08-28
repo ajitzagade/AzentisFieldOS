@@ -51,7 +51,8 @@ export class UsersController {
   @Roles('OWNER_ADMIN')
   updateRole(
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(updateUserRoleSchema)) body: UpdateUserRoleInput,
+    @Body(new ZodValidationPipe(updateUserRoleSchema))
+    body: UpdateUserRoleInput,
   ) {
     return this.usersService.updateRole(id, body);
   }

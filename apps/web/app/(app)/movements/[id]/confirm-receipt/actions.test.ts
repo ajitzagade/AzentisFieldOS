@@ -50,7 +50,7 @@ describe("confirmMovementReceiptAction", () => {
       "http://localhost:3001/movements/m1/confirm-receipt",
       expect.objectContaining({ method: "PATCH", body: JSON.stringify({ receivedQuantity: 90 }) }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/movements");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/movements\?flash=/));
   });
 
   it("returns a form error when the API rejects a double confirmation", async () => {

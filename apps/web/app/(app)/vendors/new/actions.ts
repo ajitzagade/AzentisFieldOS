@@ -45,5 +45,5 @@ export async function createVendorAction(
     return { formError: "Something went wrong creating the Vendor. Please try again." };
   }
 
-  redirect("/vendors");
+  redirect(`/vendors?flash=${encodeURIComponent("Vendor added")}`);
 }

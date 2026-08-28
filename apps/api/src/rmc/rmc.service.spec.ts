@@ -28,6 +28,9 @@ function makeService(overrides: {
       findMany: rmcEntryFindMany,
       aggregate: rmcEntryAggregate,
     },
+    // The read paths exclude rows belonging to a superseded (corrected)
+    // DSR — no corrections in these fixtures.
+    dailySiteReport: { findMany: vi.fn().mockResolvedValue([]) },
   };
 
   const service = new RmcService(
@@ -179,14 +182,20 @@ describe('RmcService.create', () => {
   });
 });
 
+// The supersession baseline every read-path where clause now carries:
+// keep standalone rows and rows whose parent DSR is still current.
+const CURRENT_ROWS_WHERE = {
+  OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],
+};
+
 describe('RmcService.list', () => {
-  it('passes no where filter when no filters are given', async () => {
+  it('passes only the superseded-DSR exclusion when no filters are given', async () => {
     const { service, rmcEntryFindMany } = makeService({});
 
     await service.list();
 
     expect(rmcEntryFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: {} }),
+      expect.objectContaining({ where: CURRENT_ROWS_WHERE }),
     );
   });
 
@@ -197,7 +206,7 @@ describe('RmcService.list', () => {
 
     expect(rmcEntryFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { siteId: 'site1', vendorId: 'vendor1' },
+        where: { ...CURRENT_ROWS_WHERE, siteId: 'site1', vendorId: 'vendor1' },
       }),
     );
   });
@@ -405,7 +414,7 @@ describe('RmcService.report', () => {
     await service.report('day');
 
     expect(rmcEntryFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: {} }),
+      expect.objectContaining({ where: CURRENT_ROWS_WHERE }),
     );
   });
 

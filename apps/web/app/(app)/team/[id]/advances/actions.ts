@@ -63,5 +63,7 @@ export async function createAdvanceAction(
     return { formError: "Something went wrong recording the Advance. Please try again." };
   }
 
-  redirect(`/team/${teamMemberId}`);
+  redirect(
+    `/team/${teamMemberId}?flash=${encodeURIComponent(formData.get("correctsId") ? "Advance correction recorded" : "Advance recorded")}`,
+  );
 }

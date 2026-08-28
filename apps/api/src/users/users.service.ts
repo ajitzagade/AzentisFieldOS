@@ -1,8 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { ClerkClient, UserJSON } from '@clerk/backend';
 import { ROLES } from '@azentisfieldos/shared';
 import type {
@@ -24,7 +20,9 @@ export interface UserListRow {
 }
 
 function isRole(value: unknown): value is Role {
-  return typeof value === 'string' && (ROLES as readonly string[]).includes(value);
+  return (
+    typeof value === 'string' && (ROLES as readonly string[]).includes(value)
+  );
 }
 
 // Story 14.2 (FR-48, AD-10, AD-11). Owns the local User table's read/write for
@@ -175,7 +173,10 @@ export class UsersService {
     }
     return this.prisma.user.update({
       where: { clerkId },
-      data: { name: fullName(data), email: primaryEmail(data) ?? existing.email },
+      data: {
+        name: fullName(data),
+        email: primaryEmail(data) ?? existing.email,
+      },
     });
   }
 
@@ -200,7 +201,9 @@ function primaryEmail(data: UserJSON): string | undefined {
 
 function fullName(data: UserJSON): string {
   const composed = [data.first_name, data.last_name]
-    .filter((part): part is string => typeof part === 'string' && part.length > 0)
+    .filter(
+      (part): part is string => typeof part === 'string' && part.length > 0,
+    )
     .join(' ')
     .trim();
   if (composed.length > 0) return composed;

@@ -1,8 +1,9 @@
 import { z } from "zod";
 
-// FR-12: recordedByUserId is accepted as an explicit body field for now —
-// apps/api has no request-scoped current-user resolution yet (same gap
-// AGENTS.md documents for apps/web's AppShell role hardcoding).
+// FR-12: the recording user is resolved server-side from the Clerk
+// session (Story 1.8's ClerkAuthGuard + @CurrentUser), the same way DSR
+// submissions are attributed — never accepted from the request body,
+// where any signed-in caller could attribute the write to someone else.
 export const createConsumptionSchema = z
   .object({
     siteId: z.uuid(),
@@ -11,7 +12,6 @@ export const createConsumptionSchema = z
     activityReference: z.string().min(1).optional(),
     notes: z.string().min(1).optional(),
     consumedAt: z.iso.date(),
-    recordedByUserId: z.uuid(),
     correctsId: z.uuid().optional(),
     reason: z.string().min(1).optional(),
   })

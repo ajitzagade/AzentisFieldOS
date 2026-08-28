@@ -66,5 +66,5 @@ export async function updateTeamMemberAction(
     return { formError: "Something went wrong updating the Team Member. Please try again." };
   }
 
-  redirect("/team");
+  redirect(`/team?flash=${encodeURIComponent("Team Member updated")}`);
 }

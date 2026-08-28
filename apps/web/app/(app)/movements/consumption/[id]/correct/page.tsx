@@ -20,7 +20,6 @@ interface ConsumptionForCorrection {
   activityReference: string | null;
   notes: string | null;
   consumedAt: string;
-  recordedByUserId: string;
   materialSize: { id: string };
 }
 
@@ -69,7 +68,6 @@ export default async function CorrectConsumptionPage({ params }: { params: Promi
     activityReference: consumption.activityReference ?? undefined,
     notes: consumption.notes ?? undefined,
     consumedAt: consumption.consumedAt.slice(0, 10),
-    recordedByUserId: consumption.recordedByUserId,
   };
 
   return (

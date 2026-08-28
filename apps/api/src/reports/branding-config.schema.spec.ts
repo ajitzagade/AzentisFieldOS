@@ -26,7 +26,8 @@ describe('updateBrandingConfigSchema (Story 14.1)', () => {
 
   it('applies the same 6-digit-hex rule to secondaryColor and accentColor', () => {
     expect(
-      updateBrandingConfigSchema.safeParse({ secondaryColor: '#16273E' }).success,
+      updateBrandingConfigSchema.safeParse({ secondaryColor: '#16273E' })
+        .success,
     ).toBe(true);
     expect(
       updateBrandingConfigSchema.safeParse({ accentColor: '#C7912B' }).success,
@@ -54,7 +55,8 @@ describe('updateBrandingConfigSchema (Story 14.1)', () => {
     // No GST checksum enforcement (FR-47 does not require it): a non-canonical
     // value still passes.
     expect(
-      updateBrandingConfigSchema.safeParse({ gstin: 'not-a-real-gstin' }).success,
+      updateBrandingConfigSchema.safeParse({ gstin: 'not-a-real-gstin' })
+        .success,
     ).toBe(true);
     // But an over-length value is rejected (length is the only bound).
     expect(

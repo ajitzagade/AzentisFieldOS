@@ -9,6 +9,11 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { lockOnKey } from '../common/advisory-lock';
 import { dateRangeBounds } from '../common/date-range';
+import {
+  currentDsrRowsWhere,
+  supersededDsrIds,
+} from '../common/superseded-dsrs';
+import { applySiteStockDelta } from '../inventory/stock-delta';
 import { StorageService } from '../storage/storage.service';
 
 // FR-28: one DSR per Site per date, with all its nested sub-records
@@ -164,6 +169,17 @@ export class DsrService {
             recordedByUserId: submittedByUserId,
             consumedAt: reportDate,
           };
+          // FR-12: Consumption recorded through a DSR reduces Site Stock
+          // exactly like the standalone POST /consumption path — the DSR
+          // is an entry surface, never a stock-invisible silo. A retried
+          // sync's upsert (AD-8) must apply only the *difference* against
+          // the row it already wrote, or every retry would drain stock
+          // again.
+          const existing = consumption.clientGeneratedId
+            ? await tx.consumption.findUnique({
+                where: { clientGeneratedId: consumption.clientGeneratedId },
+              })
+            : null;
           if (consumption.clientGeneratedId) {
             await tx.consumption.upsert({
               where: { clientGeneratedId: consumption.clientGeneratedId },
@@ -175,6 +191,36 @@ export class DsrService {
             });
           } else {
             await tx.consumption.create({ data });
+          }
+          if (
+            existing &&
+            existing.materialSizeId !== consumption.materialSizeId
+          ) {
+            // The resubmission moved this row to a different Material —
+            // give the previously consumed Material back, then charge the
+            // new one in full.
+            await applySiteStockDelta(
+              tx,
+              existing.siteId,
+              existing.materialSizeId,
+              -existing.quantity.toNumber(),
+              'Not enough Site Stock for this Consumption.',
+            );
+            await applySiteStockDelta(
+              tx,
+              input.siteId,
+              consumption.materialSizeId,
+              consumption.quantity,
+              'Not enough Site Stock for this Consumption.',
+            );
+          } else {
+            await applySiteStockDelta(
+              tx,
+              input.siteId,
+              consumption.materialSizeId,
+              consumption.quantity - (existing?.quantity.toNumber() ?? 0),
+              'Not enough Site Stock for this Consumption.',
+            );
           }
         }
 
@@ -293,6 +339,23 @@ export class DsrService {
 
     try {
       return await this.prisma.$transaction(async (tx) => {
+        // Same site+date advisory lock create() takes, so a correction
+        // serializes against concurrent plain submissions AND against a
+        // concurrent second correction of the same report — which must be
+        // rejected below, not least because the stock reversal for the
+        // superseded report's rows may only ever run once.
+        await lockOnKey(tx, `dsr:${input.siteId}:${input.reportDate}`);
+
+        const alreadyCorrected = await tx.dailySiteReport.findFirst({
+          where: { correctsId: originalId },
+          select: { id: true },
+        });
+        if (alreadyCorrected) {
+          throw new ConflictException(
+            'This report has already been corrected — correct the latest version instead',
+          );
+        }
+
         const dsr = await tx.dailySiteReport.create({
           data: {
             siteId: input.siteId,
@@ -332,6 +395,26 @@ export class DsrService {
           });
         }
 
+        // FR-12/FR-54: the superseded report's Consumption rows stay in
+        // the ledger untouched (AD-9), but their Site Stock effect is
+        // handed back here and the restated rows below charge stock
+        // afresh — so current Stock always reflects the *current* version
+        // of the report, and net across the whole correction is
+        // (restated − original), the same signed-delta a standalone
+        // Consumption correction applies.
+        const supersededConsumptions = await tx.consumption.findMany({
+          where: { dailySiteReportId: originalId },
+        });
+        for (const superseded of supersededConsumptions) {
+          await applySiteStockDelta(
+            tx,
+            superseded.siteId,
+            superseded.materialSizeId,
+            -superseded.quantity.toNumber(),
+            'Not enough Site Stock for this Consumption.',
+          );
+        }
+
         for (const consumption of input.consumptions) {
           await tx.consumption.create({
             data: {
@@ -344,6 +427,13 @@ export class DsrService {
               consumedAt: reportDate,
             },
           });
+          await applySiteStockDelta(
+            tx,
+            input.siteId,
+            consumption.materialSizeId,
+            consumption.quantity,
+            'Not enough Site Stock for this Consumption.',
+          );
         }
 
         for (const rmc of input.rmcEntries) {
@@ -417,7 +507,15 @@ export class DsrService {
     }
 
     const records = await this.prisma.workRecord.findMany({
-      where: { siteId, workDate: mostRecent.workDate, attended: true },
+      where: {
+        siteId,
+        workDate: mostRecent.workDate,
+        attended: true,
+        // A corrected DSR leaves its original attendance rows in place
+        // (AD-9) — default from the correction's restated crew only, or
+        // the same person pre-populates twice.
+        ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
+      },
       include: { teamMember: true },
     });
 

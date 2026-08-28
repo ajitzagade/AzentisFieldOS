@@ -9,6 +9,10 @@ import type {
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  currentDsrRowsWhere,
+  supersededDsrIds,
+} from '../common/superseded-dsrs';
 
 // FR-19: Owner/Admin creates and maintains Team Member records — one
 // accurate roster, never bound to a single Site (AC #2). No siteId field
@@ -83,7 +87,13 @@ export class TeamMembersService {
       throw new NotFoundException(`Team Member ${id} not found`);
     }
     return this.prisma.workRecord.findMany({
-      where: { teamMemberId: id },
+      where: {
+        teamMemberId: id,
+        // Skip attendance rows belonging to a superseded (since
+        // corrected) DSR — the correction's restated rows already cover
+        // that day (same rule as WorkRecordsService.list).
+        ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
+      },
       include: { site: true },
       orderBy: { workDate: 'desc' },
     });

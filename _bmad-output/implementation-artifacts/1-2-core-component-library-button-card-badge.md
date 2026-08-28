@@ -74,3 +74,6 @@ _To be filled by dev agent._
 ### Completion Notes List
 
 ### File List
+
+## Change Log
+- **2026-08-28 — component library additions (UX pass):** four new shared primitives in `packages/ui` (AD-5): `ComboboxField` (searchable single-select on Base UI Combobox — type→filter→select, loading/no-results/clear states, never exposes internal ids), `AmountField` (₹ numeric input that reads the amount back in words — Indian Crore/Lakh numbering, `lib/amount-in-words.ts`), `ConfirmDialog`/`ConfirmDialogRow`/`useSubmitConfirmation` (re-verification dialog for hard-to-take-back submissions, on Base UI AlertDialog; snapshots the form's FormData so dialogs can play entries back without per-field state), and the toast system (`ToastProvider`/`Toaster`/`useToast` on Base UI Toast; success via toast, field errors stay inline). The shared field primitives (`TextField`/`TextareaField`/`SelectField`/`ComboboxField`) now render a required-field marker (sibling of the label, so accessible names are unchanged). `Card`: every card deepens its shadow on hover; `interactive` additionally lifts — and the light-mode shadow tokens were strengthened (theme.css) so cards read elevated, not flat. Base UI (`@base-ui-components/react`, already a declared dependency) is now actually used.

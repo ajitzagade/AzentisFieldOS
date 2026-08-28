@@ -44,3 +44,35 @@ export async function decrementStockWithFloorCheck(
     });
   }
 }
+
+// Signed Site Stock adjustment for the DSR write paths: a positive delta
+// consumes stock (race-safe floor check above), a negative delta gives
+// stock back. The give-back is an upsert, not decrementStockWithFloorCheck
+// with a negative quantity — that variant requires a SiteStock row to
+// already exist, and a DSR recorded before stock tracking reached this
+// path may reference a Material/Site pair that never got one.
+export async function applySiteStockDelta(
+  tx: Prisma.TransactionClient,
+  siteId: string,
+  materialSizeId: string,
+  delta: number,
+  insufficientMessage: string,
+): Promise<void> {
+  if (delta === 0) {
+    return;
+  }
+  if (delta > 0) {
+    await decrementStockWithFloorCheck(
+      tx,
+      { model: 'siteStock', siteId, materialSizeId },
+      delta,
+      insufficientMessage,
+    );
+    return;
+  }
+  await tx.siteStock.upsert({
+    where: { siteId_materialSizeId: { siteId, materialSizeId } },
+    update: { quantity: { increment: -delta } },
+    create: { siteId, materialSizeId, quantity: -delta },
+  });
+}

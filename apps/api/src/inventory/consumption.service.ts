@@ -10,6 +10,10 @@ import type {
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
+import {
+  currentDsrRowsWhere,
+  supersededDsrIds,
+} from '../common/superseded-dsrs';
 import { decrementStockWithFloorCheck } from './stock-delta';
 
 // FR-12: Site Supervisor or Owner/Admin records Material Consumption at a
@@ -18,7 +22,9 @@ import { decrementStockWithFloorCheck } from './stock-delta';
 export class ConsumptionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(input: CreateConsumptionInput) {
+  // Story 1.8's attribution rule: `recordedByUserId` is the authenticated
+  // user threaded in from the controller, never a client-supplied field.
+  async create(input: CreateConsumptionInput, recordedByUserId: string) {
     if (input.correctsId) {
       const original = await this.prisma.consumption.findUnique({
         where: { id: input.correctsId },
@@ -45,7 +51,11 @@ export class ConsumptionService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const consumption = await tx.consumption.create({
-          data: { ...input, consumedAt: new Date(input.consumedAt) },
+          data: {
+            ...input,
+            recordedByUserId,
+            consumedAt: new Date(input.consumedAt),
+          },
         });
 
         await decrementStockWithFloorCheck(
@@ -67,10 +77,16 @@ export class ConsumptionService {
   }
 
   // Story 13.2 (FR-43): the same Consumption list, optionally narrowed by
-  // Site / Material / date window. Unfiltered it is unchanged.
-  list(filters: InventoryReportFilters = {}) {
+  // Site / Material / date window. Rows belonging to a superseded (since
+  // corrected) DSR are excluded — the correction's restated rows already
+  // represent that report, so including both would double-count.
+  async list(filters: InventoryReportFilters = {}) {
+    const superseded = await supersededDsrIds(this.prisma);
     return this.prisma.consumption.findMany({
-      where: this.reportWhere(filters),
+      where: {
+        ...this.reportWhere(filters),
+        ...currentDsrRowsWhere(superseded),
+      },
       include: {
         site: true,
         materialSize: { include: { material: { include: { unit: true } } } },

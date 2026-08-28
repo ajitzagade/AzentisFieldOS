@@ -128,13 +128,15 @@ describeIfDb('Stock reconciliation (integration)', () => {
 
     // Site: +28 (Movement received), -10 (Consumption), -3 (Wastage) => 15
     await movements.confirmReceipt(movement.id, { receivedQuantity: 28 });
-    await consumption.create({
-      siteId: destinationSiteId,
-      materialSizeId,
-      quantity: 10,
-      consumedAt: '2026-08-13',
-      recordedByUserId: userId,
-    });
+    await consumption.create(
+      {
+        siteId: destinationSiteId,
+        materialSizeId,
+        quantity: 10,
+        consumedAt: '2026-08-13',
+      },
+      userId,
+    );
     await returnWastage.create({
       siteId: destinationSiteId,
       materialSizeId,

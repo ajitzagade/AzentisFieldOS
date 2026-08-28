@@ -56,11 +56,18 @@ describe('ClerkWebhookController', () => {
     });
     const service = makeService();
     const controller = new ClerkWebhookController(
-      service as unknown as ConstructorParameters<typeof ClerkWebhookController>[0],
+      service as unknown as ConstructorParameters<
+        typeof ClerkWebhookController
+      >[0],
     );
 
     await expect(
-      controller.handle(makeReq('{"type":"user.created"}'), HEADERS.id, HEADERS.timestamp, HEADERS.signature),
+      controller.handle(
+        makeReq('{"type":"user.created"}'),
+        HEADERS.id,
+        HEADERS.timestamp,
+        HEADERS.signature,
+      ),
     ).rejects.toThrow(UnauthorizedException);
     expect(service.handleUserCreated).not.toHaveBeenCalled();
   });
@@ -69,11 +76,18 @@ describe('ClerkWebhookController', () => {
     delete process.env.CLERK_WEBHOOK_SECRET;
     const service = makeService();
     const controller = new ClerkWebhookController(
-      service as unknown as ConstructorParameters<typeof ClerkWebhookController>[0],
+      service as unknown as ConstructorParameters<
+        typeof ClerkWebhookController
+      >[0],
     );
 
     await expect(
-      controller.handle(makeReq('{}'), HEADERS.id, HEADERS.timestamp, HEADERS.signature),
+      controller.handle(
+        makeReq('{}'),
+        HEADERS.id,
+        HEADERS.timestamp,
+        HEADERS.signature,
+      ),
     ).rejects.toThrow(UnauthorizedException);
     expect(verifyMock).not.toHaveBeenCalled();
   });
@@ -81,11 +95,18 @@ describe('ClerkWebhookController', () => {
   it('rejects with 401 when the raw body is missing (rawBody not buffered)', async () => {
     const service = makeService();
     const controller = new ClerkWebhookController(
-      service as unknown as ConstructorParameters<typeof ClerkWebhookController>[0],
+      service as unknown as ConstructorParameters<
+        typeof ClerkWebhookController
+      >[0],
     );
 
     await expect(
-      controller.handle(makeReq(undefined), HEADERS.id, HEADERS.timestamp, HEADERS.signature),
+      controller.handle(
+        makeReq(undefined),
+        HEADERS.id,
+        HEADERS.timestamp,
+        HEADERS.signature,
+      ),
     ).rejects.toThrow(UnauthorizedException);
     expect(verifyMock).not.toHaveBeenCalled();
   });
@@ -95,7 +116,9 @@ describe('ClerkWebhookController', () => {
     verifyMock.mockImplementation(() => ({ type: 'user.created', data }));
     const service = makeService();
     const controller = new ClerkWebhookController(
-      service as unknown as ConstructorParameters<typeof ClerkWebhookController>[0],
+      service as unknown as ConstructorParameters<
+        typeof ClerkWebhookController
+      >[0],
     );
 
     const result = await controller.handle(
@@ -114,33 +137,60 @@ describe('ClerkWebhookController', () => {
     verifyMock.mockImplementation(() => ({ type: 'user.updated', data }));
     const service = makeService();
     const controller = new ClerkWebhookController(
-      service as unknown as ConstructorParameters<typeof ClerkWebhookController>[0],
+      service as unknown as ConstructorParameters<
+        typeof ClerkWebhookController
+      >[0],
     );
 
-    await controller.handle(makeReq('{"x":1}'), HEADERS.id, HEADERS.timestamp, HEADERS.signature);
+    await controller.handle(
+      makeReq('{"x":1}'),
+      HEADERS.id,
+      HEADERS.timestamp,
+      HEADERS.signature,
+    );
     expect(service.handleUserUpdated).toHaveBeenCalledWith(data);
   });
 
   it('does NOT delete the User row on user.deleted (no-op beyond acknowledging)', async () => {
-    verifyMock.mockImplementation(() => ({ type: 'user.deleted', data: { id: 'clerk_1', deleted: true } }));
+    verifyMock.mockImplementation(() => ({
+      type: 'user.deleted',
+      data: { id: 'clerk_1', deleted: true },
+    }));
     const service = makeService();
     const controller = new ClerkWebhookController(
-      service as unknown as ConstructorParameters<typeof ClerkWebhookController>[0],
+      service as unknown as ConstructorParameters<
+        typeof ClerkWebhookController
+      >[0],
     );
 
-    const result = await controller.handle(makeReq('{}'), HEADERS.id, HEADERS.timestamp, HEADERS.signature);
+    const result = await controller.handle(
+      makeReq('{}'),
+      HEADERS.id,
+      HEADERS.timestamp,
+      HEADERS.signature,
+    );
     expect(service.handleUserDeleted).toHaveBeenCalled();
     expect(result).toEqual({ received: true });
   });
 
   it('acknowledges an unrelated event type without touching any user handler', async () => {
-    verifyMock.mockImplementation(() => ({ type: 'session.created', data: {} }));
+    verifyMock.mockImplementation(() => ({
+      type: 'session.created',
+      data: {},
+    }));
     const service = makeService();
     const controller = new ClerkWebhookController(
-      service as unknown as ConstructorParameters<typeof ClerkWebhookController>[0],
+      service as unknown as ConstructorParameters<
+        typeof ClerkWebhookController
+      >[0],
     );
 
-    const result = await controller.handle(makeReq('{}'), HEADERS.id, HEADERS.timestamp, HEADERS.signature);
+    const result = await controller.handle(
+      makeReq('{}'),
+      HEADERS.id,
+      HEADERS.timestamp,
+      HEADERS.signature,
+    );
     expect(service.handleUserCreated).not.toHaveBeenCalled();
     expect(service.handleUserUpdated).not.toHaveBeenCalled();
     expect(result).toEqual({ received: true });

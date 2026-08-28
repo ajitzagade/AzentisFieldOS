@@ -63,5 +63,5 @@ export async function updateMachineryAction(
     return { formError: "Something went wrong updating the Machine. Please try again." };
   }
 
-  redirect("/machinery-vehicles");
+  redirect(`/machinery-vehicles?flash=${encodeURIComponent("Machinery updated")}`);
 }

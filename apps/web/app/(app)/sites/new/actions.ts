@@ -45,5 +45,5 @@ export async function createSiteAction(
     return { formError: "Something went wrong creating the Site. Please try again." };
   }
 
-  redirect("/sites");
+  redirect(`/sites?flash=${encodeURIComponent("Site created")}`);
 }

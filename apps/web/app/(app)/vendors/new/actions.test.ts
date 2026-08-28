@@ -50,7 +50,7 @@ describe("createVendorAction", () => {
         }),
       }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/vendors");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/vendors\?flash=/));
   });
 
   it("defaults materialsSupplied to an empty array when no tags were added", async () => {

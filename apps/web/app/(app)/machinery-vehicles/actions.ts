@@ -63,7 +63,9 @@ export async function createAssetMovementAction(
 
   const assetType = parsed.data.assetType;
   const assetId = parsed.data.assetId;
-  redirect(assetType === "MACHINERY" ? `/machinery-vehicles/machinery/${assetId}` : `/machinery-vehicles/vehicles/${assetId}`);
+  redirect(
+    `${assetType === "MACHINERY" ? `/machinery-vehicles/machinery/${assetId}` : `/machinery-vehicles/vehicles/${assetId}`}?flash=${encodeURIComponent("Movement recorded")}`,
+  );
 }
 
 export interface ServiceLogFormState {
@@ -127,7 +129,9 @@ export async function createServiceLogAction(
 
   const assetType = parsed.data.assetType;
   const assetId = parsed.data.assetId;
-  redirect(assetType === "MACHINERY" ? `/machinery-vehicles/machinery/${assetId}` : `/machinery-vehicles/vehicles/${assetId}`);
+  redirect(
+    `${assetType === "MACHINERY" ? `/machinery-vehicles/machinery/${assetId}` : `/machinery-vehicles/vehicles/${assetId}`}?flash=${encodeURIComponent("Service log recorded")}`,
+  );
 }
 
 // AC #2: a normal Edit affordance (PATCH), never a CorrectAction —
@@ -185,5 +189,7 @@ export async function updateServiceLogAction(
     return { formError: "Something went wrong updating this entry. Please try again." };
   }
 
-  redirect(assetType === "MACHINERY" ? `/machinery-vehicles/machinery/${assetId}` : `/machinery-vehicles/vehicles/${assetId}`);
+  redirect(
+    `${assetType === "MACHINERY" ? `/machinery-vehicles/machinery/${assetId}` : `/machinery-vehicles/vehicles/${assetId}`}?flash=${encodeURIComponent("Service log updated")}`,
+  );
 }

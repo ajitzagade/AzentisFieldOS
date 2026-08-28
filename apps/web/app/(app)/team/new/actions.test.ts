@@ -53,7 +53,7 @@ describe("createTeamMemberAction", () => {
         body: JSON.stringify({ name: "Ravi Kumar", employmentTypeId: "11111111-1111-4111-8111-111111111111" }),
       }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/team");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/team\?flash=/));
   });
 
   it("includes optional designation/contact when provided", async () => {

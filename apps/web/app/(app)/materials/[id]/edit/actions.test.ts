@@ -34,7 +34,7 @@ describe("updateMaterialAction", () => {
       "http://localhost:3001/materials/mat-1",
       expect.objectContaining({ method: "PATCH" }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/materials");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/materials\?flash=/));
   });
 
   it("returns a clear form error, not a raw 404, when the Material no longer exists", async () => {

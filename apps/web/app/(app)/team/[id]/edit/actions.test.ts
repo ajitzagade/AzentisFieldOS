@@ -35,7 +35,7 @@ describe("updateTeamMemberAction", () => {
       "http://localhost:3001/team-members/tm1",
       expect.objectContaining({ method: "PATCH" }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/team");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/team\?flash=/));
   });
 
   it("sends an explicit null (not an omitted key) for a blanked Designation/Contact, so the API actually clears it", async () => {

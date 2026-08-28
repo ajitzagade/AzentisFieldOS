@@ -4,16 +4,19 @@ import {
   type CreateConsumptionInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
+import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import { ConsumptionService } from './consumption.service';
 
 @Controller('consumption')
 export class ConsumptionController {
   constructor(private readonly consumptionService: ConsumptionService) {}
 
+  // The recording user comes from the Clerk session (Story 1.8), the same
+  // attribution rule the DSR controller follows — never from the body.
   @Post()
   @UsePipes(new ZodValidationPipe(createConsumptionSchema))
-  create(@Body() body: CreateConsumptionInput) {
-    return this.consumptionService.create(body);
+  create(@CurrentUser() user: AuthUser, @Body() body: CreateConsumptionInput) {
+    return this.consumptionService.create(body, user.id);
   }
 
   @Get()

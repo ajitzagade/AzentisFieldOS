@@ -1070,11 +1070,11 @@ function MachineryReportView({
   const assetOptions = [
     ...report.machinery.map((m) => ({
       value: assetOptionToken("MACHINERY", m.id),
-      label: `${m.name ?? m.assetNumber ?? m.id} (Machinery)`,
+      label: `${m.name ?? m.assetNumber ?? "Unnamed machinery"} (Machinery)`,
     })),
     ...report.vehicles.map((v) => ({
       value: assetOptionToken("VEHICLE", v.id),
-      label: `${v.number ?? v.id} (Vehicle)`,
+      label: `${v.number ?? "Unnumbered vehicle"} (Vehicle)`,
     })),
   ];
   const asset = report.asset;

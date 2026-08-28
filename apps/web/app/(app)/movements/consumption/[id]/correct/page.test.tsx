@@ -52,7 +52,6 @@ const consumption = {
   activityReference: null,
   notes: null,
   consumedAt: "2026-08-10T00:00:00.000Z",
-  recordedByUserId: "user1",
   materialSize: { id: "ms1" },
 };
 
@@ -67,7 +66,6 @@ describe("CorrectConsumptionPage", () => {
     await renderCorrectPage("c1");
 
     expect(screen.getByText("Filing a correction")).toBeInTheDocument();
-    expect(screen.getByLabelText("Recorded By User ID")).toHaveValue("user1");
   });
 
   it("calls notFound() for a Consumption ID that does not exist", async () => {

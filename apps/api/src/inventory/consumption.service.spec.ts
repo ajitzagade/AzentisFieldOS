@@ -35,14 +35,13 @@ const createInput = {
   materialSizeId: 'ms1',
   quantity: 10,
   consumedAt: '2026-08-13',
-  recordedByUserId: 'user1',
 };
 
 describe('ConsumptionService.create', () => {
   it("applies the stock-safety floor check to the Site's SiteStock, inside a transaction", async () => {
     const { service, prisma, siteStockUpdateMany } = makeService({});
 
-    await service.create(createInput);
+    await service.create(createInput, 'user1');
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(siteStockUpdateMany).toHaveBeenCalledWith({
@@ -55,7 +54,7 @@ describe('ConsumptionService.create', () => {
     const siteStockUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
     const { service, prisma } = makeService({ siteStockUpdateMany });
 
-    await expect(service.create(createInput)).rejects.toThrow(
+    await expect(service.create(createInput, 'user1')).rejects.toThrow(
       BadRequestException,
     );
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
@@ -66,7 +65,10 @@ describe('ConsumptionService.create', () => {
     const { service } = makeService({ consumptionFindUnique });
 
     await expect(
-      service.create({ ...createInput, correctsId: 'missing', reason: 'x' }),
+      service.create(
+        { ...createInput, correctsId: 'missing', reason: 'x' },
+        'user1',
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -79,7 +81,10 @@ describe('ConsumptionService.create', () => {
     const { service } = makeService({ consumptionFindUnique });
 
     await expect(
-      service.create({ ...createInput, correctsId: 'orig', reason: 'x' }),
+      service.create(
+        { ...createInput, correctsId: 'orig', reason: 'x' },
+        'user1',
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -93,12 +98,15 @@ describe('ConsumptionService.create', () => {
       consumptionFindUnique,
     });
 
-    await service.create({
-      ...createInput,
-      quantity: -4,
-      correctsId: 'orig',
-      reason: 'Recount',
-    });
+    await service.create(
+      {
+        ...createInput,
+        quantity: -4,
+        correctsId: 'orig',
+        reason: 'Recount',
+      },
+      'user1',
+    );
 
     expect(siteStockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { quantity: { decrement: -4 } } }),

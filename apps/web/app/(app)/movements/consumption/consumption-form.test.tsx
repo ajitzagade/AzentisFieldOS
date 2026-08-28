@@ -17,18 +17,17 @@ describe("ConsumptionForm", () => {
     expect(screen.getByLabelText("Site")).toBeInTheDocument();
     expect(screen.getByLabelText("Material / Size")).toBeInTheDocument();
     expect(screen.getByLabelText("Quantity")).toBeInTheDocument();
-    expect(screen.getByLabelText("Recorded By User ID")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Record Consumption" })).toBeInTheDocument();
   });
 
-  it("shows a correction banner with a required reason field, and locks Site/Material/Recorded By in correct mode", () => {
+  it("shows a correction banner with a required reason field, and locks Site/Material in correct mode", () => {
     render(
       <ConsumptionForm
         mode="correct"
         correctsId="c1"
         materialSizes={materialSizes}
         sites={sites}
-        initial={{ siteId: "site1", materialSizeId: "ms1", consumedAt: "2026-08-10", recordedByUserId: "user1" }}
+        initial={{ siteId: "site1", materialSizeId: "ms1", consumedAt: "2026-08-10" }}
       />,
     );
 
@@ -36,7 +35,6 @@ describe("ConsumptionForm", () => {
     expect(screen.getByLabelText("Reason for this correction")).toBeRequired();
     expect(screen.getByLabelText("Site")).toBeDisabled();
     expect(screen.getByLabelText("Material / Size")).toBeDisabled();
-    expect(screen.getByLabelText("Recorded By User ID")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Submit Correction" })).toBeInTheDocument();
   });
 
@@ -47,7 +45,7 @@ describe("ConsumptionForm", () => {
         correctsId="c1"
         materialSizes={materialSizes}
         sites={sites}
-        initial={{ siteId: "site1", materialSizeId: "ms1", consumedAt: "2026-08-10", recordedByUserId: "user1" }}
+        initial={{ siteId: "site1", materialSizeId: "ms1", consumedAt: "2026-08-10" }}
       />,
     );
 

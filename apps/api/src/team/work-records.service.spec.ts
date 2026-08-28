@@ -107,7 +107,10 @@ describe('WorkRecordsService.createBatch', () => {
 describe('WorkRecordsService.list', () => {
   it('lists all Work Records, newest first, when no siteId is given', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    const prisma = { workRecord: { findMany } };
+    const prisma = {
+      workRecord: { findMany },
+      dailySiteReport: { findMany: vi.fn().mockResolvedValue([]) },
+    };
     const service = new WorkRecordsService(
       prisma as unknown as ConstructorParameters<typeof WorkRecordsService>[0],
     );
@@ -115,7 +118,9 @@ describe('WorkRecordsService.list', () => {
     await service.list();
 
     expect(findMany).toHaveBeenCalledWith({
-      where: undefined,
+      where: {
+        OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],
+      },
       include: { teamMember: true, site: true },
       orderBy: { workDate: 'desc' },
     });
@@ -123,7 +128,10 @@ describe('WorkRecordsService.list', () => {
 
   it('filters to a single Site when siteId is given (Story 6.3 AC #2)', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    const prisma = { workRecord: { findMany } };
+    const prisma = {
+      workRecord: { findMany },
+      dailySiteReport: { findMany: vi.fn().mockResolvedValue([]) },
+    };
     const service = new WorkRecordsService(
       prisma as unknown as ConstructorParameters<typeof WorkRecordsService>[0],
     );
@@ -131,7 +139,10 @@ describe('WorkRecordsService.list', () => {
     await service.list('site1');
 
     expect(findMany).toHaveBeenCalledWith({
-      where: { siteId: 'site1' },
+      where: {
+        OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],
+        siteId: 'site1',
+      },
       include: { teamMember: true, site: true },
       orderBy: { workDate: 'desc' },
     });
@@ -150,7 +161,10 @@ describe('WorkRecordsService.getDefaultCrew', () => {
         teamMember: { name: 'Ravi Kumar' },
       },
     ]);
-    const prisma = { workRecord: { findFirst, findMany } };
+    const prisma = {
+      workRecord: { findFirst, findMany },
+      dailySiteReport: { findMany: vi.fn().mockResolvedValue([]) },
+    };
     const service = new WorkRecordsService(
       prisma as unknown as ConstructorParameters<typeof WorkRecordsService>[0],
     );
@@ -163,7 +177,11 @@ describe('WorkRecordsService.getDefaultCrew', () => {
       select: { workDate: true },
     });
     expect(findMany).toHaveBeenCalledWith({
-      where: { siteId: 'site1', workDate: new Date('2026-08-10') },
+      where: {
+        siteId: 'site1',
+        workDate: new Date('2026-08-10'),
+        OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],
+      },
       include: { teamMember: true },
     });
     expect(result).toEqual([

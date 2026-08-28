@@ -84,13 +84,15 @@ describeIfDb('ConsumptionService (integration)', () => {
       data: { siteId, materialSizeId, quantity: 100 },
     });
 
-    const consumption = await service.create({
-      siteId,
-      materialSizeId,
-      quantity: 10,
-      consumedAt: '2026-08-13',
-      recordedByUserId: userId,
-    });
+    const consumption = await service.create(
+      {
+        siteId,
+        materialSizeId,
+        quantity: 10,
+        consumedAt: '2026-08-13',
+      },
+      userId,
+    );
 
     expect(consumption.id).toBeDefined();
     const stock = await prisma.siteStock.findUnique({
@@ -105,13 +107,15 @@ describeIfDb('ConsumptionService (integration)', () => {
     });
 
     await expect(
-      service.create({
-        siteId,
-        materialSizeId,
-        quantity: 10,
-        consumedAt: '2026-08-13',
-        recordedByUserId: userId,
-      }),
+      service.create(
+        {
+          siteId,
+          materialSizeId,
+          quantity: 10,
+          consumedAt: '2026-08-13',
+        },
+        userId,
+      ),
     ).rejects.toThrow(BadRequestException);
 
     expect(
@@ -130,13 +134,15 @@ describeIfDb('ConsumptionService (integration)', () => {
 
     const results = await Promise.allSettled(
       Array.from({ length: 5 }, () =>
-        service.create({
-          siteId,
-          materialSizeId,
-          quantity: 30,
-          consumedAt: '2026-08-13',
-          recordedByUserId: userId,
-        }),
+        service.create(
+          {
+            siteId,
+            materialSizeId,
+            quantity: 30,
+            consumedAt: '2026-08-13',
+          },
+          userId,
+        ),
       ),
     );
 
@@ -153,23 +159,27 @@ describeIfDb('ConsumptionService (integration)', () => {
     await prisma.siteStock.create({
       data: { siteId, materialSizeId, quantity: 100 },
     });
-    const original = await service.create({
-      siteId,
-      materialSizeId,
-      quantity: 10,
-      consumedAt: '2026-08-13',
-      recordedByUserId: userId,
-    });
+    const original = await service.create(
+      {
+        siteId,
+        materialSizeId,
+        quantity: 10,
+        consumedAt: '2026-08-13',
+      },
+      userId,
+    );
 
-    await service.create({
-      siteId,
-      materialSizeId,
-      quantity: -4,
-      consumedAt: '2026-08-13',
-      recordedByUserId: userId,
-      correctsId: original.id,
-      reason: 'Recount: 4 units less than originally recorded',
-    });
+    await service.create(
+      {
+        siteId,
+        materialSizeId,
+        quantity: -4,
+        consumedAt: '2026-08-13',
+        correctsId: original.id,
+        reason: 'Recount: 4 units less than originally recorded',
+      },
+      userId,
+    );
 
     const stock = await prisma.siteStock.findUnique({
       where: { siteId_materialSizeId: { siteId, materialSizeId } },

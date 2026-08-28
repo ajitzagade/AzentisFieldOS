@@ -14,6 +14,25 @@ const fieldControlClass =
 // currency, ...); it is never decorative filler (DESIGN.md Brand & Style).
 const iconWrapperClass = "pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500";
 
+// Required marker rendered as a sibling of the <label>, not inside it —
+// the control's accessible name stays exactly `label` (the native
+// `required` attribute already conveys required-ness to assistive tech),
+// and the marker is purely a sighted-user affordance.
+function FieldLabel({ htmlFor, label, required }: { htmlFor: string; label: string; required?: boolean }) {
+  return (
+    <span className="mb-1 flex items-baseline gap-0.5">
+      <label htmlFor={htmlFor} className="block text-caption font-semibold text-ink-700">
+        {label}
+      </label>
+      {required ? (
+        <span aria-hidden="true" className="text-caption font-semibold text-danger-700">
+          *
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
@@ -30,9 +49,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
 
     return (
       <div className="mb-4">
-        <label htmlFor={inputId} className="mb-1 block text-caption font-semibold text-ink-700">
-          {label}
-        </label>
+        <FieldLabel htmlFor={inputId} label={label} required={props.required} />
         <div className="relative">
           {icon ? <span className={iconWrapperClass}>{icon}</span> : null}
           <input
@@ -80,9 +97,7 @@ export const TextareaField = forwardRef<HTMLTextAreaElement, TextareaFieldProps>
 
     return (
       <div className="mb-4">
-        <label htmlFor={textareaId} className="mb-1 block text-caption font-semibold text-ink-700">
-          {label}
-        </label>
+        <FieldLabel htmlFor={textareaId} label={label} required={props.required} />
         <textarea
           ref={ref}
           id={textareaId}
@@ -130,9 +145,7 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
 
     return (
       <div className="mb-4">
-        <label htmlFor={selectId} className="mb-1 block text-caption font-semibold text-ink-700">
-          {label}
-        </label>
+        <FieldLabel htmlFor={selectId} label={label} required={props.required} />
         <div className="relative">
           {icon ? <span className={iconWrapperClass}>{icon}</span> : null}
           <select

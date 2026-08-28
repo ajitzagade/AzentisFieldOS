@@ -55,10 +55,17 @@ class FakeAuthGuard implements CanActivate {
 describe('Users admin authZ + webhook route over real HTTP', () => {
   let app: INestApplication;
   const service = {
-    getMe: vi.fn().mockResolvedValue({ id: 'user-1', name: 'A', email: 'a@x.in', role: 'OWNER_ADMIN' }),
+    getMe: vi.fn().mockResolvedValue({
+      id: 'user-1',
+      name: 'A',
+      email: 'a@x.in',
+      role: 'OWNER_ADMIN',
+    }),
     list: vi.fn().mockResolvedValue([]),
     invite: vi.fn().mockResolvedValue({ id: 'inv1' }),
-    updateRole: vi.fn().mockResolvedValue({ id: 'user-1', role: 'OWNER_ADMIN' }),
+    updateRole: vi
+      .fn()
+      .mockResolvedValue({ id: 'user-1', role: 'OWNER_ADMIN' }),
     handleUserCreated: vi.fn(),
     handleUserUpdated: vi.fn(),
     handleUserDeleted: vi.fn(),
@@ -88,7 +95,9 @@ describe('Users admin authZ + webhook route over real HTTP', () => {
   });
 
   it('403s a SITE_SUPERVISOR from GET /users', async () => {
-    const res = await request(app.getHttpServer()).get('/users').set('x-test-role', 'SITE_SUPERVISOR');
+    const res = await request(app.getHttpServer())
+      .get('/users')
+      .set('x-test-role', 'SITE_SUPERVISOR');
     expect(res.status).toBe(403);
     expect(service.list).not.toHaveBeenCalled();
   });
@@ -112,13 +121,17 @@ describe('Users admin authZ + webhook route over real HTTP', () => {
   });
 
   it('allows an OWNER_ADMIN through GET /users', async () => {
-    const res = await request(app.getHttpServer()).get('/users').set('x-test-role', 'OWNER_ADMIN');
+    const res = await request(app.getHttpServer())
+      .get('/users')
+      .set('x-test-role', 'OWNER_ADMIN');
     expect(res.status).toBe(200);
     expect(service.list).toHaveBeenCalled();
   });
 
   it('lets ANY authenticated role read GET /users/me (no @Roles restriction)', async () => {
-    const res = await request(app.getHttpServer()).get('/users/me').set('x-test-role', 'SITE_SUPERVISOR');
+    const res = await request(app.getHttpServer())
+      .get('/users/me')
+      .set('x-test-role', 'SITE_SUPERVISOR');
     expect(res.status).toBe(200);
     expect(service.getMe).toHaveBeenCalledWith('user-1');
   });

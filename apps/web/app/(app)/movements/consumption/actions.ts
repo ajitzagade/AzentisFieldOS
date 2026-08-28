@@ -23,7 +23,6 @@ export async function createConsumptionAction(
     activityReference: formData.get("activityReference") || undefined,
     notes: formData.get("notes") || undefined,
     consumedAt: formData.get("consumedAt"),
-    recordedByUserId: formData.get("recordedByUserId"),
     correctsId: formData.get("correctsId") || undefined,
     reason: formData.get("reason") || undefined,
   });
@@ -51,17 +50,29 @@ export async function createConsumptionAction(
     // string) for translateWriteError's FK-violation message — read
     // `body.message` for the latter, not `body.error.message`.
     const body = (await res.json().catch(() => undefined)) as
-      | { error?: { details?: { fieldErrors?: Record<string, string[]> } }; message?: string }
+      | {
+          error?: { details?: { fieldErrors?: Record<string, string[]> }; message?: string };
+          message?: string;
+        }
       | undefined;
     if (body?.error?.details?.fieldErrors) {
       return { errors: body.error.details.fieldErrors };
     }
-    return { formError: body?.message ?? "This Consumption references a Site, Material Size, or User that does not exist." };
+    // A third 400 shape: the stock-safety floor check
+    // (`{ error: { code: 'INSUFFICIENT_STOCK', message } }`).
+    return {
+      formError:
+        body?.error?.message ??
+        body?.message ??
+        "This Consumption references a Site or Material Size that does not exist.",
+    };
   }
 
   if (!res.ok) {
     return { formError: "Something went wrong recording the Consumption. Please try again." };
   }
 
-  redirect("/movements");
+  redirect(
+    `/movements?flash=${encodeURIComponent(formData.get("correctsId") ? "Consumption correction recorded" : "Consumption recorded")}`,
+  );
 }

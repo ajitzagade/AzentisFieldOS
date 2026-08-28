@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const pushMock = vi.hoisted(() => vi.fn());
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }), useSearchParams: () => new URLSearchParams() }));
 
 import NewDsrDesktopPage from "./page";
 
@@ -31,7 +31,9 @@ function mockFetchRouter(handlers: {
       const status = handlers.dsr?.status ?? 201;
       return Promise.resolve({ ok: status < 400, status, json: async () => handlers.dsr?.body ?? { id: "dsr-1" } });
     }
-    return Promise.resolve({ ok: true, json: async () => ({}) });
+    // Reference-list endpoints (/materials, /team-members, /expense-categories,
+    // /machinery, /vehicles) all return arrays.
+    return Promise.resolve({ ok: true, json: async () => [] });
   }) as unknown as typeof fetch;
 }
 
@@ -71,7 +73,9 @@ describe("NewDsrDesktopPage", () => {
     await user.selectOptions(screen.getByLabelText("Site"), "site-1");
     await user.click(screen.getByRole("button", { name: "Submit Daily Activity" }));
 
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/daily-activity/dsr-new"));
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith(expect.stringMatching(/^\/daily-activity\/dsr-new\?flash=/)),
+    );
 
     const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
       (call) => String(call[0]).endsWith("/dsr") && (call[1] as RequestInit)?.method === "POST",
@@ -87,7 +91,7 @@ describe("NewDsrDesktopPage", () => {
     expect(screen.getByText(/Drag and drop photos here/)).toBeInTheDocument();
   });
 
-  it("Story 9.1: sources an RMC row's Vendor field from the Vendor list, not free text", async () => {
+  it("Story 9.1: sources an RMC row's Vendor field from the Vendor list via the searchable picker, not free text", async () => {
     mockFetchRouter({
       sites: [{ id: "site-1", name: "NH-48" }],
       vendors: [{ id: "v1", name: "Anand RMC Suppliers" }],
@@ -99,8 +103,13 @@ describe("NewDsrDesktopPage", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Add RMC delivery" }));
 
-    await waitFor(() => expect(screen.getByLabelText("Vendor")).toBeInTheDocument());
-    expect(screen.getByLabelText("Vendor").tagName).toBe("SELECT");
-    expect(screen.getByRole("option", { name: "Anand RMC Suppliers" })).toBeInTheDocument();
+    const vendorPicker = await screen.findByLabelText("Vendor");
+    expect(vendorPicker).toHaveAttribute("role", "combobox");
+    await waitFor(() => expect(vendorPicker).toBeEnabled());
+    await user.type(vendorPicker, "anand");
+    await user.click(await screen.findByText("Anand RMC Suppliers"));
+    expect(vendorPicker).toHaveValue("Anand RMC Suppliers");
+    // The internal id never appears anywhere in the document.
+    expect(document.body.textContent).not.toContain("v1");
   });
 });

@@ -46,7 +46,7 @@ describe("createSiteAction", () => {
         body: JSON.stringify({ name: "NH-48", location: "Nashik", status: "ACTIVE" }),
       }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/sites");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/sites\?flash=/));
   });
 
   it("surfaces the API's per-field validation errors on a 400 response", async () => {

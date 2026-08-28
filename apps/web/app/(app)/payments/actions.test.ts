@@ -56,7 +56,7 @@ describe("createPaymentAction", () => {
       "http://localhost:3001/payments",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/payments");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/payments\?flash=/));
   });
 
   it("omits advanceAdjustment from the payload when includeAdjustment is not 'true' (AC #3)", async () => {
@@ -176,7 +176,7 @@ describe("markPaymentPaidAction", () => {
       expect.objectContaining({ method: "PATCH" }),
     );
     expect(revalidatePathMock).toHaveBeenCalledWith("/payments");
-    expect(result).toEqual({});
+    expect(result).toEqual({ done: true });
   });
 
   it("returns a form error for an already-paid Payment (409), without revalidating", async () => {

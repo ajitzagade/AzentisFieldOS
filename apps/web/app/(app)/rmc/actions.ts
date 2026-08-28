@@ -65,5 +65,7 @@ export async function createRmcEntryAction(
     return { formError: "Something went wrong recording the RMC delivery. Please try again." };
   }
 
-  redirect("/rmc");
+  redirect(
+    `/rmc?flash=${encodeURIComponent(formData.get("correctsId") ? "RMC correction recorded" : "RMC delivery recorded")}`,
+  );
 }

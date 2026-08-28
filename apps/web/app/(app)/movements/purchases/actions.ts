@@ -71,5 +71,7 @@ export async function createPurchaseAction(
     return { formError: "Something went wrong recording the Purchase. Please try again." };
   }
 
-  redirect("/movements");
+  redirect(
+    `/movements?flash=${encodeURIComponent(formData.get("correctsId") ? "Purchase correction recorded" : "Purchase recorded")}`,
+  );
 }

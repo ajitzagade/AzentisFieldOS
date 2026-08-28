@@ -118,7 +118,7 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
         return;
       }
 
-      router.push("/team");
+      router.push(`/team?flash=${encodeURIComponent("Attendance recorded")}`);
     } catch {
       setError("Something went wrong recording attendance. Please try again.");
     } finally {

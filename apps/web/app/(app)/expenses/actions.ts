@@ -66,5 +66,7 @@ export async function createExpenseAction(
     return { formError: "Something went wrong recording this expense. Please try again." };
   }
 
-  redirect("/expenses");
+  redirect(
+    `/expenses?flash=${encodeURIComponent(formData.get("correctsId") ? "Expense correction recorded" : "Expense recorded")}`,
+  );
 }

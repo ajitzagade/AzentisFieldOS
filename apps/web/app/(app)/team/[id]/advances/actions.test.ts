@@ -54,7 +54,7 @@ describe("createAdvanceAction", () => {
       "http://localhost:3001/advances",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/team/11111111-1111-4111-8111-111111111111");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/team\/11111111-1111-4111-8111-111111111111\?flash=/));
   });
 
   it("includes correctsId and correctionReason when filing a correction", async () => {

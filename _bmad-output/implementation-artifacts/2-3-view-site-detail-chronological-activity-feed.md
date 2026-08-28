@@ -110,3 +110,6 @@ claude-sonnet-5
 - `apps/web/app/(app)/sites/[id]/page.tsx` (new — Site detail page)
 - `apps/web/app/(app)/sites/[id]/page.test.tsx` (new)
 - `apps/web/app/(app)/sites/[id]/feed-type-config.ts` (new)
+
+## Change Log
+- **2026-08-28 — Site → Today's DSR:** the Site detail header now carries a primary "Today's DSR" action — it opens today's report for that Site if one exists (`GET /dsr?date=`), otherwise deep-links `/dsr/new?siteId=<id>` with the Site pre-selected. This makes the Site page the natural start of FR-28's daily loop instead of the DSR form being reachable only from `/daily-activity`. The activity feed now excludes sub-record rows of superseded (corrected) DSRs (the superseded DSR row itself stays visible as history) — see Story 3-5's change log.

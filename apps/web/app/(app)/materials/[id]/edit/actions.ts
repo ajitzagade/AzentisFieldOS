@@ -76,5 +76,5 @@ export async function updateMaterialAction(
     return { formError: "Something went wrong updating the Material. Please try again." };
   }
 
-  redirect("/materials");
+  redirect(`/materials?flash=${encodeURIComponent("Material updated")}`);
 }

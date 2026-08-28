@@ -47,5 +47,5 @@ export async function createMachineryAction(
     return { formError: "Something went wrong registering the Machine. Please try again." };
   }
 
-  redirect("/machinery-vehicles");
+  redirect(`/machinery-vehicles?flash=${encodeURIComponent("Machinery added")}`);
 }

@@ -78,7 +78,8 @@ describe("theme.css tokens", () => {
   it("defines the DESIGN.md shadow scale, dark-mode-aware", () => {
     const light = rootBlock();
     const dark = darkBlock();
-    expect(light).toContain("--shadow-2: 0 4px 12px rgba(27, 36, 48, 0.08)");
+    // Strengthened (2026-08-28 UX pass): cards read visibly elevated, not flat.
+    expect(light).toContain("--shadow-2: 0 6px 16px rgba(27, 36, 48, 0.1)");
     expect(dark).toContain("--shadow-2: 0 6px 20px rgba(0, 0, 0, 0.45);");
   });
 

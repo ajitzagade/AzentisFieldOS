@@ -3,6 +3,11 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import {
+  ConfirmDialog,
+  ConfirmDialogRow,
+  formValue,
+  useSubmitConfirmation,
+  AmountField,
   Button,
   CalendarIcon,
   Card,
@@ -71,9 +76,12 @@ type ExpenseFormProps = {
 // packages/ui yet (see Story 11.1 Completion Notes).
 export function ExpenseForm({ mode, correctsId, sites, categories, initial }: ExpenseFormProps) {
   const [state, formAction] = useActionState(createExpenseAction, initialState);
+  // Hard-to-take-back submission (FR-54 / money movement) — held for
+  // re-verification of the entered details before it goes to the ledger.
+  const confirmation = useSubmitConfirmation();
 
   return (
-    <form action={formAction} noValidate>
+    <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
       {mode === "correct" ? (
         <Card className="mb-4 border-warning-700 bg-warning-100">
           <h2 className="mb-1 flex items-center gap-2 text-card-title text-warning-700">
@@ -120,14 +128,11 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
       </Card>
 
       <Card className="mb-4">
-        <TextField
+        <AmountField
           label={mode === "correct" ? "Amount adjustment" : "Amount"}
           name="amount"
-          type="number"
-          step="any"
           required
           hint={mode === "correct" ? "Signed delta applied on top of the current total — e.g. -500." : undefined}
-          icon={<span className="text-body-sm font-semibold">₹</span>}
           error={state.errors?.amount?.[0]}
         />
         <TextField
@@ -174,6 +179,19 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
       ) : null}
 
       <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Expense"} correcting={mode === "correct"} />
+
+      <ConfirmDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title={"Submit this correction?"}
+        description={"A correction is a new, permanent ledger entry — please re-verify the details."}
+        confirmLabel={"Submit Correction"}
+        onConfirm={confirmation.confirm}
+      >
+        <ConfirmDialogRow label="Amount adjustment" value={formValue(confirmation.values, "amount")} />
+        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
+      </ConfirmDialog>
+
     </form>
   );
 }

@@ -34,7 +34,6 @@ const validFields = {
   materialSizeId: "22222222-2222-4222-8222-222222222222",
   quantity: "10",
   consumedAt: "2026-08-13",
-  recordedByUserId: "33333333-3333-4333-8333-333333333333",
 };
 
 describe("createConsumptionAction", () => {
@@ -56,7 +55,7 @@ describe("createConsumptionAction", () => {
       "http://localhost:3001/consumption",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/movements");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/movements\?flash=/));
   });
 
   it("includes correctsId and reason when filing a correction", async () => {
@@ -135,6 +134,6 @@ describe("createConsumptionAction", () => {
 
     const result = await createConsumptionAction({}, formData(validFields));
 
-    expect(result.formError).toBe("This Consumption references a Site, Material Size, or User that does not exist.");
+    expect(result.formError).toBe("This Consumption references a Site or Material Size that does not exist.");
   });
 });

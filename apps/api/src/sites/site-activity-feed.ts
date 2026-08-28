@@ -1,5 +1,9 @@
 import type { FeedItem, ReportDateRange } from '@azentisfieldos/shared';
 import { dateRangeBounds } from '../common/date-range';
+import {
+  currentDsrRowsWhere,
+  supersededDsrIds,
+} from '../common/superseded-dsrs';
 import type { PrismaService } from '../prisma/prisma.service';
 
 // Ten separate findMany calls per page load, merged and sorted in
@@ -21,6 +25,12 @@ export async function getSiteActivityFeed(
   range: ReportDateRange = {},
 ): Promise<FeedItem[]> {
   const bounds = dateRangeBounds(range.from, range.to);
+  // Sub-rows of a superseded (since corrected) DSR are skipped — the
+  // correction's restated rows already appear in the feed, so showing
+  // both would double every corrected day's activity. The superseded DSR
+  // row itself stays visible: the feed is a chronology, and "a report was
+  // filed, then corrected" is real history the detail page explains.
+  const currentRows = currentDsrRowsWhere(await supersededDsrIds(prisma));
   const [
     purchases,
     movements,
@@ -49,7 +59,7 @@ export async function getSiteActivityFeed(
       },
     }),
     prisma.consumption.findMany({
-      where: { siteId, consumedAt: bounds },
+      where: { siteId, consumedAt: bounds, ...currentRows },
       include: { materialSize: { include: { material: true } } },
     }),
     prisma.returnWastage.findMany({
@@ -57,15 +67,15 @@ export async function getSiteActivityFeed(
       include: { materialSize: { include: { material: true } } },
     }),
     prisma.workRecord.findMany({
-      where: { siteId, workDate: bounds },
+      where: { siteId, workDate: bounds, ...currentRows },
       include: { teamMember: true },
     }),
     prisma.expense.findMany({
-      where: { siteId, incurredAt: bounds },
+      where: { siteId, incurredAt: bounds, ...currentRows },
       include: { category: true },
     }),
     prisma.rmcEntry.findMany({
-      where: { siteId, deliveredAt: bounds },
+      where: { siteId, deliveredAt: bounds, ...currentRows },
       include: { vendor: true },
     }),
     prisma.dailySiteReport.findMany({

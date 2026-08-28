@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const pushMock = vi.hoisted(() => vi.fn());
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }), useSearchParams: () => new URLSearchParams() }));
 
 import { WorkRecordForm } from "./work-record-form";
 
@@ -129,7 +129,7 @@ describe("WorkRecordForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Save Attendance" }));
 
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/team"));
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith(expect.stringMatching(/^\/team\?flash=/)));
     const batchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[1]!;
     expect(batchCall[0]).toContain("/work-records/batch");
     const body = JSON.parse(batchCall[1].body);

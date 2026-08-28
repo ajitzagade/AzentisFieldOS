@@ -4,15 +4,17 @@ import type { UserJSON } from '@clerk/backend';
 import { Prisma } from '../generated/prisma/client';
 import { UsersService } from './users.service';
 
-function makeService(overrides: {
-  findUnique?: ReturnType<typeof vi.fn>;
-  findMany?: ReturnType<typeof vi.fn>;
-  count?: ReturnType<typeof vi.fn>;
-  upsert?: ReturnType<typeof vi.fn>;
-  update?: ReturnType<typeof vi.fn>;
-  getInvitationList?: ReturnType<typeof vi.fn>;
-  createInvitation?: ReturnType<typeof vi.fn>;
-} = {}) {
+function makeService(
+  overrides: {
+    findUnique?: ReturnType<typeof vi.fn>;
+    findMany?: ReturnType<typeof vi.fn>;
+    count?: ReturnType<typeof vi.fn>;
+    upsert?: ReturnType<typeof vi.fn>;
+    update?: ReturnType<typeof vi.fn>;
+    getInvitationList?: ReturnType<typeof vi.fn>;
+    createInvitation?: ReturnType<typeof vi.fn>;
+  } = {},
+) {
   const prisma = {
     user: {
       findUnique: overrides.findUnique ?? vi.fn(),
@@ -131,7 +133,10 @@ describe('UsersService.handleUserCreated (webhook role assignment)', () => {
     });
 
     await service.handleUserCreated(
-      userJson({ id: 'clerk_4', public_metadata: { role: 'PLATFORM_OPERATOR' } }),
+      userJson({
+        id: 'clerk_4',
+        public_metadata: { role: 'PLATFORM_OPERATOR' },
+      }),
     );
 
     expect(upsert).toHaveBeenCalledWith(
@@ -168,9 +173,13 @@ describe('UsersService.handleUserCreated (webhook role assignment)', () => {
     );
 
     // The count query must exclude this clerkId.
-    expect(count).toHaveBeenCalledWith({ where: { NOT: { clerkId: 'clerk_owner' } } });
+    expect(count).toHaveBeenCalledWith({
+      where: { NOT: { clerkId: 'clerk_owner' } },
+    });
     expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ create: expect.objectContaining({ role: 'OWNER_ADMIN' }) }),
+      expect.objectContaining({
+        create: expect.objectContaining({ role: 'OWNER_ADMIN' }),
+      }),
     );
   });
 });
@@ -179,9 +188,12 @@ describe('UsersService.handleUserUpdated', () => {
   it('syncs name/email but never touches role (an admin may have changed it)', async () => {
     const update = vi.fn().mockResolvedValue({ id: 'u1' });
     const { service } = makeService({
-      findUnique: vi
-        .fn()
-        .mockResolvedValue({ id: 'u1', clerkId: 'clerk_1', email: 'old@x.in', role: 'OWNER_ADMIN' }),
+      findUnique: vi.fn().mockResolvedValue({
+        id: 'u1',
+        clerkId: 'clerk_1',
+        email: 'old@x.in',
+        role: 'OWNER_ADMIN',
+      }),
       update,
     });
 
@@ -212,7 +224,12 @@ describe('UsersService.list (merged users + pending invitations)', () => {
   it('merges Active local users with Pending Clerk invitations', async () => {
     const { service } = makeService({
       findMany: vi.fn().mockResolvedValue([
-        { id: 'u1', name: 'Suresh Rao', email: 'suresh@azentis.in', role: 'OWNER_ADMIN' },
+        {
+          id: 'u1',
+          name: 'Suresh Rao',
+          email: 'suresh@azentis.in',
+          role: 'OWNER_ADMIN',
+        },
       ]),
       getInvitationList: vi.fn().mockResolvedValue({
         data: [
@@ -229,8 +246,20 @@ describe('UsersService.list (merged users + pending invitations)', () => {
     const rows = await service.list();
 
     expect(rows).toEqual([
-      { id: 'u1', name: 'Suresh Rao', email: 'suresh@azentis.in', role: 'OWNER_ADMIN', status: 'Active' },
-      { id: 'inv1', name: null, email: 'new@azentis.in', role: 'SITE_SUPERVISOR', status: 'Pending' },
+      {
+        id: 'u1',
+        name: 'Suresh Rao',
+        email: 'suresh@azentis.in',
+        role: 'OWNER_ADMIN',
+        status: 'Active',
+      },
+      {
+        id: 'inv1',
+        name: null,
+        email: 'new@azentis.in',
+        role: 'SITE_SUPERVISOR',
+        status: 'Pending',
+      },
     ]);
   });
 
@@ -238,9 +267,13 @@ describe('UsersService.list (merged users + pending invitations)', () => {
     const { service } = makeService({
       findMany: vi
         .fn()
-        .mockResolvedValue([{ id: 'u1', name: 'A', email: 'dup@azentis.in', role: 'OWNER_ADMIN' }]),
+        .mockResolvedValue([
+          { id: 'u1', name: 'A', email: 'dup@azentis.in', role: 'OWNER_ADMIN' },
+        ]),
       getInvitationList: vi.fn().mockResolvedValue({
-        data: [{ id: 'inv1', emailAddress: 'DUP@azentis.in', publicMetadata: {} }],
+        data: [
+          { id: 'inv1', emailAddress: 'DUP@azentis.in', publicMetadata: {} },
+        ],
         totalCount: 1,
       }),
     });
@@ -251,7 +284,9 @@ describe('UsersService.list (merged users + pending invitations)', () => {
   });
 
   it('requests only pending invitations from Clerk', async () => {
-    const getInvitationList = vi.fn().mockResolvedValue({ data: [], totalCount: 0 });
+    const getInvitationList = vi
+      .fn()
+      .mockResolvedValue({ data: [], totalCount: 0 });
     const { service } = makeService({ getInvitationList });
     await service.list();
     expect(getInvitationList).toHaveBeenCalledWith({ status: 'pending' });
@@ -265,13 +300,20 @@ describe('UsersService.invite', () => {
       .mockResolvedValue({ id: 'inv1', emailAddress: 'new@azentis.in' });
     const { service } = makeService({ createInvitation });
 
-    const result = await service.invite({ email: 'new@azentis.in', role: 'SITE_SUPERVISOR' });
+    const result = await service.invite({
+      email: 'new@azentis.in',
+      role: 'SITE_SUPERVISOR',
+    });
 
     expect(createInvitation).toHaveBeenCalledWith({
       emailAddress: 'new@azentis.in',
       publicMetadata: { role: 'SITE_SUPERVISOR' },
     });
-    expect(result).toMatchObject({ email: 'new@azentis.in', role: 'SITE_SUPERVISOR', status: 'Pending' });
+    expect(result).toMatchObject({
+      email: 'new@azentis.in',
+      role: 'SITE_SUPERVISOR',
+      status: 'Pending',
+    });
   });
 });
 
@@ -282,7 +324,10 @@ describe('UsersService.updateRole', () => {
 
     const result = await service.updateRole('u1', { role: 'OWNER_ADMIN' });
 
-    expect(update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { role: 'OWNER_ADMIN' } });
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { role: 'OWNER_ADMIN' },
+    });
     expect(result).toEqual({ id: 'u1', role: 'OWNER_ADMIN' });
   });
 
@@ -290,9 +335,9 @@ describe('UsersService.updateRole', () => {
     const update = vi.fn().mockRejectedValue(p2025Error());
     const { service } = makeService({ update });
 
-    await expect(service.updateRole('missing', { role: 'OWNER_ADMIN' })).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(
+      service.updateRole('missing', { role: 'OWNER_ADMIN' }),
+    ).rejects.toThrow(NotFoundException);
   });
 });
 
@@ -318,7 +363,9 @@ describe('UsersService.getMe', () => {
   });
 
   it('throws NotFoundException when the row vanished mid-request', async () => {
-    const { service } = makeService({ findUnique: vi.fn().mockResolvedValue(null) });
+    const { service } = makeService({
+      findUnique: vi.fn().mockResolvedValue(null),
+    });
     await expect(service.getMe('gone')).rejects.toThrow(NotFoundException);
   });
 });

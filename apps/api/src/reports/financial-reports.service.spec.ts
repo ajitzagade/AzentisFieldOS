@@ -4,11 +4,14 @@ import { FinancialReportsService } from './financial-reports.service';
 
 // The `where` object the first call to a mocked Prisma aggregate/groupBy
 // received — narrowed enough to read each table's own date-field bounds.
-function firstWhere(fn: Mock): Record<string, { gte: Date; lt: Date } | undefined> {
+function firstWhere(
+  fn: Mock,
+): Record<string, { gte: Date; lt: Date } | undefined> {
   const call = fn.mock.calls[0];
   if (!call) throw new Error('mock was never called');
-  return (call[0] as { where: Record<string, { gte: Date; lt: Date } | undefined> })
-    .where;
+  return (
+    call[0] as { where: Record<string, { gte: Date; lt: Date } | undefined> }
+  ).where;
 }
 
 // A minimal Prisma.Decimal stand-in: only `.toNumber()` is exercised by the
@@ -137,8 +140,7 @@ describe('FinancialReportsService.getFinancialReport (FR-46)', () => {
     // The Contractor-only remainders the per-Site rows structurally can't hold:
     // labour, machineryVehicle, and the Godown-only slice of material.
     const godownMaterial =
-      contractorTotal.material -
-      bySite.reduce((s, r) => s + r.material, 0);
+      contractorTotal.material - bySite.reduce((s, r) => s + r.material, 0);
     const reconstructed =
       bySiteTotal +
       contractorTotal.labour +

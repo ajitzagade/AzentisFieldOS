@@ -3,6 +3,11 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import {
+  ConfirmDialog,
+  ConfirmDialogRow,
+  formValue,
+  useSubmitConfirmation,
+  AmountField,
   BuildingIcon,
   Button,
   CalendarIcon,
@@ -71,9 +76,12 @@ type RmcFormProps = {
 // same delivery context.
 export function RmcForm({ mode, correctsId, sites, vendors, initial }: RmcFormProps) {
   const [state, formAction] = useActionState(createRmcEntryAction, initialState);
+  // Hard-to-take-back submission (FR-54 / money movement) — held for
+  // re-verification of the entered details before it goes to the ledger.
+  const confirmation = useSubmitConfirmation();
 
   return (
-    <form action={formAction} noValidate>
+    <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
       {mode === "correct" ? (
         <Card className="mb-4 border-warning-700 bg-warning-100">
           <h2 className="mb-1 flex items-center gap-2 text-card-title text-warning-700">
@@ -138,23 +146,17 @@ export function RmcForm({ mode, correctsId, sites, vendors, initial }: RmcFormPr
           hint={mode === "correct" ? "Signed delta applied on top of the current total — e.g. -6." : undefined}
           error={state.errors?.quantityM3?.[0]}
         />
-        <TextField
+        <AmountField
           label="Rate / m³"
           name="ratePerM3"
-          type="number"
-          step="any"
           required
-          icon={<span className="text-body-sm font-semibold">₹</span>}
           defaultValue={initial?.ratePerM3}
           error={state.errors?.ratePerM3?.[0]}
         />
-        <TextField
+        <AmountField
           label="Total Amount"
           name="totalAmount"
-          type="number"
-          step="any"
           required
-          icon={<span className="text-body-sm font-semibold">₹</span>}
           defaultValue={initial?.totalAmount}
           error={state.errors?.totalAmount?.[0]}
         />
@@ -187,6 +189,20 @@ export function RmcForm({ mode, correctsId, sites, vendors, initial }: RmcFormPr
       ) : null}
 
       <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record RMC Delivery"} correcting={mode === "correct"} />
+
+      <ConfirmDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title={"Submit this correction?"}
+        description={"A correction is a new, permanent ledger entry — please re-verify the details."}
+        confirmLabel={"Submit Correction"}
+        onConfirm={confirmation.confirm}
+      >
+        <ConfirmDialogRow label="Quantity adjustment (m³)" value={formValue(confirmation.values, "quantityM3")} />
+        <ConfirmDialogRow label="Total amount" value={formValue(confirmation.values, "totalAmount")} />
+        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
+      </ConfirmDialog>
+
     </form>
   );
 }

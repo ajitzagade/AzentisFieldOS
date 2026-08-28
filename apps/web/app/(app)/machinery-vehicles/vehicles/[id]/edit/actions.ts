@@ -61,5 +61,5 @@ export async function updateVehicleAction(
     return { formError: "Something went wrong updating the Vehicle. Please try again." };
   }
 
-  redirect("/machinery-vehicles");
+  redirect(`/machinery-vehicles?flash=${encodeURIComponent("Vehicle updated")}`);
 }

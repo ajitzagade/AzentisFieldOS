@@ -6,7 +6,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // TODO this story closes (AppShell no longer hardcodes "OWNER_ADMIN").
 const authedFetchMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/api", () => ({ authedFetch: authedFetchMock }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ push: () => {}, replace: () => {} }),
+}));
 vi.mock("next/link", () => ({
   default: ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => (
     <a href={href} className={className}>
@@ -31,13 +35,14 @@ afterEach(() => {
 });
 
 describe("AppLayout role resolution", () => {
-  it("renders the Site Supervisor minimal shell (no sidebar) when /users/me resolves SITE_SUPERVISOR", async () => {
+  it("renders the sidebar for a SITE_SUPERVISOR too, but without the Settings link", async () => {
     mockMe("SITE_SUPERVISOR");
     await renderLayout();
 
     expect(authedFetchMock).toHaveBeenCalledWith("/users/me", { cache: "no-store" });
-    // Minimal top bar: no sidebar nav, and crucially no Settings link.
-    expect(screen.queryByRole("link", { name: /Dashboard/ })).not.toBeInTheDocument();
+    // Sidebar shell for all roles now — nav is present…
+    expect(screen.getByRole("link", { name: /Dashboard/ })).toBeInTheDocument();
+    // …but Settings (Owner/Admin-only, 404s for a Supervisor) is not shown.
     expect(screen.queryByRole("link", { name: /Settings/ })).not.toBeInTheDocument();
     expect(screen.getByText("page content")).toBeInTheDocument();
   });
@@ -50,11 +55,13 @@ describe("AppLayout role resolution", () => {
     expect(screen.getByRole("link", { name: /Settings/ })).toBeInTheDocument();
   });
 
-  it("defaults to the least-privileged shell if the identity lookup fails (never over-grants)", async () => {
+  it("defaults to the least-privileged role if the identity lookup fails (sidebar, but never the admin-only Settings)", async () => {
     authedFetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
     await renderLayout();
 
-    expect(screen.queryByRole("link", { name: /Dashboard/ })).not.toBeInTheDocument();
+    // Falls back to SITE_SUPERVISOR: the sidebar renders, but Settings does not.
+    expect(screen.getByRole("link", { name: /Dashboard/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Settings/ })).not.toBeInTheDocument();
     expect(screen.getByText("page content")).toBeInTheDocument();
   });
 });

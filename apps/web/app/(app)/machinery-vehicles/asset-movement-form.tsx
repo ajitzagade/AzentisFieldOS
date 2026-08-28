@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { ArrowsIcon, Button, CalendarIcon, Card, CheckCircleIcon, MapPinIcon, PencilIcon, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, ArrowsIcon, Button, CalendarIcon, Card, CheckCircleIcon, MapPinIcon, PencilIcon, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createAssetMovementAction, type CreateAssetMovementFormState } from "./actions";
 
 interface SiteOption {
@@ -50,10 +50,13 @@ type AssetMovementFormProps = {
 // this form's copy (AC #3).
 export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites, initial }: AssetMovementFormProps) {
   const [state, formAction] = useActionState(createAssetMovementAction, initialState);
+  // Hard-to-take-back submission (FR-54 / money movement) — held for
+  // re-verification of the entered details before it goes to the ledger.
+  const confirmation = useSubmitConfirmation();
   const [toStatus, setToStatus] = useState<AssetLocationStatus>(initial?.toStatus ?? "AT_SITE");
 
   return (
-    <form action={formAction} noValidate>
+    <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
       <input type="hidden" name="assetType" value={assetType} />
       <input type="hidden" name="assetId" value={assetId} />
 
@@ -119,6 +122,19 @@ export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites,
       ) : null}
 
       <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Movement"} correcting={mode === "correct"} />
+
+      <ConfirmDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title={"Submit this correction?"}
+        description={"A correction is a new, permanent ledger entry — please re-verify the details."}
+        confirmLabel={"Submit Correction"}
+        onConfirm={confirmation.confirm}
+      >
+        <ConfirmDialogRow label="Restated status" value={formValue(confirmation.values, "toStatus")} />
+        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
+      </ConfirmDialog>
+
     </form>
   );
 }

@@ -15,7 +15,12 @@ function makeStore(initial: Record<string, unknown> | null) {
         return row;
       }),
       update: vi.fn(
-        async ({ data }: { where: { id: string }; data: Record<string, unknown> }) => {
+        async ({
+          data,
+        }: {
+          where: { id: string };
+          data: Record<string, unknown>;
+        }) => {
           row = { ...(row ?? { id: 'bc1' }), ...data };
           return row;
         },
@@ -31,19 +36,26 @@ describe('BrandingConfigService.getConfig', () => {
   it('returns the single seeded row when one exists', async () => {
     const prisma = makeStore({ id: 'bc1', tenantName: 'Sandeep Enterprises' });
     const service = new BrandingConfigService(
-      prisma as unknown as ConstructorParameters<typeof BrandingConfigService>[0],
+      prisma as unknown as ConstructorParameters<
+        typeof BrandingConfigService
+      >[0],
     );
 
     const config = await service.getConfig();
 
-    expect(config).toMatchObject({ id: 'bc1', tenantName: 'Sandeep Enterprises' });
+    expect(config).toMatchObject({
+      id: 'bc1',
+      tenantName: 'Sandeep Enterprises',
+    });
     expect(prisma.brandingConfig.create).not.toHaveBeenCalled();
   });
 
   it('creates exactly one default row if the singleton was never seeded', async () => {
     const prisma = makeStore(null);
     const service = new BrandingConfigService(
-      prisma as unknown as ConstructorParameters<typeof BrandingConfigService>[0],
+      prisma as unknown as ConstructorParameters<
+        typeof BrandingConfigService
+      >[0],
     );
 
     const config = await service.getConfig();
@@ -64,7 +76,9 @@ describe('BrandingConfigService.update', () => {
       gstin: null,
     });
     const service = new BrandingConfigService(
-      prisma as unknown as ConstructorParameters<typeof BrandingConfigService>[0],
+      prisma as unknown as ConstructorParameters<
+        typeof BrandingConfigService
+      >[0],
     );
 
     const updated = await service.update({
@@ -103,21 +117,31 @@ describe('a branding update flows into the next compile with no staleness', () =
       primaryColor: '#0F5257',
     });
     const branding = new BrandingConfigService(
-      prisma as unknown as ConstructorParameters<typeof BrandingConfigService>[0],
+      prisma as unknown as ConstructorParameters<
+        typeof BrandingConfigService
+      >[0],
     );
     const compiler = new ReportCompilerService(
-      prisma as unknown as ConstructorParameters<typeof ReportCompilerService>[0],
+      prisma as unknown as ConstructorParameters<
+        typeof ReportCompilerService
+      >[0],
     );
 
     // Snapshot before the edit.
     const before = await compiler.getBrandingSnapshot();
-    expect(before).toMatchObject({ tenantName: 'Old Name', primaryColor: '#0F5257' });
+    expect(before).toMatchObject({
+      tenantName: 'Old Name',
+      primaryColor: '#0F5257',
+    });
 
     // Admin saves a change (no publish step).
     await branding.update({ tenantName: 'New Co', primaryColor: '#123456' });
 
     // The very next compile's snapshot reflects it — no cache to invalidate.
     const after = await compiler.getBrandingSnapshot();
-    expect(after).toMatchObject({ tenantName: 'New Co', primaryColor: '#123456' });
+    expect(after).toMatchObject({
+      tenantName: 'New Co',
+      primaryColor: '#123456',
+    });
   });
 });

@@ -6,6 +6,10 @@ import {
 import type { CreateRmcEntryInput } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  currentDsrRowsWhere,
+  supersededDsrIds,
+} from '../common/superseded-dsrs';
 
 export interface RmcEntryListFilters {
   siteId?: string;
@@ -77,9 +81,14 @@ export class RmcService {
   }
 
   // AC #2: queryable by day, Site, or Vendor — filter params on the one
-  // list endpoint, not three separate ones.
-  list(filters: RmcEntryListFilters = {}) {
-    const where: Prisma.RmcEntryWhereInput = {};
+  // list endpoint, not three separate ones. Entries belonging to a
+  // superseded (since corrected) DSR are excluded — the correction's
+  // restated entries already represent that report (same rule as
+  // ConsumptionService.list).
+  async list(filters: RmcEntryListFilters = {}) {
+    const where: Prisma.RmcEntryWhereInput = {
+      ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
+    };
     if (filters.siteId) {
       where.siteId = filters.siteId;
     }
@@ -112,7 +121,9 @@ export class RmcService {
     groupBy: RmcReportGroupBy,
     filters: RmcReportFilters = {},
   ): Promise<RmcReportRow[]> {
-    const where: Prisma.RmcEntryWhereInput = {};
+    const where: Prisma.RmcEntryWhereInput = {
+      ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
+    };
     if (filters.from || filters.to) {
       const deliveredAt: { gte?: Date; lt?: Date } = {};
       if (filters.from) {
@@ -204,6 +215,7 @@ export class RmcService {
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const whereThisMonth = {
       deliveredAt: { gte: monthStart, lt: nextMonthStart },
+      ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
     };
 
     const [aggregate, activeVendors] = await Promise.all([

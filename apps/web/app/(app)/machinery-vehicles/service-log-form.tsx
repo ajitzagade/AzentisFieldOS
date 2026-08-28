@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, CalendarIcon, Card, CheckCircleIcon, FilterIcon, PencilIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { AmountField, Button, CalendarIcon, Card, CheckCircleIcon, FilterIcon, PencilIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createServiceLogAction, updateServiceLogAction, type ServiceLogFormState } from "./actions";
 import type { ServiceLogKind } from "./service-history";
 
@@ -74,14 +74,11 @@ export function ServiceLogForm(props: ServiceLogFormProps) {
           defaultValue={initial?.serviceDate ?? todayDate()}
           error={state.errors?.serviceDate?.[0]}
         />
-        <TextField
+        <AmountField
           label="Cost"
           name="cost"
-          type="number"
-          step="any"
           min={0}
           hint="Optional"
-          icon={<span className="text-body-sm font-semibold">₹</span>}
           defaultValue={initial?.cost}
           error={state.errors?.cost?.[0]}
         />

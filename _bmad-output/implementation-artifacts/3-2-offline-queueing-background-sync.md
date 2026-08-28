@@ -99,3 +99,6 @@ so that I never lose a report to a dropped connection.
 - `apps/web/app/dsr/new/page.tsx` — UPDATE: offline-fallback submit logic, "Saved on device"/"Synced" status banner, background sync trigger (mount + `online` event + poll), removed the dead `router.push` redirect.
 - `apps/web/app/dsr/new/page.test.tsx` — UPDATE: removed the stale `useRouter` mock, added tests for the queued/synced states.
 - `apps/web/vitest.setup.ts` — UPDATE: `fake-indexeddb/auto` import for jsdom's missing IndexedDB.
+
+## Change Log
+- **2026-08-28 — idempotency hardening:** both DSR forms now stamp `clientGeneratedId` on each Consumption/RMC/Expense row when the row is added in the UI (not only at queue-write time), so a manual re-submit while online upserts the same sub-records instead of duplicating them — the same AD-8 guarantee the offline retry already had. Server-side, `DsrService.create()`'s upsert now applies only the quantity *delta* to Site Stock on a retried sync (see Story 5-5's change log), proven by a live-Postgres test (`dsr.service.integration.spec.ts`: retry with quantity 10→25 leaves stock decremented by 25, not 35).

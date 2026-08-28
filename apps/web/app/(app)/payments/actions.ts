@@ -85,11 +85,14 @@ export async function createPaymentAction(
     return { formError: "Something went wrong recording the Payment. Please try again." };
   }
 
-  redirect("/payments");
+  redirect(
+    `/payments?flash=${encodeURIComponent(formData.get("correctsId") ? "Payment correction recorded" : "Payment recorded")}`,
+  );
 }
 
 export interface MarkPaymentPaidFormState {
   formError?: string;
+  done?: boolean;
 }
 
 // `id` is bound at the call site (MarkPaidButton) since a Server Action
@@ -114,5 +117,5 @@ export async function markPaymentPaidAction(id: string): Promise<MarkPaymentPaid
   }
 
   revalidatePath("/payments");
-  return {};
+  return { done: true };
 }

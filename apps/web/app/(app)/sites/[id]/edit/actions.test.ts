@@ -44,7 +44,7 @@ describe("updateSiteAction", () => {
         body: JSON.stringify({ name: "NH-48 Highway Widening", location: "Nashik", status: "ON_HOLD" }),
       }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/sites");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/sites\?flash=/));
   });
 
   it("succeeds as a no-op when resubmitted with the Site's own unchanged values, rather than erroring", async () => {
@@ -53,7 +53,7 @@ describe("updateSiteAction", () => {
     await updateSiteAction("site-1", {}, formData());
 
     expect(global.fetch).toHaveBeenCalledWith("http://localhost:3001/sites/site-1", expect.objectContaining({ method: "PATCH" }));
-    expect(redirectMock).toHaveBeenCalledWith("/sites");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/sites\?flash=/));
   });
 
   it("returns a not-found form error, not a raw 404, when the Site no longer exists", async () => {

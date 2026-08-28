@@ -68,7 +68,7 @@ describe("createPurchaseAction", () => {
       "http://localhost:3001/purchases",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/movements");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/movements\?flash=/));
   });
 
   it("includes correctsId and reason when filing a correction", async () => {

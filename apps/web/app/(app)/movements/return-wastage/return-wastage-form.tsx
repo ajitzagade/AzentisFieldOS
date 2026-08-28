@@ -3,6 +3,10 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
+  ConfirmDialog,
+  ConfirmDialogRow,
+  formValue,
+  useSubmitConfirmation,
   Button,
   CalendarIcon,
   Card,
@@ -66,10 +70,13 @@ export function ReturnWastageForm({
   initial?: ReturnWastageFormInitialValues;
 }) {
   const [state, formAction] = useActionState(createReturnWastageAction, initialState);
+  // Hard-to-take-back submission (FR-54 / money movement) — held for
+  // re-verification of the entered details before it goes to the ledger.
+  const confirmation = useSubmitConfirmation();
   const [kind, setKind] = useState<"RETURN" | "WASTAGE">(initial?.kind ?? "WASTAGE");
 
   return (
-    <form action={formAction} noValidate>
+    <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
       {mode === "correct" ? (
         <Card className="mb-4 border-warning-700 bg-warning-100">
           <h2 className="mb-1 flex items-center gap-2 text-card-title text-warning-700">
@@ -157,6 +164,19 @@ export function ReturnWastageForm({
       ) : null}
 
       <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Entry"} correcting={mode === "correct"} />
+
+      <ConfirmDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title={"Submit this correction?"}
+        description={"A correction is a new, permanent ledger entry — please re-verify the details."}
+        confirmLabel={"Submit Correction"}
+        onConfirm={confirmation.confirm}
+      >
+        <ConfirmDialogRow label="Quantity adjustment" value={formValue(confirmation.values, "quantity")} />
+        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
+      </ConfirmDialog>
+
     </form>
   );
 }

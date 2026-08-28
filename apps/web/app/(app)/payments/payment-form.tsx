@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, SelectField, TextField, UserIcon, WalletIcon } from "@azentisfieldos/ui";
+import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, SelectField, TextField, UserIcon, WalletIcon } from "@azentisfieldos/ui";
 import { createPaymentAction, type CreatePaymentFormState } from "./actions";
 
 interface TeamMemberOption {
@@ -62,6 +62,9 @@ export function PaymentForm({
   initial?: PaymentFormInitialValues;
 }) {
   const [state, formAction] = useActionState(createPaymentAction, initialState);
+  // Hard-to-take-back submission (FR-54 / money movement) — held for
+  // re-verification of the entered details before it goes to the ledger.
+  const confirmation = useSubmitConfirmation();
 
   const [teamMemberId, setTeamMemberId] = useState(fixedTeamMemberId ?? "");
   const [basePay, setBasePay] = useState(initial?.basePay ?? "");
@@ -84,7 +87,7 @@ export function PaymentForm({
     (includeAdjustment ? Number(adjustmentAmount) || 0 : 0);
 
   return (
-    <form action={formAction} noValidate>
+    <form action={formAction} onSubmit={confirmation.guard()} noValidate>
       <input type="hidden" name="includeAdjustment" value={includeAdjustment ? "true" : "false"} />
 
       {mode === "correct" ? (
@@ -116,36 +119,27 @@ export function PaymentForm({
         />
         {mode === "correct" ? <input type="hidden" name="teamMemberId" value={teamMemberId} /> : null}
 
-        <TextField
+        <AmountField
           label="Base Pay"
           name="basePay"
-          type="number"
-          step="any"
           min={0}
           required
-          icon={<span className="text-body-sm font-semibold">₹</span>}
           value={basePay}
           onChange={(e) => setBasePay(e.target.value)}
           error={state.errors?.basePay?.[0]}
         />
-        <TextField
+        <AmountField
           label="Additional Amount"
           name="additionalAmount"
-          type="number"
-          step="any"
           min={0}
-          icon={<span className="text-body-sm font-semibold">₹</span>}
           value={additionalAmount}
           onChange={(e) => setAdditionalAmount(e.target.value)}
           error={state.errors?.additionalAmount?.[0]}
         />
-        <TextField
+        <AmountField
           label="Deductions"
           name="deductions"
-          type="number"
-          step="any"
           min={0}
-          icon={<span className="text-body-sm font-semibold">₹</span>}
           value={deductions}
           onChange={(e) => setDeductions(e.target.value)}
           error={state.errors?.deductions?.[0]}
@@ -187,13 +181,10 @@ export function PaymentForm({
               ]}
               error={state.errors?.advanceId?.[0]}
             />
-            <TextField
+            <AmountField
               label="Adjustment Amount"
               name="adjustmentAmount"
-              type="number"
-              step="any"
               required
-              icon={<span className="text-body-sm font-semibold">₹</span>}
               value={adjustmentAmount}
               onChange={(e) => setAdjustmentAmount(e.target.value)}
               hint={
@@ -220,6 +211,22 @@ export function PaymentForm({
       ) : null}
 
       <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Payment"} correcting={mode === "correct"} />
+
+      <ConfirmDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title={mode === "correct" ? "Submit this correction?" : "Record this Payment?"}
+        description={mode === "correct" ? "A correction is a new, permanent ledger entry — please re-verify the details." : "A Payment is a permanent ledger entry — please re-verify the amounts."}
+        confirmLabel={"Confirm & Submit"}
+        onConfirm={confirmation.confirm}
+      >
+        <ConfirmDialogRow label="Base Pay" value={formValue(confirmation.values, "basePay")} />
+        <ConfirmDialogRow label="Additional Amount" value={formValue(confirmation.values, "additionalAmount")} />
+        <ConfirmDialogRow label="Deductions" value={formValue(confirmation.values, "deductions")} />
+        <ConfirmDialogRow label="Adjustment amount" value={formValue(confirmation.values, "adjustmentAmount")} />
+        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
+      </ConfirmDialog>
+
     </form>
   );
 }

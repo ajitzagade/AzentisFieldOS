@@ -87,3 +87,6 @@ so that I can review field activity across all Sites without opening each Site i
 - `apps/web/app/(app)/daily-activity/page.test.tsx` — NEW.
 - `apps/web/app/(app)/daily-activity/[id]/page.tsx` — NEW: the report detail view.
 - `apps/web/app/(app)/daily-activity/[id]/page.test.tsx` — NEW.
+
+## Change Log
+- **2026-08-28 — UX/data-consistency pass:** `dsr-desktop-form.tsx`'s raw-ID inputs (Team Member ID, Material Size ID, Expense Category ID) are replaced by the same searchable pickers as the mobile form (shared `use-dsr-reference-data.ts` + `ComboboxField`); the Vendor dropdown was upgraded to the picker for consistency, and equipment now selects from the Machinery/Vehicle registers. Material pickers show current Site Stock; ₹ fields use `AmountField` (amount-in-words). Success is announced via the new toast system (`router.push` carries `?flash=`). Rows stamp `clientGeneratedId` at add time (idempotent resubmits — the desktop form previously sent none at all, so resubmitting a Site/date duplicated sub-records).

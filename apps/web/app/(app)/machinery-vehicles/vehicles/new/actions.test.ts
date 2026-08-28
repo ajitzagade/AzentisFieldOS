@@ -55,7 +55,7 @@ describe("createVehicleAction", () => {
         body: JSON.stringify({ number: "MH-12-AB-1234", typeId: validTypeId }),
       }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/machinery-vehicles");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/machinery-vehicles\?flash=/));
   });
 
   it("includes optional ownership/driver when provided", async () => {

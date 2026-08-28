@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, TextField, WalletIcon } from "@azentisfieldos/ui";
+import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, TextField, WalletIcon } from "@azentisfieldos/ui";
 import { createAdvanceAction, type CreateAdvanceFormState } from "./actions";
 
 export interface AdvanceFormInitialValues {
@@ -40,9 +40,12 @@ export function AdvanceForm({
   initial?: AdvanceFormInitialValues;
 }) {
   const [state, formAction] = useActionState(createAdvanceAction, initialState);
+  // Hard-to-take-back submission (FR-54 / money movement) — held for
+  // re-verification of the entered details before it goes to the ledger.
+  const confirmation = useSubmitConfirmation();
 
   return (
-    <form action={formAction} noValidate>
+    <form action={formAction} onSubmit={confirmation.guard()} noValidate>
       <input type="hidden" name="teamMemberId" value={teamMemberId} />
 
       {mode === "correct" ? (
@@ -67,13 +70,10 @@ export function AdvanceForm({
       ) : null}
 
       <Card className="mb-4">
-        <TextField
+        <AmountField
           label={mode === "correct" ? "Amount adjustment" : "Amount"}
           name="amount"
-          type="number"
-          step="any"
           required
-          icon={<span className="text-body-sm font-semibold">₹</span>}
           defaultValue={initial?.amount}
           hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -2000." : undefined}
           error={state.errors?.amount?.[0]}
@@ -116,6 +116,19 @@ export function AdvanceForm({
       ) : null}
 
       <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Advance"} correcting={mode === "correct"} />
+
+      <ConfirmDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title={mode === "correct" ? "Submit this correction?" : "Record this Advance?"}
+        description={mode === "correct" ? "A correction is a new, permanent ledger entry — please re-verify the details." : "An Advance immediately updates the Outstanding Balance — please re-verify the amount."}
+        confirmLabel={"Confirm & Submit"}
+        onConfirm={confirmation.confirm}
+      >
+        <ConfirmDialogRow label="Amount" value={formValue(confirmation.values, "amount")} />
+        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
+      </ConfirmDialog>
+
     </form>
   );
 }

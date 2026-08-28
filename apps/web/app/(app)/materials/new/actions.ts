@@ -42,5 +42,5 @@ export async function createMaterialAction(
     return { formError: "Something went wrong creating the Material. Please try again." };
   }
 
-  redirect("/materials");
+  redirect(`/materials?flash=${encodeURIComponent("Material added")}`);
 }

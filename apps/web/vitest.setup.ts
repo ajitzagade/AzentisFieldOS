@@ -35,3 +35,16 @@ import "fake-indexeddb/auto";
 afterEach(() => {
   cleanup();
 });
+
+// jsdom ships neither ResizeObserver nor scrollIntoView; Base UI's
+// popup positioning (ComboboxField) requires both at runtime.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+}
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}

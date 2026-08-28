@@ -1,28 +1,29 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Suspense, type ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn, MenuIcon, XIcon } from "@azentisfieldos/ui";
+import { cn, MenuIcon, Toaster, ToastProvider, XIcon } from "@azentisfieldos/ui";
 import type { Role } from "@azentisfieldos/shared";
 import { NAV_GROUPS, SETTINGS_NAV_ITEM, UNGROUPED_NAV_ITEMS, type NavItem } from "./nav-config";
+import { FlashToast } from "./flash-toast";
 import { APP_DISPLAY_NAME } from "../../../lib/tenant";
 
-// The Site Supervisor's minimal top bar vs. the sidebar-driven Owner/Admin
-// shell is a role distinction (EXPERIENCE.md), never a viewport breakpoint —
-// an Owner/Admin on a phone still gets the full sidebar-driven navigation,
-// so branching on screen width alone would strand a Supervisor on desktop.
+// Every role gets the same sidebar-driven shell (product direction 2026-08-27,
+// superseding EXPERIENCE.md's original Owner/Admin-sidebar vs Supervisor-top-bar
+// split): the left nav rail on the left, the selected item's content on the
+// right, for all accounts. The one role difference kept here is the `Settings`
+// item — Owner/Admin only, since that surface hard-404s for a Site Supervisor
+// (Story 14.2's server-side guard), so surfacing it to them would be a broken
+// link, not access.
 //
-// Within the Owner/Admin shell, however, the *layout* IS viewport-responsive:
-// the 248px navy rail is shown from `lg` up, and below that it collapses
-// behind a hamburger into an accessible slide-in drawer (EXPERIENCE.md's
-// "Owner on mobile → responsive single-column fallback"). Content padding
-// tightens on small screens so the main column is never starved.
+// The *layout* is viewport-responsive: the navy rail shows from `lg` up, and
+// below that it collapses behind a hamburger into an accessible slide-in drawer.
+// Content padding tightens on small screens so the main column is never starved.
 //
 // `role` is an explicit prop resolved by the route-group layout from the real
-// Postgres-backed GET /users/me (Story 14.2, via apps/api's Clerk auth guard) —
-// the sidebar-vs-minimal-top-bar split is driven by this real value, never a
-// viewport breakpoint (AD-3/AD-11).
+// Postgres-backed GET /users/me (Story 14.2, via apps/api's Clerk auth guard),
+// never a viewport breakpoint (AD-3/AD-11).
 export interface AppShellProps {
   role: Role;
   children: ReactNode;
@@ -52,7 +53,15 @@ function NavLink({ item, active, onNavigate }: { item: NavItem; active: boolean;
 
 // The nav's inner content (brand mark + grouped links), shared byte-for-byte
 // between the desktop rail and the mobile drawer so there is one nav source.
-function SidebarNav({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function SidebarNav({
+  pathname,
+  role,
+  onNavigate,
+}: {
+  pathname: string;
+  role: Role;
+  onNavigate?: () => void;
+}) {
   return (
     <>
       <div className="mb-6 flex items-center gap-2 px-2">
@@ -75,23 +84,16 @@ function SidebarNav({ pathname, onNavigate }: { pathname: string; onNavigate?: (
         </div>
       ))}
 
-      <NavLink item={SETTINGS_NAV_ITEM} active={isActive(pathname, SETTINGS_NAV_ITEM.href)} onNavigate={onNavigate} />
+      {/* Settings is Owner/Admin-only — it hard-404s for a Site Supervisor
+          (Story 14.2's server guard), so a link would be broken, not access. */}
+      {role === "OWNER_ADMIN" ? (
+        <NavLink item={SETTINGS_NAV_ITEM} active={isActive(pathname, SETTINGS_NAV_ITEM.href)} onNavigate={onNavigate} />
+      ) : null}
     </>
   );
 }
 
-function MinimalTopBar({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-border-hairline bg-surface-1 px-4 py-3">
-        <span className="text-card-title font-semibold text-ink-900">{APP_DISPLAY_NAME}</span>
-      </header>
-      <main className="flex-1 p-4">{children}</main>
-    </div>
-  );
-}
-
-function SidebarShell({ pathname, children }: { pathname: string; children: ReactNode }) {
+function SidebarShell({ pathname, role, children }: { pathname: string; role: Role; children: ReactNode }) {
   const [navOpen, setNavOpen] = useState(false);
   const [lastPathname, setLastPathname] = useState(pathname);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -121,7 +123,7 @@ function SidebarShell({ pathname, children }: { pathname: string; children: Reac
     <div className="flex min-h-screen flex-col lg:flex-row">
       {/* Desktop rail — shown from lg up. */}
       <aside className="hidden min-h-screen w-62 shrink-0 flex-col gap-1 bg-accent-navy-800 px-4 py-6 text-ink-on-accent lg:flex">
-        <SidebarNav pathname={pathname} />
+        <SidebarNav pathname={pathname} role={role} />
       </aside>
 
       {/* Mobile top bar — below lg only. */}
@@ -163,7 +165,7 @@ function SidebarShell({ pathname, children }: { pathname: string; children: Reac
                 <XIcon className="size-5" />
               </button>
             </div>
-            <SidebarNav pathname={pathname} onNavigate={() => setNavOpen(false)} />
+            <SidebarNav pathname={pathname} role={role} onNavigate={() => setNavOpen(false)} />
           </aside>
         </div>
       ) : null}
@@ -176,9 +178,20 @@ function SidebarShell({ pathname, children }: { pathname: string; children: Reac
 export function AppShell({ role, children }: AppShellProps) {
   const pathname = usePathname();
 
-  if (role === "SITE_SUPERVISOR") {
-    return <MinimalTopBar>{children}</MinimalTopBar>;
-  }
-
-  return <SidebarShell pathname={pathname}>{children}</SidebarShell>;
+  // Sidebar shell for every role (product direction) — the `role` only decides
+  // whether the Settings item is shown (Owner/Admin), not whether there's a rail.
+  // The toast system mounts once here so every page (and every Server
+  // Action redirect carrying ?flash=) reports success through one channel.
+  return (
+    <ToastProvider>
+      <SidebarShell pathname={pathname} role={role}>
+        {children}
+      </SidebarShell>
+      <Toaster />
+      {/* useSearchParams needs a Suspense boundary during prerender. */}
+      <Suspense fallback={null}>
+        <FlashToast />
+      </Suspense>
+    </ToastProvider>
+  );
 }

@@ -3,6 +3,11 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
+  ConfirmDialog,
+  ConfirmDialogRow,
+  formValue,
+  useSubmitConfirmation,
+  AmountField,
   BuildingIcon,
   Button,
   CalendarIcon,
@@ -84,10 +89,13 @@ type PurchaseFormProps = {
 
 export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, initial, fixedDestination }: PurchaseFormProps) {
   const [state, formAction] = useActionState(createPurchaseAction, initialState);
+  // Hard-to-take-back submission (FR-54 / money movement) — held for
+  // re-verification of the entered details before it goes to the ledger.
+  const confirmation = useSubmitConfirmation();
   const [destination, setDestination] = useState<"GODOWN" | "SITE">(fixedDestination ?? initial?.destination ?? "GODOWN");
 
   return (
-    <form action={formAction} noValidate>
+    <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
       {mode === "correct" ? (
         <Card className="mb-4 border-warning-700 bg-warning-100">
           <h2 className="mb-1 flex items-center gap-2 text-card-title text-warning-700">
@@ -176,23 +184,17 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -20." : undefined}
           error={state.errors?.quantity?.[0]}
         />
-        <TextField
+        <AmountField
           label="Rate"
           name="rate"
-          type="number"
-          step="any"
           required
-          icon={<span className="text-body-sm font-semibold">₹</span>}
           defaultValue={initial?.rate}
           error={state.errors?.rate?.[0]}
         />
-        <TextField
+        <AmountField
           label="Total Amount"
           name="totalAmount"
-          type="number"
-          step="any"
           required
-          icon={<span className="text-body-sm font-semibold">₹</span>}
           defaultValue={initial?.totalAmount}
           error={state.errors?.totalAmount?.[0]}
         />
@@ -264,6 +266,20 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
       ) : null}
 
       <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Purchase"} correcting={mode === "correct"} />
+
+      <ConfirmDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title={"Submit this correction?"}
+        description={"A correction is a new, permanent ledger entry — please re-verify the details."}
+        confirmLabel={"Submit Correction"}
+        onConfirm={confirmation.confirm}
+      >
+        <ConfirmDialogRow label="Quantity adjustment" value={formValue(confirmation.values, "quantity")} />
+        <ConfirmDialogRow label="Total amount" value={formValue(confirmation.values, "totalAmount")} />
+        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
+      </ConfirmDialog>
+
     </form>
   );
 }

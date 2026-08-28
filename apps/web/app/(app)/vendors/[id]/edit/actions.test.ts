@@ -35,7 +35,7 @@ describe("updateVendorAction", () => {
       "http://localhost:3001/vendors/v1",
       expect.objectContaining({ method: "PATCH" }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/vendors");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/vendors\?flash=/));
   });
 
   it("sends an intentionally-blanked optional field as an explicit null, not an omitted key, so it actually clears", async () => {

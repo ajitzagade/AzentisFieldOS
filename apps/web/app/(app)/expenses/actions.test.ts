@@ -55,7 +55,7 @@ describe("createExpenseAction", () => {
       "http://localhost:3001/expenses",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/expenses");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/expenses\?flash=/));
   });
 
   it("includes correctsId and reason when filing a correction", async () => {

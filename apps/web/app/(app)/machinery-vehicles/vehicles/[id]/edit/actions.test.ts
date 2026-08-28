@@ -37,7 +37,7 @@ describe("updateVehicleAction", () => {
       "http://localhost:3001/vehicles/v1",
       expect.objectContaining({ method: "PATCH" }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/machinery-vehicles");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/machinery-vehicles\?flash=/));
   });
 
   it("sends an explicit null (not an omitted key) for a blanked Ownership/Driver, so the API actually clears it", async () => {

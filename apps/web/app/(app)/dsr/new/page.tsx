@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, type FormEvent, useEffect, useRef, useState } from "react";
+import { Suspense, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
+  AmountField,
   Badge,
   Button,
   CalendarIcon,
@@ -27,6 +28,7 @@ import { syncQueuedDsrs } from "../../../../lib/dsr-sync";
 import { uploadPhoto } from "../../../../lib/photo-upload";
 import { useAuthedFetch } from "../../../../lib/use-authed-fetch";
 import { useDsrReferenceData } from "../../../../lib/use-dsr-reference-data";
+import { formatAvailableStock, useSiteStock } from "../../../../lib/use-site-stock";
 
 interface SiteOption {
   id: string;
@@ -98,6 +100,23 @@ function NewDsrForm() {
   const [issuesBlockers, setIssuesBlockers] = useState("");
 
   const reference = useDsrReferenceData();
+  // FR-14: what's actually on hand at the selected Site, shown inside the
+  // Material picker and under each selected Material — the Supervisor
+  // sees "80 Bags available" before the stock-safety check would reject.
+  const siteStock = useSiteStock(siteId);
+  const materialOptions = useMemo(
+    () =>
+      reference.materialOptions.map((option) => {
+        const stock = siteStock.bySizeId.get(option.value);
+        return stock
+          ? {
+              ...option,
+              description: `${option.description ? `${option.description} · ` : ""}${stock.quantity.toLocaleString("en-IN")} available`,
+            }
+          : option;
+      }),
+    [reference.materialOptions, siteStock.bySizeId],
+  );
 
   const [crew, setCrew] = useState<CrewRow[]>([]);
   const [newCrewId, setNewCrewId] = useState<string | null>(null);
@@ -453,13 +472,14 @@ function NewDsrForm() {
               <ComboboxField
                 label="Material"
                 className="min-w-48 flex-1"
-                options={reference.materialOptions}
+                options={materialOptions}
                 value={row.materialSizeId}
                 onValueChange={(value) =>
                   setConsumptions((rows) => rows.map((r, i) => (i === index ? { ...r, materialSizeId: value } : r)))
                 }
                 loading={reference.loading}
                 placeholder="Type a Material name…"
+                hint={row.materialSizeId && siteId ? formatAvailableStock(siteStock.bySizeId.get(row.materialSizeId)) : undefined}
                 emptyMessage={reference.loadFailed ? "Couldn't load Materials — check your connection" : "No matching Material"}
               />
               <TextField
@@ -514,10 +534,8 @@ function NewDsrForm() {
                 value={row.grade}
                 onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, grade: e.target.value } : r)))}
               />
-              <TextField
+              <AmountField
                 label="Rate per m³"
-                type="number"
-                icon={<span className="text-body-sm font-semibold">₹</span>}
                 value={row.ratePerM3}
                 onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, ratePerM3: e.target.value } : r)))}
               />
@@ -555,10 +573,8 @@ function NewDsrForm() {
                 placeholder="Type a Category…"
                 emptyMessage={reference.loadFailed ? "Couldn't load Categories — check your connection" : "No matching Category"}
               />
-              <TextField
+              <AmountField
                 label="Amount"
-                type="number"
-                icon={<span className="text-body-sm font-semibold">₹</span>}
                 value={row.amount}
                 onChange={(e) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, amount: e.target.value } : r)))}
               />

@@ -12,6 +12,10 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { lockOnKey } from '../common/advisory-lock';
 import { dateRangeBounds } from '../common/date-range';
+import {
+  currentDsrRowsWhere,
+  supersededDsrIds,
+} from '../common/superseded-dsrs';
 
 // FR-20: labour presence tracked per Site per day. WorkRecord.@@index
 // ([teamMemberId, workDate]) is a plain index, not a unique constraint
@@ -75,14 +79,20 @@ export class WorkRecordsService {
   // (`list()` / `list('site1')`) the `where` is byte-identical to before —
   // `undefined` with no filters, `{ siteId }` with only a Site — so existing
   // callers/tests are unaffected.
-  list(siteId?: string, filters: LabourReportFilters = {}) {
-    const where: Prisma.WorkRecordWhereInput = {};
+  // Work Records belonging to a superseded (since corrected) DSR are
+  // excluded — the correction filed its own restated attendance rows, and
+  // counting both would double-count that crew's day (same rule as
+  // ConsumptionService.list).
+  async list(siteId?: string, filters: LabourReportFilters = {}) {
+    const where: Prisma.WorkRecordWhereInput = {
+      ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
+    };
     if (siteId) where.siteId = siteId;
     if (filters.teamMemberId) where.teamMemberId = filters.teamMemberId;
     const bounds = dateRangeBounds(filters.from, filters.to);
     if (bounds) where.workDate = bounds;
     return this.prisma.workRecord.findMany({
-      where: Object.keys(where).length > 0 ? where : undefined,
+      where,
       include: { teamMember: true, site: true },
       orderBy: { workDate: 'desc' },
     });
@@ -107,7 +117,14 @@ export class WorkRecordsService {
     }
 
     const records = await this.prisma.workRecord.findMany({
-      where: { siteId, workDate: mostRecent.workDate },
+      where: {
+        siteId,
+        workDate: mostRecent.workDate,
+        // A corrected DSR leaves its original attendance rows in place
+        // (AD-9) — default from the correction's restated crew only, or
+        // the same person appears twice in the checklist.
+        ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
+      },
       include: { teamMember: true },
     });
 

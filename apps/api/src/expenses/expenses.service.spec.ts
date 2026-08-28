@@ -33,6 +33,9 @@ function makeService(overrides: {
     expenseCategory: {
       findUnique: categoryFindUnique,
     },
+    // The read paths exclude rows belonging to a superseded (corrected)
+    // DSR — no corrections in these fixtures.
+    dailySiteReport: { findMany: vi.fn().mockResolvedValue([]) },
   };
 
   const service = new ExpensesService(
@@ -143,6 +146,10 @@ describe('ExpensesService.list', () => {
     expect(expenseFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
+          OR: [
+            { dailySiteReportId: null },
+            { dailySiteReportId: { notIn: [] } },
+          ],
           siteId: 'site1',
           categoryId: 'cat1',
           // `to` is inclusive of the whole day, so the upper bound is the next day.
@@ -156,13 +163,20 @@ describe('ExpensesService.list', () => {
     );
   });
 
-  it('applies no filters when none are given', async () => {
+  it('applies only the superseded-DSR exclusion when no filters are given', async () => {
     const { service, expenseFindMany } = makeService({});
 
     await service.list();
 
     expect(expenseFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: {} }),
+      expect.objectContaining({
+        where: {
+          OR: [
+            { dailySiteReportId: null },
+            { dailySiteReportId: { notIn: [] } },
+          ],
+        },
+      }),
     );
   });
 });

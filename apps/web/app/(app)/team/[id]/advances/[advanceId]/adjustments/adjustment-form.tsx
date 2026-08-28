@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, TextField } from "@azentisfieldos/ui";
+import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, TextField } from "@azentisfieldos/ui";
 import { createAdvanceAdjustmentAction, type CreateAdvanceAdjustmentFormState } from "./actions";
 
 export interface AdjustmentFormInitialValues {
@@ -46,9 +46,12 @@ export function AdjustmentForm({
   initial?: AdjustmentFormInitialValues;
 }) {
   const [state, formAction] = useActionState(createAdvanceAdjustmentAction, initialState);
+  // Hard-to-take-back submission (FR-54 / money movement) — held for
+  // re-verification of the entered details before it goes to the ledger.
+  const confirmation = useSubmitConfirmation();
 
   return (
-    <form action={formAction} noValidate>
+    <form action={formAction} onSubmit={confirmation.guard()} noValidate>
       <input type="hidden" name="teamMemberId" value={teamMemberId} />
       <input type="hidden" name="advanceId" value={advanceId} />
 
@@ -74,13 +77,10 @@ export function AdjustmentForm({
       ) : null}
 
       <Card className="mb-4">
-        <TextField
+        <AmountField
           label={mode === "correct" ? "Amount adjustment" : "Adjustment amount"}
           name="amount"
-          type="number"
-          step="any"
           required
-          icon={<span className="text-body-sm font-semibold">₹</span>}
           hint={
             mode === "correct"
               ? "Signed delta applied on top of the current balance — e.g. -1000."
@@ -117,6 +117,19 @@ export function AdjustmentForm({
       ) : null}
 
       <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Adjustment"} correcting={mode === "correct"} />
+
+      <ConfirmDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title={mode === "correct" ? "Submit this correction?" : "Record this Adjustment?"}
+        description={mode === "correct" ? "A correction is a new, permanent ledger entry — please re-verify the details." : "An Adjustment permanently reduces the Outstanding Balance — please re-verify the amount."}
+        confirmLabel={"Confirm & Submit"}
+        onConfirm={confirmation.confirm}
+      >
+        <ConfirmDialogRow label="Amount" value={formValue(confirmation.values, "amount")} />
+        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
+      </ConfirmDialog>
+
     </form>
   );
 }

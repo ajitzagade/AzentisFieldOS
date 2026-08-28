@@ -28,7 +28,12 @@ describe('UsersController (delegation)', () => {
   });
 
   it('me delegates to UsersService.getMe with the current user id', async () => {
-    service.getMe.mockResolvedValue({ id: 'u1', name: 'A', email: 'a@x.in', role: 'OWNER_ADMIN' });
+    service.getMe.mockResolvedValue({
+      id: 'u1',
+      name: 'A',
+      email: 'a@x.in',
+      role: 'OWNER_ADMIN',
+    });
     const user: AuthUser = { id: 'u1', clerkId: 'c1', role: 'OWNER_ADMIN' };
 
     const result = await controller.me(user);
@@ -46,12 +51,17 @@ describe('UsersController (delegation)', () => {
   it('invite delegates to UsersService.invite with the validated body', async () => {
     service.invite.mockResolvedValue({ id: 'inv1' });
     await controller.invite({ email: 'new@x.in', role: 'SITE_SUPERVISOR' });
-    expect(service.invite).toHaveBeenCalledWith({ email: 'new@x.in', role: 'SITE_SUPERVISOR' });
+    expect(service.invite).toHaveBeenCalledWith({
+      email: 'new@x.in',
+      role: 'SITE_SUPERVISOR',
+    });
   });
 
   it('updateRole delegates to UsersService.updateRole with the id and validated body', async () => {
     service.updateRole.mockResolvedValue({ id: 'u1', role: 'OWNER_ADMIN' });
     await controller.updateRole('u1', { role: 'OWNER_ADMIN' });
-    expect(service.updateRole).toHaveBeenCalledWith('u1', { role: 'OWNER_ADMIN' });
+    expect(service.updateRole).toHaveBeenCalledWith('u1', {
+      role: 'OWNER_ADMIN',
+    });
   });
 });

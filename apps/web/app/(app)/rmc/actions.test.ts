@@ -58,7 +58,7 @@ describe("createRmcEntryAction", () => {
       "http://localhost:3001/rmc-entries",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(redirectMock).toHaveBeenCalledWith("/rmc");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/rmc\?flash=/));
   });
 
   it("includes correctsId and reason when filing a correction", async () => {

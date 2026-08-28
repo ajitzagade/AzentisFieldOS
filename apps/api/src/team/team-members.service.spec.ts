@@ -221,6 +221,9 @@ describe('TeamMembersService.getWorkHistory', () => {
     const prisma = {
       teamMember: { findUnique },
       workRecord: { findMany: workRecordFindMany },
+      // getWorkHistory excludes rows belonging to a superseded (corrected)
+      // DSR — no corrections in this fixture.
+      dailySiteReport: { findMany: vi.fn().mockResolvedValue([]) },
     };
     const service = new TeamMembersService(
       prisma as unknown as ConstructorParameters<typeof TeamMembersService>[0],
@@ -229,7 +232,10 @@ describe('TeamMembersService.getWorkHistory', () => {
     await service.getWorkHistory('tm1');
 
     expect(workRecordFindMany).toHaveBeenCalledWith({
-      where: { teamMemberId: 'tm1' },
+      where: {
+        teamMemberId: 'tm1',
+        OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],
+      },
       include: { site: true },
       orderBy: { workDate: 'desc' },
     });

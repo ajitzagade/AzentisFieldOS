@@ -22,6 +22,8 @@ export * from "./check-circle-icon";
 export * from "./alert-triangle-icon";
 export * from "./wifi-off-icon";
 export * from "./chevron-right-icon";
+export * from "./chevrons-up-down-icon";
+export * from "./check-icon";
 export * from "./logout-icon";
 export * from "./bell-icon";
 export * from "./pencil-icon";

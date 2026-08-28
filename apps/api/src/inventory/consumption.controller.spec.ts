@@ -25,19 +25,23 @@ describe('ConsumptionController', () => {
     controller = module.get<ConsumptionController>(ConsumptionController);
   });
 
-  it('create delegates to ConsumptionService.create with the validated body', async () => {
+  it('create delegates to ConsumptionService.create with the validated body and the session user', async () => {
     const input = {
       siteId: '11111111-1111-4111-8111-111111111111',
       materialSizeId: '22222222-2222-4222-8222-222222222222',
       quantity: 10,
       consumedAt: '2026-08-13',
-      recordedByUserId: '33333333-3333-4333-8333-333333333333',
+    };
+    const user = {
+      id: '33333333-3333-4333-8333-333333333333',
+      clerkId: 'clerk-user-1',
+      role: 'OWNER_ADMIN' as const,
     };
     service.create.mockResolvedValue({ id: '1', ...input });
 
-    const result = await controller.create(input);
+    const result = await controller.create(user, input);
 
-    expect(service.create).toHaveBeenCalledWith(input);
+    expect(service.create).toHaveBeenCalledWith(input, user.id);
     expect(result).toEqual({ id: '1', ...input });
   });
 
@@ -67,7 +71,6 @@ describe('ZodValidationPipe(createConsumptionSchema)', () => {
     siteId: '11111111-1111-4111-8111-111111111111',
     materialSizeId: '22222222-2222-4222-8222-222222222222',
     consumedAt: '2026-08-13',
-    recordedByUserId: '33333333-3333-4333-8333-333333333333',
   };
 
   it('rejects a body missing required fields', () => {

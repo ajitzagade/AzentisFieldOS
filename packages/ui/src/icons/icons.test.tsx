@@ -12,8 +12,8 @@ const iconEntries = Object.entries(Icons).filter(
 ) as [string, React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement>>][];
 
 describe("icon set", () => {
-  it("exports exactly 35 distinct icon components (26 from _shared-kit.html + PencilIcon from story 2.3 + Mail/Phone/Calendar/Lock/Hash/User added for form-field leading icons + Menu/X added for the responsive mobile-nav drawer)", () => {
-    expect(iconEntries).toHaveLength(35);
+  it("exports exactly 37 distinct icon components (26 from _shared-kit.html + PencilIcon from story 2.3 + Mail/Phone/Calendar/Lock/Hash/User added for form-field leading icons + Menu/X added for the responsive mobile-nav drawer + ChevronsUpDown/Check added for the ComboboxField picker)", () => {
+    expect(iconEntries).toHaveLength(37);
   });
 
   it.each(iconEntries)("%s renders a 24x24 currentColor svg and forwards className", (name, Icon) => {
@@ -35,11 +35,11 @@ describe("icon set", () => {
     }
   });
 
-  it("uses stroke-width 2 only for Plus and ChevronRight, 1.75 for every other icon", () => {
+  it("uses stroke-width 2 only for Plus, ChevronRight, and Check, 1.75 for every other icon", () => {
     for (const [name, Icon] of iconEntries) {
       const { container } = render(<Icon />);
       const svg = container.querySelector("svg") as SVGSVGElement;
-      const expected = name === "PlusIcon" || name === "ChevronRightIcon" ? "2" : "1.75";
+      const expected = name === "PlusIcon" || name === "ChevronRightIcon" || name === "CheckIcon" ? "2" : "1.75";
       expect(svg.getAttribute("stroke-width")).toBe(expected);
     }
   });

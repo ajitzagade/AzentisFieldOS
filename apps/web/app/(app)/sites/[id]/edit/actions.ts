@@ -48,5 +48,5 @@ export async function updateSiteAction(
     return { formError: "Something went wrong updating the Site. Please try again." };
   }
 
-  redirect("/sites");
+  redirect(`/sites?flash=${encodeURIComponent("Site updated")}`);
 }

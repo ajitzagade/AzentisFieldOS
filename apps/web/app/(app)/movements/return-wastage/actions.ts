@@ -64,5 +64,7 @@ export async function createReturnWastageAction(
     return { formError: "Something went wrong recording this entry. Please try again." };
   }
 
-  redirect("/movements");
+  redirect(
+    `/movements?flash=${encodeURIComponent(formData.get("correctsId") ? "Return/Wastage correction recorded" : "Return/Wastage recorded")}`,
+  );
 }

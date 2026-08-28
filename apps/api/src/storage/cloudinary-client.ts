@@ -28,7 +28,7 @@ export { cloudinary };
 // upload, this URL is deterministic and can be predicted before the bytes land.
 export function cloudinaryUrl(publicId: string): string {
   const cloudName =
-    (cloudinary.config().cloud_name as string | undefined) ??
+    cloudinary.config().cloud_name ??
     process.env.CLOUDINARY_CLOUD_NAME ??
     'cloud';
   return `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`;
