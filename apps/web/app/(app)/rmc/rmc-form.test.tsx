@@ -17,7 +17,7 @@ describe("RmcForm", () => {
     expect(screen.getByLabelText("Site")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "NH-48 Highway Widening" })).toBeInTheDocument();
     expect(screen.getByLabelText("Vendor")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Anand RMC Suppliers" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Vendor")).toHaveAttribute("role", "combobox");
     expect(screen.getByLabelText("Grade")).toBeInTheDocument();
     expect(screen.getByLabelText("Quantity (m³)")).toBeInTheDocument();
     expect(screen.getByLabelText("Rate / m³")).toBeInTheDocument();
@@ -63,6 +63,8 @@ describe("RmcForm", () => {
     render(<RmcForm mode="new" sites={sites} vendors={vendors} />);
 
     expect(screen.getByLabelText("Site").tagName).toBe("SELECT");
-    expect(screen.getByLabelText("Vendor").tagName).toBe("SELECT");
+    // Vendor is the shared searchable picker — an ARIA combobox over the
+    // Vendor list, still never free text.
+    expect(screen.getByLabelText("Vendor")).toHaveAttribute("role", "combobox");
   });
 });

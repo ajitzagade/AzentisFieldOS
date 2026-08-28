@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ConfirmDialog,
@@ -13,6 +13,7 @@ import {
   CalendarIcon,
   Card,
   CheckCircleIcon,
+  ComboboxField,
   DropletIcon,
   HashIcon,
   MapPinIcon,
@@ -79,6 +80,7 @@ export function RmcForm({ mode, correctsId, sites, vendors, initial }: RmcFormPr
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
+  const [vendorId, setVendorId] = useState(initial?.vendorId ?? "");
 
   return (
     <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
@@ -110,17 +112,19 @@ export function RmcForm({ mode, correctsId, sites, vendors, initial }: RmcFormPr
         />
         {mode === "correct" ? <input type="hidden" name="siteId" value={initial?.siteId} /> : null}
 
-        <SelectField
+        <ComboboxField
           label="Vendor"
-          name="vendorId"
           required
           icon={<BuildingIcon className="size-4" />}
           disabled={mode === "correct"}
-          defaultValue={initial?.vendorId ?? ""}
-          options={[{ value: "", label: "Select a Vendor" }, ...vendors.map((v) => ({ value: v.id, label: v.name }))]}
+          options={vendors.map((v) => ({ value: v.id, label: v.name }))}
+          value={vendorId || null}
+          onValueChange={(value) => setVendorId(value ?? "")}
+          placeholder="Type a Vendor name…"
+          emptyMessage="No matching Vendor"
           error={state.errors?.vendorId?.[0]}
         />
-        {mode === "correct" ? <input type="hidden" name="vendorId" value={initial?.vendorId} /> : null}
+        <input type="hidden" name="vendorId" value={vendorId} />
 
         <TextField
           label="Grade"

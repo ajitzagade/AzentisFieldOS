@@ -14,6 +14,34 @@ const fieldControlClass =
 // currency, ...); it is never decorative filler (DESIGN.md Brand & Style).
 const iconWrapperClass = "pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500";
 
+// Hints are usually neutral guidance, but some carry live data the user must
+// act on (e.g. available Site Stock next to a Material picker). The tone
+// keeps that one hint slot instead of growing ad-hoc status paragraphs per
+// screen: "positive" = data confirms the entry is safe, "warning" = data is
+// missing or zero, "danger" = the entered values conflict with the data.
+export type FieldHintTone = "default" | "positive" | "warning" | "danger";
+
+export const hintToneClass: Record<FieldHintTone, string> = {
+  default: "text-ink-500",
+  positive: "text-success-700",
+  warning: "text-warning-700",
+  danger: "text-danger-700",
+};
+
+function FieldHint({ id, hint, tone = "default" }: { id: string; hint: string; tone?: FieldHintTone }) {
+  return (
+    <p
+      id={id}
+      // A danger-toned hint is a live conflict (not a submit-blocking error) —
+      // announce it politely so screen-reader users hear it as they type.
+      role={tone === "danger" ? "status" : undefined}
+      className={cn("mt-1 text-eyebrow", hintToneClass[tone])}
+    >
+      {hint}
+    </p>
+  );
+}
+
 // Required marker rendered as a sibling of the <label>, not inside it —
 // the control's accessible name stays exactly `label` (the native
 // `required` attribute already conveys required-ness to assistive tech),
@@ -37,11 +65,12 @@ export interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
   hint?: string;
+  hintTone?: FieldHintTone;
   icon?: ReactNode;
 }
 
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
-  ({ label, error, hint, icon, id, className, ...props }, ref) => {
+  ({ label, error, hint, hintTone, icon, id, className, ...props }, ref) => {
     const generatedId = useId();
     const inputId = id ?? generatedId;
     const errorId = `${inputId}-error`;
@@ -61,11 +90,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
             {...props}
           />
         </div>
-        {hint && !error ? (
-          <p id={hintId} className="mt-1 text-eyebrow text-ink-500">
-            {hint}
-          </p>
-        ) : null}
+        {hint && !error ? <FieldHint id={hintId} hint={hint} tone={hintTone} /> : null}
         {error ? (
           <p id={errorId} role="alert" className="mt-1 text-eyebrow text-danger-700">
             {error}
@@ -133,11 +158,12 @@ export interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement
   options: SelectFieldOption[];
   error?: string;
   hint?: string;
+  hintTone?: FieldHintTone;
   icon?: ReactNode;
 }
 
 export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
-  ({ label, options, error, hint, icon, id, className, children, ...props }, ref) => {
+  ({ label, options, error, hint, hintTone, icon, id, className, children, ...props }, ref) => {
     const generatedId = useId();
     const selectId = id ?? generatedId;
     const errorId = `${selectId}-error`;
@@ -164,11 +190,7 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
             {children as ReactNode}
           </select>
         </div>
-        {hint && !error ? (
-          <p id={hintId} className="mt-1 text-eyebrow text-ink-500">
-            {hint}
-          </p>
-        ) : null}
+        {hint && !error ? <FieldHint id={hintId} hint={hint} tone={hintTone} /> : null}
         {error ? (
           <p id={errorId} role="alert" className="mt-1 text-eyebrow text-danger-700">
             {error}

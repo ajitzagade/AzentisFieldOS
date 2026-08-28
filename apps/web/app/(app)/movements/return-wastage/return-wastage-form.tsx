@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ConfirmDialog,
@@ -11,6 +11,7 @@ import {
   CalendarIcon,
   Card,
   CheckCircleIcon,
+  ComboboxField,
   FilterIcon,
   HashIcon,
   LayersIcon,
@@ -20,6 +21,7 @@ import {
   SelectField,
   TextField,
 } from "@azentisfieldos/ui";
+import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { createReturnWastageAction, type CreateReturnWastageFormState } from "./actions";
 
 interface MaterialSizeOption {
@@ -75,6 +77,27 @@ export function ReturnWastageForm({
   const confirmation = useSubmitConfirmation();
   const [kind, setKind] = useState<"RETURN" | "WASTAGE">(initial?.kind ?? "WASTAGE");
 
+  // Both a Return and a Wastage remove stock from the Site, so the Site's
+  // current balance is shown inside the Material picker options, as a hint
+  // once chosen, and as an overdraw warning once a quantity is typed
+  // (FR-14). Corrections are signed deltas, so no overdraw comparison there.
+  const [siteId, setSiteId] = useState(initial?.siteId ?? "");
+  const [materialSizeId, setMaterialSizeId] = useState(initial?.materialSizeId ?? "");
+  const [quantity, setQuantity] = useState("");
+  const siteStock = useSiteStock(siteId || null);
+  const materialOptions = useMemo(() => {
+    const base = materialSizes.map((m) => ({ value: m.id, label: m.label }));
+    return siteId ? withStockMeta(base, siteStock) : base;
+  }, [materialSizes, siteId, siteStock]);
+  const stock = siteId
+    ? stockStatus({
+        stock: siteStock,
+        materialSizeId: materialSizeId || null,
+        quantity: mode === "new" ? quantity : undefined,
+        location: "this Site",
+      })
+    : undefined;
+
   return (
     <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
       {mode === "correct" ? (
@@ -115,23 +138,28 @@ export function ReturnWastageForm({
           required
           icon={<MapPinIcon className="size-4" />}
           disabled={mode === "correct"}
-          defaultValue={initial?.siteId ?? ""}
+          value={siteId}
+          onChange={(e) => setSiteId(e.target.value)}
           options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
           error={state.errors?.siteId?.[0]}
         />
         {mode === "correct" ? <input type="hidden" name="siteId" value={initial?.siteId} /> : null}
 
-        <SelectField
+        <ComboboxField
           label="Material / Size"
-          name="materialSizeId"
           required
           icon={<LayersIcon className="size-4" />}
           disabled={mode === "correct"}
-          defaultValue={initial?.materialSizeId ?? ""}
-          options={[{ value: "", label: "Select a Material" }, ...materialSizes.map((m) => ({ value: m.id, label: m.label }))]}
+          options={materialOptions}
+          value={materialSizeId || null}
+          onValueChange={(value) => setMaterialSizeId(value ?? "")}
+          placeholder="Type a Material name…"
+          hint={stock?.text ?? (materialSizeId ? undefined : "Pick a Site to see its available stock")}
+          hintTone={stock?.tone}
+          emptyMessage="No matching Material"
           error={state.errors?.materialSizeId?.[0]}
         />
-        {mode === "correct" ? <input type="hidden" name="materialSizeId" value={initial?.materialSizeId} /> : null}
+        <input type="hidden" name="materialSizeId" value={materialSizeId} />
       </Card>
 
       <Card className="mb-4">
@@ -142,7 +170,15 @@ export function ReturnWastageForm({
           step="any"
           required
           icon={<HashIcon className="size-4" />}
-          hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -2." : undefined}
+          onChange={(e) => setQuantity(e.target.value)}
+          hint={
+            mode === "correct"
+              ? "Signed delta applied on top of the current balance — e.g. -2."
+              : stock?.insufficient
+                ? "This quantity exceeds the available Site Stock"
+                : undefined
+          }
+          hintTone={mode === "new" && stock?.insufficient ? "danger" : "default"}
           error={state.errors?.quantity?.[0]}
         />
         <TextField

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import NewRmcEntryPage from "./page";
 
@@ -40,7 +41,10 @@ describe("NewRmcEntryPage", () => {
     await renderNewRmcEntryPage();
 
     expect(screen.getByRole("option", { name: "NH-48 Highway Widening" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Anand RMC Suppliers" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Record RMC Delivery" })).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Vendor"), "anand");
+    expect(await screen.findByText("Anand RMC Suppliers")).toBeInTheDocument();
   });
 });

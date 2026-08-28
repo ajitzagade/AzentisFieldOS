@@ -28,7 +28,7 @@ import { syncQueuedDsrs } from "../../../../lib/dsr-sync";
 import { uploadPhoto } from "../../../../lib/photo-upload";
 import { useAuthedFetch } from "../../../../lib/use-authed-fetch";
 import { useDsrReferenceData } from "../../../../lib/use-dsr-reference-data";
-import { formatAvailableStock, useSiteStock } from "../../../../lib/use-site-stock";
+import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
 
 interface SiteOption {
   id: string;
@@ -105,17 +105,8 @@ function NewDsrForm() {
   // sees "80 Bags available" before the stock-safety check would reject.
   const siteStock = useSiteStock(siteId);
   const materialOptions = useMemo(
-    () =>
-      reference.materialOptions.map((option) => {
-        const stock = siteStock.bySizeId.get(option.value);
-        return stock
-          ? {
-              ...option,
-              description: `${option.description ? `${option.description} · ` : ""}${stock.quantity.toLocaleString("en-IN")} available`,
-            }
-          : option;
-      }),
-    [reference.materialOptions, siteStock.bySizeId],
+    () => (siteId ? withStockMeta(reference.materialOptions, siteStock) : reference.materialOptions),
+    [reference.materialOptions, siteId, siteStock],
   );
 
   const [crew, setCrew] = useState<CrewRow[]>([]);
@@ -467,32 +458,47 @@ function NewDsrForm() {
 
         <Card className="mb-4">
           <h2 className="mb-3 text-card-title text-ink-900">Materials consumed</h2>
-          {consumptions.map((row, index) => (
-            <div key={row.clientGeneratedId} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
-              <ComboboxField
-                label="Material"
-                className="min-w-48 flex-1"
-                options={materialOptions}
-                value={row.materialSizeId}
-                onValueChange={(value) =>
-                  setConsumptions((rows) => rows.map((r, i) => (i === index ? { ...r, materialSizeId: value } : r)))
-                }
-                loading={reference.loading}
-                placeholder="Type a Material name…"
-                hint={row.materialSizeId && siteId ? formatAvailableStock(siteStock.bySizeId.get(row.materialSizeId)) : undefined}
-                emptyMessage={reference.loadFailed ? "Couldn't load Materials — check your connection" : "No matching Material"}
-              />
-              <TextField
-                label="Quantity"
-                type="number"
-                value={row.quantity}
-                onChange={(e) => setConsumptions((rows) => rows.map((r, i) => (i === index ? { ...r, quantity: e.target.value } : r)))}
-              />
-              <Button type="button" variant="ghost" onClick={() => setConsumptions((rows) => rows.filter((_, i) => i !== index))}>
-                Remove
-              </Button>
-            </div>
-          ))}
+          {consumptions.map((row, index) => {
+            const stock = siteId
+              ? stockStatus({ stock: siteStock, materialSizeId: row.materialSizeId, quantity: row.quantity, location: "this Site" })
+              : undefined;
+            return (
+              <div
+                key={row.clientGeneratedId}
+                className="mb-3 grid grid-cols-1 gap-x-3 border-b border-border-hairline sm:grid-cols-12 sm:items-start"
+              >
+                <ComboboxField
+                  label="Material"
+                  className="sm:col-span-7"
+                  options={materialOptions}
+                  value={row.materialSizeId}
+                  onValueChange={(value) =>
+                    setConsumptions((rows) => rows.map((r, i) => (i === index ? { ...r, materialSizeId: value } : r)))
+                  }
+                  loading={reference.loading}
+                  placeholder="Type a Material name…"
+                  hint={stock?.text}
+                  hintTone={stock?.tone}
+                  emptyMessage={reference.loadFailed ? "Couldn't load Materials — check your connection" : "No matching Material"}
+                />
+                <div className="sm:col-span-3">
+                  <TextField
+                    label="Quantity"
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={row.quantity}
+                    onChange={(e) => setConsumptions((rows) => rows.map((r, i) => (i === index ? { ...r, quantity: e.target.value } : r)))}
+                  />
+                </div>
+                <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
+                  <Button type="button" variant="ghost" onClick={() => setConsumptions((rows) => rows.filter((_, i) => i !== index))}>
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
           <Button
             type="button"
             variant="secondary"
@@ -511,10 +517,13 @@ function NewDsrForm() {
         <Card className="mb-4">
           <h2 className="mb-3 text-card-title text-ink-900">RMC used</h2>
           {rmcEntries.map((row, index) => (
-            <div key={row.clientGeneratedId} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
+            <div
+              key={row.clientGeneratedId}
+              className="mb-3 grid grid-cols-1 gap-x-3 border-b border-border-hairline sm:grid-cols-12 sm:items-start"
+            >
               <ComboboxField
                 label="Vendor"
-                className="min-w-48 flex-1"
+                className="sm:col-span-4"
                 options={reference.vendorOptions}
                 value={row.vendorId}
                 onValueChange={(value) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vendorId: value } : r)))}
@@ -522,26 +531,36 @@ function NewDsrForm() {
                 placeholder="Type a Vendor name…"
                 emptyMessage={reference.loadFailed ? "Couldn't load Vendors — check your connection" : "No matching Vendor"}
               />
-              <TextField
-                label="Quantity (m³)"
-                type="number"
-                value={row.quantityM3}
-                onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, quantityM3: e.target.value } : r)))}
-              />
-              <TextField
-                label="Grade"
-                placeholder="e.g. M20, M25"
-                value={row.grade}
-                onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, grade: e.target.value } : r)))}
-              />
-              <AmountField
-                label="Rate per m³"
-                value={row.ratePerM3}
-                onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, ratePerM3: e.target.value } : r)))}
-              />
-              <Button type="button" variant="ghost" onClick={() => setRmcEntries((rows) => rows.filter((_, i) => i !== index))}>
-                Remove
-              </Button>
+              <div className="sm:col-span-2">
+                <TextField
+                  label="Quantity (m³)"
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={row.quantityM3}
+                  onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, quantityM3: e.target.value } : r)))}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <TextField
+                  label="Grade"
+                  placeholder="e.g. M20, M25"
+                  value={row.grade}
+                  onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, grade: e.target.value } : r)))}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <AmountField
+                  label="Rate per m³"
+                  value={row.ratePerM3}
+                  onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, ratePerM3: e.target.value } : r)))}
+                />
+              </div>
+              <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
+                <Button type="button" variant="ghost" onClick={() => setRmcEntries((rows) => rows.filter((_, i) => i !== index))}>
+                  Remove
+                </Button>
+              </div>
             </div>
           ))}
           <Button
@@ -562,10 +581,13 @@ function NewDsrForm() {
         <Card className="mb-4">
           <h2 className="mb-3 text-card-title text-ink-900">Expenses</h2>
           {expenses.map((row, index) => (
-            <div key={row.clientGeneratedId} className="mb-3 flex flex-wrap items-end gap-2 border-b border-border-hairline pb-3">
+            <div
+              key={row.clientGeneratedId}
+              className="mb-3 grid grid-cols-1 gap-x-3 border-b border-border-hairline sm:grid-cols-12 sm:items-start"
+            >
               <ComboboxField
                 label="Category"
-                className="min-w-48 flex-1"
+                className="sm:col-span-4"
                 options={reference.expenseCategoryOptions}
                 value={row.categoryId}
                 onValueChange={(value) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, categoryId: value } : r)))}
@@ -573,20 +595,26 @@ function NewDsrForm() {
                 placeholder="Type a Category…"
                 emptyMessage={reference.loadFailed ? "Couldn't load Categories — check your connection" : "No matching Category"}
               />
-              <AmountField
-                label="Amount"
-                value={row.amount}
-                onChange={(e) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, amount: e.target.value } : r)))}
-              />
-              <TextField
-                label="Description"
-                hint="Optional"
-                value={row.description}
-                onChange={(e) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, description: e.target.value } : r)))}
-              />
-              <Button type="button" variant="ghost" onClick={() => setExpenses((rows) => rows.filter((_, i) => i !== index))}>
-                Remove
-              </Button>
+              <div className="sm:col-span-3">
+                <AmountField
+                  label="Amount"
+                  value={row.amount}
+                  onChange={(e) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, amount: e.target.value } : r)))}
+                />
+              </div>
+              <div className="sm:col-span-3">
+                <TextField
+                  label="Description"
+                  hint="Optional"
+                  value={row.description}
+                  onChange={(e) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, description: e.target.value } : r)))}
+                />
+              </div>
+              <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
+                <Button type="button" variant="ghost" onClick={() => setExpenses((rows) => rows.filter((_, i) => i !== index))}>
+                  Remove
+                </Button>
+              </div>
             </div>
           ))}
           <Button

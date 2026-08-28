@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import NewConsumptionPage from "./page";
 
@@ -39,7 +40,12 @@ describe("NewConsumptionPage", () => {
 
     await renderNewConsumptionPage();
 
-    expect(screen.getByRole("option", { name: "RCC Pipe (600mm)" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Sector 12 Metro Depot" })).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    const materialPicker = screen.getByLabelText("Material / Size");
+    expect(materialPicker).toHaveAttribute("role", "combobox");
+    await user.type(materialPicker, "rcc");
+    expect(await screen.findByText("RCC Pipe (600mm)")).toBeInTheDocument();
   });
 });

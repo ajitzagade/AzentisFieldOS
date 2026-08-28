@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { BoxIcon, Button, Card, FilterIcon, LayersIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { BoxIcon, Button, Card, ComboboxField, FilterIcon, LayersIcon, PlusIcon, TextField } from "@azentisfieldos/ui";
 import { createMaterialAction, type CreateMaterialFormState } from "./actions";
 
 interface Option {
@@ -25,6 +25,8 @@ const initialState: CreateMaterialFormState = {};
 
 export function NewMaterialForm({ categories, units }: { categories: Option[]; units: Option[] }) {
   const [state, formAction] = useActionState(createMaterialAction, initialState);
+  const [categoryId, setCategoryId] = useState("");
+  const [unitId, setUnitId] = useState("");
 
   // AC (Task 4): a Material can't be created without an existing Category
   // and Unit to attach it to — guide the admin to create one first instead
@@ -67,25 +69,31 @@ export function NewMaterialForm({ categories, units }: { categories: Option[]; u
           placeholder="e.g. OPC 53 Cement"
           error={state.errors?.name?.[0]}
         />
-        <SelectField
+        <ComboboxField
           label="Category"
-          name="categoryId"
           required
-          defaultValue=""
           icon={<FilterIcon className="size-4" />}
-          options={[{ value: "", label: "Select a Category" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
+          options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          value={categoryId || null}
+          onValueChange={(value) => setCategoryId(value ?? "")}
+          placeholder="Type a Category…"
+          emptyMessage="No matching Category"
           error={state.errors?.categoryId?.[0]}
         />
-        <SelectField
+        <input type="hidden" name="categoryId" value={categoryId} />
+        <ComboboxField
           label="Unit"
-          name="unitId"
           required
-          defaultValue=""
           icon={<BoxIcon className="size-4" />}
           hint="How this Material is counted — bags, tons, cubic metres..."
-          options={[{ value: "", label: "Select a Unit" }, ...units.map((u) => ({ value: u.id, label: u.name }))]}
+          options={units.map((u) => ({ value: u.id, label: u.name }))}
+          value={unitId || null}
+          onValueChange={(value) => setUnitId(value ?? "")}
+          placeholder="Type a Unit…"
+          emptyMessage="No matching Unit"
           error={state.errors?.unitId?.[0]}
         />
+        <input type="hidden" name="unitId" value={unitId} />
 
         {state.formError ? (
           <p role="alert" className="mb-4 text-caption text-danger-700">

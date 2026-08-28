@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -45,7 +46,9 @@ describe("NewWorkRecordPage", () => {
 
     await renderNewWorkRecordPage();
 
-    expect(screen.getByRole("option", { name: "Ravi Kumar" })).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Open Add Team Member options" }));
+    expect(await screen.findByRole("option", { name: "Ravi Kumar" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Old Member" })).not.toBeInTheDocument();
   });
 });

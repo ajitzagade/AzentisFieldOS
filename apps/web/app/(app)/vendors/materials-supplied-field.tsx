@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type KeyboardEvent } from "react";
+import { useId, useState, type KeyboardEvent } from "react";
 import { cn } from "@azentisfieldos/ui";
 
 // A small, self-contained tag input — not promoted to packages/ui since
@@ -14,6 +14,7 @@ export interface MaterialsSuppliedFieldProps {
 }
 
 export function MaterialsSuppliedField({ name, defaultValue = [], error }: MaterialsSuppliedFieldProps) {
+  const inputId = useId();
   const [tags, setTags] = useState<string[]>(defaultValue);
   const [draft, setDraft] = useState("");
 
@@ -40,7 +41,9 @@ export function MaterialsSuppliedField({ name, defaultValue = [], error }: Mater
 
   return (
     <div className="mb-4">
-      <label className="mb-1 block text-caption font-semibold text-ink-700">Materials / services supplied</label>
+      <label htmlFor={inputId} className="mb-1 block text-caption font-semibold text-ink-700">
+        Materials / services supplied
+      </label>
       <div
         className={cn(
           "flex flex-wrap items-center gap-1.5 rounded-md border border-border-strong bg-surface-1 px-3 py-2 focus-within:border-accent-teal-700 focus-within:outline-none focus-within:ring-3 focus-within:ring-accent-teal-100",
@@ -65,6 +68,7 @@ export function MaterialsSuppliedField({ name, defaultValue = [], error }: Mater
           </span>
         ))}
         <input
+          id={inputId}
           type="text"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}

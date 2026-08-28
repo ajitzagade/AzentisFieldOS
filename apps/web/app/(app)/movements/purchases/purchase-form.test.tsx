@@ -18,7 +18,7 @@ describe("PurchaseForm", () => {
 
     expect(screen.getByLabelText("Vendor")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Shree Balaji Traders" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Cement (OPC 53 Grade)" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Material / Size")).toHaveAttribute("role", "combobox");
     expect(screen.getByLabelText("Quantity")).toBeInTheDocument();
     expect(screen.queryByLabelText("Site")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Record Purchase" })).toBeInTheDocument();

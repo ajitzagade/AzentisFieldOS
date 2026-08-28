@@ -49,7 +49,8 @@ describe("PaymentForm", () => {
 
     expect(screen.queryByLabelText("Advance")).not.toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText("Team Member"), "tm1");
+    await user.type(screen.getByLabelText("Team Member"), "ravi");
+    await user.click(await screen.findByRole("option", { name: /Ravi Kumar/ }));
     await user.click(screen.getByLabelText("Include an Advance Adjustment"));
 
     expect(screen.getByLabelText("Advance")).toBeInTheDocument();
@@ -63,7 +64,8 @@ describe("PaymentForm", () => {
     render(<PaymentForm mode="new" teamMembers={teamMembers} advances={advances} />);
 
     await user.type(screen.getByLabelText("Base Pay"), "15000");
-    await user.selectOptions(screen.getByLabelText("Team Member"), "tm1");
+    await user.type(screen.getByLabelText("Team Member"), "ravi");
+    await user.click(await screen.findByRole("option", { name: /Ravi Kumar/ }));
     await user.click(screen.getByLabelText("Include an Advance Adjustment"));
     await user.type(screen.getByLabelText("Adjustment Amount"), "3000");
 

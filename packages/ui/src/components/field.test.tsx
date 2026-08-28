@@ -25,6 +25,16 @@ describe("TextField", () => {
     render(<TextField label="Name" hint="A hint" error="An error" />);
     expect(screen.queryByText("A hint")).not.toBeInTheDocument();
   });
+
+  it("colors a toned hint and politely announces the danger tone", () => {
+    const { rerender } = render(<TextField label="Quantity" hint="80 Bag available" hintTone="positive" />);
+    expect(screen.getByText("80 Bag available")).toHaveClass("text-success-700");
+
+    rerender(<TextField label="Quantity" hint="Exceeds available stock" hintTone="danger" />);
+    const hint = screen.getByText("Exceeds available stock");
+    expect(hint).toHaveClass("text-danger-700");
+    expect(hint).toHaveAttribute("role", "status");
+  });
 });
 
 describe("SelectField", () => {

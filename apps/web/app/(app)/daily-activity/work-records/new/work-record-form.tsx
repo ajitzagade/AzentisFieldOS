@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Badge, Button, CalendarIcon, Card, CheckCircleIcon, MapPinIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { Badge, Button, CalendarIcon, Card, CheckCircleIcon, ComboboxField, MapPinIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { useAuthedFetch } from "../../../../../lib/use-authed-fetch";
 
 interface SiteOption {
@@ -34,9 +34,13 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
   const [siteId, setSiteId] = useState("");
   const [workDate, setWorkDate] = useState(todayDate());
   const [crew, setCrew] = useState<CrewRow[]>([]);
-  const [newMemberId, setNewMemberId] = useState("");
+  const [newMemberId, setNewMemberId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [crewFetchError, setCrewFetchError] = useState(false);
+  // Derived, not a second state cell: loading whenever a Site+Date pair is
+  // chosen and the crew we hold isn't for that pair yet.
+  const [crewFetchedFor, setCrewFetchedFor] = useState<string | null>(null);
+  const crewLoading = Boolean(siteId && workDate) && crewFetchedFor !== `${siteId}|${workDate}`;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // AC #2: defaulted from the most recent prior date this Site had any
@@ -58,11 +62,13 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
         if (cancelled) return;
         setCrew(defaults.map((d) => ({ teamMemberId: d.teamMemberId, name: d.name, attended: true, hours: "", overtimeHours: "" })));
         setCrewFetchError(false);
+        setCrewFetchedFor(`${siteId}|${workDate}`);
       })
       .catch(() => {
         if (cancelled) return;
         setCrew([]);
         setCrewFetchError(true);
+        setCrewFetchedFor(`${siteId}|${workDate}`);
       });
     return () => {
       cancelled = true;
@@ -81,7 +87,7 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
     const member = teamMembers.find((t) => t.id === newMemberId);
     if (!member || crew.some((r) => r.teamMemberId === member.id)) return;
     setCrew((rows) => [...rows, { teamMemberId: member.id, name: member.name, attended: true, hours: "", overtimeHours: "" }]);
-    setNewMemberId("");
+    setNewMemberId(null);
   }
 
   const availableToAdd = teamMembers.filter((t) => !crew.some((r) => r.teamMemberId === t.id));
@@ -142,12 +148,17 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
 
       <Card className="mb-4">
         <h2 className="mb-3 text-card-title text-ink-900">Labour present</h2>
-        {crew.length === 0 && crewFetchError ? (
+        {crewLoading ? (
+          <p role="status" className="mb-3 text-body-sm text-ink-500">
+            Loading the crew who last worked at this Site…
+          </p>
+        ) : null}
+        {!crewLoading && crew.length === 0 && crewFetchError ? (
           <p role="alert" className="mb-3 text-body-sm text-danger-700">
             Couldn&apos;t load the default crew for this Site and Date. You can still add Team Members below.
           </p>
         ) : null}
-        {crew.length === 0 && !crewFetchError ? (
+        {!crewLoading && crew.length === 0 && !crewFetchError ? (
           <p className="mb-3 text-body-sm text-ink-500">No crew defaulted yet — select a Site and Date, or add a Team Member below.</p>
         ) : null}
         <ul className="mb-3 flex flex-col gap-2">
@@ -191,16 +202,18 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
             </li>
           ))}
         </ul>
-        <div className="flex items-end gap-2">
-          <SelectField
+        <div className="flex items-start gap-2">
+          <ComboboxField
             label="Add Team Member"
             icon={<UserIcon className="size-4" />}
             value={newMemberId}
-            onChange={(e) => setNewMemberId(e.target.value)}
-            options={[{ value: "", label: "Select a Team Member" }, ...availableToAdd.map((t) => ({ value: t.id, label: t.name }))]}
+            onValueChange={setNewMemberId}
+            options={availableToAdd.map((t) => ({ value: t.id, label: t.name }))}
+            placeholder="Type a name…"
+            emptyMessage="No matching Team Member"
             className="flex-1"
           />
-          <Button type="button" variant="secondary" onClick={addCrewMember}>
+          <Button type="button" variant="secondary" onClick={addCrewMember} className="mt-6">
             <PlusIcon className="size-4" />
             Add
           </Button>

@@ -46,7 +46,7 @@ export function SizesSection({ materialId, sizes }: { materialId: string; sizes:
         </div>
       )}
 
-      <form ref={formRef} action={formAction} noValidate className="flex items-end gap-2">
+      <form ref={formRef} action={formAction} noValidate className="flex items-start gap-2">
         <div className="flex-1">
           <TextField
             label="New Size / Specification"
@@ -58,7 +58,9 @@ export function SizesSection({ materialId, sizes }: { materialId: string; sizes:
             error={state.errors?.label?.[0]}
           />
         </div>
-        <SubmitButton />
+        <div className="mt-6">
+          <SubmitButton />
+        </div>
       </form>
       {state.formError ? (
         <p role="alert" className="mt-2 text-caption text-danger-700">

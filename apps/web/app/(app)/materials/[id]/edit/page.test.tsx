@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const notFoundMock = vi.hoisted(() =>
@@ -91,6 +92,11 @@ describe("EditMaterialPage", () => {
 
     await renderEditPage("mat-1");
 
-    expect(screen.getByRole("option", { name: "Discontinued Category" })).toBeInTheDocument();
+    // Its name renders as the picker's current value, and it stays a
+    // pickable option in the open list.
+    expect(screen.getByLabelText("Category")).toHaveValue("Discontinued Category");
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Open Category options" }));
+    expect(await screen.findByRole("option", { name: /Discontinued Category/ })).toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import NewMovementPage from "./page";
 
@@ -39,7 +40,12 @@ describe("NewMovementPage", () => {
 
     await renderNewMovementPage();
 
-    expect(screen.getByRole("option", { name: "TMT Steel (12mm)" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "NH-48 Highway Widening" })).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    const materialPicker = screen.getByLabelText("Material / Size");
+    expect(materialPicker).toHaveAttribute("role", "combobox");
+    await user.type(materialPicker, "tmt");
+    expect(await screen.findByText("TMT Steel (12mm)")).toBeInTheDocument();
   });
 });

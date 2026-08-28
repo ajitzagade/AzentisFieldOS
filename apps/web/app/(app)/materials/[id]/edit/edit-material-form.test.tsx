@@ -25,8 +25,10 @@ describe("EditMaterialForm", () => {
     render(<EditMaterialForm material={material} categories={[{ id: "c1", name: "Pipes & Fittings" }]} units={[{ id: "u1", name: "Pcs" }]} />);
 
     expect(screen.getByLabelText("Name")).toHaveValue("RCC Pipe");
-    expect(screen.getByLabelText("Category")).toHaveValue("c1");
-    expect(screen.getByLabelText("Unit")).toHaveValue("u1");
+    // The Category/Unit comboboxes display names; the ids travel in hidden
+    // form inputs.
+    expect(screen.getByLabelText("Category")).toHaveValue("Pipes & Fittings");
+    expect(screen.getByLabelText("Unit")).toHaveValue("Pcs");
     expect(screen.getByLabelText(/Active/)).toBeChecked();
   });
 

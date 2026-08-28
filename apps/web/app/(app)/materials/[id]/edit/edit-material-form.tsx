@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Badge, BoxIcon, Button, Card, CheckCircleIcon, FilterIcon, HashIcon, LayersIcon, PencilIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { Badge, BoxIcon, Button, Card, CheckCircleIcon, ComboboxField, FilterIcon, HashIcon, LayersIcon, PencilIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import type { CustomFieldDefinition, CustomFieldType } from "@azentisfieldos/shared";
 import { updateMaterialAction, type UpdateMaterialFormState } from "./actions";
 import type { MaterialDetail } from "./page";
@@ -44,6 +44,8 @@ export function EditMaterialForm({
 }) {
   const [state, formAction] = useActionState(updateMaterialAction.bind(null, material.id), initialState);
   const [isActive, setIsActive] = useState(material.isActive);
+  const [categoryId, setCategoryId] = useState(material.category.id);
+  const [unitId, setUnitId] = useState(material.unit.id);
 
   // FR-7: Custom Fields are edited via this same Material PATCH, not a
   // separate endpoint (unlike Sizes) — staged locally and submitted as one
@@ -71,24 +73,30 @@ export function EditMaterialForm({
           defaultValue={material.name}
           error={state.errors?.name?.[0]}
         />
-        <SelectField
+        <ComboboxField
           label="Category"
-          name="categoryId"
           required
-          defaultValue={material.category.id}
           icon={<FilterIcon className="size-4" />}
           options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          value={categoryId || null}
+          onValueChange={(value) => setCategoryId(value ?? "")}
+          placeholder="Type a Category…"
+          emptyMessage="No matching Category"
           error={state.errors?.categoryId?.[0]}
         />
-        <SelectField
+        <input type="hidden" name="categoryId" value={categoryId} />
+        <ComboboxField
           label="Unit"
-          name="unitId"
           required
-          defaultValue={material.unit.id}
           icon={<BoxIcon className="size-4" />}
           options={units.map((u) => ({ value: u.id, label: u.name }))}
+          value={unitId || null}
+          onValueChange={(value) => setUnitId(value ?? "")}
+          placeholder="Type a Unit…"
+          emptyMessage="No matching Unit"
           error={state.errors?.unitId?.[0]}
         />
+        <input type="hidden" name="unitId" value={unitId} />
         <TextField
           label="Low-stock threshold"
           name="lowStockThreshold"
@@ -130,7 +138,7 @@ export function EditMaterialForm({
             </ul>
           )}
           <input type="hidden" name="customFields" value={JSON.stringify(customFields)} />
-          <div className="flex items-end gap-2">
+          <div className="flex items-start gap-2">
             <div className="flex-1">
               <TextField
                 label="New field label"
@@ -147,7 +155,7 @@ export function EditMaterialForm({
               onChange={(e) => setNewType(e.target.value as CustomFieldType)}
               options={CUSTOM_FIELD_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
             />
-            <Button type="button" variant="secondary" onClick={addCustomField}>
+            <Button type="button" variant="secondary" onClick={addCustomField} className="mt-6">
               <PlusIcon className="size-4" />
               Add
             </Button>

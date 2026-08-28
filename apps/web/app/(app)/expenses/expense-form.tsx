@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ConfirmDialog,
@@ -12,6 +12,7 @@ import {
   CalendarIcon,
   Card,
   CheckCircleIcon,
+  ComboboxField,
   LayersIcon,
   MapPinIcon,
   PencilIcon,
@@ -79,6 +80,7 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
+  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
 
   return (
     <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
@@ -110,21 +112,20 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
         />
         {mode === "correct" ? <input type="hidden" name="siteId" value={initial?.siteId} /> : null}
 
-        <SelectField
+        <ComboboxField
           label="Category"
-          name="categoryId"
           required
           icon={<LayersIcon className="size-4" />}
           disabled={mode === "correct"}
-          defaultValue={initial?.categoryId ?? ""}
+          options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          value={categoryId || null}
+          onValueChange={(value) => setCategoryId(value ?? "")}
+          placeholder="Type a Category…"
           hint={mode === "correct" ? undefined : "e.g. Fuel for diesel/petrol, Site Expenses for miscellaneous"}
-          options={[
-            { value: "", label: "Select a Category" },
-            ...categories.map((c) => ({ value: c.id, label: c.name })),
-          ]}
+          emptyMessage="No matching Category"
           error={state.errors?.categoryId?.[0]}
         />
-        {mode === "correct" ? <input type="hidden" name="categoryId" value={initial?.categoryId} /> : null}
+        <input type="hidden" name="categoryId" value={categoryId} />
       </Card>
 
       <Card className="mb-4">

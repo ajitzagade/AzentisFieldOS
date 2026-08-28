@@ -120,9 +120,13 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
   }, [navOpen]);
 
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row">
-      {/* Desktop rail — shown from lg up. */}
-      <aside className="hidden min-h-screen w-62 shrink-0 flex-col gap-1 bg-accent-navy-800 px-4 py-6 text-ink-on-accent lg:flex">
+    <div className="flex min-h-screen flex-col lg:h-screen lg:flex-row lg:overflow-hidden">
+      {/* Desktop rail — shown from lg up. The shell pins it to the viewport
+          (lg:h-screen + lg:overflow-hidden on the root) and each pane scrolls
+          on its own: the rail keeps its full nav reachable however long the
+          page content is, and the content scrolls without carrying the rail
+          off-screen. */}
+      <aside className="hidden w-62 shrink-0 flex-col gap-1 overflow-y-auto bg-accent-navy-800 px-4 py-6 text-ink-on-accent lg:flex">
         <SidebarNav pathname={pathname} role={role} />
       </aside>
 
@@ -170,7 +174,9 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
         </div>
       ) : null}
 
-      <main className="max-w-310 flex-1 px-4 py-6 lg:px-10 lg:py-8">{children}</main>
+      <main className="flex-1 px-4 py-6 lg:overflow-y-auto lg:px-10 lg:py-8">
+        <div className="max-w-310">{children}</div>
+      </main>
     </div>
   );
 }

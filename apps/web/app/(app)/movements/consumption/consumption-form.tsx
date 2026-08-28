@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   Button,
@@ -8,6 +8,7 @@ import {
   Card,
   CheckCircleIcon,
   ClipboardIcon,
+  ComboboxField,
   ConfirmDialog,
   ConfirmDialogRow,
   HashIcon,
@@ -19,7 +20,7 @@ import {
   TextField,
   useSubmitConfirmation,
 } from "@azentisfieldos/ui";
-import { formatAvailableStock, useSiteStock } from "../../../../lib/use-site-stock";
+import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { createConsumptionAction, type CreateConsumptionFormState } from "./actions";
 
 interface MaterialSizeOption {
@@ -80,6 +81,23 @@ export function ConsumptionForm({
   const [reason, setReason] = useState("");
   const siteStock = useSiteStock(selectedSiteId || null);
 
+  // Availability is shown inside the picker options while searching and as
+  // a hint once chosen; typing a quantity beyond the balance flips the hint
+  // to a warning before submit (FR-14). Corrections are signed deltas, so
+  // the overdraw comparison only applies to new entries.
+  const materialOptions = useMemo(() => {
+    const base = materialSizes.map((m) => ({ value: m.id, label: m.label }));
+    return selectedSiteId ? withStockMeta(base, siteStock) : base;
+  }, [materialSizes, selectedSiteId, siteStock]);
+  const stock = selectedSiteId
+    ? stockStatus({
+        stock: siteStock,
+        materialSizeId: selectedMaterialSizeId || null,
+        quantity: mode === "new" ? quantity : undefined,
+        location: "this Site",
+      })
+    : undefined;
+
   // A correction is append-only and cannot be deleted (FR-54) — hold the
   // submission and have the user re-verify the entered details first.
   const confirmation = useSubmitConfirmation();
@@ -125,23 +143,21 @@ export function ConsumptionForm({
         />
         {mode === "correct" ? <input type="hidden" name="siteId" value={initial?.siteId} /> : null}
 
-        <SelectField
+        <ComboboxField
           label="Material / Size"
-          name="materialSizeId"
           required
           icon={<LayersIcon className="size-4" />}
           disabled={mode === "correct"}
-          defaultValue={initial?.materialSizeId ?? ""}
-          onChange={(e) => setSelectedMaterialSizeId(e.target.value)}
-          options={[{ value: "", label: "Select a Material" }, ...materialSizes.map((m) => ({ value: m.id, label: m.label }))]}
-          hint={
-            selectedSiteId && selectedMaterialSizeId
-              ? formatAvailableStock(siteStock.bySizeId.get(selectedMaterialSizeId))
-              : undefined
-          }
+          options={materialOptions}
+          value={selectedMaterialSizeId || null}
+          onValueChange={(value) => setSelectedMaterialSizeId(value ?? "")}
+          placeholder="Type a Material name…"
+          hint={stock?.text ?? (selectedMaterialSizeId ? undefined : "Pick a Site to see its available stock")}
+          hintTone={stock?.tone}
+          emptyMessage="No matching Material"
           error={state.errors?.materialSizeId?.[0]}
         />
-        {mode === "correct" ? <input type="hidden" name="materialSizeId" value={initial?.materialSizeId} /> : null}
+        <input type="hidden" name="materialSizeId" value={selectedMaterialSizeId} />
       </Card>
 
       <Card className="mb-4">
@@ -153,7 +169,14 @@ export function ConsumptionForm({
           required
           icon={<HashIcon className="size-4" />}
           onChange={(e) => setQuantity(e.target.value)}
-          hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -4." : undefined}
+          hint={
+            mode === "correct"
+              ? "Signed delta applied on top of the current balance — e.g. -4."
+              : stock?.insufficient
+                ? "This quantity exceeds the available Site Stock"
+                : undefined
+          }
+          hintTone={mode === "new" && stock?.insufficient ? "danger" : "default"}
           error={state.errors?.quantity?.[0]}
         />
         <TextField

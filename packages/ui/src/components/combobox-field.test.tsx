@@ -122,4 +122,39 @@ describe("ComboboxField", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0]?.[0]).toMatch(/^id-/);
   });
+
+  it("shows each option's meta (e.g. its stock balance) in the list but never matches it when filtering", async () => {
+    const user = userEvent.setup();
+    const withMeta: ComboboxFieldOption[] = [
+      { value: "id-cement", label: "Cement", meta: "1,200 Bag" },
+      { value: "id-steel", label: "Steel — 12mm", meta: "No stock", metaTone: "warning" },
+    ];
+    render(<ComboboxField label="Material" options={withMeta} value={null} onValueChange={() => {}} />);
+
+    const input = screen.getByLabelText("Material");
+    await user.type(input, "cement");
+    expect(await screen.findByText("1,200 Bag")).toBeInTheDocument();
+    expect(screen.queryByText("Steel — 12mm")).not.toBeInTheDocument();
+
+    // Typing a balance figure is not a name search — it must match nothing.
+    await user.clear(input);
+    await user.type(input, "1,200");
+    expect(await screen.findByText("No matches found")).toBeInTheDocument();
+  });
+
+  it("colors the hint by tone and politely announces a danger-toned hint", () => {
+    render(
+      <ComboboxField
+        label="Material"
+        options={OPTIONS}
+        value={null}
+        onValueChange={() => {}}
+        hint="Insufficient stock — only 80 Bag available"
+        hintTone="danger"
+      />,
+    );
+    const hint = screen.getByText("Insufficient stock — only 80 Bag available");
+    expect(hint).toHaveClass("text-danger-700");
+    expect(hint).toHaveAttribute("role", "status");
+  });
 });

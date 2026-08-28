@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ConfirmDialog,
@@ -13,6 +13,7 @@ import {
   CalendarIcon,
   Card,
   CheckCircleIcon,
+  ComboboxField,
   FilterIcon,
   HashIcon,
   LayersIcon,
@@ -25,6 +26,7 @@ import {
   UserIcon,
   WalletIcon,
 } from "@azentisfieldos/ui";
+import { stockStatus, useStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { createPurchaseAction, type CreatePurchaseFormState } from "./actions";
 
 interface MaterialSizeOption {
@@ -94,6 +96,24 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
   const confirmation = useSubmitConfirmation();
   const [destination, setDestination] = useState<"GODOWN" | "SITE">(fixedDestination ?? initial?.destination ?? "GODOWN");
 
+  // A Purchase adds stock, so no overdraw warning applies — but the current
+  // balance at the destination is still shown inside the picker options and
+  // under the chosen Material, purely for context (FR-14).
+  const [materialSizeId, setMaterialSizeId] = useState(initial?.materialSizeId ?? "");
+  const [siteId, setSiteId] = useState(initial?.siteId ?? "");
+  const destinationLocation = destination === "GODOWN" ? "the Godown" : "this Site";
+  const destinationStock = useStock(
+    destination === "GODOWN" ? { kind: "godown" } : siteId ? { kind: "site", siteId } : null,
+  );
+  const destinationKnown = destination === "GODOWN" || Boolean(siteId);
+  const materialOptions = useMemo(() => {
+    const base = materialSizes.map((m) => ({ value: m.id, label: m.label }));
+    return destinationKnown ? withStockMeta(base, destinationStock) : base;
+  }, [materialSizes, destinationKnown, destinationStock]);
+  const stock = destinationKnown
+    ? stockStatus({ stock: destinationStock, materialSizeId: materialSizeId || null, location: destinationLocation })
+    : undefined;
+
   return (
     <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
       {mode === "correct" ? (
@@ -124,17 +144,21 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
         />
         {mode === "correct" ? <input type="hidden" name="vendorId" value={initial?.vendorId} /> : null}
 
-        <SelectField
+        <ComboboxField
           label="Material / Size"
-          name="materialSizeId"
           required
           icon={<LayersIcon className="size-4" />}
           disabled={mode === "correct"}
-          defaultValue={initial?.materialSizeId ?? ""}
-          options={[{ value: "", label: "Select a Material" }, ...materialSizes.map((m) => ({ value: m.id, label: m.label }))]}
+          options={materialOptions}
+          value={materialSizeId || null}
+          onValueChange={(value) => setMaterialSizeId(value ?? "")}
+          placeholder="Type a Material name…"
+          hint={stock?.text}
+          hintTone={stock?.tone}
+          emptyMessage="No matching Material"
           error={state.errors?.materialSizeId?.[0]}
         />
-        {mode === "correct" ? <input type="hidden" name="materialSizeId" value={initial?.materialSizeId} /> : null}
+        <input type="hidden" name="materialSizeId" value={materialSizeId} />
 
         {fixedDestination ? (
           <input type="hidden" name="destination" value={fixedDestination} />
@@ -164,7 +188,8 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
               required
               icon={<MapPinIcon className="size-4" />}
               disabled={mode === "correct"}
-              defaultValue={initial?.siteId ?? ""}
+              value={siteId}
+              onChange={(e) => setSiteId(e.target.value)}
               options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
               error={state.errors?.siteId?.[0]}
             />

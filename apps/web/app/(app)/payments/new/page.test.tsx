@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../actions", () => ({
@@ -45,6 +46,8 @@ describe("NewPaymentPage", () => {
     await renderNewPaymentPage();
 
     expect(screen.getByRole("heading", { name: "Record Payment" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Ravi Kumar" })).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Team Member"), "ravi");
+    expect(await screen.findByRole("option", { name: /Ravi Kumar/ })).toBeInTheDocument();
   });
 });

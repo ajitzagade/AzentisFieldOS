@@ -17,7 +17,7 @@ describe("ExpenseForm", () => {
     expect(screen.getByLabelText("Site")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "NH-48 Highway Widening" })).toBeInTheDocument();
     expect(screen.getByLabelText("Category")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Fuel" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Category")).toHaveAttribute("role", "combobox");
     expect(screen.getByLabelText("Amount")).toBeInTheDocument();
     expect(screen.getByLabelText("Date")).toBeInTheDocument();
     expect(screen.getByLabelText("Payment Method")).toBeInTheDocument();

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import NewReturnWastagePage from "./page";
 
@@ -39,6 +40,10 @@ describe("NewReturnWastagePage", () => {
 
     await renderPage();
 
-    expect(screen.getByRole("option", { name: "Aggregate (20mm)" })).toBeInTheDocument();
+    const user = userEvent.setup();
+    const materialPicker = screen.getByLabelText("Material / Size");
+    expect(materialPicker).toHaveAttribute("role", "combobox");
+    await user.type(materialPicker, "aggregate");
+    expect(await screen.findByText("Aggregate (20mm)")).toBeInTheDocument();
   });
 });

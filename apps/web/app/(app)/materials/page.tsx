@@ -1,7 +1,8 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
-import { Badge, DataTable, LayersIcon, PencilIcon, PlusIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
+import { PlusIcon, buttonVariants, cn } from "@azentisfieldos/ui";
 import type { CustomFieldDefinition } from "@azentisfieldos/shared";
+import { MaterialsTaxonomy, type TaxonomyCategory, type TaxonomyUnit } from "./materials-taxonomy";
 
 export interface MaterialListItem {
   id: string;
@@ -24,92 +25,46 @@ async function getMaterials(): Promise<MaterialListItem[]> {
   return res.json();
 }
 
-function customFieldsCount(customFields: unknown): number {
-  return Array.isArray(customFields) ? customFields.length : 0;
+async function getCategories(): Promise<TaxonomyCategory[]> {
+  const res = await authedFetch(`/material-categories`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load Material Categories (${res.status})`);
+  }
+  return res.json();
 }
 
-const columns: DataTableColumn<MaterialListItem>[] = [
-  { header: "Category", cell: (m) => m.category.name },
-  {
-    header: "Material",
-    cell: (m) => (
-      <span className="flex items-center gap-2 font-semibold">
-        {m.name}
-        {!m.isActive ? <Badge variant="neutral">Disabled</Badge> : null}
-      </span>
-    ),
-  },
-  {
-    header: "Sizes / Specifications",
-    cell: (m) =>
-      m.sizes.length === 0 ? (
-        <span className="text-ink-500">—</span>
-      ) : (
-        <div className="flex flex-wrap gap-1">
-          {m.sizes.map((size) => (
-            <span key={size.id} className="rounded-full bg-surface-3 px-2 py-0.5 text-caption font-semibold text-ink-700">
-              {size.label}
-            </span>
-          ))}
-        </div>
-      ),
-  },
-  { header: "Unit", cell: (m) => m.unit.name },
-  { header: "Custom Fields", align: "right", cell: (m) => customFieldsCount(m.customFields) },
-  {
-    header: "",
-    cell: (m) => (
-      <Link href={`/materials/${m.id}/edit`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-        <PencilIcon className="size-4" />
-        Edit
-      </Link>
-    ),
-  },
-];
+async function getUnits(): Promise<TaxonomyUnit[]> {
+  const res = await authedFetch(`/units`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load Units (${res.status})`);
+  }
+  return res.json();
+}
 
 export default async function MaterialsPage() {
-  const materials = await getMaterials();
+  const [materials, categories, units] = await Promise.all([getMaterials(), getCategories(), getUnits()]);
 
   return (
     <>
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-page-title text-ink-900">Materials</h1>
-          <p className="text-body-sm text-ink-500">Your material catalog — Categories, Materials, Sizes, and Units</p>
+          <p className="text-body-sm text-ink-500">
+            Configure Categories and their Materials — used throughout Purchases, Movements, Consumption, and DSRs
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/materials/categories" className={cn(buttonVariants({ variant: "secondary" }))}>
-            Categories
-          </Link>
           <Link href="/materials/units" className={cn(buttonVariants({ variant: "secondary" }))}>
             Units
           </Link>
-          <Link href="/materials/new" className={cn(buttonVariants({ variant: "primary" }))}>
+          <Link href="/materials/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <PlusIcon className="size-4" />
-            Add Material
+            Full Material form
           </Link>
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        rowKey={(m) => m.id}
-        state={
-          materials.length === 0
-            ? {
-                status: "empty",
-                icon: <LayersIcon />,
-                message: "No Materials yet.",
-                action: (
-                  <Link href="/materials/new" className={cn(buttonVariants({ variant: "primary" }))}>
-                    <PlusIcon className="size-4" />
-                    Add your first Material
-                  </Link>
-                ),
-              }
-            : { status: "success", rows: materials }
-        }
-      />
+      <MaterialsTaxonomy initialCategories={categories} initialMaterials={materials} units={units} />
     </>
   );
 }

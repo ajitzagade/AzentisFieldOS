@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import NewPurchasePage from "./page";
 
@@ -48,7 +49,11 @@ describe("NewPurchasePage", () => {
 
     await renderNewPurchasePage();
 
-    expect(screen.getByRole("option", { name: "Cement (OPC 53 Grade)" })).toBeInTheDocument();
+    const user = userEvent.setup();
+    const materialPicker = screen.getByLabelText("Material / Size");
+    expect(materialPicker).toHaveAttribute("role", "combobox");
+    await user.type(materialPicker, "cement");
+    expect(await screen.findByText("Cement (OPC 53 Grade)")).toBeInTheDocument();
   });
 
   it("does not offer a Material with zero Sizes in the picker — it has nothing to purchase", async () => {

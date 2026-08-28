@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, SelectField, TextField, UserIcon, WalletIcon } from "@azentisfieldos/ui";
+import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, ComboboxField, PencilIcon, RotateCcwIcon, SelectField, TextField, UserIcon, WalletIcon } from "@azentisfieldos/ui";
 import { createPaymentAction, type CreatePaymentFormState } from "./actions";
 
 interface TeamMemberOption {
@@ -106,18 +106,19 @@ export function PaymentForm({
       ) : null}
 
       <Card className="mb-4">
-        <SelectField
+        <ComboboxField
           label="Team Member"
-          name="teamMemberId"
           required
           icon={<UserIcon className="size-4" />}
-          disabled={mode === "correct"}
-          value={teamMemberId}
-          onChange={(e) => setTeamMemberId(e.target.value)}
-          options={[{ value: "", label: "Select a Team Member" }, ...teamMembers.map((t) => ({ value: t.id, label: t.name }))]}
+          disabled={mode === "correct" || Boolean(fixedTeamMemberId)}
+          options={teamMembers.map((t) => ({ value: t.id, label: t.name }))}
+          value={teamMemberId || null}
+          onValueChange={(value) => setTeamMemberId(value ?? "")}
+          placeholder="Type a name…"
+          emptyMessage="No matching Team Member"
           error={state.errors?.teamMemberId?.[0]}
         />
-        {mode === "correct" ? <input type="hidden" name="teamMemberId" value={teamMemberId} /> : null}
+        <input type="hidden" name="teamMemberId" value={teamMemberId} />
 
         <AmountField
           label="Base Pay"

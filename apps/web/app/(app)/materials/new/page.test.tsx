@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import NewMaterialPage from "./page";
 
@@ -40,7 +41,9 @@ describe("NewMaterialPage", () => {
 
     await renderNewMaterialPage();
 
-    expect(screen.getByRole("option", { name: "Pipes & Fittings" })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Discontinued Category" })).not.toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Open Category options" }));
+    expect(await screen.findByRole("option", { name: /Pipes & Fittings/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Discontinued Category/ })).not.toBeInTheDocument();
   });
 });

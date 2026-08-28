@@ -74,7 +74,9 @@ describe("CorrectRmcEntryPage", () => {
 
     expect(screen.getByText("Filing a correction")).toBeInTheDocument();
     expect(screen.getByLabelText("Site")).toHaveValue("site1");
-    expect(screen.getByLabelText("Vendor")).toHaveValue("vendor1");
+    // The Vendor combobox displays the Vendor's name; the id travels in the
+    // hidden form input.
+    expect(screen.getByLabelText("Vendor")).toHaveValue("Anand RMC Suppliers");
     expect(screen.getByLabelText("Grade")).toHaveValue("M25");
     expect(screen.getByLabelText("Rate / m³")).toHaveValue(6200);
   });

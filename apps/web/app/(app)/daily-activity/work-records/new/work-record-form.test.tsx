@@ -109,10 +109,12 @@ describe("WorkRecordForm", () => {
     await user.selectOptions(screen.getByLabelText("Site"), "site1");
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
-    await user.selectOptions(screen.getByLabelText("Add Team Member"), "tm2");
+    await user.type(screen.getByLabelText("Add Team Member"), "dinesh");
+    await user.click(await screen.findByRole("option", { name: /Dinesh More/ }));
     await user.click(screen.getByRole("button", { name: "Add" }));
 
     expect(screen.getByText("Dinesh More")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Open Add Team Member options" }));
     expect(screen.queryByRole("option", { name: "Dinesh More" })).not.toBeInTheDocument();
   });
 

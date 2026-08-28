@@ -17,8 +17,8 @@ describe("NewMaterialForm", () => {
     );
 
     expect(screen.getByLabelText("Name")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Pipes & Fittings" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Pcs" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Category")).toHaveAttribute("role", "combobox");
+    expect(screen.getByLabelText("Unit")).toHaveAttribute("role", "combobox");
     expect(screen.getByRole("button", { name: "Create Material" })).toBeInTheDocument();
   });
 

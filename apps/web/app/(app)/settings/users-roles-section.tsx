@@ -146,7 +146,7 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <form onSubmit={handleInvite} noValidate className="grid grid-cols-1 gap-x-5 sm:grid-cols-[1.5fr_1fr_auto] sm:items-end">
+      <form onSubmit={handleInvite} noValidate className="grid grid-cols-1 gap-x-5 sm:grid-cols-[1.5fr_1fr_auto] sm:items-start">
         <TextField
           label="Invite by email"
           type="email"
@@ -168,7 +168,7 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
           onChange={(e) => setRole(e.target.value as Role)}
           error={fieldErrors.role?.[0]}
         />
-        <Button type="submit" isLoading={inviting} className="mb-4">
+        <Button type="submit" isLoading={inviting} className="sm:mt-6">
           <PlusIcon className="size-4" />
           Invite User
         </Button>

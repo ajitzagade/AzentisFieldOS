@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ConfirmDialog,
@@ -11,6 +11,7 @@ import {
   CalendarIcon,
   Card,
   CheckCircleIcon,
+  ComboboxField,
   HashIcon,
   LayersIcon,
   MapPinIcon,
@@ -21,6 +22,7 @@ import {
   TruckIcon,
   UserIcon,
 } from "@azentisfieldos/ui";
+import { stockStatus, useStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { createMovementAction, type CreateMovementFormState } from "./actions";
 
 interface MaterialSizeOption {
@@ -82,6 +84,32 @@ export function MovementForm({
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
 
+  // A Movement drains its source, so availability is read from wherever the
+  // stock leaves: the Godown for GODOWN_TO_SITE, the chosen Source Site for
+  // SITE_TO_SITE (FR-14). Shown inside the picker options while searching,
+  // as a hint once chosen, and as an overdraw warning once a quantity is
+  // typed. Corrections are signed deltas, so no overdraw comparison there.
+  const [materialSizeId, setMaterialSizeId] = useState(initial?.materialSizeId ?? "");
+  const [sourceSiteId, setSourceSiteId] = useState(initial?.sourceSiteId ?? "");
+  const [sentQuantity, setSentQuantity] = useState("");
+  const sourceLocation = kind === "GODOWN_TO_SITE" ? "the Godown" : "the source Site";
+  const sourceStock = useStock(
+    kind === "GODOWN_TO_SITE" ? { kind: "godown" } : sourceSiteId ? { kind: "site", siteId: sourceSiteId } : null,
+  );
+  const sourceKnown = kind === "GODOWN_TO_SITE" || Boolean(sourceSiteId);
+  const materialOptions = useMemo(() => {
+    const base = materialSizes.map((m) => ({ value: m.id, label: m.label }));
+    return sourceKnown ? withStockMeta(base, sourceStock) : base;
+  }, [materialSizes, sourceKnown, sourceStock]);
+  const stock = sourceKnown
+    ? stockStatus({
+        stock: sourceStock,
+        materialSizeId: materialSizeId || null,
+        quantity: mode === "new" ? sentQuantity : undefined,
+        location: sourceLocation,
+      })
+    : undefined;
+
   return (
     <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
       <input type="hidden" name="kind" value={kind} />
@@ -102,18 +130,6 @@ export function MovementForm({
       ) : null}
 
       <Card className="mb-4">
-        <SelectField
-          label="Material / Size"
-          name="materialSizeId"
-          required
-          icon={<LayersIcon className="size-4" />}
-          disabled={mode === "correct"}
-          defaultValue={initial?.materialSizeId ?? ""}
-          options={[{ value: "", label: "Select a Material" }, ...materialSizes.map((m) => ({ value: m.id, label: m.label }))]}
-          error={state.errors?.materialSizeId?.[0]}
-        />
-        {mode === "correct" ? <input type="hidden" name="materialSizeId" value={initial?.materialSizeId} /> : null}
-
         {kind === "SITE_TO_SITE" ? (
           <>
             <SelectField
@@ -122,13 +138,33 @@ export function MovementForm({
               required
               icon={<MapPinIcon className="size-4" />}
               disabled={mode === "correct"}
-              defaultValue={initial?.sourceSiteId ?? ""}
+              value={sourceSiteId}
+              onChange={(e) => setSourceSiteId(e.target.value)}
               options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
               error={state.errors?.sourceSiteId?.[0]}
             />
             {mode === "correct" ? <input type="hidden" name="sourceSiteId" value={initial?.sourceSiteId} /> : null}
           </>
         ) : null}
+
+        <ComboboxField
+          label="Material / Size"
+          required
+          icon={<LayersIcon className="size-4" />}
+          disabled={mode === "correct"}
+          options={materialOptions}
+          value={materialSizeId || null}
+          onValueChange={(value) => setMaterialSizeId(value ?? "")}
+          placeholder="Type a Material name…"
+          hint={
+            stock?.text ??
+            (kind === "SITE_TO_SITE" && !sourceSiteId ? "Pick a Source Site to see its available stock" : undefined)
+          }
+          hintTone={stock?.tone}
+          emptyMessage="No matching Material"
+          error={state.errors?.materialSizeId?.[0]}
+        />
+        <input type="hidden" name="materialSizeId" value={materialSizeId} />
 
         <SelectField
           label="Destination Site"
@@ -151,7 +187,15 @@ export function MovementForm({
           step="any"
           required
           icon={<HashIcon className="size-4" />}
-          hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -20." : undefined}
+          onChange={(e) => setSentQuantity(e.target.value)}
+          hint={
+            mode === "correct"
+              ? "Signed delta applied on top of the current balance — e.g. -20."
+              : stock?.insufficient
+                ? `This quantity exceeds the stock available at ${sourceLocation}`
+                : undefined
+          }
+          hintTone={mode === "new" && stock?.insufficient ? "danger" : "default"}
           error={state.errors?.sentQuantity?.[0]}
         />
         <TextField

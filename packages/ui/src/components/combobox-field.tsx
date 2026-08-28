@@ -3,6 +3,7 @@
 import { type ReactNode, useId, useMemo } from "react";
 import { Combobox } from "@base-ui-components/react/combobox";
 import { cn } from "../lib/cn";
+import { type FieldHintTone, hintToneClass } from "./field";
 import { CheckIcon } from "../icons/check-icon";
 import { ChevronsUpDownIcon } from "../icons/chevrons-up-down-icon";
 import { XIcon } from "../icons/x-icon";
@@ -26,6 +27,13 @@ export interface ComboboxFieldOption {
   label: string;
   /** Secondary context shown under the label, e.g. a unit or vehicle number. */
   description?: string;
+  /**
+   * Live per-option data shown right-aligned in the list, e.g. the option's
+   * current available stock ("1,200 bags"). Not searched by the filter —
+   * typing matches names, not balances.
+   */
+  meta?: string;
+  metaTone?: FieldHintTone;
 }
 
 export interface ComboboxFieldProps {
@@ -36,6 +44,7 @@ export interface ComboboxFieldProps {
   onValueChange: (value: string | null) => void;
   placeholder?: string;
   hint?: string;
+  hintTone?: FieldHintTone;
   error?: string;
   icon?: ReactNode;
   required?: boolean;
@@ -60,6 +69,7 @@ export function ComboboxField({
   onValueChange,
   placeholder = "Type to search…",
   hint,
+  hintTone = "default",
   error,
   icon,
   required,
@@ -146,9 +156,14 @@ export function ComboboxField({
                       <span className="text-body-sm text-ink-900">{option.label}</span>
                       {option.description ? <span className="text-eyebrow text-ink-500">{option.description}</span> : null}
                     </span>
-                    <Combobox.ItemIndicator className="mt-0.5 text-accent-teal-700">
-                      <CheckIcon className="size-4" />
-                    </Combobox.ItemIndicator>
+                    <span className="flex shrink-0 items-center gap-2">
+                      {option.meta ? (
+                        <span className={cn("text-eyebrow", hintToneClass[option.metaTone ?? "default"])}>{option.meta}</span>
+                      ) : null}
+                      <Combobox.ItemIndicator className="mt-0.5 text-accent-teal-700">
+                        <CheckIcon className="size-4" />
+                      </Combobox.ItemIndicator>
+                    </span>
                   </Combobox.Item>
                 )}
               </Combobox.List>
@@ -158,7 +173,11 @@ export function ComboboxField({
       </Combobox.Root>
 
       {hint && !error ? (
-        <p id={hintId} className="mt-1 text-eyebrow text-ink-500">
+        <p
+          id={hintId}
+          role={hintTone === "danger" ? "status" : undefined}
+          className={cn("mt-1 text-eyebrow", hintToneClass[hintTone])}
+        >
           {hint}
         </p>
       ) : null}
