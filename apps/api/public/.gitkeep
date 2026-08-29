@@ -1,0 +1,3 @@
+This directory exists only to satisfy Vercel's default expectation of a
+static output directory; apps/api serves no static files (see
+apps/api/vercel.json — everything rewrites to the api/index.js function).
