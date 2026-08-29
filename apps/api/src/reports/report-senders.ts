@@ -101,7 +101,7 @@ export class ResendEmailSender implements EmailSender {
         'Email delivery not configured (RESEND_API_KEY / REPORT_EMAIL_FROM missing)',
       );
     }
-    const response = await fetch('https://api.resend.com/emails', {
+    const rawResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -114,6 +114,12 @@ export class ResendEmailSender implements EmailSender {
         html: renderReportEmailHtml(content),
       }),
     });
+    // Force-cast rather than rely on fetch()'s inferred Response: Vercel's
+    // own build-time type-check resolves a narrower ambient Response
+    // (missing ok/status) than this repo's own tsconfig does — this
+    // sidesteps that environment difference without changing runtime
+    // behavior (fetch still returns a real Response either way).
+    const response = rawResponse as unknown as { ok: boolean; status: number };
     if (!response.ok) {
       throw new Error(`Resend API responded ${response.status}`);
     }
