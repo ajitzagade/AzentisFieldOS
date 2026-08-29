@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "nest build",
+    "build": "prisma generate --schema ../../infra/prisma/schema.prisma && nest build",
     "dev": "nest build && node -r tsx/cjs dist/src/main.js",
     "start": "nest build && node -r tsx/cjs dist/src/main.js",
     "start:dev": "nest build && node -r tsx/cjs dist/src/main.js",
@@ -49,6 +49,7 @@
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^15.14.0",
     "prettier": "^3.4.2",
+    "prisma": "7.9.1",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
     "tsx": "^4.23.12",
