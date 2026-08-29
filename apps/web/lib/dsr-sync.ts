@@ -14,7 +14,7 @@ import type { AuthedFetch } from "./authed-fetch-core";
 // never surfaced as a failure, since "submitting never fails" from the
 // user's point of view (Task 1).
 // Story 1.8 (AC #4): the caller passes the shared authed-fetch helper rather
-// than a bare base URL. Because that helper reads the Clerk token fresh on
+// than a bare base URL. Because that helper reads the session token fresh on
 // every call, each queued DSR attaches a CURRENT token at the moment it
 // actually drains — never a stale token captured when it was queued offline.
 export async function syncQueuedDsrs(authedFetch: AuthedFetch, onSynced?: (localKey: string) => void): Promise<void> {

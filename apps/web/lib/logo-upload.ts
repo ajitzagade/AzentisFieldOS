@@ -9,7 +9,7 @@ import type { AuthedFetch } from "./authed-fetch-core";
 // Photo row, so there is no separate confirm step here.
 //
 // Story 1.8 (AC #4): the presign call goes through the shared authed-fetch
-// helper (Clerk token attached); the direct-to-Cloudinary POST stays a raw
+// helper (session token attached); the direct-to-Cloudinary POST stays a raw
 // `fetch`, as the signed request carries its own scoped authority.
 export async function uploadBrandingLogo(
   authedFetch: AuthedFetch,

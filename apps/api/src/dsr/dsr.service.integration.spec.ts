@@ -61,9 +61,9 @@ describeIfDb('DsrService (integration)', () => {
 
     const user = await prisma.user.create({
       data: {
-        clerkId: `test-submitter-${crypto.randomUUID()}`,
         name: 'Test Submitter',
         email: `test-submitter-${crypto.randomUUID()}@example.com`,
+        passwordHash: 'test-hash',
         role: 'OWNER_ADMIN',
       },
     });

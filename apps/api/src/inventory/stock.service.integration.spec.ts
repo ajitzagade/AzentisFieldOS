@@ -71,9 +71,9 @@ describeIfDb('Stock reconciliation (integration)', () => {
 
     const user = await prisma.user.create({
       data: {
-        clerkId: 'test-reconciliation-user',
         email: 'test-reconciliation-user@internal.local',
         name: 'Test Reconciliation User',
+        passwordHash: 'test-hash',
         role: 'OWNER_ADMIN',
       },
     });

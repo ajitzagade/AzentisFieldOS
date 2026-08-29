@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-// FR-12: the recording user is resolved server-side from the Clerk
-// session (Story 1.8's ClerkAuthGuard + @CurrentUser), the same way DSR
-// submissions are attributed — never accepted from the request body,
-// where any signed-in caller could attribute the write to someone else.
+// FR-12: the recording user is resolved server-side from the session
+// (CustomAuthGuard + @CurrentUser), the same way DSR submissions are
+// attributed — never accepted from the request body, where any signed-in
+// caller could attribute the write to someone else.
 export const createConsumptionSchema = z
   .object({
     siteId: z.uuid(),

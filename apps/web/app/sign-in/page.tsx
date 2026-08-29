@@ -1,65 +1,19 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useSignIn } from "@clerk/nextjs/legacy";
-import { isClerkAPIResponseError } from "@clerk/nextjs/errors";
+import { useActionState } from "react";
 import { Button, Card, LockIcon, MailIcon, TextField } from "@azentisfieldos/ui";
-import { mapClerkSignInError } from "./map-clerk-error";
+import { loginAction } from "./actions";
 import { APP_DISPLAY_NAME } from "../../lib/tenant";
 
-// Custom-styled sign-in flow using Clerk's classic (non-Future) headless
-// useSignIn hook — imported from "@clerk/nextjs/legacy", not "@clerk/nextjs"
-// — rather than the prebuilt <SignIn/> component. DESIGN.md's exact card
-// layout (brand mark, tagline, single-tenant footer note) needs
-// pixel-level control the prebuilt component's `appearance` theming
-// doesn't cleanly give. Clerk still owns all credential verification and
-// session issuance (AD-10); only the presentational layer here is custom.
-//
-// The default "@clerk/nextjs" export is the newer signal-based Future API
-// (signIn.password()/finalize()) — deliberately not used here: each
-// useSignIn() call returns an immutable snapshot whose own methods close
-// over that snapshot's state, so awaiting signIn.password() and then
-// calling signIn.finalize() on the same pre-mutation object fails with
-// "Cannot finalize sign-in without a created session" even though the
-// password step itself succeeded server-side. signIn.create() below
-// resolves with the fully updated SignIn resource directly, sidestepping
-// that entirely.
+// Custom password sign-in posting to apps/api's own /auth/login via a
+// Server Action (loginAction) — apps/api owns credential verification and
+// session-token issuance directly (no third-party identity provider); this
+// page is presentational only. Native <form action> + useActionState means
+// the fields are plain uncontrolled inputs (name= is enough; the action
+// reads them from FormData), and the token never touches client JS — the
+// action sets it as an httpOnly cookie server-side before redirecting.
 export default function SignInPage() {
-  const { isLoaded, signIn, setActive } = useSignIn();
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!isLoaded) return;
-
-    setError(null);
-    setIsSubmitting(true);
-
-    try {
-      const result = await signIn.create({ identifier: email, password });
-
-      if (result.status !== "complete") {
-        // Single-tenant, single-factor sign-in (AD-1, AD-10) never expects
-        // a further step (MFA, verification) — any non-"complete" status
-        // here is treated the same as an error, never a raw status surfaced.
-        setError("Something went wrong signing you in. Please try again.");
-        return;
-      }
-
-      await setActive({ session: result.createdSessionId });
-      router.push("/");
-    } catch (err) {
-      const clerkError = isClerkAPIResponseError(err) ? err.errors[0] : err;
-      setError(mapClerkSignInError(clerkError));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
+  const [error, formAction, isPending] = useActionState(loginAction, null);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-accent-navy-800 p-6">
@@ -74,7 +28,7 @@ export default function SignInPage() {
           Field operations, accounted for — sites, stock and settlements in one system.
         </p>
 
-        <form onSubmit={handleSubmit} noValidate>
+        <form action={formAction} noValidate>
           <TextField
             label="Email address"
             id="email"
@@ -83,8 +37,6 @@ export default function SignInPage() {
             autoComplete="username"
             required
             icon={<MailIcon className="size-4" />}
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
           />
           <TextField
             label="Password"
@@ -94,8 +46,6 @@ export default function SignInPage() {
             autoComplete="current-password"
             required
             icon={<LockIcon className="size-4" />}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
           />
 
           {error ? (
@@ -104,7 +54,7 @@ export default function SignInPage() {
             </p>
           ) : null}
 
-          <Button type="submit" isLoading={isSubmitting} className="w-full justify-center">
+          <Button type="submit" isLoading={isPending} className="w-full justify-center">
             <LockIcon className="size-4" />
             Sign in
           </Button>

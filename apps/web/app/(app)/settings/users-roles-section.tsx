@@ -3,9 +3,9 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Badge,
   Button,
   DataTable,
+  LockIcon,
   MailIcon,
   SelectField,
   TextField,
@@ -13,15 +13,14 @@ import {
   UsersIcon,
   type DataTableColumn,
 } from "@azentisfieldos/ui";
-import { ROLES, inviteUserSchema, type Role } from "@azentisfieldos/shared";
+import { ROLES, createUserSchema, type Role } from "@azentisfieldos/shared";
 import { useAuthedFetch } from "../../../lib/use-authed-fetch";
 
 export interface UserRow {
   id: string;
-  name: string | null;
+  name: string;
   email: string;
-  role: Role | null;
-  status: "Active" | "Pending";
+  role: Role;
 }
 
 // AC #1 / AD-11: the SelectField is populated ONLY from the shared ROLES
@@ -32,14 +31,9 @@ const ROLE_LABELS: Record<Role, string> = {
 };
 const ROLE_OPTIONS = ROLES.map((role) => ({ value: role, label: ROLE_LABELS[role] }));
 
-function RoleBadge({ role }: { role: Role | null }) {
-  if (!role) return <span className="text-caption text-ink-500">—</span>;
-  return <Badge variant={role === "OWNER_ADMIN" ? "gold" : "neutral"}>{ROLE_LABELS[role]}</Badge>;
-}
-
-// Inline role change for an Active user — a shared SelectField (AD-5), never a
-// raw <select>. PATCH /users/:id/role, then refresh the server component so the
-// merged list re-reads from apps/api.
+// Inline role change — a shared SelectField (AD-5), never a raw <select>.
+// PATCH /users/:id/role, then refresh the server component so the list
+// re-reads from apps/api.
 function RoleCell({
   row,
   onChange,
@@ -48,10 +42,9 @@ function RoleCell({
   onChange: (id: string, role: Role) => Promise<void>;
 }) {
   const [pending, setPending] = useState(false);
-  if (row.status !== "Active" || !row.role) return <RoleBadge role={row.role} />;
   return (
     <SelectField
-      label={`Role for ${row.name ?? row.email}`}
+      label={`Role for ${row.name}`}
       options={ROLE_OPTIONS}
       value={row.role}
       disabled={pending}
@@ -74,29 +67,36 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
   const router = useRouter();
   const authedFetch = useAuthedFetch();
 
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("SITE_SUPERVISOR");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [inviting, setInviting] = useState(false);
-  const [invited, setInvited] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [created, setCreated] = useState<string | null>(null);
 
-  async function handleInvite(event: FormEvent<HTMLFormElement>) {
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
-    setInvited(null);
+    setCreated(null);
     setFieldErrors({});
 
     // AD-7: validate with the SAME shared schema apps/api enforces.
-    const parsed = inviteUserSchema.safeParse({ email: email.trim(), role });
+    const parsed = createUserSchema.safeParse({
+      name: name.trim(),
+      email: email.trim(),
+      role,
+      password,
+    });
     if (!parsed.success) {
       setFieldErrors(parsed.error.flatten().fieldErrors as Record<string, string[]>);
       return;
     }
 
-    setInviting(true);
+    setCreating(true);
     try {
-      const res = await authedFetch("/users/invite", {
+      const res = await authedFetch("/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data),
@@ -108,18 +108,24 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
         setFieldErrors(body.error?.details?.fieldErrors ?? {});
         return;
       }
-      if (!res.ok) {
-        setFormError("Could not send that invitation. Please try again.");
+      if (res.status === 409) {
+        setFormError("A user with that email already exists.");
         return;
       }
-      setInvited(parsed.data.email);
+      if (!res.ok) {
+        setFormError("Could not create that user. Please try again.");
+        return;
+      }
+      setCreated(parsed.data.email);
+      setName("");
       setEmail("");
+      setPassword("");
       setRole("SITE_SUPERVISOR");
       router.refresh();
     } catch {
-      setFormError("Could not send that invitation. Please try again.");
+      setFormError("Could not create that user. Please try again.");
     } finally {
-      setInviting(false);
+      setCreating(false);
     }
   }
 
@@ -133,28 +139,34 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
   }
 
   const columns: DataTableColumn<UserRow>[] = [
-    { header: "Name", cell: (row) => row.name ?? <span className="text-ink-500">Invited</span> },
+    { header: "Name", cell: (row) => row.name },
     { header: "Email", cell: (row) => <span className="text-ink-500">{row.email}</span> },
     { header: "Role", cell: (row) => <RoleCell row={row} onChange={handleRoleChange} /> },
-    {
-      header: "Status",
-      cell: (row) => (
-        <Badge variant={row.status === "Active" ? "success" : "warning"}>{row.status}</Badge>
-      ),
-    },
   ];
 
   return (
     <div className="flex flex-col gap-6">
-      <form onSubmit={handleInvite} noValidate className="grid grid-cols-1 gap-x-5 sm:grid-cols-[1.5fr_1fr_auto] sm:items-start">
+      <form
+        onSubmit={handleCreate}
+        noValidate
+        className="grid grid-cols-1 gap-x-5 gap-y-1 sm:grid-cols-2 lg:grid-cols-[1fr_1.3fr_1fr_1fr_auto] sm:items-start"
+      >
         <TextField
-          label="Invite by email"
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={200}
+          placeholder="Full name"
+          error={fieldErrors.name?.[0]}
+        />
+        <TextField
+          label="Email"
           type="email"
           icon={<MailIcon className="size-4" />}
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
-            setInvited(null);
+            setCreated(null);
           }}
           maxLength={200}
           placeholder="name@company.com"
@@ -168,20 +180,33 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
           onChange={(e) => setRole(e.target.value as Role)}
           error={fieldErrors.role?.[0]}
         />
-        <Button type="submit" isLoading={inviting} className="sm:mt-6">
+        <TextField
+          label="Password"
+          type="password"
+          icon={<LockIcon className="size-4" />}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          maxLength={200}
+          placeholder="At least 8 characters"
+          error={fieldErrors.password?.[0]}
+        />
+        <Button type="submit" isLoading={creating} className="sm:mt-6">
           <PlusIcon className="size-4" />
-          Invite User
+          Create User
         </Button>
       </form>
+      <p className="text-caption text-ink-500">
+        Hand this password to the new user yourself — there is no invitation email.
+      </p>
 
       {formError ? (
         <p role="alert" className="text-caption text-danger-700">
           {formError}
         </p>
       ) : null}
-      {invited ? (
+      {created ? (
         <p role="status" className="text-caption text-success-700">
-          Invitation sent to {invited}.
+          Created an account for {created}.
         </p>
       ) : null}
 
@@ -190,7 +215,7 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
         rowKey={(row) => row.id}
         state={
           users.length === 0
-            ? { status: "empty", message: "No users yet — invite your first teammate above." }
+            ? { status: "empty", message: "No users yet — create your first teammate above." }
             : { status: "success", rows: users }
         }
       />

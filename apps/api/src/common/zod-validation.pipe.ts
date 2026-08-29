@@ -19,10 +19,7 @@ export class ZodValidationPipe implements PipeTransform {
   constructor(private readonly schema: ZodType) {}
 
   // metadata defaults to body for direct unit-test invocation.
-  transform(
-    value: unknown,
-    metadata: ArgumentMetadata = { type: 'body' },
-  ) {
+  transform(value: unknown, metadata: ArgumentMetadata = { type: 'body' }) {
     if (metadata.type !== 'body') {
       return value;
     }

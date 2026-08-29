@@ -37,9 +37,9 @@ describeIfDb('getSitePhotoGallery (integration)', () => {
 
     const user = await prisma.user.create({
       data: {
-        clerkId: 'test-clerk-id',
         name: 'Ramesh Yadav',
         email: 'ramesh@example.test',
+        passwordHash: 'test-hash',
         role: 'SITE_SUPERVISOR',
       },
     });

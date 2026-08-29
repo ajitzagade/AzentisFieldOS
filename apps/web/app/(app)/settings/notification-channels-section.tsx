@@ -14,9 +14,8 @@ export interface ChannelSetting {
 
 export interface RecipientUser {
   id: string;
-  name: string | null;
+  name: string;
   email: string;
-  status: "Active" | "Pending";
 }
 
 const CHANNEL_META: Record<
@@ -194,9 +193,9 @@ export function NotificationChannelsSection({
   settings: ChannelSetting[];
   users: RecipientUser[];
 }) {
-  // Only Active users (real local User rows) can be report recipients — a
-  // pending invite has no persisted User.id to target yet.
-  const recipients = users.filter((user) => user.status === "Active");
+  // Every User row is a real, persisted account (no pending-invitation
+  // state anymore), so every one is an eligible report recipient.
+  const recipients = users;
 
   return (
     <div className="flex flex-col gap-4">

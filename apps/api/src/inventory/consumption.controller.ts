@@ -11,7 +11,7 @@ import { ConsumptionService } from './consumption.service';
 export class ConsumptionController {
   constructor(private readonly consumptionService: ConsumptionService) {}
 
-  // The recording user comes from the Clerk session (Story 1.8), the same
+  // The recording user comes from the session (CustomAuthGuard), the same
   // attribution rule the DSR controller follows — never from the body.
   @Post()
   @UsePipes(new ZodValidationPipe(createConsumptionSchema))

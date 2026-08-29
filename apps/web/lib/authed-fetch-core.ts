@@ -1,9 +1,9 @@
-// Story 1.8 (AC #4): the ONE implementation of "call apps/api with the current
-// Clerk session token attached" (AD-5 — one implementation, not N per call
-// site). The client hook (use-authed-fetch.ts) and the server helper (api.ts)
-// are thin bindings over this core: each supplies the right base URL and a
-// `getToken` bound to its own Clerk context (browser `useAuth()` vs. server
-// `auth()`). apps/web still never touches a DB directly — it only calls
+// The ONE implementation of "call apps/api with the current session token
+// attached" (AD-5 — one implementation, not N per call site). The client
+// hook (use-authed-fetch.ts) and the server helper (api.ts) are thin
+// bindings over this core: each supplies the right base URL and a
+// `getToken` bound to its own token source (browser cookie read vs. server
+// cookie read). apps/web still never touches a DB directly — it only calls
 // apps/api over HTTP (AD-3), now authenticated.
 
 export type AuthedFetch = (

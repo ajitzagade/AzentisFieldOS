@@ -1,7 +1,0 @@
-{
-  "crons": [
-    { "path": "/api/cron/compile-daily-reports", "schedule": "0 18 * * *" },
-    { "path": "/api/cron/retry-report-deliveries", "schedule": "0 19,21 * * *" },
-    { "path": "/api/cron/run-report-schedules", "schedule": "0 * * * *" }
-  ]
-}

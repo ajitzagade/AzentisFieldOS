@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Loads and evaluates the REAL public/sw.js source (not a re-implementation) in
 // a mock ServiceWorkerGlobalScope, so these tests exercise the exact caching
 // tiers that ship. Covers the two I/O-matrix rows that were otherwise
-// untested — "Offline navigation" and "API/Clerk via SW (NetworkOnly)" — plus
+// untested — "Offline navigation" and "API via SW (NetworkOnly)" — plus
 // the Fix-A regression guard that same-origin RSC route payloads are never
 // cached.
 
@@ -207,7 +207,7 @@ describe("service worker — NetworkOnly passthrough (never cached)", () => {
     expect(onlyStore(env).size).toBe(1);
   });
 
-  it("passes through cross-origin GETs (apps/api / Clerk)", async () => {
+  it("passes through cross-origin GETs (apps/api)", async () => {
     const env = loadSw(() => Promise.resolve(new Response("x")));
     await runInstall(env);
 

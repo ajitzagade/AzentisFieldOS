@@ -34,7 +34,6 @@ describe('ConsumptionController', () => {
     };
     const user = {
       id: '33333333-3333-4333-8333-333333333333',
-      clerkId: 'clerk-user-1',
       role: 'OWNER_ADMIN' as const,
     };
     service.create.mockResolvedValue({ id: '1', ...input });

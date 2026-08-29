@@ -2,6 +2,7 @@ import "dotenv/config";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
+import bcrypt from "bcryptjs";
 import { PrismaClient } from "../../apps/api/src/generated/prisma/client";
 
 // FR-19/NFR-4: EmploymentType is admin-configurable data, not a hardcoded
@@ -90,6 +91,29 @@ async function main() {
       where: { name },
       update: {},
       create: { name },
+    });
+  }
+
+  // Replaces the old "first Clerk login becomes OWNER_ADMIN" auto-
+  // provisioning: with custom auth, login requires an existing User row, so
+  // each tenant deployment's first admin is created here instead. Runs at
+  // most once — a User table that already has rows (e.g. a re-run seed, or
+  // an already-onboarded tenant) is left untouched, and a deployment with no
+  // SEED_ADMIN_* set simply skips this (nothing to seed yet).
+  const hasAnyUser = (await prisma.user.count()) > 0;
+  if (
+    !hasAnyUser &&
+    process.env.SEED_ADMIN_EMAIL &&
+    process.env.SEED_ADMIN_PASSWORD
+  ) {
+    const passwordHash = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD, 10);
+    await prisma.user.create({
+      data: {
+        name: process.env.SEED_ADMIN_NAME?.trim() || "Owner Admin",
+        email: process.env.SEED_ADMIN_EMAIL,
+        passwordHash,
+        role: "OWNER_ADMIN",
+      },
     });
   }
 

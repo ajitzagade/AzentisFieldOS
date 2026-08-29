@@ -3,7 +3,7 @@
 import { Suspense, type ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn, MenuIcon, Toaster, ToastProvider, XIcon } from "@azentisfieldos/ui";
+import { cn, LogoutIcon, MenuIcon, Toaster, ToastProvider, XIcon } from "@azentisfieldos/ui";
 import type { Role } from "@azentisfieldos/shared";
 import { NAV_GROUPS, SETTINGS_NAV_ITEM, UNGROUPED_NAV_ITEMS, type NavItem } from "./nav-config";
 import { FlashToast } from "./flash-toast";
@@ -22,7 +22,7 @@ import { APP_DISPLAY_NAME } from "../../../lib/tenant";
 // Content padding tightens on small screens so the main column is never starved.
 //
 // `role` is an explicit prop resolved by the route-group layout from the real
-// Postgres-backed GET /users/me (Story 14.2, via apps/api's Clerk auth guard),
+// Postgres-backed GET /users/me (Story 14.2, via apps/api's auth guard),
 // never a viewport breakpoint (AD-3/AD-11).
 export interface AppShellProps {
   role: Role;
@@ -89,6 +89,19 @@ function SidebarNav({
       {role === "OWNER_ADMIN" ? (
         <NavLink item={SETTINGS_NAV_ITEM} active={isActive(pathname, SETTINGS_NAV_ITEM.href)} onNavigate={onNavigate} />
       ) : null}
+
+      {/* Plain POST form, not a client-side handler — works even before any
+          client JS has hydrated, and mirrors /api/auth/logout's own plain
+          Route Handler (clears the session cookie, redirects to /sign-in). */}
+      <form action="/api/auth/logout" method="post" className="mt-auto pt-4">
+        <button
+          type="submit"
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-body-sm font-medium text-ink-on-accent/80 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-white/10 hover:text-ink-on-accent"
+        >
+          <LogoutIcon className="size-4 shrink-0" />
+          Sign out
+        </button>
+      </form>
     </>
   );
 }

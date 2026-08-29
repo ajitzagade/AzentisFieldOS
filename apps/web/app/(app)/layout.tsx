@@ -7,7 +7,7 @@ import { AppShell } from "./_components/app-shell";
 // stays outside this route group with its own full-viewport shell).
 //
 // Story 14.2 closes the long-standing AGENTS.md TODO: the real, Postgres-backed
-// role now comes from GET /users/me (resolved by apps/api's Clerk auth guard),
+// role now comes from GET /users/me (resolved by apps/api's auth guard),
 // not a hardcoded literal. The sidebar-vs-minimal-top-bar split is a role
 // distinction (EXPERIENCE.md), driven by this real value.
 async function currentRole(): Promise<Role> {

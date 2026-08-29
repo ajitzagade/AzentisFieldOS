@@ -24,8 +24,8 @@ import { ReportSchedulesService } from './report-schedules.service';
 // Story 14.5 (FR-51). The admin CRUD is an Owner/Admin-only surface
 // (@Roles('OWNER_ADMIN'), mirrors UsersController). The Cron runner is @Public +
 // CRON_SECRET-gated — the same pattern Story 13.1's cron routes use, exempt from
-// the global ClerkAuthGuard (Story 1.8) because Vercel Cron calls it with the
-// secret bearer, not a Clerk user token. RolesGuard is a no-op on the @Public
+// the global CustomAuthGuard because Vercel Cron calls it with the secret
+// bearer, not a user session token. RolesGuard is a no-op on the @Public
 // route (it carries no @Roles metadata).
 @Controller()
 @UseGuards(RolesGuard)

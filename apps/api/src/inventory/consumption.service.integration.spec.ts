@@ -53,9 +53,9 @@ describeIfDb('ConsumptionService (integration)', () => {
 
     const user = await prisma.user.create({
       data: {
-        clerkId: 'test-consumption-user',
         email: 'test-consumption-user@internal.local',
         name: 'Test Consumption User',
+        passwordHash: 'test-hash',
         role: 'OWNER_ADMIN',
       },
     });

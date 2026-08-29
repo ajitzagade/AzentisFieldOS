@@ -10,7 +10,6 @@ import type { AuthUser } from '../auth/current-user.decorator';
 
 const currentUser: AuthUser = {
   id: 'user-1',
-  clerkId: 'clerk-1',
   role: 'OWNER_ADMIN',
 };
 

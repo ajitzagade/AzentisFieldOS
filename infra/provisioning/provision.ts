@@ -45,8 +45,12 @@ async function runMigrations(_config: TenantConfig): Promise<void> {
   throw new Error("not implemented — see infra/provisioning/README.md");
 }
 
-async function createAuthInstance(_config: TenantConfig): Promise<void> {
-  // TODO: Clerk API — provision tenant instance/config (AD-10).
+async function seedFirstAdmin(_config: TenantConfig): Promise<void> {
+  // TODO: generate a unique JWT_SECRET for this tenant's apps/api deployment,
+  // then run infra/prisma/seed.ts (or an equivalent direct insert) against
+  // the new tenant's database with SEED_ADMIN_NAME/EMAIL set from
+  // config.contact and a generated SEED_ADMIN_PASSWORD, so there's a
+  // first OWNER_ADMIN able to log in immediately after provisioning.
   throw new Error("not implemented — see infra/provisioning/README.md");
 }
 
@@ -66,7 +70,7 @@ async function main() {
   await createVercelProject(config);
   await createDatabase(config);
   await runMigrations(config);
-  await createAuthInstance(config);
+  await seedFirstAdmin(config);
   await createStorageBucket(config);
 
   console.log(`Provisioned ${config.displayName} (${config.slug}).`);

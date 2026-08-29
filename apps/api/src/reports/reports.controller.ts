@@ -56,10 +56,10 @@ export class ReportsController {
   // and attempt delivery on every enabled channel. A Site with no DSR produces
   // no report (AC #4). The optional ?date= override backfills/re-runs a
   // specific day.
-  // @Public() (Story 1.8 AC #3): Vercel Cron calls this with the CRON_SECRET
-  // bearer, not a Clerk user token — so it is exempt from the Clerk guard and
+  // @Public(): Vercel Cron calls this with the CRON_SECRET bearer, not a user
+  // session token — so it is exempt from the global auth guard and
   // continues to authenticate via assertCron() below. The two mechanisms
-  // coexist; the Clerk guard must never break the cron path.
+  // coexist; the global guard must never break the cron path.
   @Public()
   @Post('cron/compile-daily-reports')
   async compileDailyReports(
@@ -95,8 +95,8 @@ export class ReportsController {
 
   // The retry-sweep Cron: re-attempts deliveries still PENDING and under the
   // attempt cap, reusing the same idempotent send().
-  // @Public() (Story 1.8 AC #3): same CRON_SECRET-gated path as the compile
-  // cron above — exempt from the Clerk guard, authenticated by assertCron().
+  // @Public(): same CRON_SECRET-gated path as the compile cron above —
+  // exempt from the global auth guard, authenticated by assertCron().
   @Public()
   @Post('cron/retry-report-deliveries')
   async retryReportDeliveries(

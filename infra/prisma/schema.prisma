@@ -26,16 +26,17 @@ enum Role {
   SITE_SUPERVISOR
 }
 
-// Clerk owns authentication; this table owns authorization (AD-10, AD-11 —
-// Role here is the only in-app role set, never "Platform Operator").
+// This table owns both authentication (bcrypt passwordHash, verified by
+// apps/api's own /auth/login) and authorization (AD-10, AD-11 — Role here is
+// the only in-app role set, never "Platform Operator").
 model User {
-  id        String   @id @default(uuid(7))
-  clerkId   String   @unique
-  name      String
-  email     String   @unique
-  role      Role
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(uuid(7))
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   dailySiteReports DailySiteReport[]
   photos           Photo[]

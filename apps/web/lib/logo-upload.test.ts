@@ -24,7 +24,7 @@ const signed = {
     "https://res.cloudinary.com/test-cloud/image/upload/branding/logo/abc",
 };
 
-// Story 14.1 (AD-3): the presign goes through the authed helper (Clerk token);
+// Story 14.1 (AD-3): the presign goes through the authed helper (session token);
 // the direct-to-Cloudinary POST is a raw multipart `fetch` carrying only the
 // signature, and the returned secure_url is the durable logoUrl to persist.
 describe("uploadBrandingLogo", () => {

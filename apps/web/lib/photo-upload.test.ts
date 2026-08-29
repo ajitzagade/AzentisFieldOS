@@ -23,7 +23,7 @@ const signed = {
 };
 
 // Story 1.8: the API calls (presign, confirm) now go through the shared
-// authed-fetch helper (Clerk token attached), which takes a PATH and resolves
+// authed-fetch helper (session token attached), which takes a PATH and resolves
 // it against apps/api. The direct-to-Cloudinary POST must stay a raw `fetch`
 // with no Authorization header — the signed request is its own bearer of
 // authority.

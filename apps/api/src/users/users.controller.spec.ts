@@ -9,7 +9,7 @@ describe('UsersController (delegation)', () => {
   let service: {
     getMe: ReturnType<typeof vi.fn>;
     list: ReturnType<typeof vi.fn>;
-    invite: ReturnType<typeof vi.fn>;
+    createUser: ReturnType<typeof vi.fn>;
     updateRole: ReturnType<typeof vi.fn>;
   };
 
@@ -17,7 +17,7 @@ describe('UsersController (delegation)', () => {
     service = {
       getMe: vi.fn(),
       list: vi.fn(),
-      invite: vi.fn(),
+      createUser: vi.fn(),
       updateRole: vi.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
@@ -34,7 +34,7 @@ describe('UsersController (delegation)', () => {
       email: 'a@x.in',
       role: 'OWNER_ADMIN',
     });
-    const user: AuthUser = { id: 'u1', clerkId: 'c1', role: 'OWNER_ADMIN' };
+    const user: AuthUser = { id: 'u1', role: 'OWNER_ADMIN' };
 
     const result = await controller.me(user);
 
@@ -48,12 +48,19 @@ describe('UsersController (delegation)', () => {
     expect(service.list).toHaveBeenCalled();
   });
 
-  it('invite delegates to UsersService.invite with the validated body', async () => {
-    service.invite.mockResolvedValue({ id: 'inv1' });
-    await controller.invite({ email: 'new@x.in', role: 'SITE_SUPERVISOR' });
-    expect(service.invite).toHaveBeenCalledWith({
+  it('create delegates to UsersService.createUser with the validated body', async () => {
+    service.createUser.mockResolvedValue({ id: 'u2' });
+    await controller.create({
+      name: 'New Person',
       email: 'new@x.in',
       role: 'SITE_SUPERVISOR',
+      password: 'a-strong-password',
+    });
+    expect(service.createUser).toHaveBeenCalledWith({
+      name: 'New Person',
+      email: 'new@x.in',
+      role: 'SITE_SUPERVISOR',
+      password: 'a-strong-password',
     });
   });
 

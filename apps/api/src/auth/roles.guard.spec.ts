@@ -10,7 +10,7 @@ function makeContext(role: Role | undefined): ExecutionContext {
     getClass: () => class {},
     switchToHttp: () => ({
       getRequest: () => ({
-        user: role ? { id: 'u1', clerkId: 'c1', role } : undefined,
+        user: role ? { id: 'u1', role } : undefined,
       }),
     }),
   } as unknown as ExecutionContext;

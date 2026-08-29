@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { APP_DESCRIPTION, APP_DISPLAY_NAME, BRAND_THEME_COLOR } from "../lib/tenant";
 import { PwaClient } from "./pwa-client";
@@ -40,16 +39,14 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <ClerkProvider>
-      <html
-        lang="en"
-        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      >
-        <body className="min-h-full flex flex-col">
-          {children}
-          <PwaClient />
-        </body>
-      </html>
-    </ClerkProvider>
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col">
+        {children}
+        <PwaClient />
+      </body>
+    </html>
   );
 }

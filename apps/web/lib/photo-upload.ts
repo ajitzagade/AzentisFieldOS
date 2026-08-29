@@ -5,7 +5,7 @@ import type { AuthedFetch } from "./authed-fetch-core";
 // the data path for the bytes themselves (NFR-5's 2G/3G reality).
 //
 // Story 1.8 (AC #4): the two apps/api calls (presign, confirm) go through the
-// shared authed-fetch helper so they carry the Clerk session token; only the
+// shared authed-fetch helper so they carry the session token; only the
 // direct-to-Cloudinary POST uses a raw `fetch`, since that signed request is
 // its own bearer of authority and must NOT carry an Authorization header.
 export async function uploadPhoto(

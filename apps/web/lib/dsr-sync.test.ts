@@ -5,7 +5,7 @@ import { syncQueuedDsrs } from "./dsr-sync";
 import type { AuthedFetch } from "./authed-fetch-core";
 
 // Story 1.8: syncQueuedDsrs now takes the shared authed-fetch helper (which
-// attaches a fresh Clerk token per call) instead of a base URL. These tests
+// attaches a fresh session token per call) instead of a base URL. These tests
 // stand in a mock authedFetch for it.
 function authedFetchThat(impl: (path: string, init?: RequestInit) => Promise<Response>): AuthedFetch {
   return vi.fn(impl) as unknown as AuthedFetch;
