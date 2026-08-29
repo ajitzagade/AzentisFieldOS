@@ -2,7 +2,11 @@
 // @azentisfieldos/shared (raw TypeScript, no build step by design — AD-7 —
 // so Vercel's own dependency tracer can't follow it through the pnpm
 // workspace symlink into packages/shared/src/**/*.ts) into a single
-// self-contained file. Every real npm package is listed as external —
+// self-contained file, written to api/index.js — Vercel's `functions`
+// config (apps/api/vercel.json) only accepts patterns under the `api/`
+// directory, validated against source present BEFORE this build runs, so
+// api/index.js starts as a committed placeholder and ends up overwritten
+// with the real bundle. Every real npm package is listed as external —
 // Vercel's tracer handles those correctly already; only our own
 // no-build-step workspace package needs to be bundled in. Local dev/start
 // scripts are untouched — they run dist/src/main.js as tsc emits it,
@@ -18,7 +22,7 @@ const external = Object.keys(dependencies).filter(
 
 await build({
   entryPoints: ["dist/src/main.js"],
-  outfile: "dist/src/main.js",
+  outfile: "api/index.js",
   allowOverwrite: true,
   bundle: true,
   platform: "node",

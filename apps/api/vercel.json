@@ -1,6 +1,6 @@
 {
   "functions": {
-    "dist/src/main.js": { "maxDuration": 60 }
+    "api/index.js": { "maxDuration": 60 }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/dist/src/main.js" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
 }
