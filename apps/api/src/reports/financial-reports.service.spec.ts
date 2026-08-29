@@ -22,9 +22,13 @@ function dec(n: number) {
 
 function makeService() {
   const prisma = {
+    // The superseded-DSR sweep (no corrections by default).
+    dailySiteReport: { findMany: vi.fn().mockResolvedValue([]) },
     purchase: { groupBy: vi.fn().mockResolvedValue([]) },
     payment: {
       aggregate: vi.fn().mockResolvedValue({ _sum: { netPayable: null } }),
+      // The superseded-Payment sweep (no corrections by default).
+      findMany: vi.fn().mockResolvedValue([]),
     },
     rmcEntry: { groupBy: vi.fn().mockResolvedValue([]) },
     machineryServiceLog: {
@@ -234,6 +238,70 @@ describe('FinancialReportsService.getFinancialReport (FR-46)', () => {
       expenses: 0,
       total: 0,
     });
+  });
+});
+
+describe('FinancialReportsService.getFinancialReport — correction supersedence (AD-9)', () => {
+  it('filters RMC and Expense SUMs to current-DSR rows only — a corrected report must not double-count', async () => {
+    seed(ctx.prisma);
+    // dsr-old was corrected (a newer report's correctsId points at it) — its
+    // nested RMC/Expense rows are superseded and must be excluded.
+    ctx.prisma.dailySiteReport.findMany.mockResolvedValue([
+      { correctsId: 'dsr-old' },
+    ]);
+
+    await ctx.service.getFinancialReport({});
+
+    const expectedFilter = {
+      OR: [
+        { dailySiteReportId: null },
+        { dailySiteReportId: { notIn: ['dsr-old'] } },
+      ],
+    };
+    expect(firstWhere(ctx.prisma.rmcEntry.groupBy as Mock)).toMatchObject(
+      expectedFilter,
+    );
+    expect(firstWhere(ctx.prisma.expense.groupBy as Mock)).toMatchObject(
+      expectedFilter,
+    );
+    // Purchases are deliberately NOT filtered — standalone signed-delta
+    // corrections are meant to be summed alongside their originals.
+    expect(firstWhere(ctx.prisma.purchase.groupBy as Mock).OR).toBeUndefined();
+  });
+
+  it('excludes restated Payments from the labour SUM — a Payment correction replaces its original, chain-safe', async () => {
+    seed(ctx.prisma);
+    // pay-a was corrected by pay-b, which was itself corrected by pay-c:
+    // only tip pay-c may be summed.
+    ctx.prisma.payment.findMany.mockResolvedValue([
+      { correctsId: 'pay-a' },
+      { correctsId: 'pay-b' },
+    ]);
+
+    await ctx.service.getFinancialReport({});
+
+    expect(ctx.prisma.payment.findMany).toHaveBeenCalledWith({
+      where: { correctsId: { not: null } },
+      select: { correctsId: true },
+    });
+    expect(firstWhere(ctx.prisma.payment.aggregate as Mock)).toMatchObject({
+      id: { notIn: ['pay-a', 'pay-b'] },
+    });
+  });
+
+  it('the zero-corrections case filters nothing away (notIn: [] / notIn: [] match everything)', async () => {
+    seed(ctx.prisma);
+
+    const { contractorTotal } = await ctx.service.getFinancialReport({});
+
+    expect(firstWhere(ctx.prisma.payment.aggregate as Mock)).toMatchObject({
+      id: { notIn: [] },
+    });
+    expect(firstWhere(ctx.prisma.rmcEntry.groupBy as Mock)).toMatchObject({
+      OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],
+    });
+    // The seeded totals still reconcile exactly as before the filter existed.
+    expect(contractorTotal.total).toBe(680400);
   });
 });
 

@@ -2,6 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { FinancialReportFilters } from '@azentisfieldos/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
+import {
+  currentDsrRowsWhere,
+  supersededDsrIds,
+} from '../common/superseded-dsrs';
 
 // Story 13.4 (FR-46): the Financial report view — five cost categories, each a
 // direct SUM() over its owning table within the date window, composed here.
@@ -81,6 +85,30 @@ export class FinancialReportsService {
     const { siteId, from, to } = filters;
     const bounds = dateRangeBounds(from, to);
 
+    // Two correction mechanisms must be read through to their "current
+    // version", or every correction double-counts money here:
+    //  - RMC/Expense rows nested under a corrected DSR stay in the database
+    //    (AD-9) while the correction inserts restated rows — the same
+    //    superseded-DSR filter RmcService.statsThisMonth /
+    //    ExpensesService.summary already apply.
+    //  - A Payment correction is a FULL RESTATEMENT row (not a signed delta):
+    //    the corrected figure lives on the new row, so a Payment that has a
+    //    correction pointing at it must be excluded, chain-safe (in A←B←C,
+    //    A and B are both corrected; only tip C is summed).
+    // Purchases stay unfiltered on purpose: standalone signed-delta
+    // corrections are *meant* to be summed alongside their originals.
+    const [superseded, paymentCorrections] = await Promise.all([
+      supersededDsrIds(this.prisma),
+      this.prisma.payment.findMany({
+        where: { correctsId: { not: null } },
+        select: { correctsId: true },
+      }),
+    ]);
+    const currentRows = currentDsrRowsWhere(superseded);
+    const supersededPaymentIds = paymentCorrections
+      .map((row) => row.correctsId)
+      .filter((id): id is string => id !== null);
+
     // Each SUM lives in Postgres (exact Decimal arithmetic); we only add the
     // handful of already-summed category totals in JS, the same way the Expense
     // / RMC / Vendor stats compose their aggregates — no float drift introduced.
@@ -98,12 +126,14 @@ export class FinancialReportsService {
         _sum: { totalAmount: true },
       }),
       this.prisma.payment.aggregate({
-        where: { createdAt: bounds },
+        // `notIn: []` matches everything, so the zero-corrections case needs
+        // no special path (same convention as currentDsrRowsWhere).
+        where: { createdAt: bounds, id: { notIn: supersededPaymentIds } },
         _sum: { netPayable: true },
       }),
       this.prisma.rmcEntry.groupBy({
         by: ['siteId'],
-        where: { deliveredAt: bounds },
+        where: { deliveredAt: bounds, ...currentRows },
         _sum: { totalAmount: true },
       }),
       this.prisma.machineryServiceLog.aggregate({
@@ -116,7 +146,7 @@ export class FinancialReportsService {
       }),
       this.prisma.expense.groupBy({
         by: ['siteId'],
-        where: { incurredAt: bounds },
+        where: { incurredAt: bounds, ...currentRows },
         _sum: { amount: true },
       }),
     ]);
