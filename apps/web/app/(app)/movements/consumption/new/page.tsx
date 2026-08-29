@@ -29,8 +29,12 @@ async function getMaterials(): Promise<MaterialListItem[]> {
   return res.json();
 }
 
-export default async function NewConsumptionPage() {
-  const [sites, materials] = await Promise.all([getSites(), getMaterials()]);
+export default async function NewConsumptionPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ siteId?: string }>;
+} = {}) {
+  const [sites, materials, { siteId } = {}] = await Promise.all([getSites(), getMaterials(), searchParams]);
 
   const materialSizes = materials.flatMap((material) =>
     material.sizes.map((size) => ({
@@ -40,10 +44,19 @@ export default async function NewConsumptionPage() {
     })),
   );
 
+  // Site detail deep-links here with ?siteId= so the Site arrives
+  // pre-selected — only honored when it names a real Site.
+  const prefillSiteId = sites.some((s) => s.id === siteId) ? siteId : undefined;
+
   return (
     <div className="max-w-160">
       <h1 className="mb-6 text-page-title text-ink-900">Record Consumption</h1>
-      <ConsumptionForm mode="new" materialSizes={materialSizes} sites={sites} />
+      <ConsumptionForm
+        mode="new"
+        materialSizes={materialSizes}
+        sites={sites}
+        initial={prefillSiteId ? { siteId: prefillSiteId } : undefined}
+      />
     </div>
   );
 }

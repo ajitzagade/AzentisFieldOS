@@ -165,7 +165,13 @@ export default async function InventoryPage() {
               icon={<AlertTriangleIcon />}
               message={`${material.name} is low in Godown stock — ${material.godownQuantity} ${material.unit.name} on hand against a ${material.lowStockThreshold} ${material.unit.name} configured threshold.`}
               action={
-                <Link href="/movements/godown-to-site/new" className={cn(buttonVariants({ variant: "primary", size: "sm" }))}>
+                <Link
+                  // ?materialId= pre-fills the movement form's Material
+                  // picker (when the Material has a single size) — the flag
+                  // already knows what's low; don't make the user re-find it.
+                  href={`/movements/godown-to-site/new?materialId=${material.id}`}
+                  className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+                >
                   <ArrowsIcon className="size-4" />
                   Transfer Stock
                 </Link>

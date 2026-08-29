@@ -149,6 +149,62 @@ describe("DashboardPage", () => {
     }
   });
 
+  it("renders the Money row — month expenses, vendor outstanding, and the cash-tied-up total", async () => {
+    global.fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      const body = url.includes("/dashboard/overall")
+        ? baseOverall
+        : url.includes("/dashboard/sites-preview")
+          ? baseSitesPreview
+          : url.includes("/expenses/summary")
+            ? { totalThisMonth: 250000, totalThisWeek: 40000, largestCategoryThisMonth: { name: "Diesel", total: 90000 } }
+            : url.includes("/purchase-summary")
+              ? { totalThisYear: 500000, notFullyPaidTotal: 120000 }
+              : url.endsWith("/vendors")
+                ? [{ id: "v1" }, { id: "v2" }]
+                : baseToday;
+      return Promise.resolve({ ok: true, json: async () => body });
+    }) as unknown as typeof fetch;
+
+    await renderDashboard();
+
+    expect(screen.getByText("Expenses This Month")).toBeInTheDocument();
+    expect(screen.getByText("₹2,50,000")).toBeInTheDocument();
+    expect(screen.getByText("₹40,000 this week — largest: Diesel")).toBeInTheDocument();
+
+    // Vendor Outstanding = the two Vendors' notFullyPaidTotal summed.
+    expect(screen.getByText("Vendor Outstanding")).toBeInTheDocument();
+    expect(screen.getByText("₹2,40,000")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /view vendors/i })).toHaveAttribute("href", "/vendors");
+
+    // Cash Tied Up = vendor outstanding (2,40,000) + advances (3,14,200).
+    expect(screen.getByText("Cash Tied Up")).toBeInTheDocument();
+    expect(screen.getByText("₹5,54,200")).toBeInTheDocument();
+  });
+
+  it("degrades the Money row to honest dashes when its reads fail, without touching the rest of the page", async () => {
+    // Every non-dashboard read fails — the Money row must degrade to "—"
+    // per card while Today/Overall render exactly as before.
+    global.fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/dashboard/overall")) return Promise.resolve({ ok: true, json: async () => baseOverall });
+      if (url.includes("/dashboard/sites-preview"))
+        return Promise.resolve({ ok: true, json: async () => baseSitesPreview });
+      if (url.includes("/dashboard/today")) return Promise.resolve({ ok: true, json: async () => baseToday });
+      return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
+    }) as unknown as typeof fetch;
+
+    await renderDashboard();
+
+    expect(screen.getByText("Expenses This Month")).toBeInTheDocument();
+    expect(screen.getByText("Vendor Outstanding")).toBeInTheDocument();
+    expect(screen.getByText("Cash Tied Up")).toBeInTheDocument();
+    expect(screen.getAllByText("—")).toHaveLength(3);
+    // The core dashboard is untouched by the Money row's failure.
+    expect(screen.getByText("₹86,400")).toBeInTheDocument();
+    expect(screen.getByText("Active Sites")).toBeInTheDocument();
+  });
+
   it("renders the Sites preview grid with per-Site drill-down and a View-all link (AC #2)", async () => {
     mockDashboard({});
     await renderDashboard();

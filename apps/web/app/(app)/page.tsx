@@ -54,6 +54,12 @@ interface SitePreview {
   status: "ACTIVE" | "COMPLETED" | "ON_HOLD";
 }
 
+interface ExpenseSummary {
+  totalThisMonth: number;
+  totalThisWeek: number;
+  largestCategoryThisMonth: { name: string; total: number } | null;
+}
+
 const SITE_STATUS_BADGE: Record<
   SitePreview["status"],
   { variant: "success" | "warning" | "neutral"; label: string }
@@ -71,12 +77,51 @@ async function getJSON<T>(path: string): Promise<T> {
   return res.json();
 }
 
+// The Money row is additive context on top of the core dashboard — a
+// transient failure on one of its reads renders an honest "—" on that
+// card, never an error page over the Today/Overall figures that did load.
+async function getJSONSafe<T>(path: string): Promise<T | null> {
+  try {
+    return await getJSON<T>(path);
+  } catch {
+    return null;
+  }
+}
+
+// Vendor money outstanding = the sum of every Vendor's "not marked Paid"
+// purchase total — the exact per-Vendor figure the Vendors list shows
+// (GET /vendors/:id/purchase-summary), summed. If any single summary
+// fails, the total would silently under-report what's owed, so the whole
+// figure degrades to null ("—") instead of a wrong number.
+async function getVendorOutstandingTotal(): Promise<number | null> {
+  const vendors = await getJSONSafe<{ id: string }[]>("/vendors");
+  if (!Array.isArray(vendors)) return null;
+  const summaries = await Promise.all(
+    vendors.map((vendor) => getJSONSafe<{ notFullyPaidTotal: number }>(`/vendors/${vendor.id}/purchase-summary`)),
+  );
+  if (summaries.some((summary) => typeof summary?.notFullyPaidTotal !== "number")) return null;
+  return summaries.reduce((total, summary) => total + (summary?.notFullyPaidTotal ?? 0), 0);
+}
+
 export default async function DashboardPage() {
-  const [today, overall, sitesPreview] = await Promise.all([
+  const [today, overall, sitesPreview, rawExpenseSummary, vendorOutstanding] = await Promise.all([
     getJSON<TodayActivity>("/dashboard/today"),
     getJSON<OverallRollup>("/dashboard/overall"),
     getJSON<SitePreview[]>("/dashboard/sites-preview"),
+    getJSONSafe<ExpenseSummary>("/expenses/summary"),
+    getVendorOutstandingTotal(),
   ]);
+  // Same honesty rule as the Vendors list: a malformed/missing summary is
+  // "—", never NaN rendered as a rupee figure.
+  const expenseSummary =
+    typeof rawExpenseSummary?.totalThisMonth === "number" && typeof rawExpenseSummary?.totalThisWeek === "number"
+      ? rawExpenseSummary
+      : null;
+
+  // "How much money is currently tied up?" — one number: Vendor purchases
+  // not marked Paid plus Labour advances still outstanding. Unknown vendor
+  // side ⇒ unknown total, never a partial figure presented as the answer.
+  const cashTiedUp = vendorOutstanding === null ? null : vendorOutstanding + overall.outstandingAdvances.total;
 
   const heading = new Date().toLocaleDateString("en-IN", {
     weekday: "long",
@@ -197,6 +242,59 @@ export default async function DashboardPage() {
           ))}
         </div>
       ) : null}
+
+      {/* Money — month spend, vendor dues, and the one tied-up-cash number,
+          all from live reads that already exist (/expenses/summary and the
+          Vendors list's per-Vendor purchase summaries). */}
+      <h2 className="mt-10 mb-4 text-section-header text-ink-900">Money</h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <OverallCard
+          icon={<ReceiptIcon />}
+          label="Expenses This Month"
+          value={
+            expenseSummary === null ? (
+              <span className="text-ink-500">—</span>
+            ) : (
+              `₹${expenseSummary.totalThisMonth.toLocaleString("en-IN")}`
+            )
+          }
+          meta={
+            expenseSummary === null
+              ? "Couldn't load right now"
+              : `₹${expenseSummary.totalThisWeek.toLocaleString("en-IN")} this week${
+                  expenseSummary.largestCategoryThisMonth
+                    ? ` — largest: ${expenseSummary.largestCategoryThisMonth.name}`
+                    : ""
+                }`
+          }
+          link={{ href: "/expenses", label: "View Expenses" }}
+        />
+        <OverallCard
+          icon={<BuildingIcon />}
+          label="Vendor Outstanding"
+          value={
+            vendorOutstanding === null ? (
+              <span className="text-ink-500">—</span>
+            ) : (
+              `₹${vendorOutstanding.toLocaleString("en-IN")}`
+            )
+          }
+          meta={
+            vendorOutstanding === null ? "Couldn't load right now" : "Purchases not yet marked Paid, across all Vendors"
+          }
+          link={{ href: "/vendors", label: "View Vendors" }}
+        />
+        <OverallCard
+          icon={<WalletIcon />}
+          label="Cash Tied Up"
+          value={cashTiedUp === null ? <span className="text-ink-500">—</span> : `₹${cashTiedUp.toLocaleString("en-IN")}`}
+          meta={
+            cashTiedUp === null
+              ? "Couldn't load right now"
+              : "Vendor dues + Labour advances still outstanding"
+          }
+        />
+      </div>
 
       <h2 className="mt-10 mb-4 text-section-header text-ink-900">Overall</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -4,11 +4,17 @@ import { notFound } from "next/navigation";
 import type { FeedItem } from "@azentisfieldos/shared";
 import {
   Badge,
+  BoxIcon,
   CameraIcon,
+  CheckCircleIcon,
   ClipboardIcon,
   DataTable,
+  LayersIcon,
   MapPinIcon,
   PencilIcon,
+  PlusIcon,
+  ReceiptIcon,
+  UsersIcon,
   buttonVariants,
   cn,
   type DataTableColumn,
@@ -18,6 +24,25 @@ import { FEED_TYPE_CONFIG } from "./feed-type-config";
 
 interface SiteDetail extends Site {
   feed: FeedItem[];
+}
+
+interface TodaysDsr {
+  id: string;
+  _count: { workRecords: number; consumptions: number };
+}
+
+interface SiteStockRow {
+  materialSizeId: string;
+  quantity: string;
+  materialSize: { label: string; material: { name: string; unit: { name: string } } };
+}
+
+interface RecentDsrRow {
+  id: string;
+  reportDate: string;
+  workCompleted: string | null;
+  submittedBy: { name: string };
+  _count: { workRecords: number; consumptions: number };
 }
 
 async function getSiteDetail(id: string): Promise<SiteDetail | null> {
@@ -32,13 +57,49 @@ async function getSiteDetail(id: string): Promise<SiteDetail | null> {
 // FR-28's daily loop starts from the Site, not from a separate form:
 // "Site → Today's DSR". If today's report exists, the action opens it;
 // otherwise it deep-links the DSR form with this Site pre-selected.
-async function getTodaysDsrId(siteId: string): Promise<string | null> {
+// The whole row (not just the id) rides along so the "Today at this Site"
+// panel can show crew/material counts without a second fetch.
+async function getTodaysDsr(siteId: string): Promise<TodaysDsr | null> {
   const today = new Date().toISOString().slice(0, 10);
   try {
     const res = await authedFetch(`/dsr?date=${today}`, { cache: "no-store" });
     if (!res.ok) return null;
-    const reports = (await res.json()) as { id: string; site: { id: string } }[];
-    return reports.find((report) => report.site.id === siteId)?.id ?? null;
+    const reports = (await res.json()) as (TodaysDsr & { site?: { id: string } })[];
+    if (!Array.isArray(reports)) return null;
+    return reports.find((report) => report.site?.id === siteId) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Current stock at this Site — the same GET /stock/site/:siteId the
+// Inventory page and DSR form's stock hints read, so all three agree by
+// construction. A transient failure renders the panel's own error-ish
+// empty message, never blanking the rest of the Site page.
+async function getSiteStock(siteId: string): Promise<SiteStockRow[] | null> {
+  try {
+    const res = await authedFetch(`/stock/site/${siteId}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const rows = (await res.json()) as SiteStockRow[];
+    return Array.isArray(rows) ? rows : null;
+  } catch {
+    return null;
+  }
+}
+
+// Last 30 days of DSRs for this Site, via the Site Reports composition
+// endpoint (GET /reports/sites) — the one existing read that serves
+// per-Site DSR history. Only its `dsrs` slice is used here.
+async function getRecentDsrs(siteId: string): Promise<RecentDsrRow[] | null> {
+  const to = new Date().toISOString().slice(0, 10);
+  const fromDate = new Date();
+  fromDate.setUTCDate(fromDate.getUTCDate() - 30);
+  const from = fromDate.toISOString().slice(0, 10);
+  try {
+    const res = await authedFetch(`/reports/sites?siteId=${siteId}&from=${from}&to=${to}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const report = (await res.json()) as { dsrs?: RecentDsrRow[] };
+    return Array.isArray(report?.dsrs) ? report.dsrs : null;
   } catch {
     return null;
   }
@@ -57,6 +118,10 @@ function formatDateTime(iso: string) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 const feedColumns: DataTableColumn<FeedItem>[] = [
@@ -86,9 +151,37 @@ const feedColumns: DataTableColumn<FeedItem>[] = [
   },
 ];
 
+const stockColumns: DataTableColumn<SiteStockRow>[] = [
+  {
+    header: "Material",
+    cell: (row) =>
+      `${row.materialSize.material.name}${row.materialSize.label ? ` (${row.materialSize.label})` : ""}`,
+  },
+  {
+    header: "Qty on hand",
+    align: "right",
+    cell: (row) => `${row.quantity} ${row.materialSize.material.unit.name}`,
+  },
+];
+
+const recentDsrColumns: DataTableColumn<RecentDsrRow>[] = [
+  { header: "Date", cell: (row) => <span className="text-ink-500">{formatDate(row.reportDate)}</span> },
+  { header: "Submitted by", cell: (row) => row.submittedBy.name },
+  { header: "Crew", align: "right", cell: (row) => row._count.workRecords },
+  {
+    header: "Summary",
+    cell: (row) => row.workCompleted ?? <span className="text-ink-500">—</span>,
+  },
+];
+
 export default async function SiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [site, todaysDsrId] = await Promise.all([getSiteDetail(id), getTodaysDsrId(id)]);
+  const [site, todaysDsr, stock, recentDsrs] = await Promise.all([
+    getSiteDetail(id),
+    getTodaysDsr(id),
+    getSiteStock(id),
+    getRecentDsrs(id),
+  ]);
 
   if (!site) {
     notFound();
@@ -129,7 +222,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <Link
-            href={todaysDsrId ? `/daily-activity/${todaysDsrId}` : `/dsr/new?siteId=${site.id}`}
+            href={todaysDsr ? `/daily-activity/${todaysDsr.id}` : `/dsr/new?siteId=${site.id}`}
             className={cn(buttonVariants({ variant: "primary" }))}
           >
             <ClipboardIcon className="size-4" />
@@ -143,6 +236,82 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             <PencilIcon className="size-4" />
             Edit Site
           </Link>
+        </div>
+      </div>
+
+      {/* Today at this Site — DSR status + quick entry, so "what's going on
+          at Site B right now" is answered here, not three screens away. */}
+      <div className="mb-8 rounded-lg border border-border-hairline bg-surface-1 p-5 shadow-1">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            {todaysDsr ? (
+              <>
+                <Badge variant="success" icon={<CheckCircleIcon />}>
+                  DSR submitted today
+                </Badge>
+                <span className="flex items-center gap-1.5 text-body-sm text-ink-700">
+                  <UsersIcon className="size-4 text-ink-500" />
+                  {todaysDsr._count.workRecords} crew present
+                </span>
+                <span className="flex items-center gap-1.5 text-body-sm text-ink-700">
+                  <LayersIcon className="size-4 text-ink-500" />
+                  {todaysDsr._count.consumptions} material {todaysDsr._count.consumptions === 1 ? "entry" : "entries"}
+                </span>
+              </>
+            ) : (
+              <Badge variant="neutral">No DSR yet today</Badge>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {/* ?siteId= carries this Site into the entry forms pre-selected
+                — the system already knows where the user is standing. */}
+            <Link
+              href={`/movements/consumption/new?siteId=${site.id}`}
+              className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
+            >
+              <PlusIcon className="size-4" />
+              Record Consumption
+            </Link>
+            <Link
+              href={`/expenses/new?siteId=${site.id}`}
+              className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
+            >
+              <ReceiptIcon className="size-4" />
+              Record Expense
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <div>
+          <div className="mb-4 text-section-header text-ink-900">Current Stock</div>
+          <DataTable
+            columns={stockColumns}
+            rowKey={(row) => row.materialSizeId}
+            state={
+              stock === null
+                ? { status: "empty", icon: <BoxIcon />, message: "Couldn't load this Site's stock right now." }
+                : stock.length === 0
+                  ? { status: "empty", icon: <BoxIcon />, message: "No stock recorded at this Site yet." }
+                  : { status: "success", rows: stock }
+            }
+          />
+        </div>
+        <div>
+          <div className="mb-4 text-section-header text-ink-900">Recent Daily Site Reports</div>
+          <DataTable
+            columns={recentDsrColumns}
+            rowKey={(row) => row.id}
+            rowHref={(row) => `/daily-activity/${row.id}`}
+            state={
+              recentDsrs === null
+                ? { status: "empty", icon: <ClipboardIcon />, message: "Couldn't load recent reports right now." }
+                : recentDsrs.length === 0
+                  ? { status: "empty", icon: <ClipboardIcon />, message: "No Daily Site Reports in the last 30 days." }
+                  : { status: "success", rows: recentDsrs }
+            }
+          />
         </div>
       </div>
 

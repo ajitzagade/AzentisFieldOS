@@ -153,7 +153,9 @@ describe("NewDsrPage", () => {
     await waitFor(() => expect(materialPicker).toBeEnabled());
     await user.type(materialPicker, "cem");
     await user.click(await screen.findByText("Cement — OPC 43"));
-    await user.type(screen.getByLabelText("Quantity"), "20");
+    // Once a Material is picked, the quantity label restates its unit so
+    // "20" is never ambiguous.
+    await user.type(screen.getByLabelText("Quantity (Bags)"), "20");
 
     await user.click(screen.getByRole("button", { name: "Submit Daily Site Report" }));
     await screen.findByText("Synced");

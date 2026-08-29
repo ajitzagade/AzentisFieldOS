@@ -2,6 +2,7 @@ import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import {
   Badge,
+  CheckCircleIcon,
   DataTable,
   MapPinIcon,
   PlusIcon,
@@ -19,6 +20,12 @@ export interface Site {
   description: string | null;
 }
 
+interface SiteRow extends Site {
+  /** true = DSR submitted today, false = not yet, null = status unknown
+   * (the DSR lookup failed — rendered as an honest "—", never "Not yet"). */
+  dsrToday: boolean | null;
+}
+
 const STATUS_BADGE: Record<Site["status"], { variant: "success" | "warning" | "neutral"; label: string }> = {
   ACTIVE: { variant: "success", label: "Active" },
   ON_HOLD: { variant: "warning", label: "On Hold" },
@@ -33,7 +40,23 @@ async function getSites(): Promise<Site[]> {
   return res.json();
 }
 
-const columns: DataTableColumn<Site>[] = [
+// One extra read answers "has this Site reported today?" for every row —
+// the same GET /dsr?date= the Daily Activity log uses, so the two screens
+// agree by construction. Its failure must not blank the Sites list itself.
+async function getTodaysReportedSiteIds(): Promise<Set<string> | null> {
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    const res = await authedFetch(`/dsr?date=${today}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const reports = (await res.json()) as { site?: { id: string } }[];
+    if (!Array.isArray(reports)) return null;
+    return new Set(reports.flatMap((report) => (report.site?.id ? [report.site.id] : [])));
+  } catch {
+    return null;
+  }
+}
+
+const columns: DataTableColumn<SiteRow>[] = [
   { header: "Site", cell: (site) => <span className="font-semibold">{site.name}</span> },
   { header: "Location", cell: (site) => site.location },
   {
@@ -43,10 +66,19 @@ const columns: DataTableColumn<Site>[] = [
       return <Badge variant={badge.variant}>{badge.label}</Badge>;
     },
   },
-  // Last DSR activity isn't wired yet — no DSR data exists until Epic 3
-  // ships. Kept as a column (matching mockups/02-sites.html's layout) with
-  // an honest "not available yet" placeholder rather than fabricated data.
-  { header: "Last DSR activity", cell: () => <span className="text-ink-500">—</span> },
+  {
+    header: "DSR today",
+    cell: (site) =>
+      site.dsrToday === null ? (
+        <span className="text-ink-500">—</span>
+      ) : site.dsrToday ? (
+        <Badge variant="success" icon={<CheckCircleIcon />}>
+          Submitted
+        </Badge>
+      ) : (
+        <span className="text-ink-500">Not yet</span>
+      ),
+  },
   {
     header: "Contract ref",
     cell: (site) => site.contractReference ?? <span className="text-ink-500">—</span>,
@@ -54,7 +86,11 @@ const columns: DataTableColumn<Site>[] = [
 ];
 
 export default async function SitesPage() {
-  const sites = await getSites();
+  const [sites, reportedToday] = await Promise.all([getSites(), getTodaysReportedSiteIds()]);
+  const rows: SiteRow[] = sites.map((site) => ({
+    ...site,
+    dsrToday: reportedToday === null ? null : reportedToday.has(site.id),
+  }));
 
   return (
     <>
@@ -74,7 +110,7 @@ export default async function SitesPage() {
         rowKey={(site) => site.id}
         rowHref={(site) => `/sites/${site.id}`}
         state={
-          sites.length === 0
+          rows.length === 0
             ? {
                 status: "empty",
                 icon: <MapPinIcon />,
@@ -86,7 +122,7 @@ export default async function SitesPage() {
                   </Link>
                 ),
               }
-            : { status: "success", rows: sites }
+            : { status: "success", rows }
         }
       />
     </>

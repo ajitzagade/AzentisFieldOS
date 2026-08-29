@@ -2,7 +2,7 @@ import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, CameraIcon, ClipboardIcon, DataTable, PencilIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
-import type { Vendor } from "../page";
+import { getVendorPurchaseSummary, type Vendor, type VendorPurchaseSummary } from "../page";
 
 interface VendorPurchase {
   id: string;
@@ -31,6 +31,20 @@ async function getVendorPurchases(id: string): Promise<VendorPurchase[]> {
     throw new Error(`Failed to load Vendor purchases (${res.status})`);
   }
   return res.json();
+}
+
+// The same summary the Vendors list shows per row — a transient failure
+// renders an honest "—" here rather than blanking the whole detail page
+// (mirrors the list's fault-isolation rule).
+async function getVendorPurchaseSummarySafe(id: string): Promise<VendorPurchaseSummary | null> {
+  try {
+    const summary = await getVendorPurchaseSummary(id);
+    return typeof summary?.totalThisYear === "number" && typeof summary?.notFullyPaidTotal === "number"
+      ? summary
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 const PAYMENT_STATUS_BADGE: Record<VendorPurchase["paymentStatus"], { variant: "success" | "warning" | "danger"; label: string }> = {
@@ -102,7 +116,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
     notFound();
   }
 
-  const purchases = await getVendorPurchases(id);
+  const [purchases, summary] = await Promise.all([getVendorPurchases(id), getVendorPurchaseSummarySafe(id)]);
 
   return (
     <>
@@ -120,6 +134,37 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
             <PencilIcon className="size-4" />
             Edit Vendor
           </Link>
+        </div>
+
+        {/* The same figures the Vendors list computes per row (GET
+            /vendors/:id/purchase-summary) — surfaced here too so opening a
+            Vendor never loses the money answer the list already gave. */}
+        <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-8">
+          <div>
+            <div className="mb-0.5 text-eyebrow uppercase text-ink-500">Total purchases (this year)</div>
+            <div className="text-kpi-numeral tabular-nums text-ink-900">
+              {summary === null ? (
+                <span className="text-ink-500">—</span>
+              ) : (
+                `₹${summary.totalThisYear.toLocaleString("en-IN")}`
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="mb-0.5 text-eyebrow uppercase text-ink-500">Payment status</div>
+            {summary === null ? (
+              <div className="text-kpi-numeral text-ink-500">—</div>
+            ) : summary.notFullyPaidTotal === 0 ? (
+              <div className="mt-1">
+                <Badge variant="success">Fully Paid</Badge>
+              </div>
+            ) : (
+              <div className="text-kpi-numeral tabular-nums text-warning-700">
+                ₹{summary.notFullyPaidTotal.toLocaleString("en-IN")}
+                <span className="ml-2 text-body-sm font-normal text-ink-500">not marked Paid</span>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-8">

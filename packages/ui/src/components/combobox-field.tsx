@@ -117,20 +117,22 @@ export function ComboboxField({
             placeholder={loading ? "Loading…" : placeholder}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? errorId : hint ? hintId : undefined}
-            className={cn(fieldControlClass, icon && "pl-9", selected ? "pr-16" : "pr-9", error && "border-danger-700")}
+            className={cn(fieldControlClass, icon && "pl-9", selected ? "pr-20" : "pr-11", error && "border-danger-700")}
           />
-          <div className="absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1 text-ink-500">
+          {/* size-8 (32px) tap targets — the clear/open affordances are used
+              on phones with gloves on; a 24px hit area misses too easily. */}
+          <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center text-ink-500">
             {selected ? (
               <Combobox.Clear
                 aria-label={`Clear ${label}`}
-                className="flex size-6 items-center justify-center rounded-sm hover:bg-surface-2 hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-accent-teal-100 focus-visible:outline-none"
+                className="flex size-8 items-center justify-center rounded-sm hover:bg-surface-2 hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-accent-teal-100 focus-visible:outline-none"
               >
                 <XIcon className="size-4" />
               </Combobox.Clear>
             ) : null}
             <Combobox.Trigger
               aria-label={`Open ${label} options`}
-              className="flex size-6 items-center justify-center rounded-sm hover:bg-surface-2 hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-accent-teal-100 focus-visible:outline-none"
+              className="flex size-8 items-center justify-center rounded-sm hover:bg-surface-2 hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-accent-teal-100 focus-visible:outline-none"
             >
               <ChevronsUpDownIcon className="size-4" />
             </Combobox.Trigger>

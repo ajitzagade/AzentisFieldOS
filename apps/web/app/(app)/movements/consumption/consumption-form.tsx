@@ -104,7 +104,11 @@ export function ConsumptionForm({
   const confirmation = useSubmitConfirmation();
 
   const siteName = sites.find((s) => s.id === selectedSiteId)?.name ?? "—";
-  const materialLabel = materialSizes.find((m) => m.id === selectedMaterialSizeId)?.label ?? "—";
+  const selectedMaterial = materialSizes.find((m) => m.id === selectedMaterialSizeId);
+  const materialLabel = selectedMaterial?.label ?? "—";
+  // Restate the picked Material's unit on the quantity label so "50" is
+  // never ambiguous (the unit rides along as the option's description).
+  const unitSuffix = selectedMaterial?.description ? ` (${selectedMaterial.description})` : "";
 
   return (
     <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
@@ -163,7 +167,7 @@ export function ConsumptionForm({
 
       <Card className="mb-4">
         <TextField
-          label={mode === "correct" ? "Quantity adjustment" : "Quantity"}
+          label={mode === "correct" ? `Quantity adjustment${unitSuffix}` : `Quantity${unitSuffix}`}
           name="quantity"
           type="number"
           step="any"

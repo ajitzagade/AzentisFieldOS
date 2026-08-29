@@ -13,11 +13,11 @@ import {
   CheckCircleIcon,
   ComboboxField,
   MapPinIcon,
-  PencilIcon,
   PlusIcon,
   RotateCcwIcon,
   SelectField,
   TextField,
+  TextareaField,
   TruckIcon,
   UserIcon,
   WifiOffIcon,
@@ -407,15 +407,17 @@ function NewDsrForm() {
             value={reportDate}
             onChange={(e) => setReportDate(e.target.value)}
           />
-          <TextField
+          {/* Multiline — a day's work summary is narrative text, not a
+              one-line value (the shared TextareaField, per AD-5). */}
+          <TextareaField
             label="Work completed"
-            icon={<PencilIcon className="size-4" />}
+            rows={3}
             value={workCompleted}
             onChange={(e) => setWorkCompleted(e.target.value)}
           />
-          <TextField
+          <TextareaField
             label="Issues / blockers"
-            icon={<PencilIcon className="size-4" />}
+            rows={2}
             hint="Optional"
             value={issuesBlockers}
             onChange={(e) => setIssuesBlockers(e.target.value)}
@@ -429,15 +431,18 @@ function NewDsrForm() {
           ) : null}
           <ul className="mb-3 flex flex-col gap-2">
             {crew.map((row) => (
-              <li key={row.teamMemberId} className="flex items-center gap-2">
+              <li key={row.teamMemberId} className="flex items-center gap-3">
+                {/* size-5 box + a label that stretches the row: the whole
+                    name is a ~44px-tall tap target (gloves-and-glare rule),
+                    not just the checkbox square. */}
                 <input
                   type="checkbox"
                   id={`crew-${row.teamMemberId}`}
                   checked={row.attended}
                   onChange={() => toggleAttended(row.teamMemberId)}
-                  className="size-4 accent-accent-teal-700"
+                  className="size-5 shrink-0 accent-accent-teal-700"
                 />
-                <label htmlFor={`crew-${row.teamMemberId}`} className="text-body-sm text-ink-900">
+                <label htmlFor={`crew-${row.teamMemberId}`} className="flex-1 py-2.5 text-body-sm text-ink-900">
                   {row.name ?? "Crew member"}
                 </label>
                 {row.attended ? <Badge variant="success">Present</Badge> : <Badge variant="neutral">Absent</Badge>}
@@ -462,6 +467,9 @@ function NewDsrForm() {
             const stock = siteId
               ? stockStatus({ stock: siteStock, materialSizeId: row.materialSizeId, quantity: row.quantity, location: "this Site" })
               : undefined;
+            // The unit is already on the picked option (its description) —
+            // restate it on the quantity label so "50" is never ambiguous.
+            const unit = materialOptions.find((option) => option.value === row.materialSizeId)?.description;
             return (
               <div
                 key={row.clientGeneratedId}
@@ -483,7 +491,7 @@ function NewDsrForm() {
                 />
                 <div className="sm:col-span-3">
                   <TextField
-                    label="Quantity"
+                    label={unit ? `Quantity (${unit})` : "Quantity"}
                     type="number"
                     min={0}
                     step="any"
@@ -700,11 +708,14 @@ function NewDsrForm() {
                     <CheckCircleIcon className="absolute right-0.5 bottom-0.5 size-4 rounded-full bg-surface-1 text-success-700" />
                   ) : null}
                 </div>
+                {/* px/py padding widens the tap area well past the caption
+                    text itself — these are field-thumb targets, not desktop
+                    links. */}
                 {photo.status === "failed" ? (
                   <button
                     type="button"
                     onClick={() => retryPhoto(photo.localId)}
-                    className="flex items-center gap-1 text-caption text-danger-700 underline"
+                    className="flex min-h-8 items-center gap-1 px-2 py-1.5 text-caption text-danger-700 underline"
                   >
                     <RotateCcwIcon className="size-3" />
                     Retry
@@ -713,7 +724,7 @@ function NewDsrForm() {
                   <button
                     type="button"
                     onClick={() => removePhoto(photo.localId)}
-                    className="text-caption text-ink-500 underline"
+                    className="min-h-8 px-2 py-1.5 text-caption text-ink-500 underline"
                   >
                     Remove
                   </button>

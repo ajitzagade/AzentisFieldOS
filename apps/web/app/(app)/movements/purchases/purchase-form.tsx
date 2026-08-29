@@ -116,6 +116,10 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
   const stock = destinationKnown
     ? stockStatus({ stock: destinationStock, materialSizeId: materialSizeId || null, location: destinationLocation })
     : undefined;
+  // Restate the picked Material's unit on the quantity label so "50" is
+  // never ambiguous (the unit rides along as the option's description).
+  const selectedUnit = materialSizes.find((m) => m.id === materialSizeId)?.description;
+  const unitSuffix = selectedUnit ? ` (${selectedUnit})` : "";
 
   return (
     <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
@@ -203,7 +207,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
 
       <Card className="mb-4">
         <TextField
-          label={mode === "correct" ? "Quantity adjustment" : "Quantity"}
+          label={mode === "correct" ? `Quantity adjustment${unitSuffix}` : `Quantity${unitSuffix}`}
           name="quantity"
           type="number"
           step="any"

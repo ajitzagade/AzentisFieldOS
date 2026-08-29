@@ -78,7 +78,12 @@ describe("InventoryPage", () => {
     expect(
       screen.getByText("Cement (OPC 53 Grade) is low in Godown stock — 120 Bags on hand against a 200 Bags configured threshold."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Transfer Stock" })).toHaveAttribute("href", "/movements/godown-to-site/new");
+    // The flag deep-links the movement form with the low Material carried
+    // along (?materialId=) so the user doesn't re-find what's low.
+    expect(screen.getByRole("link", { name: "Transfer Stock" })).toHaveAttribute(
+      "href",
+      "/movements/godown-to-site/new?materialId=mat-1",
+    );
   });
 
   it("shows an explicit no-alerts message instead of an empty Alerts section when nothing is low-stock", async () => {

@@ -110,6 +110,10 @@ export function MovementForm({
         location: sourceLocation,
       })
     : undefined;
+  // Restate the picked Material's unit on the quantity label so "50" is
+  // never ambiguous (the unit rides along as the option's description).
+  const selectedUnit = materialSizes.find((m) => m.id === materialSizeId)?.description;
+  const unitSuffix = selectedUnit ? ` (${selectedUnit})` : "";
 
   return (
     <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
@@ -182,7 +186,7 @@ export function MovementForm({
 
       <Card className="mb-4">
         <TextField
-          label={mode === "correct" ? "Quantity adjustment" : "Sent Quantity"}
+          label={mode === "correct" ? `Quantity adjustment${unitSuffix}` : `Sent Quantity${unitSuffix}`}
           name="sentQuantity"
           type="number"
           step="any"
