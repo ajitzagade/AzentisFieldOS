@@ -6,7 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "postinstall": "prisma generate",
+    "postinstall": "if [ -n \"$DATABASE_URL\" ]; then prisma generate; fi",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
