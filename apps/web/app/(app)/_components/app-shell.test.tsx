@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppShell } from "./app-shell";
 
@@ -126,5 +126,50 @@ describe("AppShell", () => {
     // Settings hard-404s for a Supervisor, so it must not appear as a link.
     expect(screen.queryByRole("link", { name: /Settings/ })).not.toBeInTheDocument();
     expect(screen.getByText("content")).toBeInTheDocument();
+  });
+});
+
+describe("AppShell — PWA install", () => {
+  function fireBeforeInstallPrompt() {
+    const event = Object.assign(new Event("beforeinstallprompt"), {
+      prompt: vi.fn(async () => {}),
+      userChoice: Promise.resolve({ outcome: "dismissed" as const }),
+    });
+    window.dispatchEvent(event);
+    return event;
+  }
+
+  it("does not show a Download app action until the browser signals installability", () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="OWNER_ADMIN">
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(screen.queryByRole("button", { name: /Download app/i })).not.toBeInTheDocument();
+  });
+
+  it("shows a Download app action above Sign out once beforeinstallprompt fires, gated by a confirmation dialog", async () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="OWNER_ADMIN">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    let event!: ReturnType<typeof fireBeforeInstallPrompt>;
+    act(() => {
+      event = fireBeforeInstallPrompt();
+    });
+
+    const downloadButton = await screen.findByRole("button", { name: /Download app/i });
+    expect(event.prompt).not.toHaveBeenCalled();
+
+    fireEvent.click(downloadButton);
+    const confirmButton = await screen.findByRole("button", { name: "Install" });
+    expect(event.prompt).not.toHaveBeenCalled();
+
+    fireEvent.click(confirmButton);
+    await waitFor(() => expect(event.prompt).toHaveBeenCalledTimes(1));
   });
 });

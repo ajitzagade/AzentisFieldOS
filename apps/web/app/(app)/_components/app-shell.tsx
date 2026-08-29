@@ -3,11 +3,21 @@
 import { Suspense, type ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn, LogoutIcon, MenuIcon, Toaster, ToastProvider, XIcon } from "@azentisfieldos/ui";
+import {
+  cn,
+  ConfirmDialog,
+  DownloadIcon,
+  LogoutIcon,
+  MenuIcon,
+  Toaster,
+  ToastProvider,
+  XIcon,
+} from "@azentisfieldos/ui";
 import type { Role } from "@azentisfieldos/shared";
 import { NAV_GROUPS, SETTINGS_NAV_ITEM, UNGROUPED_NAV_ITEMS, type NavItem } from "./nav-config";
 import { FlashToast } from "./flash-toast";
 import { APP_DISPLAY_NAME } from "../../../lib/tenant";
+import { usePwaInstall } from "../../../lib/use-pwa-install";
 
 // Every role gets the same sidebar-driven shell (product direction 2026-08-27,
 // superseding EXPERIENCE.md's original Owner/Admin-sidebar vs Supervisor-top-bar
@@ -57,10 +67,14 @@ function SidebarNav({
   pathname,
   role,
   onNavigate,
+  pwaAvailable,
+  onRequestInstall,
 }: {
   pathname: string;
   role: Role;
   onNavigate?: () => void;
+  pwaAvailable: boolean;
+  onRequestInstall: () => void;
 }) {
   return (
     <>
@@ -90,10 +104,27 @@ function SidebarNav({
         <NavLink item={SETTINGS_NAV_ITEM} active={isActive(pathname, SETTINGS_NAV_ITEM.href)} onNavigate={onNavigate} />
       ) : null}
 
+      {/* Story 1.9: a deliberate, user-initiated affordance instead of an
+          unprompted floating banner — only rendered when the browser has
+          actually signaled installability (Android's beforeinstallprompt,
+          or iOS Safari not yet installed). Confirmed via a dialog rather
+          than firing the native prompt (or navigating to instructions)
+          straight from the click. */}
+      {pwaAvailable ? (
+        <button
+          type="button"
+          onClick={onRequestInstall}
+          className="mt-auto flex w-full items-center gap-3 rounded-md px-3 py-2 text-body-sm font-medium text-ink-on-accent/80 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-white/10 hover:text-ink-on-accent"
+        >
+          <DownloadIcon className="size-4 shrink-0" />
+          Download app
+        </button>
+      ) : null}
+
       {/* Plain POST form, not a client-side handler — works even before any
           client JS has hydrated, and mirrors /api/auth/logout's own plain
           Route Handler (clears the session cookie, redirects to /sign-in). */}
-      <form action="/api/auth/logout" method="post" className="mt-auto pt-4">
+      <form action="/api/auth/logout" method="post" className={pwaAvailable ? "pt-4" : "mt-auto pt-4"}>
         <button
           type="submit"
           className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-body-sm font-medium text-ink-on-accent/80 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-white/10 hover:text-ink-on-accent"
@@ -110,6 +141,13 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
   const [navOpen, setNavOpen] = useState(false);
   const [lastPathname, setLastPathname] = useState(pathname);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const pwaInstall = usePwaInstall();
+  const [installDialogOpen, setInstallDialogOpen] = useState(false);
+
+  async function handleConfirmInstall() {
+    setInstallDialogOpen(false);
+    await pwaInstall.install();
+  }
 
   // Close the drawer whenever the route changes (a nav link was followed, or
   // the user hit back/forward). This is the React-endorsed "adjust state while
@@ -140,7 +178,12 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
           page content is, and the content scrolls without carrying the rail
           off-screen. */}
       <aside className="hidden w-62 shrink-0 flex-col gap-1 overflow-y-auto bg-accent-navy-800 px-4 py-6 text-ink-on-accent lg:flex">
-        <SidebarNav pathname={pathname} role={role} />
+        <SidebarNav
+          pathname={pathname}
+          role={role}
+          pwaAvailable={pwaInstall.available}
+          onRequestInstall={() => setInstallDialogOpen(true)}
+        />
       </aside>
 
       {/* Mobile top bar — below lg only. */}
@@ -182,7 +225,13 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
                 <XIcon className="size-5" />
               </button>
             </div>
-            <SidebarNav pathname={pathname} role={role} onNavigate={() => setNavOpen(false)} />
+            <SidebarNav
+              pathname={pathname}
+              role={role}
+              onNavigate={() => setNavOpen(false)}
+              pwaAvailable={pwaInstall.available}
+              onRequestInstall={() => setInstallDialogOpen(true)}
+            />
           </aside>
         </div>
       ) : null}
@@ -190,6 +239,20 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
       <main className="flex-1 px-4 py-6 lg:overflow-y-auto lg:px-10 lg:py-8">
         <div className="max-w-310">{children}</div>
       </main>
+
+      <ConfirmDialog
+        open={installDialogOpen}
+        onOpenChange={setInstallDialogOpen}
+        title={pwaInstall.isIos ? "Install this app" : "Install this app?"}
+        description={
+          pwaInstall.isIos
+            ? "iOS doesn't allow installing directly — tap Share, then Add to Home Screen."
+            : "Get faster, full-screen access from your home screen."
+        }
+        confirmLabel={pwaInstall.isIos ? "Got it" : "Install"}
+        cancelLabel={pwaInstall.isIos ? "Close" : "Not now"}
+        onConfirm={pwaInstall.isIos ? () => setInstallDialogOpen(false) : handleConfirmInstall}
+      />
     </div>
   );
 }
