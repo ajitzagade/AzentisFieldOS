@@ -13,6 +13,7 @@ export const createPurchaseSchema = z
     rate: z.number().positive(),
     totalAmount: z.number().positive(),
     invoiceOrChallanNo: z.string().min(1).optional(),
+    challanPhotoUrl: z.url().optional(),
     paymentStatus: paymentStatusSchema,
     deliveryLocation: z.string().min(1).optional(),
     vehicleDetails: z.string().min(1).optional(),

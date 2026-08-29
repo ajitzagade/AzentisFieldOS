@@ -28,6 +28,7 @@ import { createMovementAction, type CreateMovementFormState } from "./actions";
 interface MaterialSizeOption {
   id: string;
   label: string;
+  description?: string;
 }
 
 interface SiteOption {
@@ -98,7 +99,7 @@ export function MovementForm({
   );
   const sourceKnown = kind === "GODOWN_TO_SITE" || Boolean(sourceSiteId);
   const materialOptions = useMemo(() => {
-    const base = materialSizes.map((m) => ({ value: m.id, label: m.label }));
+    const base = materialSizes.map((m) => ({ value: m.id, label: m.label, description: m.description }));
     return sourceKnown ? withStockMeta(base, sourceStock) : base;
   }, [materialSizes, sourceKnown, sourceStock]);
   const stock = sourceKnown

@@ -16,6 +16,7 @@ export interface Site {
   location: string;
   status: "ACTIVE" | "COMPLETED" | "ON_HOLD";
   contractReference: string | null;
+  description: string | null;
 }
 
 const STATUS_BADGE: Record<Site["status"], { variant: "success" | "warning" | "neutral"; label: string }> = {

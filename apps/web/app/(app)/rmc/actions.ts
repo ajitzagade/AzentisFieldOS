@@ -25,6 +25,7 @@ export async function createRmcEntryAction(
     ratePerM3: Number(formData.get("ratePerM3")),
     totalAmount: Number(formData.get("totalAmount")),
     invoiceOrChallanNo: formData.get("invoiceOrChallanNo") || undefined,
+    challanPhotoUrl: formData.get("challanPhotoUrl") || undefined,
     deliveredAt: formData.get("deliveredAt"),
     correctsId: formData.get("correctsId") || undefined,
     reason: formData.get("reason") || undefined,

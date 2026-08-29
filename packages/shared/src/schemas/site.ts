@@ -11,6 +11,7 @@ export const createSiteSchema = z.object({
   location: z.string().min(1).max(500),
   status: siteStatusSchema.default("ACTIVE"),
   contractReference: z.string().max(200).optional(),
+  description: z.string().max(2000).optional(),
 });
 
 export type CreateSiteInput = z.infer<typeof createSiteSchema>;

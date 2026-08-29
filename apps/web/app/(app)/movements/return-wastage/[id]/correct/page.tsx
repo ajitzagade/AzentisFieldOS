@@ -11,6 +11,7 @@ interface SiteOption {
 interface MaterialListItem {
   id: string;
   name: string;
+  unit: { name: string };
   sizes: { id: string; label: string }[];
 }
 
@@ -59,7 +60,11 @@ export default async function CorrectReturnWastagePage({ params }: { params: Pro
   }
 
   const materialSizes = materials.flatMap((material) =>
-    material.sizes.map((size) => ({ id: size.id, label: `${material.name} (${size.label})` })),
+    material.sizes.map((size) => ({
+      id: size.id,
+      label: `${material.name} (${size.label})`,
+      description: material.unit.name,
+    })),
   );
 
   const initial: ReturnWastageFormInitialValues = {

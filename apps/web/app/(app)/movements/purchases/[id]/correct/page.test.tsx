@@ -77,7 +77,7 @@ describe("CorrectPurchasePage", () => {
     mockFetchRouter({
       purchase,
       sites: [],
-      materials: [{ id: "m1", name: "Cement", sizes: [{ id: "ms1", label: "OPC 53 Grade" }] }],
+      materials: [{ id: "m1", name: "Cement", unit: { name: "bags" }, sizes: [{ id: "ms1", label: "OPC 53 Grade" }] }],
       vendors: [{ id: "v1", name: "Shree Balaji Traders" }],
     });
 

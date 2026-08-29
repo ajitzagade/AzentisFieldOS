@@ -8,6 +8,7 @@ import { MaterialsController } from '../materials/materials.controller';
 import { MaterialsService } from '../materials/materials.service';
 import { MaterialCategoriesController } from '../materials/material-categories.controller';
 import { MaterialCategoriesService } from '../materials/material-categories.service';
+import { RolesGuard } from '../auth/roles.guard';
 import { MovementsController } from '../inventory/movements.controller';
 import { MovementsService } from '../inventory/movements.service';
 import { TeamMembersController } from '../team/team-members.controller';
@@ -83,10 +84,17 @@ describe('PATCH handlers with @Param + @Body must not validate the param', () =>
 
   it('MaterialCategoriesController PATCH /material-categories/:id', async () => {
     const service = { update: vi.fn().mockResolvedValue({ id: '1' }) };
+    // FR-49 added @Roles('OWNER_ADMIN') to this route's RolesGuard — this
+    // test is about the @Param + @Body pipe-validation quirk, not
+    // authorization, so the guard is stubbed open rather than faked with a
+    // request.user this test has no other reason to construct.
     const moduleRef = await Test.createTestingModule({
       controllers: [MaterialCategoriesController],
       providers: [{ provide: MaterialCategoriesService, useValue: service }],
-    }).compile();
+    })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     app = moduleRef.createNestApplication();
     await app.init();
 

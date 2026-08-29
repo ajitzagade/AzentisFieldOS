@@ -22,6 +22,7 @@ import {
   SelectField,
   TextField,
 } from "@azentisfieldos/ui";
+import { ChallanPhotoField } from "../_components/challan-photo-field";
 import { createRmcEntryAction, type CreateRmcEntryFormState } from "./actions";
 
 interface SiteOption {
@@ -41,6 +42,7 @@ export interface RmcFormInitialValues {
   ratePerM3?: string;
   totalAmount?: string;
   invoiceOrChallanNo?: string;
+  challanPhotoUrl?: string;
   deliveredAt?: string;
 }
 
@@ -207,6 +209,7 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
           defaultValue={initial?.invoiceOrChallanNo}
           error={state.errors?.invoiceOrChallanNo?.[0]}
         />
+        <ChallanPhotoField initialUrl={initial?.challanPhotoUrl} error={state.errors?.challanPhotoUrl?.[0]} />
       </Card>
 
       {state.formError ? (

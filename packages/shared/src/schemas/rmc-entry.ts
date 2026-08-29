@@ -15,6 +15,7 @@ export const createRmcEntrySchema = z
     ratePerM3: z.number().positive(),
     totalAmount: z.number().positive(),
     invoiceOrChallanNo: z.string().max(200).optional(),
+    challanPhotoUrl: z.url().optional(),
     deliveredAt: z.coerce.date(),
     correctsId: z.uuid().optional(),
     reason: z.string().min(1).max(500).optional(),

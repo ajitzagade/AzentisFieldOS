@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { createMaterialCategoryAction, toggleMaterialCategoryAction } from "./actions";
+import {
+  createMaterialCategoryAction,
+  renameMaterialCategoryAction,
+  toggleMaterialCategoryAction,
+} from "./actions";
 
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
@@ -43,6 +47,41 @@ describe("createMaterialCategoryAction", () => {
       expect.objectContaining({ method: "POST", body: JSON.stringify({ name: "Cement" }) }),
     );
     expect(result).toEqual({});
+  });
+});
+
+describe("renameMaterialCategoryAction", () => {
+  it("returns a per-field error for an empty name without calling the API", async () => {
+    global.fetch = vi.fn();
+
+    const result = await renameMaterialCategoryAction("cat-1", {}, formData({ name: "" }));
+
+    expect(result.errors?.name).toBeDefined();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("PATCHes the id with the validated payload and returns ok:true", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+
+    const result = await renameMaterialCategoryAction("cat-1", {}, formData({ name: "Plumbing" }));
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://localhost:3001/material-categories/cat-1",
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ name: "Plumbing" }) }),
+    );
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("surfaces a duplicate-name 400 as a form error", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { message: "A Category with this name already exists" } }),
+    }) as unknown as typeof fetch;
+
+    const result = await renameMaterialCategoryAction("cat-1", {}, formData({ name: "Cement" }));
+
+    expect(result.formError).toBe("A Category with this name already exists");
   });
 });
 

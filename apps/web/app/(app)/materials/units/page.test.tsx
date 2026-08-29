@@ -24,7 +24,10 @@ describe("UnitsPage", () => {
   it("renders every Unit", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => [{ id: "u1", name: "Bags" }, { id: "u2", name: "Pcs" }],
+      json: async () => [
+        { id: "u1", name: "Bags", isActive: true },
+        { id: "u2", name: "Pcs", isActive: true },
+      ],
     }) as unknown as typeof fetch;
 
     await renderUnitsPage();

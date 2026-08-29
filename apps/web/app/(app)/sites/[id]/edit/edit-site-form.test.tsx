@@ -14,6 +14,7 @@ const site: Site = {
   location: "Nashik",
   status: "ON_HOLD",
   contractReference: "REF-118",
+  description: "Package 3 of the highway widening contract.",
 };
 
 describe("EditSiteForm", () => {
@@ -24,6 +25,7 @@ describe("EditSiteForm", () => {
     expect(screen.getByLabelText("Location")).toHaveValue("Nashik");
     expect(screen.getByLabelText("Status")).toHaveValue("ON_HOLD");
     expect(screen.getByLabelText("Contract reference")).toHaveValue("REF-118");
+    expect(screen.getByLabelText("Description")).toHaveValue("Package 3 of the highway widening contract.");
   });
 
   it("pre-fills an empty contract reference when the Site has none", () => {

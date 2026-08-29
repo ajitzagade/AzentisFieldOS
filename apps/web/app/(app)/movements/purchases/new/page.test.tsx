@@ -42,6 +42,7 @@ describe("NewPurchasePage", () => {
         {
           id: "m1",
           name: "Cement",
+          unit: { name: "bags" },
           sizes: [{ id: "ms1", label: "OPC 53 Grade" }],
         },
       ],
@@ -59,7 +60,7 @@ describe("NewPurchasePage", () => {
   it("does not offer a Material with zero Sizes in the picker — it has nothing to purchase", async () => {
     mockFetchRouter({
       sites: [],
-      materials: [{ id: "m1", name: "Loose Sand", sizes: [] }],
+      materials: [{ id: "m1", name: "Loose Sand", unit: { name: "cft" }, sizes: [] }],
     });
 
     await renderNewPurchasePage();

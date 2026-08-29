@@ -1,7 +1,7 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge, ClipboardIcon, DataTable, PencilIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
+import { Badge, CameraIcon, ClipboardIcon, DataTable, PencilIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
 import type { Vendor } from "../page";
 
 interface VendorPurchase {
@@ -10,6 +10,7 @@ interface VendorPurchase {
   rate: string;
   totalAmount: string;
   invoiceOrChallanNo: string | null;
+  challanPhotoUrl: string | null;
   paymentStatus: "PAID" | "PARTIAL" | "UNPAID";
   purchasedAt: string;
   materialSize: { label: string; material: { name: string; unit: { name: string } } };
@@ -63,7 +64,22 @@ const purchaseColumns: DataTableColumn<VendorPurchase>[] = [
   },
   {
     header: "Invoice / Challan #",
-    cell: (purchase) => purchase.invoiceOrChallanNo ?? <span className="text-ink-500">—</span>,
+    cell: (purchase) => (
+      <span className="flex items-center gap-1.5">
+        {purchase.invoiceOrChallanNo ?? <span className="text-ink-500">—</span>}
+        {purchase.challanPhotoUrl ? (
+          <a
+            href={purchase.challanPhotoUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="View challan photo"
+            className="text-accent-teal-700 hover:text-accent-teal-800"
+          >
+            <CameraIcon className="size-3.5" />
+          </a>
+        ) : null}
+      </span>
+    ),
   },
   {
     header: "Payment status",

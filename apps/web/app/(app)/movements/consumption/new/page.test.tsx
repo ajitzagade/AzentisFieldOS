@@ -35,7 +35,7 @@ describe("NewConsumptionPage", () => {
   it("flattens each Material's Sizes into Material/Size picker options", async () => {
     mockFetchRouter({
       sites: [{ id: "site1", name: "Sector 12 Metro Depot" }],
-      materials: [{ id: "m1", name: "RCC Pipe", sizes: [{ id: "ms1", label: "600mm" }] }],
+      materials: [{ id: "m1", name: "RCC Pipe", unit: { name: "nos" }, sizes: [{ id: "ms1", label: "600mm" }] }],
     });
 
     await renderNewConsumptionPage();

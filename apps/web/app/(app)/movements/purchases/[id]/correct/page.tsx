@@ -11,6 +11,7 @@ interface SiteOption {
 interface MaterialListItem {
   id: string;
   name: string;
+  unit: { name: string };
   sizes: { id: string; label: string }[];
 }
 
@@ -27,6 +28,7 @@ interface PurchaseForCorrection {
   rate: string;
   totalAmount: string;
   invoiceOrChallanNo: string | null;
+  challanPhotoUrl: string | null;
   paymentStatus: "PAID" | "PARTIAL" | "UNPAID";
   deliveryLocation: string | null;
   vehicleDetails: string | null;
@@ -80,7 +82,11 @@ export default async function CorrectPurchasePage({ params }: { params: Promise<
   }
 
   const materialSizes = materials.flatMap((material) =>
-    material.sizes.map((size) => ({ id: size.id, label: `${material.name} (${size.label})` })),
+    material.sizes.map((size) => ({
+      id: size.id,
+      label: `${material.name} (${size.label})`,
+      description: material.unit.name,
+    })),
   );
 
   const initial: PurchaseFormInitialValues = {
@@ -91,6 +97,7 @@ export default async function CorrectPurchasePage({ params }: { params: Promise<
     rate: purchase.rate,
     totalAmount: purchase.totalAmount,
     invoiceOrChallanNo: purchase.invoiceOrChallanNo ?? undefined,
+    challanPhotoUrl: purchase.challanPhotoUrl ?? undefined,
     paymentStatus: purchase.paymentStatus,
     deliveryLocation: purchase.deliveryLocation ?? undefined,
     vehicleDetails: purchase.vehicleDetails ?? undefined,

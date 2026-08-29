@@ -26,6 +26,7 @@ import { createConsumptionAction, type CreateConsumptionFormState } from "./acti
 interface MaterialSizeOption {
   id: string;
   label: string;
+  description?: string;
 }
 
 interface SiteOption {
@@ -86,7 +87,7 @@ export function ConsumptionForm({
   // to a warning before submit (FR-14). Corrections are signed deltas, so
   // the overdraw comparison only applies to new entries.
   const materialOptions = useMemo(() => {
-    const base = materialSizes.map((m) => ({ value: m.id, label: m.label }));
+    const base = materialSizes.map((m) => ({ value: m.id, label: m.label, description: m.description }));
     return selectedSiteId ? withStockMeta(base, siteStock) : base;
   }, [materialSizes, selectedSiteId, siteStock]);
   const stock = selectedSiteId

@@ -21,6 +21,7 @@ interface RmcEntryForCorrection {
   ratePerM3: string;
   totalAmount: string;
   invoiceOrChallanNo: string | null;
+  challanPhotoUrl: string | null;
   deliveredAt: string;
 }
 
@@ -67,6 +68,7 @@ export default async function CorrectRmcEntryPage({ params }: { params: Promise<
     ratePerM3: entry.ratePerM3,
     totalAmount: entry.totalAmount,
     invoiceOrChallanNo: entry.invoiceOrChallanNo ?? undefined,
+    challanPhotoUrl: entry.challanPhotoUrl ?? undefined,
     deliveredAt: entry.deliveredAt.slice(0, 10),
   };
 

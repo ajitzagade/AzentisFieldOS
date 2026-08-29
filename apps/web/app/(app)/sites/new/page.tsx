@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, FilterIcon, HashIcon, MapPinIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { Button, Card, FilterIcon, HashIcon, MapPinIcon, PlusIcon, SelectField, TextField, TextareaField } from "@azentisfieldos/ui";
 import { createSiteAction, type CreateSiteFormState } from "./actions";
 
 const STATUS_OPTIONS = [
@@ -64,6 +64,14 @@ export default function NewSitePage() {
             maxLength={200}
             icon={<HashIcon className="size-4" />}
             error={state.errors?.contractReference?.[0]}
+          />
+          <TextareaField
+            label="Description"
+            name="description"
+            hint="Optional"
+            rows={3}
+            maxLength={2000}
+            error={state.errors?.description?.[0]}
           />
 
           {state.formError ? (

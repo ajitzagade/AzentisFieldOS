@@ -26,6 +26,7 @@ export async function createPurchaseAction(
     rate: Number(formData.get("rate")),
     totalAmount: Number(formData.get("totalAmount")),
     invoiceOrChallanNo: formData.get("invoiceOrChallanNo") || undefined,
+    challanPhotoUrl: formData.get("challanPhotoUrl") || undefined,
     paymentStatus: formData.get("paymentStatus"),
     deliveryLocation: formData.get("deliveryLocation") || undefined,
     vehicleDetails: formData.get("vehicleDetails") || undefined,

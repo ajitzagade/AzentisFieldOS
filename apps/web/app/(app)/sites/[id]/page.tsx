@@ -123,6 +123,9 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
               </span>
             ) : null}
           </div>
+          {site.description ? (
+            <p className="mt-2 max-w-160 text-body-sm text-ink-700">{site.description}</p>
+          ) : null}
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <Link

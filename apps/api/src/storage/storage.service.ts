@@ -64,6 +64,20 @@ export class StorageService {
     };
   }
 
+  // Same sign→POST→store-URL flow as presignBrandingLogoUpload — a photo of
+  // the physical Invoice/Challan attached to a Purchase or RMC delivery,
+  // alongside the existing free-text invoiceOrChallanNo field. No Photo row:
+  // the durable URL is stored directly on Purchase.challanPhotoUrl /
+  // RmcEntry.challanPhotoUrl by the same create() call that saves the rest
+  // of the entry.
+  presignChallanUpload() {
+    const publicId = `challan/${crypto.randomUUID()}`;
+    return {
+      ...this.signUpload(publicId),
+      challanPhotoUrl: cloudinaryUrl(publicId),
+    };
+  }
+
   // Story 1.8 (AC #1): `uploadedByUserId` is the real authenticated user,
   // threaded in from the controller (req.user, set by ClerkAuthGuard) — no
   // longer a placeholder resolved inside the service.

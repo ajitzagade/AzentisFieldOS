@@ -19,6 +19,11 @@ export class StorageController {
     return this.storageService.presignUpload(body);
   }
 
+  @Post('challan/presign')
+  presignChallan() {
+    return this.storageService.presignChallanUpload();
+  }
+
   // Story 1.8 (AC #1): the Photo is attributed to the real signed-in user
   // (req.user, resolved by ClerkAuthGuard), threaded into the service.
   @Post()

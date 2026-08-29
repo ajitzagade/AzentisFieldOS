@@ -56,6 +56,7 @@ model Site {
   location          String
   status            SiteStatus @default(ACTIVE)
   contractReference String?
+  description       String?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -88,6 +89,11 @@ model MaterialCategory {
 model Unit {
   id        String     @id @default(uuid(7))
   name      String     @unique
+  // FR-49, NFR-4: brings Unit in line with every other admin-configurable
+  // lookup type's rename/disable lifecycle (MachineryType, VehicleType,
+  // EmploymentType, ExpenseCategory) — disabling hides it from new-Material
+  // entry forms without touching Materials already using it.
+  isActive  Boolean    @default(true)
   materials Material[]
 }
 
@@ -167,6 +173,7 @@ model Purchase {
   rate                 Decimal
   totalAmount          Decimal
   invoiceOrChallanNo   String?
+  challanPhotoUrl      String?
   paymentStatus        String
   deliveryLocation     String?
   vehicleDetails       String?
@@ -513,6 +520,7 @@ model RmcEntry {
   ratePerM3     Decimal
   totalAmount   Decimal
   invoiceOrChallanNo String?
+  challanPhotoUrl String?
   deliveredAt   DateTime
   createdAt     DateTime @default(now())
   correctsId    String?

@@ -45,6 +45,7 @@ export default async function SettingsPage() {
     vehicleTypes,
     expenseCategories,
     materialCategories,
+    units,
     thresholds,
     notificationSettings,
   ] = await Promise.all([
@@ -55,6 +56,7 @@ export default async function SettingsPage() {
     getJSON<NamedType[]>("/vehicle-types"),
     getJSON<NamedType[]>("/expense-categories"),
     getJSON<NamedType[]>("/material-categories"),
+    getJSON<NamedType[]>("/units"),
     getJSON<LowStockThreshold[]>("/materials/thresholds"),
     getJSON<ChannelSetting[]>("/notification-settings"),
   ]);
@@ -70,6 +72,7 @@ export default async function SettingsPage() {
     { label: "Vehicle Types", href: "/machinery-vehicles/vehicle-types", types: vehicleTypes },
     { label: "Expense Categories", href: "/expenses/categories", types: expenseCategories },
     { label: "Material Categories", href: "/materials/categories", types: materialCategories },
+    { label: "Units", href: "/materials/units", types: units },
   ];
 
   return (

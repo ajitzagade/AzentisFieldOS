@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { revalidatePath } from "next/cache";
-import { createMaterialCategorySchema } from "@azentisfieldos/shared";
+import { createMaterialCategorySchema, updateMaterialCategorySchema } from "@azentisfieldos/shared";
 
 export interface CreateMaterialCategoryFormState {
   errors?: Record<string, string[]>;
@@ -36,6 +36,49 @@ export async function createMaterialCategoryAction(
 
   revalidatePath("/materials/categories");
   return {};
+}
+
+// FR-49: rename via the shared updateMaterialCategorySchema (AD-7).
+export interface RenameMaterialCategoryFormState {
+  errors?: Record<string, string[]>;
+  formError?: string;
+  ok?: boolean;
+}
+
+export async function renameMaterialCategoryAction(
+  id: string,
+  _prevState: RenameMaterialCategoryFormState,
+  formData: FormData,
+): Promise<RenameMaterialCategoryFormState> {
+  const parsed = updateMaterialCategorySchema.safeParse({ name: formData.get("name") });
+  if (!parsed.success) {
+    return { errors: parsed.error.flatten().fieldErrors };
+  }
+
+  const res = await authedFetch(`/material-categories/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(parsed.data),
+  });
+
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => undefined)) as
+      | { error?: { details?: { fieldErrors?: Record<string, string[]> }; message?: string } }
+      | undefined;
+    if (body?.error?.details?.fieldErrors) {
+      return { errors: body.error.details.fieldErrors };
+    }
+    return { formError: body?.error?.message ?? "A Category with this name already exists." };
+  }
+
+  if (!res.ok) {
+    return { formError: "Could not rename this Category. Please try again." };
+  }
+
+  revalidatePath("/materials/categories");
+  revalidatePath("/materials/new");
+  revalidatePath("/materials");
+  return { ok: true };
 }
 
 export interface ToggleMaterialCategoryFormState {

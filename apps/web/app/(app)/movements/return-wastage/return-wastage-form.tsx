@@ -27,6 +27,7 @@ import { createReturnWastageAction, type CreateReturnWastageFormState } from "./
 interface MaterialSizeOption {
   id: string;
   label: string;
+  description?: string;
 }
 
 interface SiteOption {
@@ -86,7 +87,7 @@ export function ReturnWastageForm({
   const [quantity, setQuantity] = useState("");
   const siteStock = useSiteStock(siteId || null);
   const materialOptions = useMemo(() => {
-    const base = materialSizes.map((m) => ({ value: m.id, label: m.label }));
+    const base = materialSizes.map((m) => ({ value: m.id, label: m.label, description: m.description }));
     return siteId ? withStockMeta(base, siteStock) : base;
   }, [materialSizes, siteId, siteStock]);
   const stock = siteId

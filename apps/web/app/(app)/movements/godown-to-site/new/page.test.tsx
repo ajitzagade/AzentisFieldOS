@@ -35,7 +35,7 @@ describe("NewMovementPage", () => {
   it("flattens each Material's Sizes into Material/Size picker options", async () => {
     mockFetchRouter({
       sites: [{ id: "site1", name: "NH-48 Highway Widening" }],
-      materials: [{ id: "m1", name: "TMT Steel", sizes: [{ id: "ms1", label: "12mm" }] }],
+      materials: [{ id: "m1", name: "TMT Steel", unit: { name: "kg" }, sizes: [{ id: "ms1", label: "12mm" }] }],
     });
 
     await renderNewMovementPage();

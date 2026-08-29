@@ -1,11 +1,14 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
-import { DataTable, LayersIcon, type DataTableColumn } from "@azentisfieldos/ui";
+import { Badge, DataTable, LayersIcon, type DataTableColumn } from "@azentisfieldos/ui";
+import { CategoryRowActions } from "../../_components/category-row-actions";
 import { AddUnitForm } from "./add-unit-form";
+import { renameUnitAction, toggleUnitAction } from "./actions";
 
 interface UnitItem {
   id: string;
   name: string;
+  isActive: boolean;
 }
 
 async function getUnits(): Promise<UnitItem[]> {
@@ -16,7 +19,30 @@ async function getUnits(): Promise<UnitItem[]> {
   return res.json();
 }
 
-const columns: DataTableColumn<UnitItem>[] = [{ header: "Name", cell: (u) => <span className="font-semibold">{u.name}</span> }];
+const columns: DataTableColumn<UnitItem>[] = [
+  {
+    header: "Name",
+    cell: (u) => (
+      <span className="flex items-center gap-2 font-semibold">
+        {u.name}
+        {!u.isActive ? <Badge variant="neutral">Disabled</Badge> : null}
+      </span>
+    ),
+  },
+  {
+    header: "",
+    align: "right",
+    cell: (u) => (
+      <CategoryRowActions
+        key={`${u.id}-${u.name}`}
+        name={u.name}
+        isActive={u.isActive}
+        renameAction={renameUnitAction.bind(null, u.id)}
+        toggleAction={toggleUnitAction.bind(null, u.id, !u.isActive)}
+      />
+    ),
+  },
+];
 
 export default async function UnitsPage() {
   const units = await getUnits();

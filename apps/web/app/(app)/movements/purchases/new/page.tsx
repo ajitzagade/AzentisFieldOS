@@ -9,6 +9,7 @@ interface SiteOption {
 interface MaterialListItem {
   id: string;
   name: string;
+  unit: { name: string };
   sizes: { id: string; label: string }[];
 }
 
@@ -47,7 +48,11 @@ export default async function NewPurchasePage() {
   // A Purchase always targets a specific Size, never a bare Material — a
   // Material with no Sizes yet has nothing to offer this picker.
   const materialSizes = materials.flatMap((material) =>
-    material.sizes.map((size) => ({ id: size.id, label: `${material.name} (${size.label})` })),
+    material.sizes.map((size) => ({
+      id: size.id,
+      label: `${material.name} (${size.label})`,
+      description: material.unit.name,
+    })),
   );
 
   return (

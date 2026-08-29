@@ -24,6 +24,7 @@ export async function createSiteAction(
     location: formData.get("location"),
     status: formData.get("status"),
     contractReference: formData.get("contractReference") || undefined,
+    description: formData.get("description") || undefined,
   });
 
   if (!parsed.success) {

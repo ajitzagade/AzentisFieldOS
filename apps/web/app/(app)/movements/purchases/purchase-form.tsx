@@ -27,11 +27,13 @@ import {
   WalletIcon,
 } from "@azentisfieldos/ui";
 import { stockStatus, useStock, withStockMeta } from "../../../../lib/use-site-stock";
+import { ChallanPhotoField } from "../../_components/challan-photo-field";
 import { createPurchaseAction, type CreatePurchaseFormState } from "./actions";
 
 interface MaterialSizeOption {
   id: string;
   label: string;
+  description?: string;
 }
 
 interface SiteOption {
@@ -52,6 +54,7 @@ export interface PurchaseFormInitialValues {
   rate?: string;
   totalAmount?: string;
   invoiceOrChallanNo?: string;
+  challanPhotoUrl?: string;
   paymentStatus?: "PAID" | "PARTIAL" | "UNPAID";
   deliveryLocation?: string;
   vehicleDetails?: string;
@@ -107,7 +110,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
   );
   const destinationKnown = destination === "GODOWN" || Boolean(siteId);
   const materialOptions = useMemo(() => {
-    const base = materialSizes.map((m) => ({ value: m.id, label: m.label }));
+    const base = materialSizes.map((m) => ({ value: m.id, label: m.label, description: m.description }));
     return destinationKnown ? withStockMeta(base, destinationStock) : base;
   }, [materialSizes, destinationKnown, destinationStock]);
   const stock = destinationKnown
@@ -256,6 +259,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           defaultValue={initial?.invoiceOrChallanNo}
           error={state.errors?.invoiceOrChallanNo?.[0]}
         />
+        <ChallanPhotoField initialUrl={initial?.challanPhotoUrl} error={state.errors?.challanPhotoUrl?.[0]} />
         <TextField
           label="Delivery Location"
           name="deliveryLocation"

@@ -1,8 +1,9 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { Badge, DataTable, LayersIcon, type DataTableColumn } from "@azentisfieldos/ui";
+import { CategoryRowActions } from "../../_components/category-row-actions";
 import { AddCategoryForm } from "./add-category-form";
-import { ToggleActiveButton } from "./toggle-active-button";
+import { renameMaterialCategoryAction, toggleMaterialCategoryAction } from "./actions";
 
 export interface MaterialCategoryItem {
   id: string;
@@ -31,7 +32,15 @@ const columns: DataTableColumn<MaterialCategoryItem>[] = [
   {
     header: "",
     align: "right",
-    cell: (c) => <ToggleActiveButton id={c.id} isActive={c.isActive} />,
+    cell: (c) => (
+      <CategoryRowActions
+        key={`${c.id}-${c.name}`}
+        name={c.name}
+        isActive={c.isActive}
+        renameAction={renameMaterialCategoryAction.bind(null, c.id)}
+        toggleAction={toggleMaterialCategoryAction.bind(null, c.id, !c.isActive)}
+      />
+    ),
   },
 ];
 

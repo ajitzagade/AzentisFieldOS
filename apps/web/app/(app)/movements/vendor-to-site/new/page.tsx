@@ -9,6 +9,7 @@ interface SiteOption {
 interface MaterialListItem {
   id: string;
   name: string;
+  unit: { name: string };
   sizes: { id: string; label: string }[];
 }
 
@@ -49,7 +50,11 @@ export default async function NewVendorToSitePurchasePage() {
   const [sites, materials, vendors] = await Promise.all([getSites(), getMaterials(), getVendors()]);
 
   const materialSizes = materials.flatMap((material) =>
-    material.sizes.map((size) => ({ id: size.id, label: `${material.name} (${size.label})` })),
+    material.sizes.map((size) => ({
+      id: size.id,
+      label: `${material.name} (${size.label})`,
+      description: material.unit.name,
+    })),
   );
 
   return (

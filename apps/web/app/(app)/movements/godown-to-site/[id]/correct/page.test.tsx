@@ -61,7 +61,7 @@ describe("CorrectMovementPage", () => {
     mockFetchRouter({
       movement,
       sites: [{ id: "site1", name: "NH-48 Highway Widening" }],
-      materials: [{ id: "m1", name: "TMT Steel", sizes: [{ id: "ms1", label: "12mm" }] }],
+      materials: [{ id: "m1", name: "TMT Steel", unit: { name: "kg" }, sizes: [{ id: "ms1", label: "12mm" }] }],
     });
 
     await renderCorrectPage("m1");
@@ -88,7 +88,7 @@ describe("CorrectMovementPage", () => {
         { id: "site1", name: "NH-48 Highway Widening" },
         { id: "site2", name: "Sector 12 Metro Depot" },
       ],
-      materials: [{ id: "m1", name: "TMT Steel", sizes: [{ id: "ms1", label: "12mm" }] }],
+      materials: [{ id: "m1", name: "TMT Steel", unit: { name: "kg" }, sizes: [{ id: "ms1", label: "12mm" }] }],
     });
 
     await renderCorrectPage("m1");

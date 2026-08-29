@@ -35,7 +35,7 @@ describe("NewReturnWastagePage", () => {
   it("flattens each Material's Sizes into Material/Size picker options", async () => {
     mockFetchRouter({
       sites: [{ id: "site1", name: "Sector 12 Metro Depot" }],
-      materials: [{ id: "m1", name: "Aggregate", sizes: [{ id: "ms1", label: "20mm" }] }],
+      materials: [{ id: "m1", name: "Aggregate", unit: { name: "cft" }, sizes: [{ id: "ms1", label: "20mm" }] }],
     });
 
     await renderPage();

@@ -2,6 +2,7 @@ import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import {
   BuildingIcon,
+  CameraIcon,
   CorrectAction,
   DataTable,
   DropletIcon,
@@ -21,6 +22,7 @@ interface RmcEntryRow {
   ratePerM3: string;
   totalAmount: string;
   invoiceOrChallanNo: string | null;
+  challanPhotoUrl: string | null;
   deliveredAt: string;
   site: { id: string; name: string };
   vendor: { id: string; name: string };
@@ -104,7 +106,22 @@ const columns: DataTableColumn<RmcEntryRow>[] = [
   },
   {
     header: "Invoice #",
-    cell: (row) => row.invoiceOrChallanNo ?? <span className="text-ink-500">—</span>,
+    cell: (row) => (
+      <span className="flex items-center gap-1.5">
+        {row.invoiceOrChallanNo ?? <span className="text-ink-500">—</span>}
+        {row.challanPhotoUrl ? (
+          <a
+            href={row.challanPhotoUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="View challan photo"
+            className="text-accent-teal-700 hover:text-accent-teal-800"
+          >
+            <CameraIcon className="size-3.5" />
+          </a>
+        ) : null}
+      </span>
+    ),
   },
   {
     header: "",

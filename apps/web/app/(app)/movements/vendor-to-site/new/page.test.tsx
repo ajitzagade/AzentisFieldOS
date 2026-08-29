@@ -37,7 +37,7 @@ describe("NewVendorToSitePurchasePage", () => {
   it("skips the destination toggle and shows the Site picker up front (FR-10)", async () => {
     mockFetchRouter({
       sites: [{ id: "site1", name: "NH-48 Highway Widening" }],
-      materials: [{ id: "m1", name: "Cement", sizes: [{ id: "ms1", label: "OPC 53 Grade" }] }],
+      materials: [{ id: "m1", name: "Cement", unit: { name: "bags" }, sizes: [{ id: "ms1", label: "OPC 53 Grade" }] }],
     });
 
     await renderPage();

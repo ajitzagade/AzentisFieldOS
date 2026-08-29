@@ -21,6 +21,7 @@ export class SitesService {
         location: input.location,
         status: input.status,
         contractReference: input.contractReference,
+        description: input.description,
       },
     });
   }
