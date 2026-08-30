@@ -32,4 +32,6 @@ export const FEED_TYPE_CONFIG: Record<
   RMC: { label: "RMC", icon: DropletIcon, badgeVariant: "gold" },
   MACHINERY_MOVEMENT: { label: "Machinery", icon: GearIcon, badgeVariant: "neutral" },
   VEHICLE_MOVEMENT: { label: "Vehicle", icon: TruckIcon, badgeVariant: "neutral" },
+  // Money-moving (per-trip disposal cost) — gold, same rule as Purchase/RMC.
+  WASTE_DISPOSAL: { label: "Waste Disposal", icon: TruckIcon, badgeVariant: "gold" },
 };

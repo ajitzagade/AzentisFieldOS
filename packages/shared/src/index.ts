@@ -27,6 +27,7 @@ export * from "./schemas/vendor";
 export * from "./schemas/expense-category";
 export * from "./schemas/expense";
 export * from "./schemas/rmc-entry";
+export * from "./schemas/waste-disposal";
 export * from "./schemas/branding-config";
 export * from "./schemas/notification-channel-setting";
 export * from "./schemas/report-schedule";

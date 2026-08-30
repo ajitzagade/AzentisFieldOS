@@ -52,8 +52,12 @@ export interface FinancialSiteRow {
   rmc: number;
   machineryVehicle: null;
   expenses: number;
+  // Waste & Disposal is Site-tagged (schema: siteId required), so it joins
+  // the genuinely per-Site categories alongside material/rmc/expenses.
+  wasteDisposal: number;
   // Sum of only the categories a Site row actually has: material + rmc +
-  // expenses (AC #1 reconciles within a row's own available categories).
+  // expenses + wasteDisposal (AC #1 reconciles within a row's own
+  // available categories).
   total: number;
 }
 
@@ -63,6 +67,7 @@ export interface FinancialContractorTotal {
   rmc: number;
   machineryVehicle: number;
   expenses: number;
+  wasteDisposal: number;
   total: number;
 }
 
@@ -119,6 +124,7 @@ export class FinancialReportsService {
       machineryAgg,
       vehicleAgg,
       expenseGroups,
+      wasteDisposalGroups,
     ] = await Promise.all([
       this.prisma.purchase.groupBy({
         by: ['siteId'],
@@ -148,6 +154,14 @@ export class FinancialReportsService {
         by: ['siteId'],
         where: { incurredAt: bounds, ...currentRows },
         _sum: { amount: true },
+      }),
+      // Waste & Disposal corrections are signed-delta rows, so a plain SUM
+      // is already correct — no supersedence filter (unlike DSR-nested
+      // RMC/Expense above).
+      this.prisma.wasteDisposal.groupBy({
+        by: ['siteId'],
+        where: { disposedAt: bounds },
+        _sum: { totalAmount: true },
       }),
     ]);
 
@@ -184,11 +198,18 @@ export class FinancialReportsService {
         expensesBySite.set(group.siteId, toNum(group._sum.amount));
       }
     }
+    const wasteDisposalBySite = new Map<string, number>();
+    for (const group of wasteDisposalGroups) {
+      if (group.siteId !== null) {
+        wasteDisposalBySite.set(group.siteId, toNum(group._sum.totalAmount));
+      }
+    }
 
     // ---- Contractor totals (across every Site) ----
     const siteMaterialTotal = sumValues(materialBySite);
     const rmcTotal = sumValues(rmcBySite);
     const expensesTotal = sumValues(expensesBySite);
+    const wasteDisposalTotal = sumValues(wasteDisposalBySite);
     const materialTotal = siteMaterialTotal + godownMaterial;
     const contractorTotal: FinancialContractorTotal = {
       material: materialTotal,
@@ -196,21 +217,29 @@ export class FinancialReportsService {
       rmc: rmcTotal,
       machineryVehicle,
       expenses: expensesTotal,
+      wasteDisposal: wasteDisposalTotal,
       total:
-        materialTotal + labour + rmcTotal + machineryVehicle + expensesTotal,
+        materialTotal +
+        labour +
+        rmcTotal +
+        machineryVehicle +
+        expensesTotal +
+        wasteDisposalTotal,
     };
 
-    // ---- Per-Site rows (only the three genuinely Site-tagged categories) ----
+    // ---- Per-Site rows (only the genuinely Site-tagged categories) ----
     const siteIds = new Set<string>([
       ...materialBySite.keys(),
       ...rmcBySite.keys(),
       ...expensesBySite.keys(),
+      ...wasteDisposalBySite.keys(),
     ]);
     const names = await this.siteNames([...siteIds]);
     const buildRow = (id: string, name: string): FinancialSiteRow => {
       const material = materialBySite.get(id) ?? 0;
       const rmc = rmcBySite.get(id) ?? 0;
       const expenses = expensesBySite.get(id) ?? 0;
+      const wasteDisposal = wasteDisposalBySite.get(id) ?? 0;
       return {
         siteId: id,
         name,
@@ -219,7 +248,8 @@ export class FinancialReportsService {
         rmc,
         machineryVehicle: null,
         expenses,
-        total: material + rmc + expenses,
+        wasteDisposal,
+        total: material + rmc + expenses + wasteDisposal,
       };
     };
 

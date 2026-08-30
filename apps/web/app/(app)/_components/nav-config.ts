@@ -62,6 +62,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/vendors", label: "Vendors", icon: BuildingIcon },
       { href: "/rmc", label: "RMC", icon: DropletIcon },
       { href: "/expenses", label: "Expenses", icon: ReceiptIcon },
+      { href: "/waste-disposal", label: "Waste & Disposal", icon: ArrowsIcon },
     ],
   },
   {

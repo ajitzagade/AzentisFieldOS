@@ -14,6 +14,7 @@ import {
   PencilIcon,
   PlusIcon,
   ReceiptIcon,
+  TruckIcon,
   UsersIcon,
   buttonVariants,
   cn,
@@ -299,6 +300,13 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             >
               <ReceiptIcon className="size-4" />
               Record Expense
+            </Link>
+            <Link
+              href={`/waste-disposal/new?siteId=${site.id}`}
+              className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
+            >
+              <TruckIcon className="size-4" />
+              Record Disposal
             </Link>
           </div>
         </div>

@@ -282,6 +282,7 @@ interface FinancialSiteRow {
   rmc: number;
   machineryVehicle: null;
   expenses: number;
+  wasteDisposal: number;
   total: number;
 }
 
@@ -291,6 +292,7 @@ interface FinancialContractorTotal {
   rmc: number;
   machineryVehicle: number;
   expenses: number;
+  wasteDisposal: number;
   total: number;
 }
 
@@ -1234,6 +1236,11 @@ const siteBreakdownColumns: DataTableColumn<FinancialSiteRow>[] = [
     cell: (r) => <span className="tabular-nums">{formatMoney(r.expenses)}</span>,
   },
   {
+    header: "Waste & Disposal",
+    align: "right",
+    cell: (r) => <span className="tabular-nums">{formatMoney(r.wasteDisposal)}</span>,
+  },
+  {
     header: "Site Total",
     align: "right",
     cell: (r) => (
@@ -1264,6 +1271,11 @@ function scopedCategoryRows(
       note: CONTRACTOR_ONLY_NOTE,
     },
     { key: "expenses", category: "Expenses", amount: scope.expenses },
+    {
+      key: "wasteDisposal",
+      category: "Waste & Disposal",
+      amount: scope.wasteDisposal,
+    },
     { key: "total", category: "Total", amount: scope.total, emphasis: true },
   ];
 }
@@ -1358,8 +1370,9 @@ function FinancialReportView({
             Per-Site Breakdown
           </h2>
           <p className="mb-3 text-body-sm text-ink-500">
-            Material, RMC, and Expenses attribute to a Site. Labour and
-            Machinery/Vehicle are Contractor-level only (see the totals above).
+            Material, RMC, Expenses, and Waste &amp; Disposal attribute to a
+            Site. Labour and Machinery/Vehicle are Contractor-level only (see
+            the totals above).
           </p>
           <DataTable
             columns={siteBreakdownColumns}

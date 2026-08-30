@@ -75,6 +75,7 @@ model Site {
   machineryCurrentlyHere Machinery[]
   vehiclesCurrentlyHere  Vehicle[]
   dailyReports         DailyReport[]
+  wasteDisposals       WasteDisposal[]
 }
 
 // ---------- Material catalog (FR-4..FR-7) ----------
@@ -308,8 +309,9 @@ model Machinery {
   currentSite    Site?               @relation(fields: [currentSiteId], references: [id])
   customFields   Json                @default("{}")
 
-  movementLogs  MachineryMovementLog[]
-  serviceLogs   MachineryServiceLog[]
+  movementLogs   MachineryMovementLog[]
+  serviceLogs    MachineryServiceLog[]
+  wasteDisposals WasteDisposal[]
 }
 
 // Append-only (AD-9) — full movement history, not just current state.
@@ -354,8 +356,9 @@ model Vehicle {
   currentSite    Site?               @relation(fields: [currentSiteId], references: [id])
   customFields   Json                @default("{}")
 
-  movementLogs VehicleMovementLog[]
-  serviceLogs  VehicleServiceLog[]
+  movementLogs   VehicleMovementLog[]
+  serviceLogs    VehicleServiceLog[]
+  wasteDisposals WasteDisposal[]
 }
 
 // Append-only (AD-9). Same correction shape as MachineryMovementLog above.
@@ -594,8 +597,9 @@ model Vendor {
   address           String?
   materialsSupplied String[] @default([])
 
-  purchases  Purchase[]
-  rmcEntries RmcEntry[]
+  purchases      Purchase[]
+  rmcEntries     RmcEntry[]
+  wasteDisposals WasteDisposal[]
 }
 
 model ExpenseCategory {
@@ -635,6 +639,49 @@ model Expense {
   // Story 3.2 offline-sync idempotency key — same reasoning as
   // Consumption.clientGeneratedId.
   clientGeneratedId String? @unique
+}
+
+// Waste & Disposal (debris/excavated-material removal from a Site). A
+// per-trip COST record: the contractor pays to move waste out — either a
+// hired third party (vendorId + paymentStatus) or an own register asset
+// (machineryId/vehicleId, no vendor). Append-only (AD-9): a correction is
+// a new row with correctsId + reason whose tripCount/otherCharges are
+// SIGNED deltas (Epic 5's Story 5.1 rule); ratePerTrip must match the
+// original's, and totalAmount is always server-computed
+// (tripCount × ratePerTrip + otherCharges — signed on corrections), never
+// client-supplied.
+model WasteDisposal {
+  id               String     @id @default(uuid(7))
+  siteId           String
+  site             Site       @relation(fields: [siteId], references: [id])
+  // Free text ("Debris", "Excavated earth / murum") — waste is not catalog
+  // Material and gets no stock effect; a lookup table would be premature.
+  wasteType        String
+  // Informational only ("approx 40 MT") — cost is trips × rate, never this.
+  quantityDetails  String?
+  ownership        String // OWN | HIRED (Zod-enforced vocabulary)
+  vendorId         String?
+  vendor           Vendor?    @relation(fields: [vendorId], references: [id])
+  machineryId      String?
+  machinery        Machinery? @relation(fields: [machineryId], references: [id])
+  vehicleId        String?
+  vehicle          Vehicle?   @relation(fields: [vehicleId], references: [id])
+  // Free text for hired dumpers/trucks that aren't in the own registers.
+  vehicleDetails   String?
+  tripCount        Int
+  ratePerTrip      Decimal
+  otherCharges     Decimal    @default(0) // loading/JCB/toll etc.
+  totalAmount      Decimal // server-computed, see model comment
+  disposalLocation String?
+  // PAID | PARTIAL | UNPAID — HIRED rows only (same vocabulary as
+  // Purchase.paymentStatus); null for OWN rows, never a fabricated PAID.
+  paymentStatus    String?
+  notes            String?
+  disposedAt       DateTime
+  recordedByUserId String
+  createdAt        DateTime   @default(now())
+  correctsId       String?
+  reason           String? // required when correctsId is set
 }
 
 // ---------- Branding & Automated Report Delivery (FR-32, FR-33) ----------

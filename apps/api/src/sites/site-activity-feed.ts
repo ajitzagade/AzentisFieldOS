@@ -42,6 +42,7 @@ export async function getSiteActivityFeed(
     dsrs,
     machineryMoves,
     vehicleMoves,
+    wasteDisposals,
   ] = await Promise.all([
     prisma.purchase.findMany({
       where: { siteId, purchasedAt: bounds },
@@ -89,6 +90,10 @@ export async function getSiteActivityFeed(
     prisma.vehicleMovementLog.findMany({
       where: { siteId, movedAt: bounds },
       include: { vehicle: { include: { type: true } } },
+    }),
+    prisma.wasteDisposal.findMany({
+      where: { siteId, disposedAt: bounds },
+      include: { vendor: true },
     }),
   ]);
 
@@ -169,6 +174,13 @@ export async function getSiteActivityFeed(
       occurredAt: v.movedAt.toISOString(),
       summary: `${v.vehicle.type.name} ${v.vehicle.number} — ${v.toStatus.replace('_', ' ').toLowerCase()}`,
       amount: null,
+    })),
+    ...wasteDisposals.map((w): FeedItem => ({
+      id: w.id,
+      type: 'WASTE_DISPOSAL',
+      occurredAt: w.disposedAt.toISOString(),
+      summary: `${w.wasteType} disposal — ${w.tripCount} trip${Math.abs(w.tripCount) === 1 ? '' : 's'}${w.vendor ? ` by ${w.vendor.name}` : ' (own vehicle)'}${w.disposalLocation ? ` to ${w.disposalLocation}` : ''}`,
+      amount: w.totalAmount.toNumber(),
     })),
   ];
 

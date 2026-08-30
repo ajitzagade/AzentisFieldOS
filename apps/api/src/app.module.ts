@@ -15,6 +15,7 @@ import { AssetsModule } from './assets/assets.module';
 import { VendorsModule } from './vendors/vendors.module';
 import { RmcModule } from './rmc/rmc.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { WasteDisposalModule } from './waste-disposal/waste-disposal.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportsModule } from './reports/reports.module';
 import { UsersModule } from './users/users.module';
@@ -33,6 +34,7 @@ import { UsersModule } from './users/users.module';
     VendorsModule,
     RmcModule,
     ExpensesModule,
+    WasteDisposalModule,
     DashboardModule,
     ReportsModule,
     UsersModule,

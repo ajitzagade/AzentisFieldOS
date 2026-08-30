@@ -54,6 +54,7 @@ describe('getSiteActivityFeed', () => {
       },
       machineryMovementLog: { findMany: emptyFindMany() },
       vehicleMovementLog: { findMany: emptyFindMany() },
+      wasteDisposal: { findMany: emptyFindMany() },
     } as any as PrismaService;
 
     const feed = await getSiteActivityFeed(prisma, 'site-1');
@@ -88,6 +89,7 @@ describe('getSiteActivityFeed', () => {
       dailySiteReport: { findMany: emptyFindMany() },
       machineryMovementLog: { findMany: emptyFindMany() },
       vehicleMovementLog: { findMany: emptyFindMany() },
+      wasteDisposal: { findMany: emptyFindMany() },
     } as any as PrismaService;
 
     const feed = await getSiteActivityFeed(prisma, 'site-empty');
@@ -108,6 +110,7 @@ describe('getSiteActivityFeed', () => {
       dailySiteReport: { findMany: emptyFindMany() },
       machineryMovementLog: { findMany: emptyFindMany() },
       vehicleMovementLog: { findMany: emptyFindMany() },
+      wasteDisposal: { findMany: emptyFindMany() },
     } as any as PrismaService;
 
     await getSiteActivityFeed(prisma, 'site-1');

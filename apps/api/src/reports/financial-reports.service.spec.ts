@@ -38,6 +38,7 @@ function makeService() {
       aggregate: vi.fn().mockResolvedValue({ _sum: { cost: null } }),
     },
     expense: { groupBy: vi.fn().mockResolvedValue([]) },
+    wasteDisposal: { groupBy: vi.fn().mockResolvedValue([]) },
     site: {
       findMany: vi.fn().mockResolvedValue([]),
       findUnique: vi.fn().mockResolvedValue(null),
@@ -76,6 +77,9 @@ function seed(prisma: ReturnType<typeof makeService>['prisma']) {
     { siteId: 'site1', _sum: { amount: dec(5000) } },
     { siteId: 'site2', _sum: { amount: dec(12000) } },
   ]);
+  prisma.wasteDisposal.groupBy.mockResolvedValue([
+    { siteId: 'site1', _sum: { totalAmount: dec(9000) } },
+  ]);
   prisma.site.findMany.mockResolvedValue([
     { id: 'site1', name: 'NH-48' },
     { id: 'site2', name: 'Bypass' },
@@ -99,7 +103,8 @@ describe('FinancialReportsService.getFinancialReport (FR-46)', () => {
       rmc: 260400,
       machineryVehicle: 23000, // 15000 + 8000
       expenses: 17000, // 5000 + 12000
-      total: 680400,
+      wasteDisposal: 9000, // site1 disposal trips
+      total: 689400,
     });
   });
 
@@ -128,8 +133,11 @@ describe('FinancialReportsService.getFinancialReport (FR-46)', () => {
     for (const row of bySite) {
       expect(row.labour).toBeNull();
       expect(row.machineryVehicle).toBeNull();
-      // A per-Site total is the sum of ONLY its three genuine categories.
-      expect(row.total).toBe(row.material + row.rmc + row.expenses);
+      // A per-Site total is the sum of ONLY its genuinely Site-tagged
+      // categories (material + rmc + expenses + wasteDisposal).
+      expect(row.total).toBe(
+        row.material + row.rmc + row.expenses + row.wasteDisposal,
+      );
     }
   });
 
@@ -168,6 +176,7 @@ describe('FinancialReportsService.getFinancialReport (FR-46)', () => {
         rmc: 0,
         machineryVehicle: null,
         expenses: 12000,
+        wasteDisposal: 0,
         total: 62000,
       },
       {
@@ -178,7 +187,8 @@ describe('FinancialReportsService.getFinancialReport (FR-46)', () => {
         rmc: 260400,
         machineryVehicle: null,
         expenses: 5000,
-        total: 365400,
+        wasteDisposal: 9000,
+        total: 374400,
       },
     ]);
   });
@@ -236,6 +246,7 @@ describe('FinancialReportsService.getFinancialReport (FR-46)', () => {
       rmc: 0,
       machineryVehicle: 0,
       expenses: 0,
+      wasteDisposal: 0,
       total: 0,
     });
   });
@@ -301,7 +312,7 @@ describe('FinancialReportsService.getFinancialReport — correction supersedence
       OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],
     });
     // The seeded totals still reconcile exactly as before the filter existed.
-    expect(contractorTotal.total).toBe(680400);
+    expect(contractorTotal.total).toBe(689400);
   });
 });
 
@@ -322,12 +333,13 @@ describe('FinancialReportsService.getFinancialReport — Site filter (AC #2)', (
         rmc: 260400,
         machineryVehicle: null,
         expenses: 5000,
-        total: 365400,
+        wasteDisposal: 9000,
+        total: 374400,
       },
     ]);
     // Contractor total is unchanged by the Site filter — it always spans every
     // Site plus the Site-less labour/machinery/Godown-material figures.
-    expect(contractorTotal.total).toBe(680400);
+    expect(contractorTotal.total).toBe(689400);
     expect(contractorTotal.labour).toBe(200000);
     expect(contractorTotal.machineryVehicle).toBe(23000);
   });
@@ -350,6 +362,7 @@ describe('FinancialReportsService.getFinancialReport — Site filter (AC #2)', (
         rmc: 0,
         machineryVehicle: null,
         expenses: 0,
+        wasteDisposal: 0,
         total: 0,
       },
     ]);
