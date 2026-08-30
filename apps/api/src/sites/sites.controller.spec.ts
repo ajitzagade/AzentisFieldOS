@@ -137,9 +137,16 @@ describe('ZodValidationPipe(updateSiteSchema)', () => {
 });
 
 describe('SitesService.update', () => {
-  function makeService(prismaSiteUpdate: ReturnType<typeof vi.fn>) {
+  // update() first runs the soft-delete guard (findUnique) — default to a
+  // live (deletedAt: null) row so the update-path tests exercise the write.
+  function makeService(
+    prismaSiteUpdate: ReturnType<typeof vi.fn>,
+    prismaSiteFindUnique: ReturnType<typeof vi.fn> = vi
+      .fn()
+      .mockResolvedValue({ id: '1', deletedAt: null }),
+  ) {
     const prisma: { site: FakePrismaSite } = {
-      site: { update: prismaSiteUpdate },
+      site: { update: prismaSiteUpdate, findUnique: prismaSiteFindUnique },
     };
     return new SitesService(
       prisma as unknown as ConstructorParameters<typeof SitesService>[0],
@@ -177,7 +184,10 @@ describe('SitesService.update', () => {
 
   it('throws NotFoundException, not a raw 500, when Prisma reports P2025 (record not found)', async () => {
     const update = vi.fn().mockRejectedValue(p2025Error());
-    const service = makeService(update);
+    const service = makeService(
+      update,
+      vi.fn().mockResolvedValue({ id: 'missing-id', deletedAt: null }),
+    );
 
     await expect(service.update('missing-id', { name: 'X' })).rejects.toThrow(
       NotFoundException,

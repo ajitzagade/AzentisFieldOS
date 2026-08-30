@@ -44,6 +44,12 @@ export class SitesService {
   // AD-9's append-only transaction-history tables. Prisma's @updatedAt on
   // `updatedAt` timestamps this write automatically; no manual code needed.
   async update(id: string, input: UpdateSiteInput) {
+    // A soft-deleted Site is inert: not readable, not editable (the 404
+    // contract applies to writes too, or PATCH becomes a read/edit bypass).
+    const existing = await this.prisma.site.findUnique({ where: { id } });
+    if (!existing || existing.deletedAt) {
+      throw new NotFoundException(`Site ${id} not found`);
+    }
     try {
       return await this.prisma.site.update({ where: { id }, data: input });
     } catch (error) {

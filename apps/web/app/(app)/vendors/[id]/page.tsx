@@ -49,6 +49,19 @@ async function getVendorPurchaseSummarySafe(id: string): Promise<VendorPurchaseS
   }
 }
 
+// The viewer's role, for gating the Delete affordance (the API enforces
+// OWNER_ADMIN regardless). Least-privilege on failure.
+async function getViewerRole(): Promise<string | null> {
+  try {
+    const res = await authedFetch(`/users/me`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const me = (await res.json()) as { role?: string };
+    return typeof me.role === "string" ? me.role : null;
+  } catch {
+    return null;
+  }
+}
+
 const PAYMENT_STATUS_BADGE: Record<VendorPurchase["paymentStatus"], { variant: "success" | "warning" | "danger"; label: string }> = {
   PAID: { variant: "success", label: "Paid" },
   PARTIAL: { variant: "warning", label: "Partial" },
@@ -118,7 +131,18 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
     notFound();
   }
 
-  const [purchases, summary] = await Promise.all([getVendorPurchases(id), getVendorPurchaseSummarySafe(id)]);
+  const [purchases, summary, viewerRole] = await Promise.all([
+    getVendorPurchases(id),
+    getVendorPurchaseSummarySafe(id),
+    getViewerRole(),
+  ]);
+
+  // The confirmation must surface live consequences: unpaid purchases
+  // disappear from Vendor Outstanding / Cash Tied Up with the Vendor.
+  const deleteWarning =
+    summary && summary.notFullyPaidTotal > 0
+      ? ` Note: ₹${summary.notFullyPaidTotal.toLocaleString("en-IN")} of purchases are not yet marked Paid — deleting this Vendor removes that amount from Vendor Outstanding and Cash Tied Up.`
+      : "";
 
   return (
     <>
@@ -137,12 +161,14 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
               <PencilIcon className="size-4" />
               Edit Vendor
             </Link>
-            <DeleteEntityButton
-              label="Delete Vendor"
-              title={`Delete ${vendor.name}?`}
-              description="This Vendor will disappear from every list and picker. Their purchase, RMC and disposal history stays in the database and is not destroyed. Only an Owner/Admin can do this."
-              action={deleteVendorAction.bind(null, vendor.id)}
-            />
+            {viewerRole === "OWNER_ADMIN" ? (
+              <DeleteEntityButton
+                label="Delete Vendor"
+                title={`Delete ${vendor.name}?`}
+                description={`This Vendor will disappear from every list and picker. Their purchase, RMC and disposal history stays in the database and is not destroyed.${deleteWarning}`}
+                action={deleteVendorAction.bind(null, vendor.id)}
+              />
+            ) : null}
           </div>
         </div>
 

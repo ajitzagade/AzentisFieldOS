@@ -49,13 +49,27 @@ export class SiteInventoryReportsService {
       return { site: null, dsrs: [], photos: [], feed: [] };
     }
 
-    const site = await this.prisma.site.findUnique({
+    const siteRow = await this.prisma.site.findUnique({
       where: { id: siteId },
-      select: { id: true, name: true, location: true, status: true },
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        status: true,
+        deletedAt: true,
+      },
     });
-    if (!site) {
+    // Soft-deleted Sites 404 here too — this endpoint is a parallel direct
+    // read, same contract as SitesService.findOne.
+    if (!siteRow || siteRow.deletedAt) {
       throw new NotFoundException(`Site ${siteId} not found`);
     }
+    const site = {
+      id: siteRow.id,
+      name: siteRow.name,
+      location: siteRow.location,
+      status: siteRow.status,
+    };
 
     const [dsrs, photos, feed] = await Promise.all([
       this.dsr.listBySiteInRange(siteId, from, to),

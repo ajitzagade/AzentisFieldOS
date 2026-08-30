@@ -75,7 +75,12 @@ describe('VendorsService.update', () => {
     const vendorUpdate = vi
       .fn()
       .mockResolvedValue({ id: '1', name: 'Renamed' });
-    const { service } = makeService({ vendorUpdate });
+    // update() first routes through findOne (soft-delete guard) — seed a
+    // live (deletedAt: null) row.
+    const vendorFindUnique = vi
+      .fn()
+      .mockResolvedValue({ id: '1', name: 'Old', deletedAt: null });
+    const { service } = makeService({ vendorUpdate, vendorFindUnique });
 
     const result = await service.update('1', { name: 'Renamed' });
 
@@ -99,7 +104,10 @@ describe('VendorsService.update', () => {
     const vendorUpdate = vi
       .fn()
       .mockRejectedValue(new Error('connection lost'));
-    const { service } = makeService({ vendorUpdate });
+    const vendorFindUnique = vi
+      .fn()
+      .mockResolvedValue({ id: '1', name: 'Old', deletedAt: null });
+    const { service } = makeService({ vendorUpdate, vendorFindUnique });
 
     await expect(service.update('1', { name: 'X' })).rejects.toThrow(
       'connection lost',

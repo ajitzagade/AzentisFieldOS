@@ -23,3 +23,9 @@ So that recording who received or handled material is one tap for the common cas
 ## References
 
 - FR-8 (Purchase fields), FR-9/FR-11 (Movement fields), FR-19 (Team Members)
+
+## Review Findings (code review 2026-08-30, commits b853c73+80be98e)
+
+- [x] [Review][Patch] Correction pages don't pass teamNames — the datalist disappears exactly when re-keying a correction [apps/web/app/(app)/movements/purchases/[id]/correct, godown-to-site/[id]/correct]
+- [x] [Review][Patch] Duplicate team names produce duplicate React keys / dropped datalist options — dedupe (Set) and drop empty names in getTeamNames [apps/web/app/(app)/movements/team-names.ts]
+- [x] [Review][Patch] Missing tests: datalist render + list-id linkage in purchase/movement form tests, team-names filter/degradation unit test, add /team-members to page-test fetch routers (currently silently fed the materials fallback)

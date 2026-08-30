@@ -1,6 +1,7 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTeamNames } from "../../../team-names";
 import { PurchaseForm, type PurchaseFormInitialValues } from "../../purchase-form";
 
 interface SiteOption {
@@ -76,7 +77,13 @@ async function getVendors(): Promise<VendorOption[]> {
 // the API this is a correction, not a route split (story 5.1 Dev Notes).
 export default async function CorrectPurchasePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [purchase, sites, materials, vendors] = await Promise.all([getPurchase(id), getSites(), getMaterials(), getVendors()]);
+  const [purchase, sites, materials, vendors, teamNames] = await Promise.all([
+    getPurchase(id),
+    getSites(),
+    getMaterials(),
+    getVendors(),
+    getTeamNames(),
+  ]);
   if (!purchase) {
     notFound();
   }
@@ -115,7 +122,7 @@ export default async function CorrectPurchasePage({ params }: { params: Promise<
         / Correct
       </div>
       <h1 className="mb-6 text-page-title text-ink-900">Correct Purchase</h1>
-      <PurchaseForm mode="correct" correctsId={purchase.id} materialSizes={materialSizes} sites={sites} vendors={vendors} initial={initial} />
+      <PurchaseForm mode="correct" correctsId={purchase.id} materialSizes={materialSizes} sites={sites} vendors={vendors} initial={initial} teamNames={teamNames} />
     </div>
   );
 }

@@ -8,10 +8,17 @@ export async function getTeamNames(): Promise<string[]> {
   try {
     const res = await authedFetch(`/team-members`, { cache: "no-store" });
     if (!res.ok) return [];
-    const members = (await res.json()) as { name: string; isActive?: boolean }[];
-    return Array.isArray(members)
-      ? members.filter((m) => m.isActive !== false).map((m) => m.name)
-      : [];
+    const members = (await res.json()) as { name?: string; isActive?: boolean }[];
+    if (!Array.isArray(members)) return [];
+    // Dedupe and drop empties — datalist options are keyed by name, and two
+    // members sharing a name would collide (and one suggestion suffices).
+    return [
+      ...new Set(
+        members
+          .filter((m) => m.isActive !== false && typeof m.name === "string" && m.name.trim() !== "")
+          .map((m) => m.name as string),
+      ),
+    ];
   } catch {
     return [];
   }

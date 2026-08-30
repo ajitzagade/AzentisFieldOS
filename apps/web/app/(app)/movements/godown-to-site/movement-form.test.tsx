@@ -66,3 +66,17 @@ describe("MovementForm", () => {
     expect(screen.queryByLabelText("Source Site")).not.toBeInTheDocument();
   });
 });
+
+describe("MovementForm — Person Responsible suggestions (story 15.5)", () => {
+  it("renders team names as datalist options linked to the Person Responsible field, still free-text", () => {
+    const { container } = render(
+      <MovementForm mode="new" materialSizes={materialSizes} sites={sites} teamNames={["Suresh Kumar"]} />,
+    );
+
+    const input = screen.getByLabelText("Person Responsible");
+    expect(input).toHaveAttribute("list", "movement-person-names");
+    const options = [...container.querySelectorAll("datalist#movement-person-names option")].map((o) => o.getAttribute("value"));
+    expect(options).toEqual(["Suresh Kumar"]);
+    expect(input).not.toHaveAttribute("readonly");
+  });
+});

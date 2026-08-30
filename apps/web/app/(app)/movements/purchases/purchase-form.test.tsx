@@ -83,3 +83,25 @@ describe("PurchaseForm", () => {
     expect(screen.getByLabelText("Vendor").tagName).toBe("SELECT");
   });
 });
+
+describe("PurchaseForm — Receiver Name suggestions (story 15.5)", () => {
+  it("renders team names as datalist options linked to the Receiver field, still free-text", () => {
+    const { container } = render(
+      <PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} teamNames={["Suresh Kumar", "Ganesh Jadhav"]} />,
+    );
+
+    const input = screen.getByLabelText("Receiver Name");
+    expect(input).toHaveAttribute("list", "purchase-receiver-names");
+    const datalist = container.querySelector("datalist#purchase-receiver-names");
+    expect(datalist).not.toBeNull();
+    const options = [...datalist!.querySelectorAll("option")].map((o) => o.getAttribute("value"));
+    expect(options).toEqual(["Suresh Kumar", "Ganesh Jadhav"]);
+    // Plain text input — a name outside the team is always accepted.
+    expect(input).not.toHaveAttribute("readonly");
+  });
+
+  it("renders an empty datalist (plain text field) when no team names are provided", () => {
+    const { container } = render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} />);
+    expect(container.querySelectorAll("datalist#purchase-receiver-names option")).toHaveLength(0);
+  });
+});

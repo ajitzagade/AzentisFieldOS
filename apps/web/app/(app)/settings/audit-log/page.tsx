@@ -49,12 +49,15 @@ async function getJSON<T>(path: string): Promise<T> {
 }
 
 function formatDateTime(iso: string): string {
+  // Rendered server-side — pin the tenant's zone (same convention as the
+  // dashboard heading) or a UTC host shifts every timestamp by 5.5 hours.
   return new Date(iso).toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: "Asia/Kolkata",
   });
 }
 
@@ -111,6 +114,18 @@ export default async function AuditLogPage({
     getJSON<UserOption[]>(`/users`),
   ]);
 
+  // GET /sites hides soft-deleted Sites, but the trail's whole point is
+  // tracing them — augment the filter options with any Site the returned
+  // rows (or the active filter) reference that the list no longer carries.
+  const siteOptions = [...sites];
+  const knownSiteIds = new Set(sites.map((s) => s.id));
+  for (const row of rows) {
+    if (row.siteId && row.siteName && !knownSiteIds.has(row.siteId)) {
+      knownSiteIds.add(row.siteId);
+      siteOptions.push({ id: row.siteId, name: `${row.siteName} (deleted)` });
+    }
+  }
+
   return (
     <>
       <div className="mb-2 text-eyebrow text-ink-500">
@@ -133,7 +148,7 @@ export default async function AuditLogPage({
           label="Site"
           name="siteId"
           defaultValue={filters.siteId ?? ""}
-          options={[{ value: "", label: "All Sites" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
+          options={[{ value: "", label: "All Sites" }, ...siteOptions.map((s) => ({ value: s.id, label: s.name }))]}
         />
         <SelectField
           label="User"

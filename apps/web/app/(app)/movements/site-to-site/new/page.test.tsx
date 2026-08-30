@@ -23,6 +23,9 @@ afterEach(() => {
 function mockFetchRouter(handlers: { sites?: unknown; materials?: unknown }) {
   global.fetch = vi.fn((url: string) => {
     const urlStr = String(url);
+    if (urlStr.includes("/team-members")) {
+      return Promise.resolve({ ok: true, json: async () => [] });
+    }
     if (urlStr.includes("/sites")) {
       return Promise.resolve({ ok: true, json: async () => handlers.sites ?? [] });
     }

@@ -5,7 +5,7 @@ import {
   Logger,
   type NestInterceptor,
 } from '@nestjs/common';
-import { type Observable, tap } from 'rxjs';
+import { mergeMap, type Observable } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/current-user.decorator';
 
@@ -49,7 +49,27 @@ const ENTITY_LABELS: Record<string, string> = {
 // Paths whose writes must never be audited: credentials (never log a login
 // body's existence per-user this way), presign handshakes (the real write is
 // the confirm), and cron endpoints (no human actor).
-const SKIP_PREFIXES = ['/auth', '/cron', '/photos/presign', '/photos/challan'];
+const SKIP_PREFIXES = [
+  '/auth',
+  '/cron',
+  '/photos/presign',
+  '/photos/challan',
+  '/branding-config/logo/presign',
+];
+
+// Prefix match on a path-segment boundary — '/auth' skips '/auth/login' but
+// never a hypothetical '/authors'.
+function isSkippedPath(path: string): boolean {
+  return SKIP_PREFIXES.some(
+    (prefix) =>
+      path === prefix ||
+      (path.startsWith(prefix) && path[prefix.length] === '/'),
+  );
+}
+
+// Every mutating verb — PUT included even though no route uses it today, so
+// a future PUT endpoint cannot silently escape the trail.
+const AUDITED_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 interface MutatingRequest {
   method: string;
@@ -72,23 +92,25 @@ export class AuditLogInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<MutatingRequest>();
     const { method, url, user, body } = request;
+    const path = url.split('?')[0] ?? url;
 
-    if (
-      (method !== 'POST' && method !== 'PATCH' && method !== 'DELETE') ||
-      !user?.id ||
-      SKIP_PREFIXES.some((prefix) => url.startsWith(prefix))
-    ) {
+    if (!AUDITED_METHODS.has(method) || !user?.id || isSkippedPath(path)) {
       return next.handle();
     }
 
-    const path = url.split('?')[0] ?? url;
+    // The audit insert is AWAITED before the response is emitted — a
+    // fire-and-forget write can be dropped on serverless (the function may
+    // freeze the moment the response is sent). Failure isolation stands:
+    // an audit-write error is logged and swallowed, never failing the
+    // user's own request.
     return next.handle().pipe(
-      tap((response) => {
-        void this.record(method, path, user.id, body, response).catch(
-          (error: unknown) => {
-            this.logger.warn(`audit write failed for ${method} ${path}`, error);
-          },
-        );
+      mergeMap(async (response: unknown) => {
+        try {
+          await this.record(method, path, user.id, body, response);
+        } catch (error) {
+          this.logger.warn(`audit write failed for ${method} ${path}`, error);
+        }
+        return response;
       }),
     );
   }
@@ -109,19 +131,25 @@ export class AuditLogInterceptor implements NestInterceptor {
         : undefined;
     const responseSiteId =
       response && typeof response === 'object' && 'siteId' in response
-        ? response.siteId
+        ? (response as { siteId?: unknown }).siteId
         : undefined;
-    // "Under which Site": the write's own siteId when it carries one; for
-    // actions on a Site itself (create/update/delete Site), the Site IS the
-    // entity — use its id so the trail's Site column is never blank there.
+    // "Under which Site": the write's own siteId when it carries one;
+    // Movements name Sites as destination/source instead (a Godown→Site
+    // movement's destination is the Site it belongs to); for actions on a
+    // Site itself (create/update/delete Site), the Site IS the entity —
+    // use its id so the trail's Site column is never blank there.
+    const bodySiteId = [
+      body?.siteId,
+      body?.destinationSiteId,
+      body?.sourceSiteId,
+    ].find((value): value is string => typeof value === 'string');
     const siteId =
-      typeof body?.siteId === 'string'
-        ? body.siteId
-        : typeof responseSiteId === 'string'
-          ? responseSiteId
-          : entityType === 'Site'
-            ? responseId
-            : undefined;
+      bodySiteId ??
+      (typeof responseSiteId === 'string'
+        ? responseSiteId
+        : entityType === 'Site'
+          ? responseId
+          : undefined);
 
     await this.prisma.auditLog.create({
       data: {

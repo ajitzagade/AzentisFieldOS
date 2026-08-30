@@ -23,6 +23,9 @@ function mockFetchRouter(handlers: { movement?: unknown; movementStatus?: number
         json: async () => handlers.movement,
       });
     }
+    if (urlStr.includes("/team-members")) {
+      return Promise.resolve({ ok: true, json: async () => [] });
+    }
     if (urlStr.includes("/sites")) {
       return Promise.resolve({ ok: true, json: async () => handlers.sites ?? [] });
     }

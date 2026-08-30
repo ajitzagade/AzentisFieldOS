@@ -31,6 +31,9 @@ export class VendorsService {
   // Vendor master data uses a normal in-place update — it is not one of
   // AD-9's append-only transaction-history tables.
   async update(id: string, input: UpdateVendorInput) {
+    // A soft-deleted Vendor is inert: not readable, not editable (the 404
+    // contract applies to writes too).
+    await this.findOne(id);
     try {
       return await this.prisma.vendor.update({ where: { id }, data: input });
     } catch (error) {

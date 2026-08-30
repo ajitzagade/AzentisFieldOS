@@ -194,3 +194,11 @@ These are real security-hardening items that need config/ops decisions (env, pro
 
 - **14.5 scheduled-report delivery is a branded notification envelope**, not a fully-rendered per-type email body — the Epic 13 report endpoint fetch runs and gates `lastRunAt` on success, but the delivered message carries the report type + date window in a header rather than a rich per-type template. Follow-up (richer per-type templates), consistent with 13.1's "senders never exercised against a real provider" posture. No real Resend/WhatsApp round-trip has run in any environment.
 - `run-report-schedules` and the other reports cron routes share the same unvalidated `?date`/frequency-window date handling and UTC "today" as 13.1 — the same PO timezone decision already logged for Epic 13.
+
+## Deferred from: code review of epic-15 stories 15.3-15.5 (2026-08-30)
+
+- Transaction writes (DSR/consumption/expense/RMC/waste-disposal) accept a soft-deleted siteId/vendorId — UI-unreachable today (pickers filter deleted rows); revisit alongside the role-lockdown work.
+- Invalid from/to query strings reach Prisma as Invalid Date and 500 instead of 400 — pre-existing dateRangeBounds pattern shared by every report endpoint; fix centrally in dateRangeBounds when touched next.
+- User FK from AuditLog RESTRICTs any future hard user delete — no user-delete endpoint exists; if one is added, map P2003 to a 409 or make removal deactivate-only.
+- toLocaleString without an explicit timeZone across older pages renders server-zone dates on Vercel (UTC); audit page fixed now, sweep the rest when touching those pages.
+- Restore/undelete path for soft-deleted Sites/Vendors — decision 2026-08-30: accepted one-way for now (Owner-only + double-confirmed; SQL recovery). Add a 'Deleted items' restore view if mis-deletes actually occur.

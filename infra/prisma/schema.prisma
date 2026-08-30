@@ -59,6 +59,12 @@ model AuditLog {
   entityType String?
   entityId   String?
   siteId     String?
+
+  // The read path is "latest 200, optionally filtered by site/user/date"
+  // over a table that grows forever — index the sort key and both filters.
+  @@index([occurredAt])
+  @@index([siteId])
+  @@index([userId])
 }
 
 // ---------- Sites ----------

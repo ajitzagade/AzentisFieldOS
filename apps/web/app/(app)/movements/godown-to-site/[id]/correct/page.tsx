@@ -1,6 +1,7 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTeamNames } from "../../../team-names";
 import { MovementForm, type MovementFormInitialValues } from "../../movement-form";
 
 interface SiteOption {
@@ -57,7 +58,12 @@ async function getMaterials(): Promise<MaterialListItem[]> {
 // this is a correction, same pattern as Story 5.1's Purchase correction.
 export default async function CorrectMovementPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [movement, sites, materials] = await Promise.all([getMovement(id), getSites(), getMaterials()]);
+  const [movement, sites, materials, teamNames] = await Promise.all([
+    getMovement(id),
+    getSites(),
+    getMaterials(),
+    getTeamNames(),
+  ]);
   if (!movement) {
     notFound();
   }
@@ -96,6 +102,7 @@ export default async function CorrectMovementPage({ params }: { params: Promise<
         materialSizes={materialSizes}
         sites={sites}
         initial={initial}
+        teamNames={teamNames}
       />
     </div>
   );

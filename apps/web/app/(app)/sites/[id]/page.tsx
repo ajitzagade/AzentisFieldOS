@@ -110,6 +110,21 @@ async function getSitePhotos(siteId: string): Promise<PhotoGalleryItem[] | null>
   }
 }
 
+// The viewer's role, for gating the Delete affordance (the API enforces
+// OWNER_ADMIN regardless — this only avoids showing Supervisors a button
+// that can only end in a 403). Least-privilege on failure, same rule as
+// the AppShell's role resolution.
+async function getViewerRole(): Promise<string | null> {
+  try {
+    const res = await authedFetch(`/users/me`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const me = (await res.json()) as { role?: string };
+    return typeof me.role === "string" ? me.role : null;
+  } catch {
+    return null;
+  }
+}
+
 // Last 30 days of DSRs for this Site, via the Site Reports composition
 // endpoint (GET /reports/sites) — the one existing read that serves
 // per-Site DSR history. Only its `dsrs` slice is used here.
@@ -199,12 +214,13 @@ const recentDsrColumns: DataTableColumn<RecentDsrRow>[] = [
 
 export default async function SiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [site, todaysDsr, stock, recentDsrs, photos] = await Promise.all([
+  const [site, todaysDsr, stock, recentDsrs, photos, viewerRole] = await Promise.all([
     getSiteDetail(id),
     getTodaysDsr(id),
     getSiteStock(id),
     getRecentDsrs(id),
     getSitePhotos(id),
+    getViewerRole(),
   ]);
 
   if (!site) {
@@ -212,6 +228,17 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
   }
 
   const status = STATUS_BADGE[site.status];
+  // The confirmation must surface live consequences, not a generic warning:
+  // stock on hand at this Site disappears from stock views with it.
+  const stockWithBalance = (stock ?? []).filter((row) => Number(row.quantity) > 0);
+  const deleteWarning =
+    stockWithBalance.length > 0
+      ? ` Note: this Site still holds stock for ${stockWithBalance.length} material${
+          stockWithBalance.length === 1 ? "" : "s"
+        } (e.g. ${stockWithBalance[0]!.materialSize.material.name} — ${stockWithBalance[0]!.quantity} ${
+          stockWithBalance[0]!.materialSize.material.unit.name
+        }), which will disappear from stock views.`
+      : "";
 
   return (
     <>
@@ -260,12 +287,14 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             <PencilIcon className="size-4" />
             Edit Site
           </Link>
-          <DeleteEntityButton
-            label="Delete Site"
-            title={`Delete ${site.name}?`}
-            description="This Site will disappear from every list and picker. Its records — reports, stock, purchases, expenses — stay in the database and are not destroyed. Only an Owner/Admin can do this."
-            action={deleteSiteAction.bind(null, site.id)}
-          />
+          {viewerRole === "OWNER_ADMIN" ? (
+            <DeleteEntityButton
+              label="Delete Site"
+              title={`Delete ${site.name}?`}
+              description={`This Site will disappear from every list and picker. Its records — reports, stock, purchases, expenses — stay in the database and are not destroyed.${deleteWarning}`}
+              action={deleteSiteAction.bind(null, site.id)}
+            />
+          ) : null}
         </div>
       </div>
 
