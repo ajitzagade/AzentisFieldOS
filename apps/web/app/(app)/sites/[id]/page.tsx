@@ -1,7 +1,7 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { FeedItem } from "@azentisfieldos/shared";
+import type { FeedItem, PhotoGalleryItem } from "@azentisfieldos/shared";
 import {
   Badge,
   BoxIcon,
@@ -20,7 +20,13 @@ import {
   type DataTableColumn,
 } from "@azentisfieldos/ui";
 import type { Site } from "../page";
+import { PhotoGalleryGrid } from "../../_components/photo-gallery-grid";
 import { FEED_TYPE_CONFIG } from "./feed-type-config";
+
+// How many of the Site's newest photos the detail page previews inline —
+// one gallery-grid row at the widest breakpoint; the full history stays on
+// the dedicated Site Photos page (FR-31).
+const RECENT_PHOTOS_LIMIT = 6;
 
 interface SiteDetail extends Site {
   feed: FeedItem[];
@@ -82,6 +88,20 @@ async function getSiteStock(siteId: string): Promise<SiteStockRow[] | null> {
     if (!res.ok) return null;
     const rows = (await res.json()) as SiteStockRow[];
     return Array.isArray(rows) ? rows : null;
+  } catch {
+    return null;
+  }
+}
+
+// The Site's photo gallery (FR-31: every DSR photo at this Site,
+// newest-first) — the same GET /sites/:id/photos the Site Photos page
+// renders in full; the detail page previews only the newest few.
+async function getSitePhotos(siteId: string): Promise<PhotoGalleryItem[] | null> {
+  try {
+    const res = await authedFetch(`/sites/${siteId}/photos`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const photos = (await res.json()) as PhotoGalleryItem[];
+    return Array.isArray(photos) ? photos : null;
   } catch {
     return null;
   }
@@ -176,11 +196,12 @@ const recentDsrColumns: DataTableColumn<RecentDsrRow>[] = [
 
 export default async function SiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [site, todaysDsr, stock, recentDsrs] = await Promise.all([
+  const [site, todaysDsr, stock, recentDsrs, photos] = await Promise.all([
     getSiteDetail(id),
     getTodaysDsr(id),
     getSiteStock(id),
     getRecentDsrs(id),
+    getSitePhotos(id),
   ]);
 
   if (!site) {
@@ -313,6 +334,29 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             }
           />
         </div>
+      </div>
+
+      <div className="mb-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-section-header text-ink-900">Recent Photos</div>
+          {photos !== null && photos.length > 0 ? (
+            <Link
+              href={`/sites/${site.id}/photos`}
+              className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+            >
+              View all {photos.length} photo{photos.length === 1 ? "" : "s"}
+            </Link>
+          ) : null}
+        </div>
+        {photos === null ? (
+          <p className="text-body-sm text-ink-500">Couldn&apos;t load this Site&apos;s photos right now.</p>
+        ) : photos.length === 0 ? (
+          <p className="text-body-sm text-ink-500">
+            No photos yet for this Site — they arrive with Daily Site Reports.
+          </p>
+        ) : (
+          <PhotoGalleryGrid photos={photos.slice(0, RECENT_PHOTOS_LIMIT)} />
+        )}
       </div>
 
       <div className="mb-4 text-section-header text-ink-900">Activity Feed</div>

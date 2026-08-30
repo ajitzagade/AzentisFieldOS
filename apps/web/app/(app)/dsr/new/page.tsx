@@ -731,11 +731,13 @@ function NewDsrForm() {
                 )}
               </div>
             ))}
+            {/* No `capture` attribute on purpose: with it, mobile browsers
+                jump straight into the camera; without it, the OS picker
+                offers both "take photo" and "choose from gallery". */}
             <input
               ref={photoInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               multiple
               className="hidden"
               onChange={(e) => {
