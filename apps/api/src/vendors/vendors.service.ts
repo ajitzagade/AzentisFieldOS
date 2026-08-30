@@ -20,7 +20,12 @@ export class VendorsService {
   }
 
   list() {
-    return this.prisma.vendor.findMany({ orderBy: { name: 'asc' } });
+    // Soft-deleted Vendors are hidden from every list/picker (their rows
+    // and purchase history stay in the database).
+    return this.prisma.vendor.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+    });
   }
 
   // Vendor master data uses a normal in-place update — it is not one of
@@ -41,10 +46,23 @@ export class VendorsService {
 
   async findOne(id: string) {
     const vendor = await this.prisma.vendor.findUnique({ where: { id } });
-    if (!vendor) {
+    if (!vendor || vendor.deletedAt) {
       throw new NotFoundException(`Vendor ${id} not found`);
     }
     return vendor;
+  }
+
+  // Soft delete — same rule as SitesService.softDelete: stamp deletedAt,
+  // never a hard DELETE (purchases/RMC/disposals keep their vendor FK).
+  async softDelete(id: string) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id } });
+    if (!vendor || vendor.deletedAt) {
+      throw new NotFoundException(`Vendor ${id} not found`);
+    }
+    return this.prisma.vendor.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   }
 
   // Story 9.2, AC #1/#3: this Vendor's Purchase history, delegated to

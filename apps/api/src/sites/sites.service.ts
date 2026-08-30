@@ -32,8 +32,10 @@ export class SitesService {
   // just ACTIVE Sites through this same query rather than re-querying `Site`
   // from DashboardService (each domain owns its own queries).
   list(status?: SiteStatus) {
+    // Soft-deleted Sites are hidden from every list/picker (their rows and
+    // history stay in the database).
     return this.prisma.site.findMany({
-      where: status ? { status } : undefined,
+      where: { deletedAt: null, ...(status ? { status } : {}) },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -61,7 +63,7 @@ export class SitesService {
   // exists in the schema today).
   async findOne(id: string) {
     const site = await this.prisma.site.findUnique({ where: { id } });
-    if (!site) {
+    if (!site || site.deletedAt) {
       throw new NotFoundException(`Site ${id} not found`);
     }
 
@@ -72,9 +74,24 @@ export class SitesService {
   // FR-31: every photo from every DSR at this Site, newest-first.
   async getPhotos(id: string) {
     const site = await this.prisma.site.findUnique({ where: { id } });
-    if (!site) {
+    if (!site || site.deletedAt) {
       throw new NotFoundException(`Site ${id} not found`);
     }
     return getSitePhotoGallery(this.prisma, this.storage, id);
+  }
+
+  // Soft delete: stamps deletedAt so the Site vanishes from lists/pickers,
+  // while the row — and every transaction pointing at it — stays in the
+  // database. Never a hard DELETE (the ledger's foreign keys depend on it).
+  // Idempotence: deleting an already-deleted Site 404s like any other read.
+  async softDelete(id: string) {
+    const site = await this.prisma.site.findUnique({ where: { id } });
+    if (!site || site.deletedAt) {
+      throw new NotFoundException(`Site ${id} not found`);
+    }
+    return this.prisma.site.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   }
 }

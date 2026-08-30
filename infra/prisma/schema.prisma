@@ -40,6 +40,25 @@ model User {
 
   dailySiteReports DailySiteReport[]
   photos           Photo[]
+  auditLogs        AuditLog[]
+}
+
+// Audit trail (write-once, never updated or deleted): one row per
+// successful mutating API request, written automatically by the global
+// AuditLogInterceptor — a new write endpoint is audited by construction,
+// with no per-service code. Who (userId), what (action/entityType/
+// entityId), where (siteId when the write named one), when (occurredAt).
+model AuditLog {
+  id         String   @id @default(uuid(7))
+  occurredAt DateTime @default(now())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  method     String // POST | PATCH | DELETE
+  path       String // the request path, e.g. /waste-disposals
+  action     String // human summary, e.g. "Created Waste Disposal"
+  entityType String?
+  entityId   String?
+  siteId     String?
 }
 
 // ---------- Sites ----------
@@ -57,6 +76,11 @@ model Site {
   status            SiteStatus @default(ACTIVE)
   contractReference String?
   description       String?
+  // Soft delete: a deleted Site disappears from every list/picker but its
+  // row — and every transaction row pointing at it — stays in the database
+  // (the ledger's history is never destroyed). Master-data-only concept;
+  // AD-9 transaction tables are corrected, never deleted.
+  deletedAt         DateTime?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -596,6 +620,8 @@ model Vendor {
   email             String?
   address           String?
   materialsSupplied String[] @default([])
+  // Soft delete — same rule as Site.deletedAt.
+  deletedAt         DateTime?
 
   purchases      Purchase[]
   rmcEntries     RmcEntry[]

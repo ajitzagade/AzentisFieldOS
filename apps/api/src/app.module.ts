@@ -19,6 +19,7 @@ import { WasteDisposalModule } from './waste-disposal/waste-disposal.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportsModule } from './reports/reports.module';
 import { UsersModule } from './users/users.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { UsersModule } from './users/users.module';
     DashboardModule,
     ReportsModule,
     UsersModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [

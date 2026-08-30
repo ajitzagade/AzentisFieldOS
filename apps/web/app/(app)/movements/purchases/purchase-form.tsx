@@ -83,6 +83,9 @@ type PurchaseFormProps = {
   materialSizes: MaterialSizeOption[];
   sites: SiteOption[];
   vendors: VendorOption[];
+  /** Team Member names for the Receiver datalist — suggestions only; any
+   * free-typed name is accepted and stored as plain text. */
+  teamNames?: string[];
   /** Story 5.3: the vendor-to-site entry point pre-sets destination to
    * SITE and skips the toggle entirely — a UX convenience, not a
    * different data path (Purchase.destination = SITE either way). */
@@ -92,7 +95,7 @@ type PurchaseFormProps = {
   | { mode: "correct"; correctsId: string; initial: PurchaseFormInitialValues }
 );
 
-export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, initial, fixedDestination }: PurchaseFormProps) {
+export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, initial, fixedDestination, teamNames = [] }: PurchaseFormProps) {
   const [state, formAction] = useActionState(createPurchaseAction, initialState);
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
@@ -281,14 +284,23 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           defaultValue={initial?.vehicleDetails}
           error={state.errors?.vehicleDetails?.[0]}
         />
+        {/* Native datalist: suggests Team Member names while still accepting
+            any free-typed name (a receiver need not be on the team — the
+            typed text is stored as-is, never added to the Team roster). */}
         <TextField
           label="Receiver Name"
           name="receiverName"
-          hint="Optional"
+          hint="Optional — pick a team member or type any name"
           icon={<UserIcon className="size-4" />}
           defaultValue={initial?.receiverName}
+          list="purchase-receiver-names"
           error={state.errors?.receiverName?.[0]}
         />
+        <datalist id="purchase-receiver-names">
+          {teamNames.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
         <TextField label="Notes" name="notes" hint="Optional" icon={<PencilIcon className="size-4" />} defaultValue={initial?.notes} error={state.errors?.notes?.[0]} />
       </Card>
 

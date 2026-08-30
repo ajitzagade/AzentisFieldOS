@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
+  UseGuards,
   UsePipes,
 } from '@nestjs/common';
 import {
@@ -14,8 +16,13 @@ import {
   type UpdateVendorInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { VendorsService } from './vendors.service';
 
+// RolesGuard is a no-op on handlers without @Roles() metadata, so adding it
+// at controller level restricts ONLY the delete below.
+@UseGuards(RolesGuard)
 @Controller('vendors')
 export class VendorsController {
   constructor(private readonly vendorsService: VendorsService) {}
@@ -52,5 +59,13 @@ export class VendorsController {
   @Get(':id/purchase-summary')
   purchaseSummary(@Param('id') id: string) {
     return this.vendorsService.purchaseSummary(id);
+  }
+
+  // Soft delete (Owner/Admin only) — hides the Vendor everywhere; the row
+  // and its purchase/RMC/disposal history remain in the database untouched.
+  @Delete(':id')
+  @Roles('OWNER_ADMIN')
+  remove(@Param('id') id: string) {
+    return this.vendorsService.softDelete(id);
   }
 }

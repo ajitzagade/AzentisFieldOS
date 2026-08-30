@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { getTeamNames } from "../../team-names";
 import { PurchaseForm } from "../purchase-form";
 
 interface SiteOption {
@@ -43,7 +44,12 @@ async function getVendors(): Promise<VendorOption[]> {
 }
 
 export default async function NewPurchasePage() {
-  const [sites, materials, vendors] = await Promise.all([getSites(), getMaterials(), getVendors()]);
+  const [sites, materials, vendors, teamNames] = await Promise.all([
+    getSites(),
+    getMaterials(),
+    getVendors(),
+    getTeamNames(),
+  ]);
 
   // A Purchase always targets a specific Size, never a bare Material — a
   // Material with no Sizes yet has nothing to offer this picker.
@@ -58,7 +64,7 @@ export default async function NewPurchasePage() {
   return (
     <div className="max-w-160">
       <h1 className="mb-6 text-page-title text-ink-900">Record Purchase</h1>
-      <PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} />
+      <PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} teamNames={teamNames} />
     </div>
   );
 }

@@ -54,7 +54,7 @@ function p2025Error(): InstanceType<
 }
 
 describe('VendorsService.list', () => {
-  it('orders Vendors by name ascending', async () => {
+  it('orders Vendors by name ascending and hides soft-deleted rows', async () => {
     const vendorFindMany = vi
       .fn()
       .mockResolvedValue([{ id: '1', name: 'Anand RMC Suppliers' }]);
@@ -62,7 +62,10 @@ describe('VendorsService.list', () => {
 
     const result = await service.list();
 
-    expect(vendorFindMany).toHaveBeenCalledWith({ orderBy: { name: 'asc' } });
+    expect(vendorFindMany).toHaveBeenCalledWith({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+    });
     expect(result).toEqual([{ id: '1', name: 'Anand RMC Suppliers' }]);
   });
 });

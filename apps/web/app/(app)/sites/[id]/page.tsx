@@ -22,6 +22,8 @@ import {
 } from "@azentisfieldos/ui";
 import type { Site } from "../page";
 import { PhotoGalleryGrid } from "../../_components/photo-gallery-grid";
+import { DeleteEntityButton } from "../../_components/delete-entity-button";
+import { deleteSiteAction } from "./actions";
 import { FEED_TYPE_CONFIG } from "./feed-type-config";
 
 // How many of the Site's newest photos the detail page previews inline —
@@ -258,6 +260,12 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             <PencilIcon className="size-4" />
             Edit Site
           </Link>
+          <DeleteEntityButton
+            label="Delete Site"
+            title={`Delete ${site.name}?`}
+            description="This Site will disappear from every list and picker. Its records — reports, stock, purchases, expenses — stay in the database and are not destroyed. Only an Owner/Admin can do this."
+            action={deleteSiteAction.bind(null, site.id)}
+          />
         </div>
       </div>
 

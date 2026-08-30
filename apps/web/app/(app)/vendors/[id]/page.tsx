@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, CameraIcon, ClipboardIcon, DataTable, PencilIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
 import { getVendorPurchaseSummary, type Vendor, type VendorPurchaseSummary } from "../page";
+import { DeleteEntityButton } from "../../_components/delete-entity-button";
+import { deleteVendorAction } from "./actions";
 
 interface VendorPurchase {
   id: string;
@@ -130,10 +132,18 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
       <div className="mb-8 rounded-lg border border-border-hairline bg-surface-1 p-6 shadow-2">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <h1 className="text-page-title text-ink-900">{vendor.name}</h1>
-          <Link href={`/vendors/${vendor.id}/edit`} className={cn(buttonVariants({ variant: "secondary" }))}>
-            <PencilIcon className="size-4" />
-            Edit Vendor
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/vendors/${vendor.id}/edit`} className={cn(buttonVariants({ variant: "secondary" }))}>
+              <PencilIcon className="size-4" />
+              Edit Vendor
+            </Link>
+            <DeleteEntityButton
+              label="Delete Vendor"
+              title={`Delete ${vendor.name}?`}
+              description="This Vendor will disappear from every list and picker. Their purchase, RMC and disposal history stays in the database and is not destroyed. Only an Owner/Admin can do this."
+              action={deleteVendorAction.bind(null, vendor.id)}
+            />
+          </div>
         </div>
 
         {/* The same figures the Vendors list computes per row (GET

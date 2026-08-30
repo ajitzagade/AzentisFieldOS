@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { getTeamNames } from "../../team-names";
 import { MovementForm } from "../movement-form";
 
 interface SiteOption {
@@ -34,7 +35,12 @@ export default async function NewMovementPage({
 }: {
   searchParams?: Promise<{ materialId?: string; siteId?: string }>;
 } = {}) {
-  const [sites, materials, { materialId, siteId } = {}] = await Promise.all([getSites(), getMaterials(), searchParams]);
+  const [sites, materials, teamNames, { materialId, siteId } = {}] = await Promise.all([
+    getSites(),
+    getMaterials(),
+    getTeamNames(),
+    searchParams,
+  ]);
 
   const materialSizes = materials.flatMap((material) =>
     material.sizes.map((size) => ({
@@ -58,7 +64,7 @@ export default async function NewMovementPage({
   return (
     <div className="max-w-160">
       <h1 className="mb-6 text-page-title text-ink-900">Record Godown → Site Movement</h1>
-      <MovementForm mode="new" materialSizes={materialSizes} sites={sites} initial={initial} />
+      <MovementForm mode="new" materialSizes={materialSizes} sites={sites} initial={initial} teamNames={teamNames} />
     </div>
   );
 }

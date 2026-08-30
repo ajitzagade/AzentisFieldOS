@@ -7,9 +7,9 @@ import { cn } from "../lib/cn";
 // no screen defines its own <button className="..."> styling. New visual
 // needs extend `buttonVariants`, they don't fork this component.
 //
-// Only the three DESIGN.md variants exist (primary/secondary/ghost) — no
-// unspecified `outline`/`destructive` variant to keep the prop surface from
-// drifting ahead of the approved design system.
+// The three DESIGN.md variants (primary/secondary/ghost) plus `danger` for
+// destructive actions (soft delete) — added through this prop API per AD-5,
+// never as one-off per-screen styling.
 export const buttonVariants = cva(
   [
     "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-semibold",
@@ -25,6 +25,8 @@ export const buttonVariants = cva(
         secondary:
           "bg-surface-1 text-ink-900 border border-border-strong hover:bg-surface-2 hover:border-accent-teal-700",
         ghost: "bg-transparent text-ink-700 hover:bg-surface-2 hover:text-ink-900",
+        danger:
+          "bg-surface-1 text-danger-700 border border-danger-700 hover:bg-danger-100",
       },
       size: {
         sm: "h-8 px-3 text-xs",

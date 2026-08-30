@@ -69,6 +69,7 @@ export function MovementForm({
   materialSizes,
   sites,
   initial,
+  teamNames = [],
 }: {
   mode: "new" | "correct";
   /** Story 5.4: SITE_TO_SITE reuses this same form/schema/service with a
@@ -79,6 +80,9 @@ export function MovementForm({
   materialSizes: MaterialSizeOption[];
   sites: SiteOption[];
   initial?: MovementFormInitialValues;
+  /** Team Member names for the Person Responsible datalist — suggestions
+   * only; any free-typed name is accepted and stored as plain text. */
+  teamNames?: string[];
 }) {
   const [state, formAction] = useActionState(createMovementAction, initialState);
   // Hard-to-take-back submission (FR-54 / money movement) — held for
@@ -224,14 +228,23 @@ export function MovementForm({
           defaultValue={initial?.vehicleDetails}
           error={state.errors?.vehicleDetails?.[0]}
         />
+        {/* Native datalist: suggests Team Member names while still accepting
+            any free-typed name — the typed text is stored as-is, never added
+            to the Team roster. */}
         <TextField
           label="Person Responsible"
           name="personResponsible"
-          hint="Optional"
+          hint="Optional — pick a team member or type any name"
           icon={<UserIcon className="size-4" />}
           defaultValue={initial?.personResponsible}
+          list="movement-person-names"
           error={state.errors?.personResponsible?.[0]}
         />
+        <datalist id="movement-person-names">
+          {teamNames.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
         <TextField label="Notes" name="notes" hint="Optional" icon={<PencilIcon className="size-4" />} defaultValue={initial?.notes} error={state.errors?.notes?.[0]} />
       </Card>
 

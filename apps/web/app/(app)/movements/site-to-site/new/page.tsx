@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { getTeamNames } from "../../team-names";
 import { MovementForm } from "../../godown-to-site/movement-form";
 
 interface SiteOption {
@@ -33,7 +34,7 @@ async function getMaterials(): Promise<MaterialListItem[]> {
 // model/schema/service/form Story 5.2 built for GODOWN_TO_SITE — not a
 // new transaction type (Story 5.4 Dev Notes).
 export default async function NewSiteToSiteTransferPage() {
-  const [sites, materials] = await Promise.all([getSites(), getMaterials()]);
+  const [sites, materials, teamNames] = await Promise.all([getSites(), getMaterials(), getTeamNames()]);
 
   const materialSizes = materials.flatMap((material) =>
     material.sizes.map((size) => ({
@@ -46,7 +47,7 @@ export default async function NewSiteToSiteTransferPage() {
   return (
     <div className="max-w-160">
       <h1 className="mb-6 text-page-title text-ink-900">Record Site → Site Transfer</h1>
-      <MovementForm mode="new" kind="SITE_TO_SITE" materialSizes={materialSizes} sites={sites} />
+      <MovementForm mode="new" kind="SITE_TO_SITE" materialSizes={materialSizes} sites={sites} teamNames={teamNames} />
     </div>
   );
 }

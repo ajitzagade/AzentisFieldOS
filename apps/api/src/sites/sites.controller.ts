@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
+  UseGuards,
   UsePipes,
 } from '@nestjs/common';
 import {
@@ -14,8 +16,13 @@ import {
   type UpdateSiteInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { SitesService } from './sites.service';
 
+// RolesGuard is a no-op on handlers without @Roles() metadata, so adding it
+// at controller level restricts ONLY the delete below.
+@UseGuards(RolesGuard)
 @Controller('sites')
 export class SitesController {
   constructor(private readonly sitesService: SitesService) {}
@@ -49,5 +56,13 @@ export class SitesController {
   @Get(':id/photos')
   getPhotos(@Param('id') id: string) {
     return this.sitesService.getPhotos(id);
+  }
+
+  // Soft delete (Owner/Admin only) — hides the Site everywhere; the row and
+  // its transaction history remain in the database untouched.
+  @Delete(':id')
+  @Roles('OWNER_ADMIN')
+  remove(@Param('id') id: string) {
+    return this.sitesService.softDelete(id);
   }
 }

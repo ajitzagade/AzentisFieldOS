@@ -109,9 +109,10 @@ export class DashboardService {
         where: { incurredAt: dayRange, ...currentRows },
         _sum: { amount: true },
       }),
-      // Every active Site, for the set-difference that produces the gap flags.
+      // Every active (non-soft-deleted) Site, for the set-difference that
+      // produces the gap flags.
       this.prisma.site.findMany({
-        where: { status: 'ACTIVE' },
+        where: { status: 'ACTIVE', deletedAt: null },
         select: { id: true, name: true },
         orderBy: { name: 'asc' },
       }),

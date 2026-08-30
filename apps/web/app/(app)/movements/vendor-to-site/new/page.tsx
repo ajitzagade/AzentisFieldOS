@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { getTeamNames } from "../../team-names";
 import { PurchaseForm } from "../../purchases/purchase-form";
 
 interface SiteOption {
@@ -47,7 +48,12 @@ async function getVendors(): Promise<VendorOption[]> {
 // that pre-sets destination and skips the toggle, reusing the same form,
 // schema, and service (AD-7).
 export default async function NewVendorToSitePurchasePage() {
-  const [sites, materials, vendors] = await Promise.all([getSites(), getMaterials(), getVendors()]);
+  const [sites, materials, vendors, teamNames] = await Promise.all([
+    getSites(),
+    getMaterials(),
+    getVendors(),
+    getTeamNames(),
+  ]);
 
   const materialSizes = materials.flatMap((material) =>
     material.sizes.map((size) => ({
@@ -60,7 +66,7 @@ export default async function NewVendorToSitePurchasePage() {
   return (
     <div className="max-w-160">
       <h1 className="mb-6 text-page-title text-ink-900">Record Direct Vendor → Site Purchase</h1>
-      <PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} fixedDestination="SITE" />
+      <PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} fixedDestination="SITE" teamNames={teamNames} />
     </div>
   );
 }
