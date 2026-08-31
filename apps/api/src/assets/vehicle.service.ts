@@ -6,9 +6,52 @@ import {
 import type {
   CreateVehicleInput,
   UpdateVehicleInput,
+  PaginatedResult,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { paginationParams } from '../common/pagination';
+import { isSortOrder } from '../common/sort-order';
+
+const VEHICLE_SORT_FIELDS = [
+  'number',
+  'driver',
+  'currentStatus',
+  'currentSite',
+  'type',
+] as const;
+type VehicleSortField = (typeof VEHICLE_SORT_FIELDS)[number];
+
+function isVehicleSortField(
+  value: string | undefined,
+): value is VehicleSortField {
+  return (
+    Boolean(value) &&
+    (VEHICLE_SORT_FIELDS as readonly string[]).includes(value as string)
+  );
+}
+
+function vehicleOrderBy(
+  sort: string | undefined,
+  order: string | undefined,
+): Prisma.VehicleOrderByWithRelationInput {
+  if (!isVehicleSortField(sort)) {
+    return { number: 'asc' };
+  }
+  const direction = isSortOrder(order) ? order : 'asc';
+  if (sort === 'currentSite' || sort === 'type') {
+    return { [sort]: { name: direction } };
+  }
+  return { [sort]: direction };
+}
+
+export interface VehicleListQuery {
+  q?: string;
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  order?: string;
+}
 
 // FR-16: Owner/Admin creates and maintains the Vehicle register.
 // `currentStatus`/`currentSiteId` are exclusively written by Story 8.2's
@@ -38,15 +81,44 @@ export class VehicleService {
   // N+1 fetch — a freshly-registered Vehicle with no movement history yet
   // comes back with an empty array, so the list page can omit the icon
   // rather than link to a movement that doesn't exist.
-  list() {
-    return this.prisma.vehicle.findMany({
-      include: {
-        type: true,
-        currentSite: true,
-        movementLogs: { orderBy: { movedAt: 'desc' }, take: 1 },
-      },
-      orderBy: { number: 'asc' },
-    });
+  list(
+    query: VehicleListQuery = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
+    const { q } = query;
+    const where: Prisma.VehicleWhereInput | undefined = q
+      ? { number: { contains: q, mode: 'insensitive' } }
+      : undefined;
+    const include = {
+      type: true,
+      currentSite: true,
+      movementLogs: { orderBy: { movedAt: 'desc' as const }, take: 1 },
+    };
+    const orderBy = vehicleOrderBy(query.sort, query.order);
+
+    const pagination = paginationParams(query.page, query.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.vehicle.findMany({
+        ...(where ? { where } : {}),
+        include,
+        orderBy,
+      });
+    }
+
+    return Promise.all([
+      this.prisma.vehicle.findMany({
+        ...(where ? { where } : {}),
+        include,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.vehicle.count(where ? { where } : undefined),
+    ]).then(([rows, total]) => ({
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }));
   }
 
   async findOne(id: string) {

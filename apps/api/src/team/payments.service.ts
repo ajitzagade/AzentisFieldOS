@@ -7,11 +7,41 @@ import {
 import type {
   CreatePaymentInput,
   LabourReportFilters,
+  PaginatedResult,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
+import { paginationParams } from '../common/pagination';
+import { isSortOrder } from '../common/sort-order';
 import { decrementOutstandingBalanceWithFloorCheck } from './outstanding-balance';
+
+const PAYMENT_SORT_FIELDS = [
+  'payPeriod',
+  'basePay',
+  'additionalAmount',
+  'deductions',
+  'netPayable',
+  'status',
+] as const;
+type PaymentSortField = (typeof PAYMENT_SORT_FIELDS)[number];
+
+function isPaymentSortField(
+  value: string | undefined,
+): value is PaymentSortField {
+  return (
+    Boolean(value) &&
+    (PAYMENT_SORT_FIELDS as readonly string[]).includes(value as string)
+  );
+}
+
+export interface PaymentsListQuery extends LabourReportFilters {
+  q?: string;
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  order?: string;
+}
 
 // FR-24: Net Payable = Base Pay + Additional - Deductions - (linked
 // Advance Adjustment, if any) — always computed here, never trusted from
@@ -191,15 +221,43 @@ export class PaymentsService {
   // TeamMembersService.getTeamSummary, composed alongside this. Unfiltered
   // (the default `{}`) the query is unchanged, so the live Payments list is
   // byte-identical.
-  list(filters: LabourReportFilters = {}) {
-    return this.prisma.payment.findMany({
-      where: this.reportWhere(filters),
-      include: {
-        teamMember: true,
-        advanceAdjustments: { include: { advance: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+  list(
+    query: PaymentsListQuery = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
+    const where = this.reportWhere(query);
+    if (query.q) {
+      where.teamMember = { name: { contains: query.q, mode: 'insensitive' } };
+    }
+    const include = {
+      teamMember: true,
+      advanceAdjustments: { include: { advance: true } },
+    };
+    const orderBy: Prisma.PaymentOrderByWithRelationInput = isPaymentSortField(
+      query.sort,
+    )
+      ? { [query.sort]: isSortOrder(query.order) ? query.order : 'asc' }
+      : { createdAt: 'desc' };
+
+    const pagination = paginationParams(query.page, query.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.payment.findMany({ where, include, orderBy });
+    }
+
+    return Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        include,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.payment.count({ where }),
+    ]).then(([rows, total]) => ({
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }));
   }
 
   private reportWhere(filters: LabourReportFilters): Prisma.PaymentWhereInput {

@@ -31,8 +31,23 @@ export class ExpensesController {
     @Query('categoryId') categoryId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
   ) {
-    return this.expensesService.list({ siteId, categoryId, from, to });
+    return this.expensesService.list({
+      siteId,
+      categoryId,
+      from,
+      to,
+      q,
+      page,
+      pageSize,
+      sort,
+      order,
+    });
   }
 
   // Static path declared before the `:id` wildcard below — Nest matches

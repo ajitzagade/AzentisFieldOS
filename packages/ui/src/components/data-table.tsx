@@ -11,6 +11,10 @@ export interface DataTableColumn<T> {
   header: string;
   cell: (row: T) => ReactNode;
   align?: "left" | "right";
+  /** Present only on a sortable column — the key reported to onSortChange
+   * when this header is clicked. A column with no sortKey renders as a
+   * plain, unclickable header even when the table as a whole is sortable. */
+  sortKey?: string;
 }
 
 export type DataTableState<T> =
@@ -29,6 +33,11 @@ export interface DataTableProps<T> {
    * substitute. */
   rowHref?: (row: T) => string | undefined;
   className?: string;
+  /** The currently active sort, if any. Omit entirely for an unsorted table. */
+  sort?: { key: string; order: "asc" | "desc" };
+  /** Called with a column's sortKey when its header is clicked. Only
+   * columns with a sortKey become clickable. */
+  onSortChange?: (key: string) => void;
 }
 
 // Cells are `whitespace-nowrap` so columns keep their natural, readable width
@@ -51,7 +60,7 @@ function bodyCellClass(align: DataTableColumn<unknown>["align"]) {
   );
 }
 
-export function DataTable<T>({ columns, state, rowKey, rowHref, className }: DataTableProps<T>) {
+export function DataTable<T>({ columns, state, rowKey, rowHref, className, sort, onSortChange }: DataTableProps<T>) {
   return (
     <div className={cn("bg-surface-1 border border-border-hairline rounded-lg shadow-2 overflow-hidden", className)}>
       {/* Horizontal scroll container: on a phone a wide table scrolls sideways
@@ -62,7 +71,18 @@ export function DataTable<T>({ columns, state, rowKey, rowHref, className }: Dat
           <tr>
             {columns.map((column) => (
               <th key={column.header} className={headerCellClass(column.align)}>
-                {column.header}
+                {column.sortKey && onSortChange ? (
+                  <button
+                    type="button"
+                    onClick={() => onSortChange(column.sortKey!)}
+                    className="inline-flex items-center gap-1 hover:text-ink-700"
+                  >
+                    {column.header}
+                    {sort?.key === column.sortKey ? <span aria-hidden>{sort.order === "asc" ? "▲" : "▼"}</span> : null}
+                  </button>
+                ) : (
+                  column.header
+                )}
               </th>
             ))}
           </tr>

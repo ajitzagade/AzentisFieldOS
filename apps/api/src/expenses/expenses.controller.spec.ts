@@ -65,6 +65,27 @@ describe('ExpensesController', () => {
     expect(result).toEqual([{ id: '1' }]);
   });
 
+  it('list forwards sort/order query params to ExpensesService.list', async () => {
+    service.list.mockResolvedValue([]);
+
+    await controller.list(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'amount',
+      'desc',
+    );
+
+    expect(service.list).toHaveBeenCalledWith({
+      sort: 'amount',
+      order: 'desc',
+    });
+  });
+
   it('summary delegates to ExpensesService.summary', async () => {
     service.summary.mockResolvedValue({
       totalThisMonth: 0,

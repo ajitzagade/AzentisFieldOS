@@ -37,6 +37,54 @@ export class StockService {
     });
   }
 
+  // Story 16.3 (AC #1): every location — the Godown and every Site — that
+  // currently holds a balance of any Size of this Material, in one flat,
+  // sorted list. Two plain findMany calls in parallel, never a per-Site
+  // loop (the exact N+1 pattern the 2026-08-29 product review flagged).
+  // `quantity: { gt: 0 }` excludes a location with a stock row but a zero
+  // balance — "holding a balance" per the AC wording, and what makes a
+  // truly empty result (AC #6's empty state) reachable at all.
+  async getStockByMaterial(materialId: string) {
+    const [godownRows, siteRows] = await Promise.all([
+      this.prisma.godownStock.findMany({
+        where: { materialSize: { materialId }, quantity: { gt: 0 } },
+        include: {
+          materialSize: { include: { material: { include: { unit: true } } } },
+        },
+      }),
+      this.prisma.siteStock.findMany({
+        where: { materialSize: { materialId }, quantity: { gt: 0 } },
+        include: {
+          site: true,
+          materialSize: { include: { material: { include: { unit: true } } } },
+        },
+      }),
+    ]);
+
+    const rows = [
+      ...godownRows.map((row) => ({
+        location: { kind: 'godown' as const },
+        materialSizeId: row.materialSizeId,
+        sizeLabel: row.materialSize.label,
+        quantity: row.quantity,
+        unit: row.materialSize.material.unit.name,
+      })),
+      ...siteRows.map((row) => ({
+        location: {
+          kind: 'site' as const,
+          id: row.site.id,
+          name: row.site.name,
+        },
+        materialSizeId: row.materialSizeId,
+        sizeLabel: row.materialSize.label,
+        quantity: row.quantity,
+        unit: row.materialSize.material.unit.name,
+      })),
+    ];
+
+    return rows.sort((a, b) => Number(b.quantity) - Number(a.quantity));
+  }
+
   // FR-36: a Material's Godown balance summed across all its Sizes,
   // compared against its own admin-configured threshold — never a
   // per-Size threshold (Dev Notes "Per-Material vs per-Size threshold").

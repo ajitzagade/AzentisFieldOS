@@ -64,6 +64,25 @@ describe('RmcController', () => {
     expect(result).toEqual([{ id: '1' }]);
   });
 
+  it('list forwards sort/order query params to RmcService.list', async () => {
+    service.list.mockResolvedValue([]);
+
+    await controller.list(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'totalAmount',
+      'desc',
+    );
+
+    expect(service.list).toHaveBeenCalledWith(
+      expect.objectContaining({ sort: 'totalAmount', order: 'desc' }),
+    );
+  });
+
   it('list tolerates no filters at all', async () => {
     service.list.mockResolvedValue([]);
 

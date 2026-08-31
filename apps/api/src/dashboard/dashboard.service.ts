@@ -5,6 +5,7 @@ import {
   supersededDsrIds,
 } from '../common/superseded-dsrs';
 import { SitesService } from '../sites/sites.service';
+import type { Site } from '../generated/prisma/client';
 import { StockService } from '../inventory/stock.service';
 import { PaymentsService } from '../team/payments.service';
 import { TeamMembersService } from '../team/team-members.service';
@@ -147,7 +148,9 @@ export class DashboardService {
   async getOverall(): Promise<OverallRollup> {
     const [activeSites, lowStockMaterials, outstanding, pendingCount] =
       await Promise.all([
-        this.sitesService.list('ACTIVE'),
+        // Never paginated (no page/pageSize passed) — always the Site[]
+        // branch of SitesService.list's return type.
+        this.sitesService.list({ status: 'ACTIVE' }) as Promise<Site[]>,
         this.stockService.getLowStockMaterials(),
         this.teamMembersService.getOutstandingAdvances(),
         this.paymentsService.countPending(),
@@ -174,7 +177,8 @@ export class DashboardService {
   // "this Tenant has no Sites at all" signal for the page-level zero-Sites
   // empty state (AC #1).
   async getSitesPreview(): Promise<SitePreview[]> {
-    const sites = await this.sitesService.list();
+    // Never paginated — always the Site[] branch of the return type.
+    const sites = (await this.sitesService.list()) as Site[];
     return sites.slice(0, SITES_PREVIEW_LIMIT).map((site) => ({
       id: site.id,
       name: site.name,

@@ -54,6 +54,15 @@ interface MaterialsTaxonomyProps {
   initialCategories: TaxonomyCategory[];
   initialMaterials: TaxonomyMaterial[];
   units: TaxonomyUnit[];
+  /**
+   * Pre-fills the Material search box — carried over from Story 16.2's
+   * global search "See all N results" action (`/materials?q=...`). Reuses
+   * this taxonomy's own existing client-side filter rather than building a
+   * second, server-paginated Materials list: Materials is bounded catalog
+   * master data, not transaction history, so it was deliberately left out
+   * of Story 16.1's server-pagination rollout.
+   */
+  initialMaterialSearch?: string;
 }
 
 async function readErrorMessage(res: Response, fallback: string): Promise<string> {
@@ -66,18 +75,32 @@ async function readErrorMessage(res: Response, fallback: string): Promise<string
   }
 }
 
-export function MaterialsTaxonomy({ initialCategories, initialMaterials, units }: MaterialsTaxonomyProps) {
+export function MaterialsTaxonomy({
+  initialCategories,
+  initialMaterials,
+  units,
+  initialMaterialSearch,
+}: MaterialsTaxonomyProps) {
   const authedFetch = useAuthedFetch();
   const toast = useToast();
 
   const [categories, setCategories] = useState(initialCategories);
   const [materials, setMaterials] = useState(initialMaterials);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
-    initialCategories.find((c) => c.isActive)?.id ?? initialCategories[0]?.id ?? null,
-  );
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(() => {
+    // Landing here with a carried-over search term should show a match, not
+    // the default Category's (likely unrelated) Materials — so the first
+    // Material matching that term picks its own Category as the starting
+    // selection instead of the usual "first active Category" default.
+    const search = initialMaterialSearch?.trim().toLowerCase();
+    if (search) {
+      const match = initialMaterials.find((m) => m.name.toLowerCase().includes(search));
+      if (match) return match.category.id;
+    }
+    return initialCategories.find((c) => c.isActive)?.id ?? initialCategories[0]?.id ?? null;
+  });
 
   const [categorySearch, setCategorySearch] = useState("");
-  const [materialSearch, setMaterialSearch] = useState("");
+  const [materialSearch, setMaterialSearch] = useState(initialMaterialSearch ?? "");
 
   // Inline add-category row, toggled by the panel-header + button.
   const [addingCategory, setAddingCategory] = useState(false);

@@ -76,6 +76,33 @@ export class MaterialsService {
     };
   }
 
+  // Story 16.2's global search: an unranked candidate set of active
+  // Materials matching by name (ranking happens once, in SearchService,
+  // shared across every searchable entity). Category is included because
+  // Material only has @@unique([categoryId, name]) — the same name can
+  // exist in two different Categories, so Category disambiguates two
+  // otherwise-identical-looking results. Capped at 200 candidates, same
+  // safety-valve reasoning as SitesService.searchCandidates.
+  async searchCandidates(q: string): Promise<{
+    candidates: Prisma.MaterialGetPayload<{ include: { category: true } }>[];
+    total: number;
+  }> {
+    const where: Prisma.MaterialWhereInput = {
+      isActive: true,
+      name: { contains: q, mode: 'insensitive' },
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.material.findMany({
+        where,
+        include: { category: true },
+        orderBy: { name: 'asc' },
+        take: 200,
+      }),
+      this.prisma.material.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // Story 14.3 (AC #3): the Settings "Low-stock Thresholds" summary card — every
   // active Material that has a threshold configured (FR-36 nullable: no threshold
   // means never flagged). Read-only discovery surface; editing the threshold

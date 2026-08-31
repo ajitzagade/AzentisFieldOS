@@ -100,4 +100,54 @@ describe("DataTable", () => {
     retryButton.click();
     expect(onRetry).toHaveBeenCalledOnce();
   });
+
+  it("renders a plain header for a column with no sortKey, even when the table is sortable", () => {
+    render(
+      <DataTable
+        columns={columns}
+        rowKey={(r) => r.id}
+        state={{ status: "success", rows }}
+        sort={{ key: "qty", order: "asc" }}
+        onSortChange={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Material" })).not.toBeInTheDocument();
+  });
+
+  it("renders a sortable column's header as a clickable control that reports its sortKey", () => {
+    const sortableColumns: DataTableColumn<Row>[] = [
+      { header: "Material", cell: (row) => row.name },
+      { header: "Qty", cell: (row) => row.qty, align: "right", sortKey: "qty" },
+    ];
+    const onSortChange = vi.fn();
+    render(
+      <DataTable
+        columns={sortableColumns}
+        rowKey={(r) => r.id}
+        state={{ status: "success", rows }}
+        onSortChange={onSortChange}
+      />,
+    );
+    screen.getByRole("button", { name: "Qty" }).click();
+    expect(onSortChange).toHaveBeenCalledWith("qty");
+  });
+
+  it("shows an indicator only on the column currently active in sort", () => {
+    const sortableColumns: DataTableColumn<Row>[] = [
+      { header: "Material", cell: (row) => row.name, sortKey: "name" },
+      { header: "Qty", cell: (row) => row.qty, align: "right", sortKey: "qty" },
+    ];
+    render(
+      <DataTable
+        columns={sortableColumns}
+        rowKey={(r) => r.id}
+        state={{ status: "success", rows }}
+        sort={{ key: "qty", order: "desc" }}
+        onSortChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Qty" }).textContent).toContain("▼");
+    expect(screen.getByRole("button", { name: "Material" }).textContent).not.toContain("▼");
+    expect(screen.getByRole("button", { name: "Material" }).textContent).not.toContain("▲");
+  });
 });

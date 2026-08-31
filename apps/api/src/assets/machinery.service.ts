@@ -6,9 +6,52 @@ import {
 import type {
   CreateMachineryInput,
   UpdateMachineryInput,
+  PaginatedResult,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { paginationParams } from '../common/pagination';
+import { isSortOrder } from '../common/sort-order';
+
+const MACHINERY_SORT_FIELDS = [
+  'name',
+  'assetNumber',
+  'currentStatus',
+  'currentSite',
+  'type',
+] as const;
+type MachinerySortField = (typeof MACHINERY_SORT_FIELDS)[number];
+
+function isMachinerySortField(
+  value: string | undefined,
+): value is MachinerySortField {
+  return (
+    Boolean(value) &&
+    (MACHINERY_SORT_FIELDS as readonly string[]).includes(value as string)
+  );
+}
+
+function machineryOrderBy(
+  sort: string | undefined,
+  order: string | undefined,
+): Prisma.MachineryOrderByWithRelationInput {
+  if (!isMachinerySortField(sort)) {
+    return { name: 'asc' };
+  }
+  const direction = isSortOrder(order) ? order : 'asc';
+  if (sort === 'currentSite' || sort === 'type') {
+    return { [sort]: { name: direction } };
+  }
+  return { [sort]: direction };
+}
+
+export interface MachineryListQuery {
+  q?: string;
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  order?: string;
+}
 
 // FR-15: Owner/Admin creates and maintains the Machinery register.
 // `currentStatus`/`currentSiteId` are exclusively written by Story 8.2's
@@ -38,15 +81,49 @@ export class MachineryService {
   // N+1 fetch — a freshly-registered Machine with no movement history yet
   // comes back with an empty array, so the list page can omit the icon
   // rather than link to a movement that doesn't exist.
-  list() {
-    return this.prisma.machinery.findMany({
-      include: {
-        type: true,
-        currentSite: true,
-        movementLogs: { orderBy: { movedAt: 'desc' }, take: 1 },
-      },
-      orderBy: { name: 'asc' },
-    });
+  list(
+    query: MachineryListQuery = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
+    const { q } = query;
+    const where: Prisma.MachineryWhereInput | undefined = q
+      ? {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { assetNumber: { contains: q, mode: 'insensitive' } },
+          ],
+        }
+      : undefined;
+    const include = {
+      type: true,
+      currentSite: true,
+      movementLogs: { orderBy: { movedAt: 'desc' as const }, take: 1 },
+    };
+    const orderBy = machineryOrderBy(query.sort, query.order);
+
+    const pagination = paginationParams(query.page, query.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.machinery.findMany({
+        ...(where ? { where } : {}),
+        include,
+        orderBy,
+      });
+    }
+
+    return Promise.all([
+      this.prisma.machinery.findMany({
+        ...(where ? { where } : {}),
+        include,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.machinery.count(where ? { where } : undefined),
+    ]).then(([rows, total]) => ({
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }));
   }
 
   async findOne(id: string) {

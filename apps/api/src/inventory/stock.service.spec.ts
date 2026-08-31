@@ -3,14 +3,24 @@ import { StockService } from './stock.service';
 
 function makeService(overrides: {
   materialFindMany?: ReturnType<typeof vi.fn>;
+  godownStockFindMany?: ReturnType<typeof vi.fn>;
+  siteStockFindMany?: ReturnType<typeof vi.fn>;
 }) {
   const materialFindMany =
     overrides.materialFindMany ?? vi.fn().mockResolvedValue([]);
-  const prisma = { material: { findMany: materialFindMany } };
+  const godownStockFindMany =
+    overrides.godownStockFindMany ?? vi.fn().mockResolvedValue([]);
+  const siteStockFindMany =
+    overrides.siteStockFindMany ?? vi.fn().mockResolvedValue([]);
+  const prisma = {
+    material: { findMany: materialFindMany },
+    godownStock: { findMany: godownStockFindMany },
+    siteStock: { findMany: siteStockFindMany },
+  };
   const service = new StockService(
     prisma as unknown as ConstructorParameters<typeof StockService>[0],
   );
-  return { service, materialFindMany };
+  return { service, materialFindMany, godownStockFindMany, siteStockFindMany };
 }
 
 describe('StockService.getLowStockMaterials', () => {
@@ -84,5 +94,83 @@ describe('StockService.getLowStockMaterials', () => {
     const result = await service.getLowStockMaterials();
 
     expect(result).toEqual([expect.objectContaining({ godownQuantity: '45' })]);
+  });
+});
+
+describe('StockService.getStockByMaterial', () => {
+  it('queries both Godown and Site balances for the Material, excluding zero-quantity rows', async () => {
+    const { service, godownStockFindMany, siteStockFindMany } = makeService({});
+
+    await service.getStockByMaterial('mat-1');
+
+    expect(godownStockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { materialSize: { materialId: 'mat-1' }, quantity: { gt: 0 } },
+      }),
+    );
+    expect(siteStockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { materialSize: { materialId: 'mat-1' }, quantity: { gt: 0 } },
+      }),
+    );
+  });
+
+  it('merges Godown and Site rows into one list, sorted by quantity descending', async () => {
+    const godownStockFindMany = vi.fn().mockResolvedValue([
+      {
+        materialSizeId: 'ms1',
+        quantity: '40',
+        materialSize: { label: '50kg', material: { unit: { name: 'Bags' } } },
+      },
+    ]);
+    const siteStockFindMany = vi.fn().mockResolvedValue([
+      {
+        materialSizeId: 'ms1',
+        quantity: '120',
+        site: { id: 'site-1', name: 'Nashik Metro' },
+        materialSize: { label: '50kg', material: { unit: { name: 'Bags' } } },
+      },
+      {
+        materialSizeId: 'ms2',
+        quantity: '10',
+        site: { id: 'site-2', name: 'Pune Bypass' },
+        materialSize: { label: '25kg', material: { unit: { name: 'Bags' } } },
+      },
+    ]);
+    const { service } = makeService({ godownStockFindMany, siteStockFindMany });
+
+    const result = await service.getStockByMaterial('mat-1');
+
+    expect(result).toEqual([
+      {
+        location: { kind: 'site', id: 'site-1', name: 'Nashik Metro' },
+        materialSizeId: 'ms1',
+        sizeLabel: '50kg',
+        quantity: '120',
+        unit: 'Bags',
+      },
+      {
+        location: { kind: 'godown' },
+        materialSizeId: 'ms1',
+        sizeLabel: '50kg',
+        quantity: '40',
+        unit: 'Bags',
+      },
+      {
+        location: { kind: 'site', id: 'site-2', name: 'Pune Bypass' },
+        materialSizeId: 'ms2',
+        sizeLabel: '25kg',
+        quantity: '10',
+        unit: 'Bags',
+      },
+    ]);
+  });
+
+  it('returns an empty array when the Material has zero stock anywhere', async () => {
+    const { service } = makeService({});
+
+    const result = await service.getStockByMaterial('mat-1');
+
+    expect(result).toEqual([]);
   });
 });

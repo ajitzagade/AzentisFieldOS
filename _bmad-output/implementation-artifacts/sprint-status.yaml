@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-12-2026 14:26
-last_updated: 08-30-2026 00:15
+last_updated: 08-31-2026 16:22
 project: AzentisFieldOS
 project_key: NOKEY
 tracking_system: file-system
@@ -139,9 +139,9 @@ development_status:
   15-5-receiver-name-suggestions: done
   epic-15-retrospective: optional
 
-  epic-16: in-progress
-  16-1-list-search-filter-sort-pagination-platform: in-progress
-  16-2-global-search: ready-for-dev
-  16-3-cross-site-material-lookup-and-transfer: ready-for-dev
-  16-4-navigation-information-architecture: ready-for-dev
+  epic-16: done
+  16-1-list-search-filter-sort-pagination-platform: done
+  16-2-global-search: done
+  16-3-cross-site-material-lookup-and-transfer: done
+  16-4-navigation-information-architecture: done
   epic-16-retrospective: optional

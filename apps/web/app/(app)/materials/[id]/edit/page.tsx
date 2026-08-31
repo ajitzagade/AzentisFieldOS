@@ -1,5 +1,7 @@
 import { authedFetch } from "@/lib/api";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { buttonVariants, cn } from "@azentisfieldos/ui";
 import { EditMaterialForm } from "./edit-material-form";
 import { SizesSection } from "./sizes-section";
 import type { MaterialListItem } from "../../page";
@@ -62,7 +64,12 @@ export default async function EditMaterialPage({ params }: { params: Promise<{ i
 
   return (
     <div className="max-w-160">
-      <h1 className="mb-6 text-page-title text-ink-900">Edit Material</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-page-title text-ink-900">Edit Material</h1>
+        <Link href={`/materials/${material.id}/availability`} className={cn(buttonVariants({ variant: "secondary" }))}>
+          View availability across Sites
+        </Link>
+      </div>
       <EditMaterialForm material={material} categories={categoryOptions} units={units} />
       <SizesSection materialId={material.id} sizes={material.sizes} />
     </div>

@@ -1,17 +1,8 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
-import {
-  Badge,
-  CheckCircleIcon,
-  DataTable,
-  PlusIcon,
-  StatTile,
-  UsersIcon,
-  WalletIcon,
-  buttonVariants,
-  cn,
-  type DataTableColumn,
-} from "@azentisfieldos/ui";
+import type { PaginatedResult } from "@azentisfieldos/shared";
+import { CheckCircleIcon, PlusIcon, StatTile, UsersIcon, WalletIcon, buttonVariants, cn, DataTable, type DataTableColumn } from "@azentisfieldos/ui";
+import { TeamMembersListClient } from "./team-members-list-client";
 
 export interface TeamMemberListItem {
   id: string;
@@ -41,8 +32,21 @@ interface OutstandingAdvances {
   byTeamMember: OutstandingAdvancesByTeamMember[];
 }
 
-async function getTeamMembers(): Promise<TeamMemberListItem[]> {
-  const res = await authedFetch(`/team-members`, { cache: "no-store" });
+interface TeamPageSearchParams {
+  q?: string;
+  page?: string;
+  pageSize?: string;
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+async function getTeamMembers(params: TeamPageSearchParams): Promise<PaginatedResult<TeamMemberListItem>> {
+  const query = new URLSearchParams();
+  query.set("page", params.page ?? "1");
+  query.set("pageSize", params.pageSize ?? String(DEFAULT_PAGE_SIZE));
+  if (params.q) query.set("q", params.q);
+
+  const res = await authedFetch(`/team-members?${query.toString()}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Team Members (${res.status})`);
   }
@@ -67,32 +71,6 @@ async function getOutstandingAdvances(): Promise<OutstandingAdvances> {
   return res.json();
 }
 
-const columns: DataTableColumn<TeamMemberListItem>[] = [
-  {
-    header: "Name",
-    cell: (t) => (
-      <span className="flex items-center gap-2 font-semibold">
-        {t.name}
-        {!t.isActive ? <Badge variant="neutral">Disabled</Badge> : null}
-      </span>
-    ),
-  },
-  { header: "Role / Designation", cell: (t) => t.designation ?? <span className="text-ink-500">—</span> },
-  { header: "Employment Type", cell: (t) => <Badge variant="neutral">{t.employmentType.name}</Badge> },
-  {
-    header: "Today's Attendance",
-    cell: (t) =>
-      t.todaysAttendance === "PRESENT" ? (
-        <Badge variant="success">Present</Badge>
-      ) : t.todaysAttendance === "ABSENT" ? (
-        <Badge variant="danger">Absent</Badge>
-      ) : (
-        <span className="text-ink-500">—</span>
-      ),
-  },
-  { header: "Current / Last Site", cell: (t) => t.currentOrLastSite ?? <span className="text-ink-500">—</span> },
-];
-
 const outstandingAdvancesColumns: DataTableColumn<OutstandingAdvancesByTeamMember>[] = [
   { header: "Team Member", cell: (m) => m.name },
   {
@@ -106,9 +84,14 @@ const outstandingAdvancesColumns: DataTableColumn<OutstandingAdvancesByTeamMembe
   },
 ];
 
-export default async function TeamPage() {
-  const [teamMembers, teamSummary, outstandingAdvances] = await Promise.all([
-    getTeamMembers(),
+export default async function TeamPage({
+  searchParams,
+}: {
+  searchParams?: Promise<TeamPageSearchParams>;
+}) {
+  const params = (await searchParams) ?? {};
+  const [teamMembersResult, teamSummary, outstandingAdvances] = await Promise.all([
+    getTeamMembers(params),
     getTeamSummary(),
     getOutstandingAdvances(),
   ]);
@@ -156,25 +139,11 @@ export default async function TeamPage() {
         />
       </div>
 
-      <DataTable
-        columns={columns}
-        rowKey={(t) => t.id}
-        rowHref={(t) => `/team/${t.id}`}
-        state={
-          teamMembers.length === 0
-            ? {
-                status: "empty",
-                icon: <UsersIcon />,
-                message: "No Team Members yet.",
-                action: (
-                  <Link href="/team/new" className={cn(buttonVariants({ variant: "primary" }))}>
-                    <PlusIcon className="size-4" />
-                    Add your first Team Member
-                  </Link>
-                ),
-              }
-            : { status: "success", rows: teamMembers }
-        }
+      <TeamMembersListClient
+        rows={teamMembersResult.rows}
+        total={teamMembersResult.total}
+        page={teamMembersResult.page}
+        pageSize={teamMembersResult.pageSize}
       />
 
       <div className="mb-4 mt-8 text-section-header text-ink-900">Outstanding Advances</div>

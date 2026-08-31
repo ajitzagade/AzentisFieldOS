@@ -1,32 +1,19 @@
 import { authedFetch } from "@/lib/api";
+import { formatDate, formatMoney } from "@/lib/format";
 import Link from "next/link";
+import type { PaginatedResult } from "@azentisfieldos/shared";
 import {
   BuildingIcon,
-  CameraIcon,
-  CorrectAction,
   DataTable,
   DropletIcon,
   PlusIcon,
   ReceiptIcon,
-  RotateCcwIcon,
   StatTile,
   buttonVariants,
   cn,
   type DataTableColumn,
 } from "@azentisfieldos/ui";
-
-interface RmcEntryRow {
-  id: string;
-  quantityM3: string;
-  grade: string;
-  ratePerM3: string;
-  totalAmount: string;
-  invoiceOrChallanNo: string | null;
-  challanPhotoUrl: string | null;
-  deliveredAt: string;
-  site: { id: string; name: string };
-  vendor: { id: string; name: string };
-}
+import { RmcEntriesListClient, type RmcEntryRow } from "./rmc-entries-list-client";
 
 interface RmcStats {
   totalQuantityM3: number;
@@ -55,8 +42,22 @@ function resolveGroupBy(value: string | undefined): ReportGroupBy {
   return value === "site" || value === "vendor" ? value : "day";
 }
 
-async function getRmcEntries(): Promise<RmcEntryRow[]> {
-  const res = await authedFetch(`/rmc-entries`, { cache: "no-store" });
+interface RmcPageSearchParams {
+  report?: string;
+  q?: string;
+  page?: string;
+  pageSize?: string;
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+async function getRmcEntries(params: RmcPageSearchParams): Promise<PaginatedResult<RmcEntryRow>> {
+  const query = new URLSearchParams();
+  query.set("page", params.page ?? "1");
+  query.set("pageSize", params.pageSize ?? String(DEFAULT_PAGE_SIZE));
+  if (params.q) query.set("q", params.q);
+
+  const res = await authedFetch(`/rmc-entries?${query.toString()}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load RMC deliveries (${res.status})`);
   }
@@ -83,56 +84,6 @@ async function getRmcStats(): Promise<RmcStats> {
   return res.json();
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function formatMoney(amount: number) {
-  const sign = amount < 0 ? "−" : "";
-  return `${sign}₹${Math.abs(amount).toLocaleString("en-IN")}`;
-}
-
-const columns: DataTableColumn<RmcEntryRow>[] = [
-  { header: "Vendor", cell: (row) => <span className="font-semibold">{row.vendor.name}</span> },
-  { header: "Site", cell: (row) => row.site.name },
-  { header: "Date", cell: (row) => formatDate(row.deliveredAt) },
-  { header: "Quantity", align: "right", cell: (row) => `${row.quantityM3} m³` },
-  { header: "Grade", cell: (row) => row.grade },
-  { header: "Rate / m³", align: "right", cell: (row) => formatMoney(Number(row.ratePerM3)) },
-  {
-    header: "Total",
-    align: "right",
-    cell: (row) => <span className="font-semibold text-gold-700">{formatMoney(Number(row.totalAmount))}</span>,
-  },
-  {
-    header: "Invoice #",
-    cell: (row) => (
-      <span className="flex items-center gap-1.5">
-        {row.invoiceOrChallanNo ?? <span className="text-ink-500">—</span>}
-        {row.challanPhotoUrl ? (
-          <a
-            href={row.challanPhotoUrl}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="View challan photo"
-            className="text-accent-teal-700 hover:text-accent-teal-800"
-          >
-            <CameraIcon className="size-3.5" />
-          </a>
-        ) : null}
-      </span>
-    ),
-  },
-  {
-    header: "",
-    cell: (row) => (
-      <div className="flex items-center justify-end">
-        <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/rmc/${row.id}/correct`} />
-      </div>
-    ),
-  },
-];
-
 function reportColumns(groupBy: ReportGroupBy): DataTableColumn<RmcReportRow>[] {
   const firstHeader = groupBy === "day" ? "Date" : groupBy === "site" ? "Site" : "Vendor";
   return [
@@ -158,10 +109,15 @@ function reportColumns(groupBy: ReportGroupBy): DataTableColumn<RmcReportRow>[] 
 export default async function RmcPage({
   searchParams,
 }: {
-  searchParams: Promise<{ report?: string }>;
+  searchParams: Promise<RmcPageSearchParams>;
 }) {
-  const groupBy = resolveGroupBy((await searchParams).report);
-  const [entries, stats, report] = await Promise.all([getRmcEntries(), getRmcStats(), getRmcReport(groupBy)]);
+  const params = await searchParams;
+  const groupBy = resolveGroupBy(params.report);
+  const [entriesResult, stats, report] = await Promise.all([
+    getRmcEntries(params),
+    getRmcStats(),
+    getRmcReport(groupBy),
+  ]);
 
   return (
     <>
@@ -187,24 +143,11 @@ export default async function RmcPage({
         <StatTile icon={<BuildingIcon />} value={stats.activeVendorCount} label="Active RMC vendors" tint="success" />
       </div>
 
-      <DataTable
-        columns={columns}
-        rowKey={(row) => row.id}
-        state={
-          entries.length === 0
-            ? {
-                status: "empty",
-                icon: <DropletIcon />,
-                message: "No RMC deliveries logged yet.",
-                action: (
-                  <Link href="/rmc/new" className={cn(buttonVariants({ variant: "primary" }))}>
-                    <PlusIcon className="size-4" />
-                    Record your first RMC Delivery
-                  </Link>
-                ),
-              }
-            : { status: "success", rows: entries }
-        }
+      <RmcEntriesListClient
+        rows={entriesResult.rows}
+        total={entriesResult.total}
+        page={entriesResult.page}
+        pageSize={entriesResult.pageSize}
       />
 
       {/* Story 10.2 (FR-27): daily / Site-wise / Vendor-wise reporting. The

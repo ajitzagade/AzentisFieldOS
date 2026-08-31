@@ -202,3 +202,16 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - User FK from AuditLog RESTRICTs any future hard user delete — no user-delete endpoint exists; if one is added, map P2003 to a 409 or make removal deactivate-only.
 - toLocaleString without an explicit timeZone across older pages renders server-zone dates on Vercel (UTC); audit page fixed now, sweep the rest when touching those pages.
 - Restore/undelete path for soft-deleted Sites/Vendors — decision 2026-08-30: accepted one-way for now (Owner-only + double-confirmed; SQL recovery). Add a 'Deleted items' restore view if mis-deletes actually occur.
+
+## Deferred from: code review of story-16.1 (2026-08-31)
+
+- No loading state shown during search/sort/page transitions on any of Story 16.1's converted list pages (AD-6's full loading/empty/success/error/validation-failure set) — pre-existing, app-wide: no `loading.tsx` exists anywhere in this app, so every route relies on Next's default RSC transition behavior. Not unique to this story; revisit if/when the app adds route-level loading states generally.
+
+## Deferred from: code review of story-16.2 (2026-08-31)
+
+- `MaterialsService.searchCandidates` filters `Material.isActive` but not the parent `MaterialCategory.isActive` — a Material whose Category has since been disabled can still surface in global search. Consistent with Story 14.3's existing precedent (disabling a Category doesn't cascade to hide its Materials elsewhere either); revisit only if that broader precedent ever changes.
+- Global search's Materials matching is name-only, never Category name — a query for "Binders" returns nothing even though the result shows a Binders category. Not an AC violation (AC #1 scopes Material matching to name only) — a reasonable future enhancement.
+
+## Deferred from: code review of story-16.3 (2026-08-31)
+
+- `GET /stock/material/:materialId` returns `200 []` for both a nonexistent Material and a real Material with zero stock — indistinguishable at the API level. The web availability page already handles the 404 case separately, so no current consumer is affected; revisit only if a future consumer calls this endpoint directly.

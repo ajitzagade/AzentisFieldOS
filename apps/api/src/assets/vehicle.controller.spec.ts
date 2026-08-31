@@ -55,6 +55,20 @@ describe('VehicleController', () => {
     expect(result).toEqual([{ id: '1', number: 'MH-12-AB-1234' }]);
   });
 
+  it('list forwards q/page/pageSize/sort/order query params to VehicleService.list as one object', async () => {
+    service.list.mockResolvedValue([]);
+
+    await controller.list('mh', '2', '10', 'driver', 'desc');
+
+    expect(service.list).toHaveBeenCalledWith({
+      q: 'mh',
+      page: '2',
+      pageSize: '10',
+      sort: 'driver',
+      order: 'desc',
+    });
+  });
+
   it('findOne delegates to VehicleService.findOne with the id', async () => {
     service.findOne.mockResolvedValue({ id: '1', number: 'MH-12-AB-1234' });
 

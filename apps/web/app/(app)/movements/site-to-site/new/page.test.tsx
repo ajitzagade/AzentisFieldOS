@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import NewSiteToSiteTransferPage from "./page";
 
-async function renderPage() {
-  const element = await NewSiteToSiteTransferPage();
+async function renderPage(searchParams?: Record<string, string>) {
+  const element = await NewSiteToSiteTransferPage({ searchParams: Promise.resolve(searchParams ?? {}) });
   render(element);
 }
 
@@ -48,5 +48,42 @@ describe("NewSiteToSiteTransferPage", () => {
     expect(screen.getByLabelText("Source Site")).toBeInTheDocument();
     expect(screen.getByLabelText("Destination Site")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Record Transfer" })).toBeInTheDocument();
+  });
+
+  it("prefills the Material/Size and Source Site from ?materialSizeId=/?sourceSiteId= (Story 16.3)", async () => {
+    mockFetchRouter({
+      sites: [
+        { id: "site1", name: "NH-48 Highway Widening" },
+        { id: "site2", name: "Sector 12 Metro Depot" },
+      ],
+      materials: [
+        {
+          id: "m1",
+          name: "RCC Pipe",
+          unit: { name: "Pcs" },
+          sizes: [
+            { id: "ms1", label: "300mm" },
+            { id: "ms2", label: "450mm" },
+          ],
+        },
+      ],
+    });
+
+    await renderPage({ materialSizeId: "ms2", sourceSiteId: "site1" });
+
+    expect(document.querySelector('input[name="materialSizeId"]')).toHaveValue("ms2");
+    expect(screen.getByLabelText("Source Site")).toHaveValue("site1");
+  });
+
+  it("ignores an unrecognized ?materialSizeId=/?sourceSiteId= rather than crashing", async () => {
+    mockFetchRouter({
+      sites: [{ id: "site1", name: "NH-48 Highway Widening" }],
+      materials: [{ id: "m1", name: "TMT Steel", unit: { name: "kg" }, sizes: [{ id: "ms1", label: "12mm" }] }],
+    });
+
+    await renderPage({ materialSizeId: "does-not-exist", sourceSiteId: "does-not-exist" });
+
+    expect(document.querySelector('input[name="materialSizeId"]')).toHaveValue("");
+    expect(screen.getByLabelText("Source Site")).toHaveValue("");
   });
 });

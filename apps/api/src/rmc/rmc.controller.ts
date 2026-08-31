@@ -35,8 +35,22 @@ export class RmcController {
     @Query('siteId') siteId?: string,
     @Query('vendorId') vendorId?: string,
     @Query('date') date?: string,
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
   ) {
-    return this.rmcService.list({ siteId, vendorId, date });
+    return this.rmcService.list({
+      siteId,
+      vendorId,
+      date,
+      q,
+      page,
+      pageSize,
+      sort,
+      order,
+    });
   }
 
   // Static-path route declared before the `:id` wildcard below — Nest

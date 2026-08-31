@@ -13,6 +13,45 @@ import {
   currentDsrRowsWhere,
   supersededDsrIds,
 } from '../common/superseded-dsrs';
+import { paginationParams } from '../common/pagination';
+import { isSortOrder } from '../common/sort-order';
+
+const TEAM_MEMBER_SORT_FIELDS = [
+  'name',
+  'designation',
+  'employmentType',
+] as const;
+type TeamMemberSortField = (typeof TEAM_MEMBER_SORT_FIELDS)[number];
+
+function isTeamMemberSortField(
+  value: string | undefined,
+): value is TeamMemberSortField {
+  return (
+    Boolean(value) &&
+    (TEAM_MEMBER_SORT_FIELDS as readonly string[]).includes(value as string)
+  );
+}
+
+function teamMemberOrderBy(
+  sort: string | undefined,
+  order: string | undefined,
+): Prisma.TeamMemberOrderByWithRelationInput {
+  if (!isTeamMemberSortField(sort)) {
+    return { name: 'asc' };
+  }
+  const direction = isSortOrder(order) ? order : 'asc';
+  return sort === 'employmentType'
+    ? { employmentType: { name: direction } }
+    : { [sort]: direction };
+}
+
+export interface TeamMembersListQuery {
+  q?: string;
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  order?: string;
+}
 
 // FR-19: Owner/Admin creates and maintains Team Member records — one
 // accurate roster, never bound to a single Site (AC #2). No siteId field
@@ -34,22 +73,34 @@ export class TeamMembersService {
   // itself (AC #2) — this is that derivation, built here per Story 6.1's
   // own forward reference ("this module doesn't build that derivation,
   // Story 6.3 does").
-  async list() {
-    const teamMembers = await this.prisma.teamMember.findMany({
+  async list(query: TeamMembersListQuery = {}) {
+    const { q, sort, order } = query;
+    const where: Prisma.TeamMemberWhereInput | undefined = q
+      ? { name: { contains: q, mode: 'insensitive' } }
+      : undefined;
+    const pagination = paginationParams(query.page, query.pageSize);
+
+    const findManyArgs = {
+      ...(where ? { where } : {}),
       include: {
         employmentType: true,
         workRecords: {
-          orderBy: { workDate: 'desc' },
+          orderBy: { workDate: 'desc' as const },
           take: 1,
           include: { site: true },
         },
       },
-      orderBy: { name: 'asc' },
-    });
+      orderBy: teamMemberOrderBy(sort, order),
+      ...(pagination.paginated
+        ? { skip: pagination.skip, take: pagination.take }
+        : {}),
+    };
+
+    const teamMembers = await this.prisma.teamMember.findMany(findManyArgs);
 
     const todayStr = new Date().toISOString().slice(0, 10);
 
-    return teamMembers.map(({ workRecords, ...teamMember }) => {
+    const rows = teamMembers.map(({ workRecords, ...teamMember }) => {
       const mostRecent = workRecords[0];
       const isToday =
         mostRecent &&
@@ -64,6 +115,20 @@ export class TeamMembersService {
           : null,
       };
     });
+
+    if (!pagination.paginated) {
+      return rows;
+    }
+
+    const total = await this.prisma.teamMember.count(
+      where ? { where } : undefined,
+    );
+    return {
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    };
   }
 
   async findOne(id: string) {

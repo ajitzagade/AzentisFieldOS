@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UsePipes,
 } from '@nestjs/common';
 import {
@@ -27,8 +28,14 @@ export class TeamMembersController {
   }
 
   @Get()
-  list() {
-    return this.teamMembersService.list();
+  list(
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
+  ) {
+    return this.teamMembersService.list({ q, page, pageSize, sort, order });
   }
 
   // Registered before ':id' — 'team-summary' is a single path segment,

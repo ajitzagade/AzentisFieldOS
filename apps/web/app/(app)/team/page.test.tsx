@@ -2,8 +2,14 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TeamPage from "./page";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/team",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: vi.fn() }),
+}));
+
 async function renderTeamPage() {
-  const element = await TeamPage();
+  const element = await TeamPage({ searchParams: Promise.resolve({}) });
   render(element);
 }
 
@@ -32,7 +38,10 @@ function mockFetch(
     if (href.endsWith("/team-members/outstanding-advances")) {
       return { ok: true, json: async () => outstandingAdvances } as Response;
     }
-    return { ok: true, json: async () => teamMembers } as Response;
+    return {
+      ok: true,
+      json: async () => ({ rows: teamMembers, total: teamMembers.length, page: 1, pageSize: 25 }),
+    } as Response;
   }) as unknown as typeof fetch;
 }
 

@@ -2,8 +2,14 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MachineryVehiclesPage from "./page";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/machinery-vehicles",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: vi.fn() }),
+}));
+
 async function renderMachineryVehiclesPage() {
-  const element = await MachineryVehiclesPage();
+  const element = await MachineryVehiclesPage({ searchParams: Promise.resolve({}) });
   render(element);
 }
 
@@ -13,10 +19,10 @@ const originalApiUrl = process.env.API_URL;
 function mockFetch(machinery: unknown[], vehicles: unknown[]) {
   global.fetch = vi.fn(async (url: string | URL | Request) => {
     const href = typeof url === "string" ? url : url.toString();
-    if (href.endsWith("/vehicles")) {
-      return { ok: true, json: async () => vehicles } as Response;
+    if (href.includes("/vehicles?")) {
+      return { ok: true, json: async () => ({ rows: vehicles, total: vehicles.length, page: 1, pageSize: 25 }) } as Response;
     }
-    return { ok: true, json: async () => machinery } as Response;
+    return { ok: true, json: async () => ({ rows: machinery, total: machinery.length, page: 1, pageSize: 25 }) } as Response;
   }) as unknown as typeof fetch;
 }
 

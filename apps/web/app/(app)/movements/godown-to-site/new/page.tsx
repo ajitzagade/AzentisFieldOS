@@ -33,9 +33,9 @@ async function getMaterials(): Promise<MaterialListItem[]> {
 export default async function NewMovementPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ materialId?: string; siteId?: string }>;
+  searchParams?: Promise<{ materialId?: string; siteId?: string; materialSizeId?: string }>;
 } = {}) {
-  const [sites, materials, teamNames, { materialId, siteId } = {}] = await Promise.all([
+  const [sites, materials, teamNames, { materialId, siteId, materialSizeId } = {}] = await Promise.all([
     getSites(),
     getMaterials(),
     getTeamNames(),
@@ -54,7 +54,13 @@ export default async function NewMovementPage({
   // flag is per-Material while this form picks a Material Size, so the
   // prefill is only unambiguous when the Material has exactly one size.
   const flaggedMaterial = materials.find((m) => m.id === materialId);
-  const prefillMaterialSizeId = flaggedMaterial?.sizes.length === 1 ? flaggedMaterial.sizes[0]!.id : undefined;
+  const singleSizeMaterialSizeId = flaggedMaterial?.sizes.length === 1 ? flaggedMaterial.sizes[0]!.id : undefined;
+  // Story 16.3: the Material-availability page already knows the exact
+  // Size (its rows are keyed by materialSizeId), so it deep-links with an
+  // unambiguous ?materialSizeId= instead of guessing from ?materialId= —
+  // this wins over the single-Size heuristic above when both are present.
+  const explicitMaterialSizeId = materialSizes.some((m) => m.id === materialSizeId) ? materialSizeId : undefined;
+  const prefillMaterialSizeId = explicitMaterialSizeId ?? singleSizeMaterialSizeId;
   const prefillSiteId = sites.some((s) => s.id === siteId) ? siteId : undefined;
   const initial =
     prefillMaterialSizeId || prefillSiteId

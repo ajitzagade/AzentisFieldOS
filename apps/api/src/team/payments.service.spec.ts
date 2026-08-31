@@ -407,6 +407,95 @@ describe('PaymentsService.findOne', () => {
   });
 });
 
+describe('PaymentsService.list — search & pagination', () => {
+  it('with no query params, calls findMany exactly as today (AC #7)', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const prisma = { payment: { findMany } };
+    const service = new PaymentsService(
+      prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+    );
+
+    const result = await service.list();
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(findMany).toHaveBeenCalledWith({
+      where: { createdAt: undefined },
+      include: {
+        teamMember: true,
+        advanceAdjustments: { include: { advance: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  });
+
+  it('searches by Team Member name, case-insensitively', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const prisma = { payment: { findMany } };
+    const service = new PaymentsService(
+      prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+    );
+
+    await service.list({ q: 'ravi' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          teamMember: { name: { contains: 'ravi', mode: 'insensitive' } },
+        }),
+      }),
+    );
+  });
+
+  it('returns a paginated envelope once page/pageSize is requested', async () => {
+    const findMany = vi.fn().mockResolvedValue([{ id: 'p1' }]);
+    const count = vi.fn().mockResolvedValue(15);
+    const prisma = { payment: { findMany, count } };
+    const service = new PaymentsService(
+      prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+    );
+
+    const result = await service.list({ page: '1', pageSize: '10' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, take: 10 }),
+    );
+    expect(result).toEqual({
+      rows: [{ id: 'p1' }],
+      total: 15,
+      page: 1,
+      pageSize: 10,
+    });
+  });
+
+  it('sorts by an allowed field and direction', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const prisma = { payment: { findMany } };
+    const service = new PaymentsService(
+      prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+    );
+
+    await service.list({ sort: 'netPayable', order: 'asc' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { netPayable: 'asc' } }),
+    );
+  });
+
+  it('falls back to the default createdAt-desc sort for an unrecognized sort field', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const prisma = { payment: { findMany } };
+    const service = new PaymentsService(
+      prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+    );
+
+    await service.list({ sort: 'id' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
+    );
+  });
+});
+
 describe('PaymentsService.countPending', () => {
   it('scopes the count to status pending', async () => {
     const count = vi.fn().mockResolvedValue(2);

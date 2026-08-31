@@ -34,4 +34,6 @@ export * from "./schemas/report-schedule";
 export * from "./types/activity-feed";
 export * from "./types/photo-gallery";
 export * from "./types/report-filters";
+export * from "./types/list-query";
+export * from "./types/search-result";
 export * from "./content/help-content";

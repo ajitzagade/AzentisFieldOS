@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
@@ -34,8 +35,14 @@ export class VendorsController {
   }
 
   @Get()
-  list() {
-    return this.vendorsService.list();
+  list(
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
+  ) {
+    return this.vendorsService.list({ q, page, pageSize, sort, order });
   }
 
   @Patch(':id')

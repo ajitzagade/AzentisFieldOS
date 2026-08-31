@@ -2,8 +2,14 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ExpensesPage from "./page";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/expenses",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: vi.fn() }),
+}));
+
 async function renderExpensesPage() {
-  const element = await ExpensesPage();
+  const element = await ExpensesPage({ searchParams: Promise.resolve({}) });
   render(element);
 }
 
@@ -30,7 +36,13 @@ function mockFetchRouter(handlers: { expenses?: unknown; summary?: unknown }) {
           handlers.summary ?? { totalThisMonth: 0, totalThisWeek: 0, largestCategoryThisMonth: null },
       });
     }
-    return Promise.resolve({ ok: true, json: async () => handlers.expenses ?? [] });
+    return Promise.resolve({
+      ok: true,
+      json: async () => {
+        const expenses = (handlers.expenses as unknown[] | undefined) ?? [];
+        return { rows: expenses, total: expenses.length, page: 1, pageSize: 25 };
+      },
+    });
   }) as unknown as typeof fetch;
 }
 

@@ -41,10 +41,10 @@ describe('SitesService soft delete', () => {
     });
   });
 
-  it('list(status) keeps the deletedAt filter alongside the status filter', async () => {
+  it('list({ status }) keeps the deletedAt filter alongside the status filter', async () => {
     const { service, findMany } = makeService({});
 
-    await service.list('ACTIVE');
+    await service.list({ status: 'ACTIVE' });
 
     expect(findMany).toHaveBeenCalledWith({
       where: { deletedAt: null, status: 'ACTIVE' },

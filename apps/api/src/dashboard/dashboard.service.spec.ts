@@ -66,11 +66,12 @@ function makeService(overrides: Overrides = {}) {
     );
   const teamMembersService = { getTeamSummary, getOutstandingAdvances };
 
-  // SitesService.list(status?) — returns the ACTIVE-filtered subset when a
-  // status arg is passed (getOverall), the full list otherwise (sites preview).
-  const sitesList = vi.fn((status?: string) =>
+  // SitesService.list(query?) — returns the ACTIVE-filtered subset when
+  // called with { status: 'ACTIVE' } (getOverall), the full list otherwise
+  // (sites preview).
+  const sitesList = vi.fn((query?: { status?: string }) =>
     Promise.resolve(
-      status === 'ACTIVE'
+      query?.status === 'ACTIVE'
         ? (overrides.activeSitesList ?? [])
         : (overrides.sitesList ?? []),
     ),
@@ -296,9 +297,9 @@ describe('DashboardService.getOverall', () => {
       pendingPayments: { count: 4 },
     });
 
-    // Active Sites come through SitesService.list('ACTIVE'), never a direct
-    // `Site` query from DashboardService.
-    expect(sitesList).toHaveBeenCalledWith('ACTIVE');
+    // Active Sites come through SitesService.list({ status: 'ACTIVE' }),
+    // never a direct `Site` query from DashboardService.
+    expect(sitesList).toHaveBeenCalledWith({ status: 'ACTIVE' });
     expect(siteFindMany).not.toHaveBeenCalled();
     // Low-stock reuses Story 5.7's service method.
     expect(getLowStockMaterials).toHaveBeenCalledTimes(1);

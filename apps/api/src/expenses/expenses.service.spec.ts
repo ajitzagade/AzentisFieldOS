@@ -6,6 +6,7 @@ function makeService(overrides: {
   expenseFindUnique?: ReturnType<typeof vi.fn>;
   expenseCreate?: ReturnType<typeof vi.fn>;
   expenseFindMany?: ReturnType<typeof vi.fn>;
+  expenseCount?: ReturnType<typeof vi.fn>;
   expenseAggregate?: ReturnType<typeof vi.fn>;
   expenseGroupBy?: ReturnType<typeof vi.fn>;
   categoryFindUnique?: ReturnType<typeof vi.fn>;
@@ -15,6 +16,7 @@ function makeService(overrides: {
     overrides.expenseCreate ?? vi.fn().mockResolvedValue({ id: 'x1' });
   const expenseFindMany =
     overrides.expenseFindMany ?? vi.fn().mockResolvedValue([]);
+  const expenseCount = overrides.expenseCount ?? vi.fn().mockResolvedValue(0);
   const expenseAggregate =
     overrides.expenseAggregate ??
     vi.fn().mockResolvedValue({ _sum: { amount: null } });
@@ -27,6 +29,7 @@ function makeService(overrides: {
       findUnique: expenseFindUnique,
       create: expenseCreate,
       findMany: expenseFindMany,
+      count: expenseCount,
       aggregate: expenseAggregate,
       groupBy: expenseGroupBy,
     },
@@ -47,6 +50,7 @@ function makeService(overrides: {
     expenseFindUnique,
     expenseCreate,
     expenseFindMany,
+    expenseCount,
     expenseAggregate,
     expenseGroupBy,
     categoryFindUnique,
@@ -177,6 +181,66 @@ describe('ExpensesService.list', () => {
           ],
         },
       }),
+    );
+  });
+
+  it('searches description/personOrVendor case-insensitively, combined via AND alongside the superseded-DSR OR', async () => {
+    const { service, expenseFindMany } = makeService({});
+
+    await service.list({ q: 'diesel' });
+
+    expect(expenseFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        where: expect.objectContaining({
+          AND: [
+            {
+              OR: [
+                { description: { contains: 'diesel', mode: 'insensitive' } },
+                { personOrVendor: { contains: 'diesel', mode: 'insensitive' } },
+              ],
+            },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it('returns a paginated envelope once page/pageSize is requested', async () => {
+    const expenseFindMany = vi.fn().mockResolvedValue([{ id: 'x1' }]);
+    const expenseCount = vi.fn().mockResolvedValue(40);
+    const { service } = makeService({ expenseFindMany, expenseCount });
+
+    const result = await service.list({ page: '1', pageSize: '20' });
+
+    expect(expenseFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, take: 20 }),
+    );
+    expect(result).toEqual({
+      rows: [{ id: 'x1' }],
+      total: 40,
+      page: 1,
+      pageSize: 20,
+    });
+  });
+
+  it('sorts by an allowed field and direction', async () => {
+    const { service, expenseFindMany } = makeService({});
+
+    await service.list({ sort: 'amount', order: 'desc' });
+
+    expect(expenseFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { amount: 'desc' } }),
+    );
+  });
+
+  it('falls back to the default incurredAt-desc sort for an unrecognized sort field', async () => {
+    const { service, expenseFindMany } = makeService({});
+
+    await service.list({ sort: 'id' });
+
+    expect(expenseFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { incurredAt: 'desc' } }),
     );
   });
 });

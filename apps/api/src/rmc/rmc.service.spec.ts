@@ -12,6 +12,7 @@ function makeService(overrides: {
   rmcEntryCreate?: ReturnType<typeof vi.fn>;
   rmcEntryFindUnique?: ReturnType<typeof vi.fn>;
   rmcEntryFindMany?: ReturnType<typeof vi.fn>;
+  rmcEntryCount?: ReturnType<typeof vi.fn>;
   rmcEntryAggregate?: ReturnType<typeof vi.fn>;
 }) {
   const rmcEntryCreate =
@@ -19,6 +20,7 @@ function makeService(overrides: {
   const rmcEntryFindUnique = overrides.rmcEntryFindUnique ?? vi.fn();
   const rmcEntryFindMany =
     overrides.rmcEntryFindMany ?? vi.fn().mockResolvedValue([]);
+  const rmcEntryCount = overrides.rmcEntryCount ?? vi.fn().mockResolvedValue(0);
   const rmcEntryAggregate = overrides.rmcEntryAggregate ?? vi.fn();
 
   const prisma = {
@@ -26,6 +28,7 @@ function makeService(overrides: {
       create: rmcEntryCreate,
       findUnique: rmcEntryFindUnique,
       findMany: rmcEntryFindMany,
+      count: rmcEntryCount,
       aggregate: rmcEntryAggregate,
     },
     // The read paths exclude rows belonging to a superseded (corrected)
@@ -43,6 +46,7 @@ function makeService(overrides: {
     rmcEntryCreate,
     rmcEntryFindUnique,
     rmcEntryFindMany,
+    rmcEntryCount,
   };
 }
 
@@ -232,6 +236,80 @@ describe('RmcService.list', () => {
 
     expect(rmcEntryFindMany).toHaveBeenCalledWith(
       expect.objectContaining({ include: { site: true, vendor: true } }),
+    );
+  });
+
+  it('searches grade, Site name, or Vendor name, combined via AND alongside the superseded-DSR OR', async () => {
+    const { service, rmcEntryFindMany } = makeService({});
+
+    await service.list({ q: 'm25' });
+
+    expect(rmcEntryFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        where: expect.objectContaining({
+          AND: [
+            {
+              OR: [
+                { grade: { contains: 'm25', mode: 'insensitive' } },
+                { site: { name: { contains: 'm25', mode: 'insensitive' } } },
+                { vendor: { name: { contains: 'm25', mode: 'insensitive' } } },
+              ],
+            },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it('returns a paginated envelope once page/pageSize is requested', async () => {
+    const rmcEntryFindMany = vi.fn().mockResolvedValue([{ id: 'r1' }]);
+    const rmcEntryCount = vi.fn().mockResolvedValue(18);
+    const { service } = makeService({ rmcEntryFindMany, rmcEntryCount });
+
+    const result = await service.list({ page: '1', pageSize: '10' });
+
+    expect(rmcEntryFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, take: 10 }),
+    );
+    expect(result).toEqual({
+      rows: [{ id: 'r1' }],
+      total: 18,
+      page: 1,
+      pageSize: 10,
+    });
+  });
+
+  it('sorts by an allowed field and direction', async () => {
+    const rmcEntryFindMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ rmcEntryFindMany });
+
+    await service.list({ sort: 'totalAmount', order: 'asc' });
+
+    expect(rmcEntryFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { totalAmount: 'asc' } }),
+    );
+  });
+
+  it('sorts by vendor through the relation', async () => {
+    const rmcEntryFindMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ rmcEntryFindMany });
+
+    await service.list({ sort: 'vendor', order: 'desc' });
+
+    expect(rmcEntryFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { vendor: { name: 'desc' } } }),
+    );
+  });
+
+  it('falls back to the default deliveredAt-desc sort for an unrecognized sort field', async () => {
+    const rmcEntryFindMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ rmcEntryFindMany });
+
+    await service.list({ sort: 'id' });
+
+    expect(rmcEntryFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { deliveredAt: 'desc' } }),
     );
   });
 });

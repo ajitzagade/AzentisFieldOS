@@ -2,10 +2,33 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type {
   CreateVendorInput,
   UpdateVendorInput,
+  PaginatedResult,
 } from '@azentisfieldos/shared';
-import { Prisma } from '../generated/prisma/client';
+import { Prisma, type Vendor } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PurchasesService } from '../inventory/purchases.service';
+import { paginationParams } from '../common/pagination';
+import { isSortOrder } from '../common/sort-order';
+
+const VENDOR_SORT_FIELDS = ['name', 'contactPerson', 'phone'] as const;
+type VendorSortField = (typeof VENDOR_SORT_FIELDS)[number];
+
+function isVendorSortField(
+  value: string | undefined,
+): value is VendorSortField {
+  return (
+    Boolean(value) &&
+    (VENDOR_SORT_FIELDS as readonly string[]).includes(value as string)
+  );
+}
+
+export interface VendorsListQuery {
+  q?: string;
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  order?: string;
+}
 
 // FR-39: Owner/Admin creates and maintains Vendor records.
 @Injectable()
@@ -19,13 +42,41 @@ export class VendorsService {
     return this.prisma.vendor.create({ data: input });
   }
 
-  list() {
+  list(
+    query: VendorsListQuery = {},
+  ): Promise<Vendor[] | PaginatedResult<Vendor>> {
+    const { q, sort, order } = query;
     // Soft-deleted Vendors are hidden from every list/picker (their rows
     // and purchase history stay in the database).
-    return this.prisma.vendor.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: 'asc' },
-    });
+    const where: Prisma.VendorWhereInput = {
+      deletedAt: null,
+      ...(q ? { name: { contains: q, mode: 'insensitive' as const } } : {}),
+    };
+    const orderBy: Prisma.VendorOrderByWithRelationInput = isVendorSortField(
+      sort,
+    )
+      ? { [sort]: isSortOrder(order) ? order : 'asc' }
+      : { name: 'asc' };
+
+    const pagination = paginationParams(query.page, query.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.vendor.findMany({ where, orderBy });
+    }
+
+    return Promise.all([
+      this.prisma.vendor.findMany({
+        where,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.vendor.count({ where }),
+    ]).then(([rows, total]) => ({
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }));
   }
 
   // Vendor master data uses a normal in-place update — it is not one of

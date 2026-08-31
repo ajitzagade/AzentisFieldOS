@@ -1,15 +1,8 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
-import {
-  Badge,
-  CheckCircleIcon,
-  DataTable,
-  MapPinIcon,
-  PlusIcon,
-  buttonVariants,
-  cn,
-  type DataTableColumn,
-} from "@azentisfieldos/ui";
+import type { PaginatedResult } from "@azentisfieldos/shared";
+import { PlusIcon, buttonVariants, cn } from "@azentisfieldos/ui";
+import { SitesListClient, type SiteRow } from "./sites-list-client";
 
 export interface Site {
   id: string;
@@ -20,20 +13,30 @@ export interface Site {
   description: string | null;
 }
 
-interface SiteRow extends Site {
-  /** true = DSR submitted today, false = not yet, null = status unknown
-   * (the DSR lookup failed — rendered as an honest "—", never "Not yet"). */
-  dsrToday: boolean | null;
+const DEFAULT_PAGE_SIZE = 25;
+
+interface SitesPageSearchParams {
+  q?: string;
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  order?: string;
+  status?: string;
 }
 
-const STATUS_BADGE: Record<Site["status"], { variant: "success" | "warning" | "neutral"; label: string }> = {
-  ACTIVE: { variant: "success", label: "Active" },
-  ON_HOLD: { variant: "warning", label: "On Hold" },
-  COMPLETED: { variant: "neutral", label: "Completed" },
-};
+// Always requests page/pageSize — this call site opts into the paginated
+// envelope response; the many bare `GET /sites` callers elsewhere (pickers)
+// never pass these params and keep getting the plain-array response.
+async function getSites(params: SitesPageSearchParams): Promise<PaginatedResult<Site>> {
+  const query = new URLSearchParams();
+  query.set("page", params.page ?? "1");
+  query.set("pageSize", params.pageSize ?? String(DEFAULT_PAGE_SIZE));
+  if (params.q) query.set("q", params.q);
+  if (params.sort) query.set("sort", params.sort);
+  if (params.order) query.set("order", params.order);
+  if (params.status) query.set("status", params.status);
 
-async function getSites(): Promise<Site[]> {
-  const res = await authedFetch(`/sites`, { cache: "no-store" });
+  const res = await authedFetch(`/sites?${query.toString()}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load sites (${res.status})`);
   }
@@ -56,38 +59,14 @@ async function getTodaysReportedSiteIds(): Promise<Set<string> | null> {
   }
 }
 
-const columns: DataTableColumn<SiteRow>[] = [
-  { header: "Site", cell: (site) => <span className="font-semibold">{site.name}</span> },
-  { header: "Location", cell: (site) => site.location },
-  {
-    header: "Status",
-    cell: (site) => {
-      const badge = STATUS_BADGE[site.status];
-      return <Badge variant={badge.variant}>{badge.label}</Badge>;
-    },
-  },
-  {
-    header: "DSR today",
-    cell: (site) =>
-      site.dsrToday === null ? (
-        <span className="text-ink-500">—</span>
-      ) : site.dsrToday ? (
-        <Badge variant="success" icon={<CheckCircleIcon />}>
-          Submitted
-        </Badge>
-      ) : (
-        <span className="text-ink-500">Not yet</span>
-      ),
-  },
-  {
-    header: "Contract ref",
-    cell: (site) => site.contractReference ?? <span className="text-ink-500">—</span>,
-  },
-];
-
-export default async function SitesPage() {
-  const [sites, reportedToday] = await Promise.all([getSites(), getTodaysReportedSiteIds()]);
-  const rows: SiteRow[] = sites.map((site) => ({
+export default async function SitesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<SitesPageSearchParams>;
+}) {
+  const params = (await searchParams) ?? {};
+  const [sitesResult, reportedToday] = await Promise.all([getSites(params), getTodaysReportedSiteIds()]);
+  const rows: SiteRow[] = sitesResult.rows.map((site) => ({
     ...site,
     dsrToday: reportedToday === null ? null : reportedToday.has(site.id),
   }));
@@ -105,26 +84,7 @@ export default async function SitesPage() {
         </Link>
       </div>
 
-      <DataTable
-        columns={columns}
-        rowKey={(site) => site.id}
-        rowHref={(site) => `/sites/${site.id}`}
-        state={
-          rows.length === 0
-            ? {
-                status: "empty",
-                icon: <MapPinIcon />,
-                message: "No Sites yet.",
-                action: (
-                  <Link href="/sites/new" className={cn(buttonVariants({ variant: "primary" }))}>
-                    <PlusIcon className="size-4" />
-                    Create your first Site
-                  </Link>
-                ),
-              }
-            : { status: "success", rows }
-        }
-      />
+      <SitesListClient rows={rows} total={sitesResult.total} page={sitesResult.page} pageSize={sitesResult.pageSize} />
     </>
   );
 }

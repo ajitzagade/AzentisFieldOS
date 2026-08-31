@@ -62,6 +62,26 @@ describe('SitesController', () => {
     expect(result).toEqual([{ id: '1', name: 'NH-48' }]);
   });
 
+  it('list forwards status/q/page/pageSize/sort/order query params to SitesService.list as one object', async () => {
+    service.list.mockResolvedValue({
+      rows: [],
+      total: 0,
+      page: 2,
+      pageSize: 10,
+    });
+
+    await controller.list('ACTIVE', 'metro', '2', '10', 'name', 'desc');
+
+    expect(service.list).toHaveBeenCalledWith({
+      status: 'ACTIVE',
+      q: 'metro',
+      page: '2',
+      pageSize: '10',
+      sort: 'name',
+      order: 'desc',
+    });
+  });
+
   it('update delegates to SitesService.update with the id and validated body', async () => {
     service.update.mockResolvedValue({ id: '1', name: 'NH-48 renamed' });
 

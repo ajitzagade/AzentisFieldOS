@@ -57,6 +57,20 @@ describe('VendorsController', () => {
     expect(result).toEqual([{ id: '1', name: 'Shree Balaji Traders' }]);
   });
 
+  it('list forwards q/page/pageSize/sort/order query params to VendorsService.list as one object', async () => {
+    service.list.mockResolvedValue([]);
+
+    await controller.list('anand', '2', '10', 'phone', 'desc');
+
+    expect(service.list).toHaveBeenCalledWith({
+      q: 'anand',
+      page: '2',
+      pageSize: '10',
+      sort: 'phone',
+      order: 'desc',
+    });
+  });
+
   it('update delegates to VendorsService.update with the id and validated body', async () => {
     service.update.mockResolvedValue({ id: '1', name: 'Renamed Traders' });
 

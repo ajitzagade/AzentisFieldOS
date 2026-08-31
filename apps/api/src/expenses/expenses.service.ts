@@ -3,19 +3,47 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreateExpenseInput } from '@azentisfieldos/shared';
+import type {
+  CreateExpenseInput,
+  PaginatedResult,
+} from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   currentDsrRowsWhere,
   supersededDsrIds,
 } from '../common/superseded-dsrs';
+import { paginationParams } from '../common/pagination';
+import { isSortOrder } from '../common/sort-order';
+
+const EXPENSE_SORT_FIELDS = [
+  'incurredAt',
+  'amount',
+  'description',
+  'paymentMethod',
+  'personOrVendor',
+] as const;
+type ExpenseSortField = (typeof EXPENSE_SORT_FIELDS)[number];
+
+function isExpenseSortField(
+  value: string | undefined,
+): value is ExpenseSortField {
+  return (
+    Boolean(value) &&
+    (EXPENSE_SORT_FIELDS as readonly string[]).includes(value as string)
+  );
+}
 
 export interface ExpenseListFilters {
   siteId?: string;
   categoryId?: string;
   from?: string;
   to?: string;
+  q?: string;
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  order?: string;
 }
 
 export interface ExpenseSummary {
@@ -76,7 +104,9 @@ export class ExpensesService {
   // belonging to a superseded (since corrected) DSR are excluded — the
   // correction's restated rows already represent that report (same rule
   // as ConsumptionService.list).
-  async list(filters: ExpenseListFilters = {}) {
+  async list(
+    filters: ExpenseListFilters = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
     const where: Prisma.ExpenseWhereInput = {
       ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
     };
@@ -99,12 +129,45 @@ export class ExpensesService {
       }
       where.incurredAt = incurredAt;
     }
+    if (filters.q) {
+      where.AND = [
+        {
+          OR: [
+            { description: { contains: filters.q, mode: 'insensitive' } },
+            { personOrVendor: { contains: filters.q, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
 
-    return this.prisma.expense.findMany({
-      where,
-      include: { site: true, category: true },
-      orderBy: { incurredAt: 'desc' },
-    });
+    const include = { site: true, category: true };
+    const orderBy: Prisma.ExpenseOrderByWithRelationInput = isExpenseSortField(
+      filters.sort,
+    )
+      ? { [filters.sort]: isSortOrder(filters.order) ? filters.order : 'asc' }
+      : { incurredAt: 'desc' };
+
+    const pagination = paginationParams(filters.page, filters.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.expense.findMany({ where, include, orderBy });
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.expense.findMany({
+        where,
+        include,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.expense.count({ where }),
+    ]);
+    return {
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    };
   }
 
   // The correction form (apps/web) needs the original Expense's fields to

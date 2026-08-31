@@ -8,18 +8,22 @@ function makeService(overrides: {
   findMany?: ReturnType<typeof vi.fn>;
   findUnique?: ReturnType<typeof vi.fn>;
   update?: ReturnType<typeof vi.fn>;
+  count?: ReturnType<typeof vi.fn>;
 }) {
   const create = overrides.create ?? vi.fn();
   const findMany = overrides.findMany ?? vi.fn().mockResolvedValue([]);
   const findUnique = overrides.findUnique ?? vi.fn();
   const update = overrides.update ?? vi.fn();
+  const count = overrides.count ?? vi.fn().mockResolvedValue(0);
 
-  const prisma = { teamMember: { create, findMany, findUnique, update } };
+  const prisma = {
+    teamMember: { create, findMany, findUnique, update, count },
+  };
   const service = new TeamMembersService(
     prisma as unknown as ConstructorParameters<typeof TeamMembersService>[0],
   );
 
-  return { service, create, findMany, findUnique, update };
+  return { service, create, findMany, findUnique, update, count };
 }
 
 describe('TeamMembersService.create', () => {
@@ -201,6 +205,71 @@ describe('TeamMembersService.list — Story 6.3 derivation', () => {
     const result = await service.list();
 
     expect(result[0]).toMatchObject({ todaysAttendance: 'ABSENT' });
+  });
+});
+
+describe('TeamMembersService.list — search & pagination', () => {
+  it('searches by name, case-insensitively, adding a where clause only when q is set', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ findMany });
+
+    await service.list({ q: 'ravi' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { name: { contains: 'ravi', mode: 'insensitive' } },
+      }),
+    );
+  });
+
+  it('returns a paginated envelope with rows/total/page/pageSize once page or pageSize is requested', async () => {
+    const findMany = vi
+      .fn()
+      .mockResolvedValue([{ id: 'tm1', name: 'Ravi Kumar', workRecords: [] }]);
+    const count = vi.fn().mockResolvedValue(30);
+    const { service } = makeService({ findMany, count });
+
+    const result = await service.list({ page: '2', pageSize: '10' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 10, take: 10 }),
+    );
+    expect(count).toHaveBeenCalled();
+    expect(result).toMatchObject({ total: 30, page: 2, pageSize: 10 });
+    expect(Array.isArray((result as { rows: unknown[] }).rows)).toBe(true);
+  });
+
+  it('sorts by an allowed field and direction', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ findMany });
+
+    await service.list({ sort: 'designation', order: 'desc' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { designation: 'desc' } }),
+    );
+  });
+
+  it('sorts by the Employment Type relation via a nested orderBy', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ findMany });
+
+    await service.list({ sort: 'employmentType', order: 'asc' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { employmentType: { name: 'asc' } } }),
+    );
+  });
+
+  it('falls back to the default name sort for an unrecognized sort field or order', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ findMany });
+
+    await service.list({ sort: 'passwordHash' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { name: 'asc' } }),
+    );
   });
 });
 

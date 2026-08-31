@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@azentisfieldos/ui";
 import MaterialsPage from "./page";
 
-async function renderMaterialsPage() {
-  const element = await MaterialsPage();
+async function renderMaterialsPage(searchParams?: Record<string, string>) {
+  const element = await MaterialsPage({ searchParams: Promise.resolve(searchParams ?? {}) });
   render(<ToastProvider>{element}</ToastProvider>);
 }
 
@@ -170,5 +170,36 @@ describe("MaterialsPage", () => {
       categoryId: "c1",
       unitId: "u1",
     });
+  });
+
+  it('forwards ?q= from Story 16.2\'s global search "See all" into the Material search box (Story 16.2)', async () => {
+    const bindersCategory = { id: "c2", name: "Binders", isActive: true };
+    const cementMaterial = {
+      ...rccPipe,
+      id: "m2",
+      name: "OPC Cement",
+      category: { id: "c2", name: "Binders" },
+    };
+    global.fetch = mockFetchRouter({
+      categories: [pipesCategory, bindersCategory],
+      materials: [rccPipe, cementMaterial],
+    });
+
+    await renderMaterialsPage({ q: "cement" });
+
+    // The matched Material's own Category ("Binders", not the first/default
+    // "Pipes & Fittings") is auto-selected — landing on the default
+    // Category with an empty result would otherwise look broken despite
+    // the search term being correctly carried over.
+    expect(screen.getByDisplayValue("cement")).toBeInTheDocument();
+    expect(screen.getByText("OPC Cement")).toBeInTheDocument();
+  });
+
+  it("uses only the first value, without crashing, when a duplicate ?q= arrives as an array", async () => {
+    global.fetch = mockFetchRouter({ categories: [pipesCategory], materials: [rccPipe] });
+
+    await renderMaterialsPage({ q: ["cement", "steel"] } as unknown as Record<string, string>);
+
+    expect(screen.getByDisplayValue("cement")).toBeInTheDocument();
   });
 });

@@ -7,6 +7,7 @@ function makeService(overrides: {
   vendorFindUnique?: ReturnType<typeof vi.fn>;
   vendorUpdate?: ReturnType<typeof vi.fn>;
   vendorFindMany?: ReturnType<typeof vi.fn>;
+  vendorCount?: ReturnType<typeof vi.fn>;
   purchasesService?: {
     listByVendor: ReturnType<typeof vi.fn>;
     summaryForVendor: ReturnType<typeof vi.fn>;
@@ -15,12 +16,14 @@ function makeService(overrides: {
   const vendorFindUnique = overrides.vendorFindUnique ?? vi.fn();
   const vendorUpdate = overrides.vendorUpdate ?? vi.fn();
   const vendorFindMany = overrides.vendorFindMany ?? vi.fn();
+  const vendorCount = overrides.vendorCount ?? vi.fn().mockResolvedValue(0);
 
   const prisma = {
     vendor: {
       findUnique: vendorFindUnique,
       update: vendorUpdate,
       findMany: vendorFindMany,
+      count: vendorCount,
       create: vi.fn(),
     },
   };
@@ -67,6 +70,66 @@ describe('VendorsService.list', () => {
       orderBy: { name: 'asc' },
     });
     expect(result).toEqual([{ id: '1', name: 'Anand RMC Suppliers' }]);
+  });
+
+  it('searches by name case-insensitively', async () => {
+    const vendorFindMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ vendorFindMany });
+
+    await service.list({ q: 'anand' });
+
+    expect(vendorFindMany).toHaveBeenCalledWith({
+      where: {
+        deletedAt: null,
+        name: { contains: 'anand', mode: 'insensitive' },
+      },
+      orderBy: { name: 'asc' },
+    });
+  });
+
+  it('sorts by an allowed field and direction', async () => {
+    const vendorFindMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ vendorFindMany });
+
+    await service.list({ sort: 'phone', order: 'desc' });
+
+    expect(vendorFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { phone: 'desc' } }),
+    );
+  });
+
+  it('falls back to the default name sort for an unrecognized sort field', async () => {
+    const vendorFindMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ vendorFindMany });
+
+    await service.list({ sort: 'deletedAt' });
+
+    expect(vendorFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { name: 'asc' } }),
+    );
+  });
+
+  it('returns a paginated envelope once page/pageSize is requested', async () => {
+    const vendorFindMany = vi
+      .fn()
+      .mockResolvedValue([{ id: '1', name: 'Anand RMC Suppliers' }]);
+    const vendorCount = vi.fn().mockResolvedValue(12);
+    const { service } = makeService({ vendorFindMany, vendorCount });
+
+    const result = await service.list({ page: '1', pageSize: '10' });
+
+    expect(vendorFindMany).toHaveBeenCalledWith({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+      skip: 0,
+      take: 10,
+    });
+    expect(result).toEqual({
+      rows: [{ id: '1', name: 'Anand RMC Suppliers' }],
+      total: 12,
+      page: 1,
+      pageSize: 10,
+    });
   });
 });
 

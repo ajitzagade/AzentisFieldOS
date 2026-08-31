@@ -8,18 +8,20 @@ function makeService(overrides: {
   findMany?: ReturnType<typeof vi.fn>;
   findUnique?: ReturnType<typeof vi.fn>;
   update?: ReturnType<typeof vi.fn>;
+  count?: ReturnType<typeof vi.fn>;
 }) {
   const create = overrides.create ?? vi.fn();
   const findMany = overrides.findMany ?? vi.fn().mockResolvedValue([]);
   const findUnique = overrides.findUnique ?? vi.fn();
   const update = overrides.update ?? vi.fn();
+  const count = overrides.count ?? vi.fn().mockResolvedValue(0);
 
-  const prisma = { vehicle: { create, findMany, findUnique, update } };
+  const prisma = { vehicle: { create, findMany, findUnique, update, count } };
   const service = new VehicleService(
     prisma as unknown as ConstructorParameters<typeof VehicleService>[0],
   );
 
-  return { service, create, findMany, findUnique, update };
+  return { service, create, findMany, findUnique, update, count };
 }
 
 function p2002Error(): InstanceType<
@@ -119,6 +121,70 @@ describe('VehicleService.list', () => {
           movementLogs: { orderBy: { movedAt: 'desc' }, take: 1 },
         },
       }),
+    );
+  });
+
+  it('searches number case-insensitively', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ findMany });
+
+    await service.list({ q: 'mh12' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { number: { contains: 'mh12', mode: 'insensitive' } },
+      }),
+    );
+  });
+
+  it('returns a paginated envelope once page/pageSize is requested', async () => {
+    const findMany = vi.fn().mockResolvedValue([{ id: 'v1' }]);
+    const count = vi.fn().mockResolvedValue(6);
+    const { service } = makeService({ findMany, count });
+
+    const result = await service.list({ page: '1', pageSize: '5' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, take: 5 }),
+    );
+    expect(result).toEqual({
+      rows: [{ id: 'v1' }],
+      total: 6,
+      page: 1,
+      pageSize: 5,
+    });
+  });
+
+  it('sorts by an allowed field and direction', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ findMany });
+
+    await service.list({ sort: 'driver', order: 'desc' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { driver: 'desc' } }),
+    );
+  });
+
+  it('sorts by currentSite through the relation', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ findMany });
+
+    await service.list({ sort: 'currentSite', order: 'desc' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { currentSite: { name: 'desc' } } }),
+    );
+  });
+
+  it('falls back to the default number sort for an unrecognized sort field', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ findMany });
+
+    await service.list({ sort: 'id' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { number: 'asc' } }),
     );
   });
 });

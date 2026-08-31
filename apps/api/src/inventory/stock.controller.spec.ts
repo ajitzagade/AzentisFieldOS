@@ -9,6 +9,7 @@ describe('StockController', () => {
     getGodownStock: ReturnType<typeof vi.fn>;
     getSiteStock: ReturnType<typeof vi.fn>;
     getLowStockMaterials: ReturnType<typeof vi.fn>;
+    getStockByMaterial: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -16,6 +17,7 @@ describe('StockController', () => {
       getGodownStock: vi.fn(),
       getSiteStock: vi.fn(),
       getLowStockMaterials: vi.fn(),
+      getStockByMaterial: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -51,5 +53,14 @@ describe('StockController', () => {
 
     expect(service.getLowStockMaterials).toHaveBeenCalled();
     expect(result).toEqual([{ id: 'mat-1' }]);
+  });
+
+  it('getStockByMaterial delegates to StockService.getStockByMaterial with the materialId param', async () => {
+    service.getStockByMaterial.mockResolvedValue([{ materialSizeId: 'ms1' }]);
+
+    const result = await controller.getStockByMaterial('mat-1');
+
+    expect(service.getStockByMaterial).toHaveBeenCalledWith('mat-1');
+    expect(result).toEqual([{ materialSizeId: 'ms1' }]);
   });
 });

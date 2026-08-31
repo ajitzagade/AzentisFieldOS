@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UsePipes,
 } from '@nestjs/common';
 import {
@@ -25,8 +26,14 @@ export class PaymentsController {
   }
 
   @Get()
-  list() {
-    return this.paymentsService.list();
+  list(
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
+  ) {
+    return this.paymentsService.list({ q, page, pageSize, sort, order });
   }
 
   @Get('count/pending')

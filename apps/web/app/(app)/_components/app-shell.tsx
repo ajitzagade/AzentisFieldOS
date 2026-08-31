@@ -14,8 +14,9 @@ import {
   XIcon,
 } from "@azentisfieldos/ui";
 import type { Role } from "@azentisfieldos/shared";
-import { NAV_GROUPS, SETTINGS_NAV_ITEM, UNGROUPED_NAV_ITEMS, type NavItem } from "./nav-config";
+import { HELP_NAV_ITEM, NAV_GROUPS, SETTINGS_NAV_ITEM, UNGROUPED_NAV_ITEMS, type NavItem } from "./nav-config";
 import { FlashToast } from "./flash-toast";
+import { GlobalSearchButton, GlobalSearchDialog, useGlobalSearchController } from "./global-search";
 import { APP_DISPLAY_NAME } from "../../../lib/tenant";
 import { usePwaInstall } from "../../../lib/use-pwa-install";
 
@@ -69,12 +70,14 @@ function SidebarNav({
   onNavigate,
   pwaAvailable,
   onRequestInstall,
+  onOpenSearch,
 }: {
   pathname: string;
   role: Role;
   onNavigate?: () => void;
   pwaAvailable: boolean;
   onRequestInstall: () => void;
+  onOpenSearch: () => void;
 }) {
   return (
     <>
@@ -84,6 +87,13 @@ function SidebarNav({
         </div>
         <div className="text-card-title font-semibold tracking-tight">{APP_DISPLAY_NAME}</div>
       </div>
+
+      {/* Story 16.2: one search entry point, visible in the shell — the
+          same rail that already hosts the install/download action below. */}
+      <GlobalSearchButton
+        onClick={onOpenSearch}
+        className="mb-4 text-ink-on-accent/80 hover:bg-white/10 hover:text-ink-on-accent"
+      />
 
       {UNGROUPED_NAV_ITEMS.map((item) => (
         <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} onNavigate={onNavigate} />
@@ -97,6 +107,10 @@ function SidebarNav({
           ))}
         </div>
       ))}
+
+      {/* Help & Guides is visible to both roles (unlike Settings below) —
+          this is the surface a Supervisor learns the app from unsupervised. */}
+      <NavLink item={HELP_NAV_ITEM} active={isActive(pathname, HELP_NAV_ITEM.href)} onNavigate={onNavigate} />
 
       {/* Settings is Owner/Admin-only — it hard-404s for a Site Supervisor
           (Story 14.2's server guard), so a link would be broken, not access. */}
@@ -143,6 +157,7 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const pwaInstall = usePwaInstall();
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
+  const search = useGlobalSearchController();
 
   async function handleConfirmInstall() {
     setInstallDialogOpen(false);
@@ -183,6 +198,7 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
           role={role}
           pwaAvailable={pwaInstall.available}
           onRequestInstall={() => setInstallDialogOpen(true)}
+          onOpenSearch={() => search.setOpen(true)}
         />
       </aside>
 
@@ -199,6 +215,12 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
           <MenuIcon className="size-5" />
         </button>
         <span className="text-card-title font-semibold text-ink-900">{APP_DISPLAY_NAME}</span>
+        {/* Story 16.2: reachable in one tap on mobile, not gated behind the drawer. */}
+        <GlobalSearchButton
+          iconOnly
+          onClick={() => search.setOpen(true)}
+          className="ml-auto text-ink-700 hover:bg-surface-2 focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none"
+        />
       </header>
 
       {/* Mobile drawer + scrim — below lg only, mounted while open. */}
@@ -231,6 +253,7 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
               onNavigate={() => setNavOpen(false)}
               pwaAvailable={pwaInstall.available}
               onRequestInstall={() => setInstallDialogOpen(true)}
+              onOpenSearch={() => search.setOpen(true)}
             />
           </aside>
         </div>
@@ -253,6 +276,8 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
         cancelLabel={pwaInstall.isIos ? "Close" : "Not now"}
         onConfirm={pwaInstall.isIos ? () => setInstallDialogOpen(false) : handleConfirmInstall}
       />
+
+      <GlobalSearchDialog controller={search} />
     </div>
   );
 }

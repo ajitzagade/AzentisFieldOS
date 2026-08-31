@@ -2,8 +2,14 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import VendorsPage from "./page";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/vendors",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: vi.fn() }),
+}));
+
 async function renderVendorsPage() {
-  const element = await VendorsPage();
+  const element = await VendorsPage({ searchParams: Promise.resolve({}) });
   render(element);
 }
 
@@ -23,8 +29,11 @@ afterEach(() => {
 function mockFetch(vendors: unknown[], summaries: Record<string, { totalThisYear: number; notFullyPaidTotal: number }>) {
   global.fetch = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
-    if (url.endsWith("/vendors")) {
-      return { ok: true, json: async () => vendors } as Response;
+    if (url.includes("/vendors?")) {
+      return {
+        ok: true,
+        json: async () => ({ rows: vendors, total: vendors.length, page: 1, pageSize: 25 }),
+      } as Response;
     }
     const match = /\/vendors\/([^/]+)\/purchase-summary$/.exec(url);
     if (match) {

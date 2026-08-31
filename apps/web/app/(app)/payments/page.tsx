@@ -1,32 +1,9 @@
 import { authedFetch } from "@/lib/api";
+import { formatMoney } from "@/lib/format";
 import Link from "next/link";
-import {
-  AlertTriangleIcon,
-  Badge,
-  ChevronRightIcon,
-  CorrectAction,
-  DataTable,
-  PlusIcon,
-  RotateCcwIcon,
-  StatTile,
-  WalletIcon,
-  buttonVariants,
-  cn,
-  type DataTableColumn,
-} from "@azentisfieldos/ui";
-import { MarkPaidButton } from "./mark-paid-button";
-
-interface PaymentListItem {
-  id: string;
-  basePay: string;
-  additionalAmount: string;
-  deductions: string;
-  netPayable: string;
-  payPeriod: string | null;
-  status: "pending" | "paid";
-  teamMember: { id: string; name: string };
-  advanceAdjustments: { amount: string }[];
-}
+import type { PaginatedResult } from "@azentisfieldos/shared";
+import { AlertTriangleIcon, PlusIcon, StatTile, WalletIcon, buttonVariants, cn } from "@azentisfieldos/ui";
+import { PaymentsListClient, type PaymentListItem } from "./payments-list-client";
 
 interface TeamSummary {
   monthlyPaymentTotal: number;
@@ -36,8 +13,21 @@ interface OutstandingAdvances {
   total: number;
 }
 
-async function getPayments(): Promise<PaymentListItem[]> {
-  const res = await authedFetch(`/payments`, { cache: "no-store" });
+interface PaymentsPageSearchParams {
+  q?: string;
+  page?: string;
+  pageSize?: string;
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+async function getPayments(params: PaymentsPageSearchParams): Promise<PaginatedResult<PaymentListItem>> {
+  const query = new URLSearchParams();
+  query.set("page", params.page ?? "1");
+  query.set("pageSize", params.pageSize ?? String(DEFAULT_PAGE_SIZE));
+  if (params.q) query.set("q", params.q);
+
+  const res = await authedFetch(`/payments?${query.toString()}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Payments (${res.status})`);
   }
@@ -70,60 +60,14 @@ async function getOutstandingAdvances(): Promise<OutstandingAdvances> {
   return res.json();
 }
 
-function formatMoney(amount: number) {
-  const sign = amount < 0 ? "−" : "";
-  return `${sign}₹${Math.abs(amount).toLocaleString("en-IN")}`;
-}
-
-const columns: DataTableColumn<PaymentListItem>[] = [
-  { header: "Team Member", cell: (p) => p.teamMember.name },
-  { header: "Period", cell: (p) => p.payPeriod ?? <span className="text-ink-500">—</span> },
-  { header: "Base Pay", align: "right", cell: (p) => <span className="tabular-nums">{formatMoney(Number(p.basePay))}</span> },
-  {
-    header: "Additional",
-    align: "right",
-    cell: (p) => <span className="tabular-nums">{formatMoney(Number(p.additionalAmount))}</span>,
-  },
-  {
-    header: "Deductions",
-    align: "right",
-    cell: (p) => <span className="tabular-nums">{formatMoney(Number(p.deductions))}</span>,
-  },
-  {
-    header: "Advance Adjustment",
-    align: "right",
-    cell: (p) => (
-      <span className="tabular-nums">
-        {p.advanceAdjustments[0] ? formatMoney(-Number(p.advanceAdjustments[0].amount)) : formatMoney(0)}
-      </span>
-    ),
-  },
-  {
-    header: "Net Payable",
-    align: "right",
-    cell: (p) => <span className="font-semibold text-gold-700 tabular-nums">{formatMoney(Number(p.netPayable))}</span>,
-  },
-  {
-    header: "Status",
-    cell: (p) => (p.status === "paid" ? <Badge variant="success">Paid</Badge> : <Badge variant="warning">Pending</Badge>),
-  },
-  {
-    header: "",
-    cell: (p) => (
-      <div className="flex items-center justify-end gap-1">
-        {p.status === "pending" ? <MarkPaidButton id={p.id} /> : null}
-        <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/payments/${p.id}/correct`} />
-        <Link href={`/team/${p.teamMember.id}`} className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}>
-          <ChevronRightIcon className="size-4" />
-        </Link>
-      </div>
-    ),
-  },
-];
-
-export default async function PaymentsPage() {
-  const [payments, pendingCount, teamSummary, outstandingAdvances] = await Promise.all([
-    getPayments(),
+export default async function PaymentsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<PaymentsPageSearchParams>;
+}) {
+  const params = (await searchParams) ?? {};
+  const [paymentsResult, pendingCount, teamSummary, outstandingAdvances] = await Promise.all([
+    getPayments(params),
     getPendingCount(),
     getTeamSummary(),
     getOutstandingAdvances(),
@@ -158,24 +102,11 @@ export default async function PaymentsPage() {
         />
       </div>
 
-      <DataTable
-        columns={columns}
-        rowKey={(p) => p.id}
-        state={
-          payments.length === 0
-            ? {
-                status: "empty",
-                icon: <WalletIcon />,
-                message: "No Payments recorded yet.",
-                action: (
-                  <Link href="/payments/new" className={cn(buttonVariants({ variant: "primary" }))}>
-                    <PlusIcon className="size-4" />
-                    Record your first Payment
-                  </Link>
-                ),
-              }
-            : { status: "success", rows: payments }
-        }
+      <PaymentsListClient
+        rows={paymentsResult.rows}
+        total={paymentsResult.total}
+        page={paymentsResult.page}
+        pageSize={paymentsResult.pageSize}
       />
     </>
   );

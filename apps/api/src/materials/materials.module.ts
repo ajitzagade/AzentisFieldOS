@@ -13,5 +13,9 @@ import { MaterialsService } from './materials.service';
     MaterialsController,
   ],
   providers: [MaterialCategoriesService, UnitsService, MaterialsService],
+  // Exported so SearchModule (Story 16.2) can reuse MaterialsService's own
+  // query rather than re-querying Material from SearchService — same
+  // precedent as SitesModule's exports: [SitesService].
+  exports: [MaterialsService],
 })
 export class MaterialsModule {}

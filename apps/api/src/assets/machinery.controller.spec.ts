@@ -59,6 +59,20 @@ describe('MachineryController', () => {
     expect(result).toEqual([{ id: '1', name: 'JCB 3DX' }]);
   });
 
+  it('list forwards q/page/pageSize/sort/order query params to MachineryService.list as one object', async () => {
+    service.list.mockResolvedValue([]);
+
+    await controller.list('jcb', '2', '10', 'assetNumber', 'desc');
+
+    expect(service.list).toHaveBeenCalledWith({
+      q: 'jcb',
+      page: '2',
+      pageSize: '10',
+      sort: 'assetNumber',
+      order: 'desc',
+    });
+  });
+
   it('findOne delegates to MachineryService.findOne with the id', async () => {
     service.findOne.mockResolvedValue({ id: '1', name: 'JCB 3DX' });
 

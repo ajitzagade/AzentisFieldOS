@@ -99,4 +99,29 @@ describe("EditMaterialPage", () => {
     await user.click(screen.getByRole("button", { name: "Open Category options" }));
     expect(await screen.findByRole("option", { name: /Discontinued Category/ })).toBeInTheDocument();
   });
+
+  it("links to the cross-Site availability page (Story 16.3)", async () => {
+    mockFetchRouter({
+      materials: [
+        {
+          id: "mat-1",
+          name: "RCC Pipe",
+          isActive: true,
+          category: { id: "c1", name: "Pipes & Fittings" },
+          unit: { id: "u1", name: "Pcs" },
+          sizes: [],
+          customFields: [],
+        },
+      ],
+      categories: [{ id: "c1", name: "Pipes & Fittings", isActive: true }],
+      units: [{ id: "u1", name: "Pcs" }],
+    });
+
+    await renderEditPage("mat-1");
+
+    expect(screen.getByRole("link", { name: /View availability across Sites/ })).toHaveAttribute(
+      "href",
+      "/materials/mat-1/availability",
+    );
+  });
 });

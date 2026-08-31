@@ -19,4 +19,9 @@ export class StockController {
   getLowStockMaterials() {
     return this.stockService.getLowStockMaterials();
   }
+
+  @Get('material/:materialId')
+  getStockByMaterial(@Param('materialId') materialId: string) {
+    return this.stockService.getStockByMaterial(materialId);
+  }
 }

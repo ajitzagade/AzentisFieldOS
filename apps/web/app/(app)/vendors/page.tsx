@@ -1,6 +1,8 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
-import { Badge, BuildingIcon, DataTable, PlusIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
+import type { PaginatedResult } from "@azentisfieldos/shared";
+import { PlusIcon, buttonVariants, cn } from "@azentisfieldos/ui";
+import { VendorsListClient, type VendorRow } from "./vendors-list-client";
 
 export interface Vendor {
   id: string;
@@ -17,12 +19,21 @@ export interface VendorPurchaseSummary {
   notFullyPaidTotal: number;
 }
 
-interface VendorRow extends Vendor {
-  summary: VendorPurchaseSummary | null;
+interface VendorsPageSearchParams {
+  q?: string;
+  page?: string;
+  pageSize?: string;
 }
 
-async function getVendors(): Promise<Vendor[]> {
-  const res = await authedFetch(`/vendors`, { cache: "no-store" });
+const DEFAULT_PAGE_SIZE = 25;
+
+async function getVendors(params: VendorsPageSearchParams): Promise<PaginatedResult<Vendor>> {
+  const query = new URLSearchParams();
+  query.set("page", params.page ?? "1");
+  query.set("pageSize", params.pageSize ?? String(DEFAULT_PAGE_SIZE));
+  if (params.q) query.set("q", params.q);
+
+  const res = await authedFetch(`/vendors?${query.toString()}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Vendors (${res.status})`);
   }
@@ -49,57 +60,15 @@ async function getVendorPurchaseSummarySafe(id: string): Promise<VendorPurchaseS
   }
 }
 
-const columns: DataTableColumn<VendorRow>[] = [
-  { header: "Vendor", cell: (vendor) => <span className="font-semibold">{vendor.name}</span> },
-  {
-    header: "Contact person",
-    cell: (vendor) => vendor.contactPerson ?? <span className="text-ink-500">—</span>,
-  },
-  { header: "Phone", cell: (vendor) => vendor.phone ?? <span className="text-ink-500">—</span> },
-  {
-    header: "Materials / services supplied",
-    cell: (vendor) =>
-      vendor.materialsSupplied.length === 0 ? (
-        <span className="text-ink-500">—</span>
-      ) : (
-        <div className="flex flex-wrap gap-1">
-          {vendor.materialsSupplied.map((tag) => (
-            <Badge key={tag} variant="neutral">
-              {tag}
-            </Badge>
-          ))}
-        </div>
-      ),
-  },
-  {
-    header: "Total purchase (this year)",
-    align: "right",
-    cell: (vendor) =>
-      vendor.summary === null ? (
-        <span className="text-ink-500">—</span>
-      ) : (
-        <span className="font-semibold text-gold-700 tabular-nums">
-          ₹{vendor.summary.totalThisYear.toLocaleString("en-IN")}
-        </span>
-      ),
-  },
-  {
-    header: "Payment status",
-    cell: (vendor) =>
-      vendor.summary === null ? (
-        <span className="text-ink-500">—</span>
-      ) : vendor.summary.notFullyPaidTotal === 0 ? (
-        <Badge variant="success">Fully Paid</Badge>
-      ) : (
-        <Badge variant="warning">₹{vendor.summary.notFullyPaidTotal.toLocaleString("en-IN")} not marked Paid</Badge>
-      ),
-  },
-];
-
-export default async function VendorsPage() {
-  const vendors = await getVendors();
-  const summaries = await Promise.all(vendors.map((vendor) => getVendorPurchaseSummarySafe(vendor.id)));
-  const rows: VendorRow[] = vendors.map((vendor, index) => ({ ...vendor, summary: summaries[index]! }));
+export default async function VendorsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<VendorsPageSearchParams>;
+}) {
+  const params = (await searchParams) ?? {};
+  const vendorsResult = await getVendors(params);
+  const summaries = await Promise.all(vendorsResult.rows.map((vendor) => getVendorPurchaseSummarySafe(vendor.id)));
+  const rows: VendorRow[] = vendorsResult.rows.map((vendor, index) => ({ ...vendor, summary: summaries[index]! }));
 
   return (
     <>
@@ -114,26 +83,7 @@ export default async function VendorsPage() {
         </Link>
       </div>
 
-      <DataTable
-        columns={columns}
-        rowKey={(vendor) => vendor.id}
-        rowHref={(vendor) => `/vendors/${vendor.id}`}
-        state={
-          rows.length === 0
-            ? {
-                status: "empty",
-                icon: <BuildingIcon />,
-                message: "No Vendors yet.",
-                action: (
-                  <Link href="/vendors/new" className={cn(buttonVariants({ variant: "primary" }))}>
-                    <PlusIcon className="size-4" />
-                    Add your first Vendor
-                  </Link>
-                ),
-              }
-            : { status: "success", rows }
-        }
-      />
+      <VendorsListClient rows={rows} total={vendorsResult.total} page={vendorsResult.page} pageSize={vendorsResult.pageSize} />
     </>
   );
 }

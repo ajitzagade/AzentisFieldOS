@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
@@ -35,9 +36,20 @@ export class SitesController {
     return this.sitesService.create(body);
   }
 
+  // Query params are all optional and plain @Query() reads (no Zod pipe —
+  // matches the reports controllers' existing convention for GET filters,
+  // AD-7's shared-validator treatment is for write bodies). A request with
+  // none of them behaves exactly as before this story (AC #7).
   @Get()
-  list() {
-    return this.sitesService.list();
+  list(
+    @Query('status') status?: string,
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
+  ) {
+    return this.sitesService.list({ status, q, page, pageSize, sort, order });
   }
 
   @Patch(':id')

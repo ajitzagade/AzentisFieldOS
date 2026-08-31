@@ -20,6 +20,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportsModule } from './reports/reports.module';
 import { UsersModule } from './users/users.module';
 import { AuditModule } from './audit/audit.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { AuditModule } from './audit/audit.module';
     ReportsModule,
     UsersModule,
     AuditModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [

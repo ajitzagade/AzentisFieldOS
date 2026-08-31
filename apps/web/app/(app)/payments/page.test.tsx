@@ -5,6 +5,12 @@ vi.mock("./mark-paid-button", () => ({
   MarkPaidButton: ({ id }: { id: string }) => <button data-testid={`mark-paid-${id}`}>Mark Paid</button>,
 }));
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/payments",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: vi.fn() }),
+}));
+
 import PaymentsPage from "./page";
 
 const originalFetch = global.fetch;
@@ -30,7 +36,15 @@ function mockFetchRouter(handlers: {
         json: async () => handlers.teamSummary ?? { monthlyPaymentTotal: 0 },
       });
     }
-    return Promise.resolve({ ok: true, json: async () => handlers.payments ?? [] });
+    return Promise.resolve({
+      ok: true,
+      json: async () => ({
+        rows: handlers.payments ?? [],
+        total: handlers.payments?.length ?? 0,
+        page: 1,
+        pageSize: 25,
+      }),
+    });
   }) as unknown as typeof fetch;
 }
 
@@ -45,7 +59,7 @@ afterEach(() => {
 });
 
 async function renderPaymentsPage() {
-  const element = await PaymentsPage();
+  const element = await PaymentsPage({ searchParams: Promise.resolve({}) });
   return render(element);
 }
 

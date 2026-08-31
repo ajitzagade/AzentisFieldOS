@@ -41,7 +41,20 @@ async function getUnits(): Promise<TaxonomyUnit[]> {
   return res.json();
 }
 
-export default async function MaterialsPage() {
+export interface MaterialsPageSearchParams {
+  // A duplicate `?q=a&q=b` query string arrives as an array at runtime —
+  // typed here to match reality rather than claiming a plain `string` the
+  // framework doesn't actually guarantee.
+  q?: string | string[];
+}
+
+export default async function MaterialsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<MaterialsPageSearchParams>;
+}) {
+  const params = (await searchParams) ?? {};
+  const initialMaterialSearch = Array.isArray(params.q) ? params.q[0] : params.q;
   const [materials, categories, units] = await Promise.all([getMaterials(), getCategories(), getUnits()]);
 
   return (
@@ -64,7 +77,12 @@ export default async function MaterialsPage() {
         </div>
       </div>
 
-      <MaterialsTaxonomy initialCategories={categories} initialMaterials={materials} units={units} />
+      <MaterialsTaxonomy
+        initialCategories={categories}
+        initialMaterials={materials}
+        units={units}
+        initialMaterialSearch={initialMaterialSearch}
+      />
     </>
   );
 }

@@ -1,10 +1,12 @@
 import {
+  AlertTriangleIcon,
   BarChartIcon,
   BoxIcon,
   BuildingIcon,
   ClipboardIcon,
   DropletIcon,
   GearIcon,
+  HelpCircleIcon,
   HomeIcon,
   LayersIcon,
   MapPinIcon,
@@ -39,13 +41,22 @@ export const UNGROUPED_NAV_ITEMS: NavItem[] = [
   { href: "/daily-activity", label: "Daily Activity", icon: ClipboardIcon },
 ];
 
+// Story 16.4: regrouped by what the user is trying to do (Stock/People/
+// Money), not by raw entity name — per the 2026-08-29 product review's
+// proposed IA (Appendix A). Every href/icon/label is unchanged from
+// before this story; only each item's group label and grouping changed.
+// `/waste-disposal` isn't mentioned in that review's proposed IA (it
+// shipped later, in Epic 15) — placed in Stock as the closest semantic
+// fit (an inventory-outflow concept, like Movements), not silently
+// dropped from the sidebar.
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Materials",
+    label: "Stock",
     items: [
       { href: "/inventory", label: "Inventory", icon: BoxIcon },
-      { href: "/materials", label: "Materials", icon: LayersIcon },
       { href: "/movements", label: "Movements", icon: ArrowsIcon },
+      { href: "/materials", label: "Materials", icon: LayersIcon },
+      { href: "/waste-disposal", label: "Waste & Disposal", icon: AlertTriangleIcon },
     ],
   },
   {
@@ -56,19 +67,27 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Assets",
+    label: "Money",
     items: [
-      { href: "/machinery-vehicles", label: "Machinery & Vehicles", icon: TruckIcon },
       { href: "/vendors", label: "Vendors", icon: BuildingIcon },
-      { href: "/rmc", label: "RMC", icon: DropletIcon },
       { href: "/expenses", label: "Expenses", icon: ReceiptIcon },
-      { href: "/waste-disposal", label: "Waste & Disposal", icon: ArrowsIcon },
+      { href: "/rmc", label: "RMC", icon: DropletIcon },
     ],
   },
   {
-    label: "Insights",
+    label: "Machinery & Vehicles",
+    items: [{ href: "/machinery-vehicles", label: "Machinery & Vehicles", icon: TruckIcon }],
+  },
+  {
+    label: "Reports",
     items: [{ href: "/reports", label: "Reports", icon: BarChartIcon }],
   },
 ];
+
+// Pinned above Settings, same reasoning as Settings itself (EXPERIENCE.md's
+// Help & Guides addition): a utility surface reached when needed, not part
+// of daily work. Unlike Settings, Help is visible to BOTH roles — the
+// Supervisor is the persona who most needs to learn the app unsupervised.
+export const HELP_NAV_ITEM: NavItem = { href: "/help", label: "Help & Guides", icon: HelpCircleIcon };
 
 export const SETTINGS_NAV_ITEM: NavItem = { href: "/settings", label: "Settings", icon: GearIcon };

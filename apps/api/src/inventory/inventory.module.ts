@@ -9,6 +9,8 @@ import { ReturnWastageController } from './return-wastage.controller';
 import { ReturnWastageService } from './return-wastage.service';
 import { StockController } from './stock.controller';
 import { StockService } from './stock.service';
+import { MovementsLogController } from './movements-log.controller';
+import { MovementsLogService } from './movements-log.service';
 
 @Module({
   controllers: [
@@ -17,6 +19,7 @@ import { StockService } from './stock.service';
     ConsumptionController,
     ReturnWastageController,
     StockController,
+    MovementsLogController,
   ],
   providers: [
     PurchasesService,
@@ -24,6 +27,7 @@ import { StockService } from './stock.service';
     ConsumptionService,
     ReturnWastageService,
     StockService,
+    MovementsLogService,
   ],
   // VendorsModule (Story 9.2) reuses PurchasesService's Vendor-filtered
   // queries rather than duplicating them against Purchase directly.

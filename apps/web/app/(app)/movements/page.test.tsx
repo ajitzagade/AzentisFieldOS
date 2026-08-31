@@ -1,9 +1,15 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MovementsPage from "./page";
 
-async function renderMovementsPage() {
-  const element = await MovementsPage();
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/movements",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: vi.fn() }),
+}));
+
+async function renderMovementsPage(searchParams?: Record<string, string>) {
+  const element = await MovementsPage({ searchParams: Promise.resolve(searchParams ?? {}) });
   render(element);
 }
 
@@ -20,24 +26,23 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function mockFetchRouter(handlers: {
-  purchases?: unknown;
-  movements?: unknown;
-  consumption?: unknown;
-  returnWastage?: unknown;
-}) {
+type LogRow = { type: string; id: string; item: unknown };
+
+function mockFetchRouter(handlers: { rows?: LogRow[]; total?: number; sites?: unknown[] }) {
   global.fetch = vi.fn((url: string) => {
     const urlStr = String(url);
-    if (urlStr.includes("/purchases")) {
-      return Promise.resolve({ ok: true, json: async () => handlers.purchases ?? [] });
+    if (urlStr.includes("/sites")) {
+      return Promise.resolve({ ok: true, json: async () => handlers.sites ?? [] });
     }
-    if (urlStr.includes("/consumption")) {
-      return Promise.resolve({ ok: true, json: async () => handlers.consumption ?? [] });
-    }
-    if (urlStr.includes("/return-wastage")) {
-      return Promise.resolve({ ok: true, json: async () => handlers.returnWastage ?? [] });
-    }
-    return Promise.resolve({ ok: true, json: async () => handlers.movements ?? [] });
+    return Promise.resolve({
+      ok: true,
+      json: async () => ({
+        rows: handlers.rows ?? [],
+        total: handlers.total ?? (handlers.rows?.length ?? 0),
+        page: 1,
+        pageSize: 25,
+      }),
+    });
   }) as unknown as typeof fetch;
 }
 
@@ -77,27 +82,29 @@ const shortMovement = {
 
 describe("MovementsPage", () => {
   it("renders a Purchase row with a success badge, Godown flow, and matching Sent/Received Qty", async () => {
-    mockFetchRouter({ purchases: [godownPurchase] });
+    mockFetchRouter({ rows: [{ type: "PURCHASE", id: "p1", item: godownPurchase }] });
 
     await renderMovementsPage();
 
-    expect(screen.getByText("Purchase")).toBeInTheDocument();
-    expect(screen.getByText("Cement (OPC 53 Grade)")).toBeInTheDocument();
-    expect(screen.getByText("Godown")).toBeInTheDocument();
-    expect(screen.getAllByText("200 Bags")).toHaveLength(2);
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Purchase")).toBeInTheDocument();
+    expect(table.getByText("Cement (OPC 53 Grade)")).toBeInTheDocument();
+    expect(table.getByText("Godown")).toBeInTheDocument();
+    expect(table.getAllByText("200 Bags")).toHaveLength(2);
   });
 
   it("renders a Site-destined Purchase's flow as the Site name", async () => {
-    mockFetchRouter({ purchases: [sitePurchase] });
+    mockFetchRouter({ rows: [{ type: "PURCHASE", id: "p2", item: sitePurchase }] });
 
     await renderMovementsPage();
 
-    expect(screen.getByText("NH-48 Highway Widening")).toBeInTheDocument();
-    expect(screen.getAllByText("40 Kg")).toHaveLength(2);
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("NH-48 Highway Widening")).toBeInTheDocument();
+    expect(table.getAllByText("40 Kg")).toHaveLength(2);
   });
 
   it("links each Purchase row's Correct action to that Purchase's correction route", async () => {
-    mockFetchRouter({ purchases: [godownPurchase] });
+    mockFetchRouter({ rows: [{ type: "PURCHASE", id: "p1", item: godownPurchase }] });
 
     await renderMovementsPage();
 
@@ -105,21 +112,22 @@ describe("MovementsPage", () => {
   });
 
   it("renders a gold Movement badge and a Godown -> destination Site flow", async () => {
-    mockFetchRouter({ movements: [shortMovement] });
+    mockFetchRouter({ rows: [{ type: "MOVEMENT", id: "m2", item: shortMovement }] });
 
     await renderMovementsPage();
 
-    expect(screen.getByText("Movement")).toBeInTheDocument();
-    expect(screen.getByText("TMT Steel (12mm)")).toBeInTheDocument();
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Movement")).toBeInTheDocument();
+    expect(table.getByText("TMT Steel (12mm)")).toBeInTheDocument();
     expect(
-      screen.getByText(
+      table.getByText(
         (_, element) => element?.tagName === "SPAN" && element.textContent === "GodownNH-48 Highway Widening — Package 3",
       ),
     ).toBeInTheDocument();
   });
 
   it("shows a Pending receipt badge and a Confirm Receipt action for a Movement with no receivedQuantity yet", async () => {
-    mockFetchRouter({ movements: [pendingMovement] });
+    mockFetchRouter({ rows: [{ type: "MOVEMENT", id: "m1", item: pendingMovement }] });
 
     await renderMovementsPage();
 
@@ -128,7 +136,7 @@ describe("MovementsPage", () => {
   });
 
   it("does not show a Confirm Receipt action once receivedQuantity is set", async () => {
-    mockFetchRouter({ movements: [shortMovement] });
+    mockFetchRouter({ rows: [{ type: "MOVEMENT", id: "m2", item: shortMovement }] });
 
     await renderMovementsPage();
 
@@ -136,7 +144,7 @@ describe("MovementsPage", () => {
   });
 
   it("renders a sent/received shortfall in the warning color, not silently reconciled", async () => {
-    mockFetchRouter({ movements: [shortMovement] });
+    mockFetchRouter({ rows: [{ type: "MOVEMENT", id: "m2", item: shortMovement }] });
 
     await renderMovementsPage();
 
@@ -145,7 +153,7 @@ describe("MovementsPage", () => {
   });
 
   it("links a Movement row's Correct action to the Godown-to-Site correction route", async () => {
-    mockFetchRouter({ movements: [shortMovement] });
+    mockFetchRouter({ rows: [{ type: "MOVEMENT", id: "m2", item: shortMovement }] });
 
     await renderMovementsPage();
 
@@ -153,7 +161,7 @@ describe("MovementsPage", () => {
   });
 
   it("renders the empty state with a record-first-Purchase action when there are zero rows", async () => {
-    mockFetchRouter({});
+    mockFetchRouter({ rows: [] });
 
     await renderMovementsPage();
 
@@ -162,7 +170,7 @@ describe("MovementsPage", () => {
   });
 
   it("links the header actions to every entry form", async () => {
-    mockFetchRouter({});
+    mockFetchRouter({ rows: [] });
 
     await renderMovementsPage();
 
@@ -176,35 +184,44 @@ describe("MovementsPage", () => {
 
   it("renders a neutral Consumption badge, the Site as flow, and a muted dash for Received Qty", async () => {
     mockFetchRouter({
-      consumption: [
+      rows: [
         {
+          type: "CONSUMPTION",
           id: "c1",
-          quantity: "6",
-          consumedAt: "2026-08-10T00:00:00.000Z",
-          site: { id: "site1", name: "Sector 12 Metro Depot" },
-          materialSize: { label: "600mm", material: { name: "RCC Pipe", unit: { name: "Pcs" } } },
+          item: {
+            id: "c1",
+            quantity: "6",
+            consumedAt: "2026-08-10T00:00:00.000Z",
+            site: { id: "site1", name: "Sector 12 Metro Depot" },
+            materialSize: { label: "600mm", material: { name: "RCC Pipe", unit: { name: "Pcs" } } },
+          },
         },
       ],
     });
 
     await renderMovementsPage();
 
-    expect(screen.getByText("Consumption")).toBeInTheDocument();
-    expect(screen.getByText("RCC Pipe (600mm)")).toBeInTheDocument();
-    expect(screen.getByText("Sector 12 Metro Depot")).toBeInTheDocument();
-    expect(screen.getByText("6 Pcs")).toBeInTheDocument();
-    expect(screen.getByText("—")).toBeInTheDocument();
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Consumption")).toBeInTheDocument();
+    expect(table.getByText("RCC Pipe (600mm)")).toBeInTheDocument();
+    expect(table.getByText("Sector 12 Metro Depot")).toBeInTheDocument();
+    expect(table.getByText("6 Pcs")).toBeInTheDocument();
+    expect(table.getByText("—")).toBeInTheDocument();
   });
 
   it("links a Consumption row's Correct action to the Consumption correction route", async () => {
     mockFetchRouter({
-      consumption: [
+      rows: [
         {
+          type: "CONSUMPTION",
           id: "c1",
-          quantity: "6",
-          consumedAt: "2026-08-10T00:00:00.000Z",
-          site: { id: "site1", name: "Sector 12 Metro Depot" },
-          materialSize: { label: "600mm", material: { name: "RCC Pipe", unit: { name: "Pcs" } } },
+          item: {
+            id: "c1",
+            quantity: "6",
+            consumedAt: "2026-08-10T00:00:00.000Z",
+            site: { id: "site1", name: "Sector 12 Metro Depot" },
+            materialSize: { label: "600mm", material: { name: "RCC Pipe", unit: { name: "Pcs" } } },
+          },
         },
       ],
     });
@@ -216,35 +233,44 @@ describe("MovementsPage", () => {
 
   it("renders a danger Wastage & Return badge with matching Sent/Received Qty (no sent/received-gap concept)", async () => {
     mockFetchRouter({
-      returnWastage: [
+      rows: [
         {
+          type: "RETURN_WASTAGE",
           id: "rw1",
-          kind: "WASTAGE",
-          quantity: "2",
-          recordedAt: "2026-08-09T00:00:00.000Z",
-          site: { id: "site1", name: "Godown" },
-          materialSize: { label: "20mm", material: { name: "Aggregate", unit: { name: "Ton" } } },
+          item: {
+            id: "rw1",
+            kind: "WASTAGE",
+            quantity: "2",
+            recordedAt: "2026-08-09T00:00:00.000Z",
+            site: { id: "site1", name: "Godown" },
+            materialSize: { label: "20mm", material: { name: "Aggregate", unit: { name: "Ton" } } },
+          },
         },
       ],
     });
 
     await renderMovementsPage();
 
-    expect(screen.getByText("Wastage & Return")).toBeInTheDocument();
-    expect(screen.getByText("Aggregate (20mm)")).toBeInTheDocument();
-    expect(screen.getAllByText("2 Ton")).toHaveLength(2);
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Wastage & Return")).toBeInTheDocument();
+    expect(table.getByText("Aggregate (20mm)")).toBeInTheDocument();
+    expect(table.getAllByText("2 Ton")).toHaveLength(2);
   });
 
   it("links a Wastage/Return row's Correct action to the Return/Wastage correction route", async () => {
     mockFetchRouter({
-      returnWastage: [
+      rows: [
         {
+          type: "RETURN_WASTAGE",
           id: "rw1",
-          kind: "RETURN",
-          quantity: "2",
-          recordedAt: "2026-08-09T00:00:00.000Z",
-          site: { id: "site1", name: "Godown" },
-          materialSize: { label: "20mm", material: { name: "Aggregate", unit: { name: "Ton" } } },
+          item: {
+            id: "rw1",
+            kind: "RETURN",
+            quantity: "2",
+            recordedAt: "2026-08-09T00:00:00.000Z",
+            site: { id: "site1", name: "Godown" },
+            materialSize: { label: "20mm", material: { name: "Aggregate", unit: { name: "Ton" } } },
+          },
         },
       ],
     });
@@ -252,5 +278,37 @@ describe("MovementsPage", () => {
     await renderMovementsPage();
 
     expect(screen.getByRole("link", { name: "Correct" })).toHaveAttribute("href", "/movements/return-wastage/rw1/correct");
+  });
+
+  it("requests page 1 / the default page size when no searchParams are given", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (String(url).includes("/sites")) return Promise.resolve({ ok: true, json: async () => [] });
+      return Promise.resolve({ ok: true, json: async () => ({ rows: [], total: 0, page: 1, pageSize: 25 }) });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await renderMovementsPage();
+
+    const logCall = fetchMock.mock.calls.find((call) => String(call[0]).includes("/movements-log"));
+    expect(String(logCall?.[0])).toContain("page=1");
+    expect(String(logCall?.[0])).toContain("pageSize=25");
+  });
+
+  it("forwards q/type/siteId/from/to search params to the movements-log API", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (String(url).includes("/sites")) return Promise.resolve({ ok: true, json: async () => [] });
+      return Promise.resolve({ ok: true, json: async () => ({ rows: [], total: 0, page: 1, pageSize: 25 }) });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await renderMovementsPage({ q: "cement", type: "PURCHASE", siteId: "site1", from: "2026-08-01", to: "2026-08-31" });
+
+    const logCall = fetchMock.mock.calls.find((call) => String(call[0]).includes("/movements-log"));
+    const url = String(logCall?.[0]);
+    expect(url).toContain("q=cement");
+    expect(url).toContain("type=PURCHASE");
+    expect(url).toContain("siteId=site1");
+    expect(url).toContain("from=2026-08-01");
+    expect(url).toContain("to=2026-08-31");
   });
 });

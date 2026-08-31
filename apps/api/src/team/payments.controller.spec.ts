@@ -57,6 +57,20 @@ describe('PaymentsController', () => {
     expect(result).toEqual([{ id: '1' }]);
   });
 
+  it('list forwards q/page/pageSize/sort/order query params to PaymentsService.list as one object', async () => {
+    service.list.mockResolvedValue([]);
+
+    await controller.list('ravi', '2', '10', 'netPayable', 'desc');
+
+    expect(service.list).toHaveBeenCalledWith({
+      q: 'ravi',
+      page: '2',
+      pageSize: '10',
+      sort: 'netPayable',
+      order: 'desc',
+    });
+  });
+
   it('findOne delegates to PaymentsService.findOne', async () => {
     service.findOne.mockResolvedValue({ id: '1' });
 

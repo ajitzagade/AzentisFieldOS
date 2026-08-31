@@ -2,6 +2,12 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RmcPage from "./page";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/rmc",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: vi.fn() }),
+}));
+
 async function renderRmcPage(searchParams: { report?: string } = {}) {
   const element = await RmcPage({ searchParams: Promise.resolve(searchParams) });
   render(element);
@@ -38,7 +44,11 @@ function mockFetchRouter(handlers: {
       handlers.onReportUrl?.(urlStr);
       return Promise.resolve({ ok: true, json: async () => handlers.report ?? [] });
     }
-    return Promise.resolve({ ok: true, json: async () => handlers.entries ?? [] });
+    const entries = (handlers.entries as unknown[] | undefined) ?? [];
+    return Promise.resolve({
+      ok: true,
+      json: async () => ({ rows: entries, total: entries.length, page: 1, pageSize: 25 }),
+    });
   }) as unknown as typeof fetch;
 }
 

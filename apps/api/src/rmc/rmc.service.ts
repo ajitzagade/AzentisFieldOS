@@ -3,18 +3,62 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreateRmcEntryInput } from '@azentisfieldos/shared';
+import type {
+  CreateRmcEntryInput,
+  PaginatedResult,
+} from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   currentDsrRowsWhere,
   supersededDsrIds,
 } from '../common/superseded-dsrs';
+import { paginationParams } from '../common/pagination';
+import { isSortOrder } from '../common/sort-order';
+
+const RMC_ENTRY_SORT_FIELDS = [
+  'deliveredAt',
+  'quantityM3',
+  'grade',
+  'ratePerM3',
+  'totalAmount',
+  'site',
+  'vendor',
+] as const;
+type RmcEntrySortField = (typeof RMC_ENTRY_SORT_FIELDS)[number];
+
+function isRmcEntrySortField(
+  value: string | undefined,
+): value is RmcEntrySortField {
+  return (
+    Boolean(value) &&
+    (RMC_ENTRY_SORT_FIELDS as readonly string[]).includes(value as string)
+  );
+}
+
+function rmcEntryOrderBy(
+  sort: string | undefined,
+  order: string | undefined,
+): Prisma.RmcEntryOrderByWithRelationInput {
+  if (!isRmcEntrySortField(sort)) {
+    return { deliveredAt: 'desc' };
+  }
+  const direction = isSortOrder(order) ? order : 'asc';
+  if (sort === 'site' || sort === 'vendor') {
+    return { [sort]: { name: direction } };
+  }
+  return { [sort]: direction };
+}
 
 export interface RmcEntryListFilters {
   siteId?: string;
   vendorId?: string;
   date?: string;
+  q?: string;
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  order?: string;
 }
 
 // Story 10.2: RMC reporting — the three slices are the same aggregate with
@@ -85,7 +129,9 @@ export class RmcService {
   // superseded (since corrected) DSR are excluded — the correction's
   // restated entries already represent that report (same rule as
   // ConsumptionService.list).
-  async list(filters: RmcEntryListFilters = {}) {
+  async list(
+    filters: RmcEntryListFilters = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
     const where: Prisma.RmcEntryWhereInput = {
       ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
     };
@@ -101,12 +147,42 @@ export class RmcService {
       dayEnd.setDate(dayEnd.getDate() + 1);
       where.deliveredAt = { gte: dayStart, lt: dayEnd };
     }
+    if (filters.q) {
+      where.AND = [
+        {
+          OR: [
+            { grade: { contains: filters.q, mode: 'insensitive' } },
+            { site: { name: { contains: filters.q, mode: 'insensitive' } } },
+            { vendor: { name: { contains: filters.q, mode: 'insensitive' } } },
+          ],
+        },
+      ];
+    }
 
-    return this.prisma.rmcEntry.findMany({
-      where,
-      include: { site: true, vendor: true },
-      orderBy: { deliveredAt: 'desc' },
-    });
+    const include = { site: true, vendor: true };
+    const orderBy = rmcEntryOrderBy(filters.sort, filters.order);
+
+    const pagination = paginationParams(filters.page, filters.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.rmcEntry.findMany({ where, include, orderBy });
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.rmcEntry.findMany({
+        where,
+        include,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.rmcEntry.count({ where }),
+    ]);
+    return {
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    };
   }
 
   // Story 10.2 / FR-27: daily, Site-wise, and Vendor-wise RMC

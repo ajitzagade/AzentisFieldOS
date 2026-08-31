@@ -62,6 +62,20 @@ describe('TeamMembersController', () => {
     expect(result).toEqual([{ id: '1', name: 'Ravi Kumar' }]);
   });
 
+  it('list forwards q/page/pageSize/sort/order query params to TeamMembersService.list as one object', async () => {
+    service.list.mockResolvedValue([]);
+
+    await controller.list('ravi', '2', '10', 'designation', 'desc');
+
+    expect(service.list).toHaveBeenCalledWith({
+      q: 'ravi',
+      page: '2',
+      pageSize: '10',
+      sort: 'designation',
+      order: 'desc',
+    });
+  });
+
   it('findOne delegates to TeamMembersService.findOne with the id', async () => {
     service.findOne.mockResolvedValue({ id: '1', name: 'Ravi Kumar' });
 
