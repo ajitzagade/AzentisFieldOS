@@ -6,6 +6,7 @@ export * from "./components/badge";
 export * from "./components/data-table";
 export * from "./components/stat-tile";
 export * from "./components/gap-flag";
+export * from "./components/help-bubble";
 export * from "./components/correct-action";
 export * from "./components/empty-state";
 export * from "./components/field";

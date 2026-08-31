@@ -1,5 +1,12 @@
 import { authedFetch } from "@/lib/api";
+import { HELP_CONTENT } from "@azentisfieldos/shared";
+import { HelpBubble } from "@azentisfieldos/ui";
 import { ConsumptionForm } from "../consumption-form";
+
+// The same explanation Help & Guides and the Client Presentation show for
+// this concept — one shared content source, read here inline (EXPERIENCE.md
+// Component Patterns → Contextual help).
+const CONSUMPTION_HELP = HELP_CONTENT.contextualHelp.find((h) => h.key === "material-consumption");
 
 interface SiteOption {
   id: string;
@@ -50,7 +57,10 @@ export default async function NewConsumptionPage({
 
   return (
     <div className="max-w-160">
-      <h1 className="mb-6 text-page-title text-ink-900">Record Consumption</h1>
+      <h1 className="mb-6 flex items-center gap-2 text-page-title text-ink-900">
+        Record Consumption
+        {CONSUMPTION_HELP ? <HelpBubble>{CONSUMPTION_HELP.explanation}</HelpBubble> : null}
+      </h1>
       <ConsumptionForm
         mode="new"
         materialSizes={materialSizes}

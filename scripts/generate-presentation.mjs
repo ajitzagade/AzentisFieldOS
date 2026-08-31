@@ -1,4 +1,19 @@
-<!doctype html>
+// Generates apps/web/public/presentation.html from the single shared
+// content source (packages/shared/src/content/help-content.ts) — the same
+// content the in-app Help & Guides section reads live. Run:
+//   pnpm presentation:build
+// Regenerate any time packages/shared/src/content/help-content.ts changes.
+import { writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { HELP_CONTENT } from "../packages/shared/src/content/help-content.ts";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const OUT = path.join(__dirname, "../apps/web/public/presentation.html");
+
+const json = JSON.stringify(HELP_CONTENT).replace(/</g, "\\u003c");
+
+const html = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -6,7 +21,29 @@
 <title>AzentisFieldOS — How the System Works</title>
 <meta name="description" content="A simple, visual walkthrough of AzentisFieldOS for construction site owners and supervisors." />
 <style>
+${css()}
+</style>
+</head>
+<body>
+<div class="progress-rail" aria-hidden="true"><div class="progress-fill" id="progressFill"></div></div>
+<nav class="dot-nav" id="dotNav" aria-label="Presentation sections"></nav>
 
+<main id="deck"></main>
+
+<script id="help-content" type="application/json">${json}</script>
+<script>
+${js()}
+</script>
+</body>
+</html>
+`;
+
+writeFileSync(OUT, html, "utf8");
+console.log(`Wrote ${OUT} (${(html.length / 1024).toFixed(0)} KB)`);
+
+// ---------------------------------------------------------------------------
+function css() {
+  return `
 :root {
   --surface-0:#FBFAF7; --surface-1:#FFFFFF; --surface-2:#F3F1EA; --surface-3:#EAE6DA;
   --border-hairline:#E4E0D3; --border-strong:#D2CBB8;
@@ -192,18 +229,12 @@ section.slide {
   html { scroll-behavior:auto; }
   .reveal { transition:none; opacity:1; transform:none; }
 }
+`;
+}
 
-</style>
-</head>
-<body>
-<div class="progress-rail" aria-hidden="true"><div class="progress-fill" id="progressFill"></div></div>
-<nav class="dot-nav" id="dotNav" aria-label="Presentation sections"></nav>
-
-<main id="deck"></main>
-
-<script id="help-content" type="application/json">{"product":{"name":"AzentisFieldOS","tagline":"One Simple System to Manage Multiple Construction Sites","intro":"Manage sites, materials, labour, expenses and daily updates from one place."},"problemToday":{"flow":["Supervisor","WhatsApp","Photos","Paper","Phone Calls","Owner"],"problems":["Information gets lost","Stock is difficult to track","Bills don't match easily","Labour advances are forgotten","Owner has to call supervisors","Reports take time to prepare"]},"solutionFlow":["Site Activity","Supervisor records it","System updates the information","Owner sees it immediately","Reports are ready"],"systemFlow":["Owner","Sites","Work","Materials","Labour","Expenses","DSR","Reports","Owner Visibility"],"roles":{"OWNER_ADMIN":{"label":"Owner / Admin","summary":"Uses the system to manage sites, monitor work, check stock, track expenses, track labour, track vendors, review reports, and take decisions."},"SITE_SUPERVISOR":{"label":"Site Supervisor","summary":"Uses the system mainly from a phone to record daily work, record labour, record material usage, record expenses, upload photos, and report problems."}},"modules":[{"id":"dashboard","name":"Dashboard","whatIsIt":"The Dashboard is the first thing the Owner sees — a quick picture of every site, today.","whyUseIt":"So the Owner knows what happened today without calling every supervisor.","usedBy":["OWNER_ADMIN"],"howToUse":["Open the app — the Dashboard is the home screen.","Look at Today: how many sites reported, how much labour worked, how much material moved, today's expenses.","Look at Money: this month's expenses, what's owed to vendors, and how much cash is tied up.","If a site has not sent today's report, it shows as a clear message you can click."],"afterSaving":"Nothing to save here — the Dashboard just shows the latest numbers from everything recorded across all sites.","example":"5 active sites. 4 have sent today's report. 1 site, Riverside Bridge, has not — the Dashboard says so, by name, so the Owner knows exactly who to check on.","href":"/"},{"id":"sites","name":"Sites","whatIsIt":"Sites is the list of every construction project the company is running.","whyUseIt":"A contractor runs several sites at once — this keeps them all in one place instead of scattered across notebooks.","usedBy":["OWNER_ADMIN"],"howToUse":["Open Sites from the menu.","Click Add Site.","Enter the site's name, location, and (if there is one) the contract reference.","Save."],"afterSaving":"The new site appears in the list immediately and is ready to use everywhere else in the app — the DSR form, Inventory, Reports.","example":"NH-48 Widening — Package 3, in Nashik. Once added, a supervisor can start sending daily reports for it the same day.","href":"/sites"},{"id":"site-detail","name":"Site Details","whatIsIt":"Opening one site shows everything that happened there — stock on hand, today's status, recent reports, recent photos, and the full history.","whyUseIt":"So the Owner can understand one site fully without digging through separate screens.","usedBy":["OWNER_ADMIN","SITE_SUPERVISOR"],"howToUse":["Open Sites.","Click on a site's name.","See its stock, today's report status, and recent activity in one place."],"afterSaving":"Nothing to save — this page is read-only. It updates automatically as new reports, purchases, and expenses are recorded for that site.","example":"Open NH-48 and see: 80 bags of cement in stock, today's report submitted, and photos from this morning.","href":"/sites"},{"id":"materials","name":"Materials","whatIsIt":"Materials is the list of everything the company buys and uses — cement, steel, sand, and so on.","whyUseIt":"So every purchase and every bit of stock talks about the same thing, in the same unit, every time.","usedBy":["OWNER_ADMIN"],"howToUse":["Open Materials.","Click Add Material.","Give it a name, a category, and a unit (Bags, MT, m³...).","Save."],"afterSaving":"The material is ready to appear in every Purchase, Movement, and Consumption form from now on — always with the same unit, so nobody has to guess what \"50\" means.","example":"OPC 53 Cement, unit: Bags. Every screen that shows this material shows it as \"Bags\" so nobody confuses bags with tons.","href":"/materials"},{"id":"inventory","name":"Inventory","whatIsIt":"Inventory tells you how much material is available at each site, and at the central store.","whyUseIt":"So the Owner always knows how much material is on hand, without calling a supervisor to check.","usedBy":["OWNER_ADMIN"],"howToUse":["Open Inventory.","See stock at the Godown (central store) and at each site.","If something is running low, it's shown with a warning and a Transfer Stock button."],"afterSaving":"Nothing to save — Inventory is a live picture. It changes automatically every time material is purchased, moved, or used.","example":"Cement drops below 200 bags at the Godown → Inventory shows a warning naming exactly that material and how far below the limit it is.","href":"/inventory"},{"id":"purchases","name":"Purchases","whatIsIt":"When material is bought from a vendor, it's recorded here.","whyUseIt":"So every rupee spent on material, and every bag that comes in, is on record — no lost challans.","usedBy":["OWNER_ADMIN","SITE_SUPERVISOR"],"howToUse":["Open Movements → Record Purchase.","Pick the Vendor and the Material.","Choose whether it goes to the central store (Godown) or straight to a Site.","Enter the quantity and the rate — the total is worked out automatically.","Optionally attach a photo of the challan.","Save."],"afterSaving":"Stock goes up immediately, at whichever place the material was sent to. The purchase also shows up on the Vendor's history and in Reports.","example":"100 bags of cement bought from Shree Balaji Traders, sent straight to Site A → Site A's stock becomes 100 bags.","href":"/movements/purchases/new"},{"id":"movements","name":"Material Movement","whatIsIt":"When material moves from the central store to a site, or from one site to another, it's recorded here.","whyUseIt":"So the Owner can always see where material actually is, not just how much was bought.","usedBy":["OWNER_ADMIN","SITE_SUPERVISOR"],"howToUse":["Open Movements → Record Movement (or Transfer for site-to-site).","Pick the material and how much is being sent.","Pick where it's going.","Save. The receiving side later confirms how much actually arrived."],"afterSaving":"Stock decreases at the sending location right away. It increases at the receiving location once someone confirms the material has actually arrived — so a shortage in transit is never hidden.","example":"20 bags moved from Site A to Site B → Site A drops to 30 bags, Site B rises to 20 bags once confirmed received.","href":"/movements"},{"id":"consumption","name":"Material Consumption","whatIsIt":"When material is actually used at a site, it's recorded here.","whyUseIt":"So the stock number always matches what's really left, not just what was delivered.","usedBy":["SITE_SUPERVISOR"],"howToUse":["Open Movements → Record Consumption (or record it inside today's DSR).","Pick the Site and the Material.","Enter how much was used.","Save."],"afterSaving":"The site's stock goes down automatically by that amount. If someone tries to use more than what's on hand, the system stops them and explains why, instead of silently accepting a wrong number.","example":"50 bags of the 100 bags at Site A are used → remaining stock becomes 50 bags, instantly, everywhere the stock is shown.","href":"/movements/consumption/new"},{"id":"vendors","name":"Vendors","whatIsIt":"Vendors is the list of every supplier the company buys material or services from.","whyUseIt":"So every purchase is tied to who supplied it, and the Owner can see how much business each vendor does.","usedBy":["OWNER_ADMIN"],"howToUse":["Open Vendors.","Click Add Vendor.","Enter their name and contact details.","Save."],"afterSaving":"The vendor is ready to pick from every Purchase and RMC form. Their page automatically fills up with a history of everything ever bought from them.","example":"Shree Balaji Traders supplies cement and steel. Their page shows every delivery, the total bought this year, and what's still marked unpaid.","href":"/vendors"},{"id":"team","name":"Team & Labour","whatIsIt":"Team & Labour is the list of every worker, and where they've been working.","whyUseIt":"So the Owner knows who worked where, and workers are never tied to just one site.","usedBy":["OWNER_ADMIN","SITE_SUPERVISOR"],"howToUse":["Open Team & Labour.","Click Add Team Member for a new worker.","Attendance is recorded through the daily report — pick who was present today."],"afterSaving":"The worker's attendance history builds up automatically, day by day, visible on their own profile page.","example":"Suresh Kumar, a mason, worked at Site A yesterday and Site B today — both show up on his history, correctly.","href":"/team"},{"id":"advances","name":"Advances","whatIsIt":"An advance is money given to a worker before their final payment.","whyUseIt":"So the company never forgets who was already given money, and how much is still owed against it.","usedBy":["OWNER_ADMIN"],"howToUse":["Open a worker's profile.","Click Give Advance.","Enter the amount and a short reason.","Save."],"afterSaving":"The worker's Outstanding Balance goes up immediately — visible right on their profile, so it's never just remembered in someone's head.","example":"Ramesh receives a ₹2,000 advance → his Outstanding Balance becomes ₹2,000, and stays visible until it's paid back.","href":"/team"},{"id":"payments","name":"Payments","whatIsIt":"Payments is where a worker's wages are recorded and their advance is settled.","whyUseIt":"So a worker's final pay always correctly subtracts what they already took as an advance — no manual subtraction, no arguments.","usedBy":["OWNER_ADMIN"],"howToUse":["Open Payments → Record Payment.","Pick the worker and enter their wage for the period.","If they have an outstanding advance, choose how much of it to deduct.","Save."],"afterSaving":"The system works out the final amount automatically: wage plus any extra, minus deductions, minus the advance taken. The worker's Outstanding Balance goes down by exactly the amount deducted.","example":"Wage = ₹10,000. Advance already given = ₹2,000. Amount actually paid = ₹8,000 — and his Outstanding Balance drops to ₹0.","href":"/payments"},{"id":"machinery-vehicles","name":"Machinery & Vehicles","whatIsIt":"Machinery & Vehicles is the list of the company's own equipment — excavators, mixers, trucks — and where each one currently is.","whyUseIt":"So the Owner knows what equipment exists, where it is, and when it was last serviced.","usedBy":["OWNER_ADMIN"],"howToUse":["Open Machinery & Vehicles.","Add a machine or vehicle with its type and number.","Record a movement whenever it goes to a different site.","Log fuel, maintenance, or repair whenever it happens."],"afterSaving":"The asset's current site and status update immediately, and the movement or service is added to its permanent history.","example":"An excavator moves from Site A to Site B → its page now shows Site B as its current location, with the move logged.","href":"/machinery-vehicles"},{"id":"rmc","name":"RMC (Ready-Mix Concrete)","whatIsIt":"RMC records every concrete delivery to a site.","whyUseIt":"So concrete deliveries — a major cost — are tracked just as carefully as bagged materials.","usedBy":["OWNER_ADMIN","SITE_SUPERVISOR"],"howToUse":["Open RMC → Record Delivery (or add it inside today's DSR).","Pick the Site and the Vendor.","Enter the quantity (in m³), the grade, and the rate.","Save."],"afterSaving":"The total cost is worked out automatically (quantity × rate) and added to that site's cost in Reports.","example":"12 m³ of M25-grade concrete delivered to Site A → recorded instantly, with its cost rolled into that site's total spend.","href":"/rmc"},{"id":"expenses","name":"Expenses","whatIsIt":"Expenses records money spent at a site that isn't a material purchase — fuel, food, small repairs, and so on.","whyUseIt":"So every rupee spent on site is on record, not just the big purchases.","usedBy":["OWNER_ADMIN","SITE_SUPERVISOR"],"howToUse":["Open Expenses → Record Expense (or add it inside today's DSR).","Pick the Site and a category (fuel, labour welfare, and so on).","Enter the amount.","Save."],"afterSaving":"The amount is added instantly to that site's total spend, and to the month's overall expense total on the Dashboard.","example":"₹2,000 spent on diesel at Site A today → shows up immediately in today's expenses and this month's total.","href":"/expenses"},{"id":"waste-disposal","name":"Waste & Disposal","whatIsIt":"Waste & Disposal records what it costs to remove debris or waste material from a site — by the truckload.","whyUseIt":"So the real cost of clearing a site is tracked, whether it's paid to an outside truck or done with the company's own vehicle.","usedBy":["OWNER_ADMIN","SITE_SUPERVISOR"],"howToUse":["Open Waste & Disposal → Record Disposal.","Say what kind of waste it is, and whether it's an outside party (hired) or the company's own vehicle (own).","If hired, pick who was paid.","Enter the number of trips and the rate per trip.","Save."],"afterSaving":"The total cost is worked out automatically (trips × rate, plus any extra charges) and added to that site's total cost.","example":"6 truckloads of debris removed by a hired party at ₹450 a trip, plus ₹300 loading charge → total cost ₹3,000, added to the site's cost automatically.","href":"/waste-disposal"},{"id":"dsr","name":"Daily Site Report (DSR)","whatIsIt":"The DSR is the site's daily update — one entry that covers everything that happened today.","whyUseIt":"So the supervisor tells the system what happened once, instead of typing the same information into five different screens.","usedBy":["SITE_SUPERVISOR"],"howToUse":["Open today's report on your phone.","Pick the site (today's date is already filled in).","Tick who was present.","Add the materials used today.","Add any concrete (RMC) delivered.","Add today's expenses.","Add photos.","Write down any problems.","Submit."],"afterSaving":"One submission automatically updates attendance, reduces material stock, adds today's expenses, and becomes part of that site's history and reports — all from one form.","example":"Submitting today's DSR at Site A instantly shows up on the Owner's Dashboard, updates the stock for the cement used, and logs the ₹2,000 spent on fuel.","href":"/dsr/new"},{"id":"reports","name":"Reports","whatIsIt":"Reports is where the Owner can see a summary of any site, or the whole company, over any date range.","whyUseIt":"So the Owner can answer questions like \"how much did we spend this month\" without doing the maths by hand.","usedBy":["OWNER_ADMIN"],"howToUse":["Open Reports.","Pick a tab — Site, Inventory, Labour, Machinery, or Financial.","Optionally pick a site and a date range.","The numbers update to match."],"afterSaving":"Nothing to save — Reports are always live, built from everything already recorded elsewhere. A branded daily report is also compiled automatically for each site, ready to review.","example":"Pick Financial → All Sites → this month, and see the total spent on material, labour, RMC, machinery, expenses, and waste disposal, site by site.","href":"/reports"},{"id":"settings","name":"Settings","whatIsIt":"Settings is where the Owner controls the company's branding, user accounts, and the dropdown lists used across the app.","whyUseIt":"So the app looks like the company's own product, and only the right people can use it.","usedBy":["OWNER_ADMIN"],"howToUse":["Open Settings.","Update the company name, logo, and colours under Branding.","Add or manage user accounts under Users & Roles.","Manage dropdown lists (material categories, expense types, and so on) under Categories."],"afterSaving":"Branding changes appear on the next report generated. A new user can sign in immediately with the password they were given.","example":"The Owner uploads their own logo → every report generated from then on carries that logo, not a placeholder.","href":"/settings"}],"inventoryStory":{"purchase":{"steps":["Vendor","100 bags Cement","Site A","Stock = 100"]},"consumption":{"steps":["50 bags used","Stock automatically becomes 50"]},"movement":{"steps":["20 bags moved to Site B","Site A = 30","Site B = 20"]}},"labourStory":{"steps":["Worker joins","Works at Site A","Daily work recorded","Advance given","Wages calculated","Advance deducted","Payment recorded"],"example":{"wage":10000,"advance":2000,"paid":8000,"workerName":"Ramesh"}},"dsrStory":{"steps":["Supervisor opens app","Selects site","Records today's labour","Records material used","Records machinery","Records expenses","Adds photos","Reports issues","Submits"],"contributesTo":["Attendance","Inventory","Expenses","Site History","Reports"]},"ownerMorning":{"lines":["5 Active Sites","4 Sites Updated Today","1 Site Needs Attention","Cement Low at Site B","₹45,000 Vendor Payments Pending"]},"dayInTheLife":[{"time":"Morning","title":"Supervisor reaches Site A","detail":"The day begins."},{"time":"Material arrives","title":"100 bags cement received","detail":"Recorded as a Purchase — stock rises to 100."},{"time":"Labour starts work","title":"20 workers present","detail":"Marked present for today."},{"time":"Work happens","title":"50 bags cement consumed","detail":"Recorded as Consumption — stock drops to 50."},{"time":"Expense occurs","title":"₹2,000 site expense recorded","detail":"Fuel for the day, logged on the spot."},{"time":"Supervisor takes photos","title":"Photos attached to today's report","detail":"No separate upload screen — same form."},{"time":"DSR submitted","title":"One tap, everything above included","detail":"Attendance, stock, expenses, photos — all in one entry."},{"time":"Owner sees update","title":"Owner can now see the site's latest information","detail":"No phone call needed."}],"beforeAfter":{"before":["WhatsApp","Paper","Excel","Phone calls","Lost challans","Manual calculations","Delayed reports"],"after":["One system","Connected records","Connected inventory","Tracked advances","Reports ready instantly"]},"clientValue":{"owner":["See all sites in one place","Know what is happening","Control material","Control expenses","Track labour","Track vendors","Reduce manual work","Get reports quickly"],"supervisor":["Easy mobile updates","Less paperwork","No repeated data entry","Easy photo capture","Simple daily reporting"]},"endToEndDemo":["Create Site","Add Materials","Add Vendors","Add Team","Purchase Material","Move Material","Use Material","Record Labour","Record Expenses","Submit DSR","Owner Reviews","Generate Report"],"guides":[{"id":"record-consumption","moduleId":"consumption","title":"How to record material consumption","steps":[{"title":"Open Movements","detail":"From the sidebar, open Movements, or add it directly inside today's report."},{"title":"Select Site","detail":"Pick the site where the material was used."},{"title":"Select Material","detail":"Pick the material and its size from the list."},{"title":"Enter Quantity","detail":"Type how much was used."},{"title":"Save","detail":"Tap Record Consumption."}],"result":"The site's stock automatically decreases.","tryItHref":"/movements/consumption/new"},{"id":"create-site","moduleId":"sites","title":"How to create a site","steps":[{"title":"Open Sites","detail":"From the sidebar, open Sites."},{"title":"Add Site","detail":"Tap Add Site."},{"title":"Enter details","detail":"Name, location, and contract reference if you have one."},{"title":"Save","detail":"Tap Save."}],"result":"The site is ready to use everywhere in the app.","tryItHref":"/sites/new"},{"id":"record-purchase","moduleId":"purchases","title":"How to record a material purchase","steps":[{"title":"Open Movements","detail":"From the sidebar, open Movements."},{"title":"Record Purchase","detail":"Tap Record Purchase."},{"title":"Pick Vendor and Material","detail":"Choose who supplied it and what was bought."},{"title":"Enter quantity and rate","detail":"The total is calculated for you."},{"title":"Save","detail":"Tap Record Purchase."}],"result":"Stock goes up at the Godown or Site immediately.","tryItHref":"/movements/purchases/new"},{"id":"give-advance","moduleId":"advances","title":"How to give a worker an advance","steps":[{"title":"Open Team & Labour","detail":"From the sidebar, open Team & Labour."},{"title":"Open the worker","detail":"Tap the worker's name."},{"title":"Give Advance","detail":"Tap Give Advance."},{"title":"Enter amount and reason","detail":"A short reason is required."},{"title":"Save","detail":"Tap Save."}],"result":"The worker's Outstanding Balance goes up immediately.","tryItHref":"/team"},{"id":"submit-dsr","moduleId":"dsr","title":"How to submit today's report","steps":[{"title":"Open today's report","detail":"From your phone, open the Daily Site Report."},{"title":"Select site","detail":"Today's date is already filled in."},{"title":"Add labour","detail":"Tick who was present."},{"title":"Add material","detail":"Add what was used today."},{"title":"Add expenses","detail":"Add anything spent today."},{"title":"Add photos","detail":"Tap the camera icon."},{"title":"Submit","detail":"Tap Submit Daily Site Report."}],"result":"Attendance, stock, expenses and photos are all updated together.","tryItHref":"/dsr/new"}],"contextualHelp":[{"key":"material-consumption","explanation":"When you record material used at the site, the available stock is automatically reduced."},{"key":"advance","explanation":"An advance is money given to a worker before their final payment. It's subtracted automatically when the payment is recorded."},{"key":"outstanding-balance","explanation":"This is how much advance money a worker has taken that hasn't been paid back yet."},{"key":"godown","explanation":"The Godown is the company's central store — material can sit here before it's sent to a specific site."},{"key":"correct","explanation":"Correct fixes a mistake by adding a new, linked entry explaining what changed — the original record is never deleted, so there's always a full history."},{"key":"site-stock","explanation":"This is how much material is physically available right now at this site."},{"key":"payment-status","explanation":"Shows whether a vendor bill has been paid, partly paid, or not paid yet."},{"key":"net-payable","explanation":"The actual amount a worker is paid: wage plus any extra, minus deductions, minus any advance being settled."}],"comingSoon":[{"title":"Automatic WhatsApp report delivery","detail":"Daily reports are compiled automatically today; sending them over WhatsApp is not switched on yet."},{"title":"Marking a vendor bill as paid later","detail":"A purchase records its payment status when it's created; changing it afterwards isn't available yet."},{"title":"One search box for the whole app","detail":"Searching everything — sites, materials, workers, vendors — from one box is being built."}],"futureImprovements":[{"title":"Automatic alerts","detail":"Sending a message the moment stock runs low or a site misses a report, instead of the Owner having to open the Dashboard to see it."},{"title":"Downloadable PDF reports","detail":"A one-click PDF version of any report to forward to a client or bank."},{"title":"Restoring a deleted site or vendor","detail":"Today, deleting hides it everywhere but records are never lost — bringing it back currently needs support to step in."}]}</script>
-<script>
-
+// ---------------------------------------------------------------------------
+function js() {
+  return `
 const DATA = JSON.parse(document.getElementById('help-content').textContent);
 const deck = document.getElementById('deck');
 
@@ -218,7 +249,7 @@ function el(tag, attrs, children) {
   return node;
 }
 function chip(text, accent) { return el('div', { class: 'flow-chip' + (accent ? ' accent' : '') }, [text]); }
-function arrow(vertical) { return el('div', { class: vertical ? 'flow-vert-arrow' : 'flow-arrow', html: vertical ? '\u2193' : '\u2192' }); }
+function arrow(vertical) { return el('div', { class: vertical ? 'flow-vert-arrow' : 'flow-arrow', html: vertical ? '\\u2193' : '\\u2192' }); }
 function flowRow(items, opts) {
   opts = opts || {};
   const row = el('div', { class: 'flow-row' });
@@ -246,7 +277,7 @@ function slide(opts) {
   inner.appendChild(el('div', { class: 'eyebrow reveal in' }, ['Client Walkthrough']));
   inner.appendChild(el('h1', { class: 'hero-title reveal in' }, [DATA.product.tagline]));
   inner.appendChild(el('p', { class: 'lede reveal in' }, [DATA.product.intro]));
-  inner.appendChild(el('div', { class: 'cta-row reveal in' }, [el('a', { href: '#s-problem', class: 'btn primary' }, ['Start \u2192'])]));
+  inner.appendChild(el('div', { class: 'cta-row reveal in' }, [el('a', { href: '#s-problem', class: 'btn primary' }, ['Start \\u2192'])]));
 })();
 
 // ---- 2. The problem today ----
@@ -300,7 +331,7 @@ function slide(opts) {
   const wrap = el('div', { class: 'reveal', style: 'margin-top:32px' });
   wrap.appendChild(flowRow(DATA.systemFlow, { accentLast: true }));
   inner.appendChild(wrap);
-  inner.appendChild(el('p', { class: 'lede reveal' }, ['Every site\'s work, materials, labour and expenses flow into one place \u2014 so the Owner sees the whole business, not fragments of it.']));
+  inner.appendChild(el('p', { class: 'lede reveal' }, ['Every site\\'s work, materials, labour and expenses flow into one place \\u2014 so the Owner sees the whole business, not fragments of it.']));
 })();
 
 // ---- 6. Module-by-module walkthrough ----
@@ -380,7 +411,7 @@ function slide(opts) {
 (function () {
   const inner = slide({ id: 's-labour' });
   inner.appendChild(el('div', { class: 'eyebrow reveal' }, ['Follow the Worker']));
-  inner.appendChild(el('h2', { class: 'section-title reveal' }, ['From a day\'s work to a fair payment']));
+  inner.appendChild(el('h2', { class: 'section-title reveal' }, ['From a day\\'s work to a fair payment']));
   const col = el('div', { class: 'flow-col reveal' });
   DATA.labourStory.steps.forEach((label, i) => {
     col.appendChild(chip(label, i === DATA.labourStory.steps.length - 1));
@@ -389,9 +420,9 @@ function slide(opts) {
   inner.appendChild(col);
   const ex = DATA.labourStory.example;
   const stats = el('div', { class: 'stat-grid reveal' }, [
-    el('div', { class: 'stat-tile' }, [el('div', { class: 'num' }, ['\u20B9' + ex.wage.toLocaleString('en-IN')]), el('div', { class: 'lbl' }, ['Wage'])]),
-    el('div', { class: 'stat-tile' }, [el('div', { class: 'num' }, ['\u20B9' + ex.advance.toLocaleString('en-IN')]), el('div', { class: 'lbl' }, ['Advance already given'])]),
-    el('div', { class: 'stat-tile warn' }, [el('div', { class: 'num' }, ['\u20B9' + ex.paid.toLocaleString('en-IN')]), el('div', { class: 'lbl' }, ['Amount actually paid to ' + ex.workerName])]),
+    el('div', { class: 'stat-tile' }, [el('div', { class: 'num' }, ['\\u20B9' + ex.wage.toLocaleString('en-IN')]), el('div', { class: 'lbl' }, ['Wage'])]),
+    el('div', { class: 'stat-tile' }, [el('div', { class: 'num' }, ['\\u20B9' + ex.advance.toLocaleString('en-IN')]), el('div', { class: 'lbl' }, ['Advance already given'])]),
+    el('div', { class: 'stat-tile warn' }, [el('div', { class: 'num' }, ['\\u20B9' + ex.paid.toLocaleString('en-IN')]), el('div', { class: 'lbl' }, ['Amount actually paid to ' + ex.workerName])]),
   ]);
   inner.appendChild(stats);
   inner.appendChild(shot('payments'));
@@ -401,7 +432,7 @@ function slide(opts) {
 (function () {
   const inner = slide({ id: 's-dsr', dark: true });
   inner.appendChild(el('div', { class: 'eyebrow reveal' }, ['The Most Important Screen']));
-  inner.appendChild(el('h2', { class: 'section-title reveal' }, ['The Daily Site Report \u2014 one update, everything covered']));
+  inner.appendChild(el('h2', { class: 'section-title reveal' }, ['The Daily Site Report \\u2014 one update, everything covered']));
   const two = el('div', { class: 'two-col' });
   const left = el('div', { class: 'flow-col reveal' });
   DATA.dsrStory.steps.forEach((label, i) => {
@@ -419,7 +450,7 @@ function slide(opts) {
 (function () {
   const inner = slide({ id: 's-owner', tint: true });
   inner.appendChild(el('div', { class: 'eyebrow reveal' }, ['What Does the Owner See?']));
-  inner.appendChild(el('h2', { class: 'section-title reveal' }, ['Open the app in the morning \u2014 and know everything']));
+  inner.appendChild(el('h2', { class: 'section-title reveal' }, ['Open the app in the morning \\u2014 and know everything']));
   const stats = el('div', { class: 'stat-grid reveal' });
   DATA.ownerMorning.lines.forEach((line, i) => {
     stats.appendChild(el('div', { class: 'stat-tile' + (i >= 2 ? ' warn' : '') }, [el('div', { class: 'num', style: 'font-size:18px' }, [line])]));
@@ -495,14 +526,14 @@ function slide(opts) {
 // ---- 15. Coming soon / roadmap (honest scope) ----
 (function () {
   const inner = slide({ id: 's-roadmap' });
-  inner.appendChild(el('div', { class: 'eyebrow reveal' }, ['Being Honest About What\'s Next']));
+  inner.appendChild(el('div', { class: 'eyebrow reveal' }, ['Being Honest About What\\'s Next']));
   inner.appendChild(el('h2', { class: 'section-title reveal' }, ['Coming soon']));
   const grid = el('ul', { class: 'info-list reveal' });
-  DATA.comingSoon.forEach((c) => grid.appendChild(el('li', { style: 'align-items:center' }, [el('span', { class: 'badge-soon' }, ['Coming Soon']), ' ' + c.title + ' \u2014 ' + c.detail])));
+  DATA.comingSoon.forEach((c) => grid.appendChild(el('li', { style: 'align-items:center' }, [el('span', { class: 'badge-soon' }, ['Coming Soon']), ' ' + c.title + ' \\u2014 ' + c.detail])));
   inner.appendChild(grid);
   inner.appendChild(el('h3', { class: 'section-title reveal', style: 'font-size:20px;margin-top:40px' }, ['Recommended future improvements']));
   const grid2 = el('ul', { class: 'info-list reveal' });
-  DATA.futureImprovements.forEach((c) => grid2.appendChild(el('li', {}, [c.title + ' \u2014 ' + c.detail])));
+  DATA.futureImprovements.forEach((c) => grid2.appendChild(el('li', {}, [c.title + ' \\u2014 ' + c.detail])));
   inner.appendChild(grid2);
 })();
 
@@ -512,7 +543,7 @@ function slide(opts) {
   inner.appendChild(el('div', { class: 'logo-mark reveal', style: 'margin-bottom:24px;color:#fff' }, [el('span', { class: 'logo-dot' }, ['A']), DATA.product.name]));
   inner.appendChild(el('h2', { class: 'hero-title reveal' }, ['This is simple. This is how your team would actually use it.']));
   inner.appendChild(el('div', { class: 'cta-row reveal' }, [
-    el('a', { href: '/help', class: 'btn primary' }, ['Open Help & Guides \u2192']),
+    el('a', { href: '/help', class: 'btn primary' }, ['Open Help & Guides \\u2192']),
     el('a', { href: '/', class: 'btn ghost' }, ['Open the App']),
   ]));
 })();
@@ -548,7 +579,5 @@ window.addEventListener('scroll', () => {
   const pct = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
   document.getElementById('progressFill').style.width = pct + '%';
 });
-
-</script>
-</body>
-</html>
+`;
+}

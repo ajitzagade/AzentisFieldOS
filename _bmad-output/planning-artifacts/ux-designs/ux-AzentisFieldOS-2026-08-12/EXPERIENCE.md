@@ -8,7 +8,7 @@ sources:
   - "{planning_artifacts}/prds/prd-AzentisFieldOS-2026-08-11/prd.md"
   - "{planning_artifacts}/briefs/brief-AzentisFieldOS-2026-08-11/brief.md"
   - "{planning_artifacts}/architecture/architecture-AzentisFieldOS-2026-08-11/ARCHITECTURE-SPINE.md"
-updated: 2026-08-12
+updated: 2026-08-31
 ---
 
 # AzentisFieldOS — Experience Spine
@@ -23,6 +23,9 @@ Two roles only, and the interface never blurs them:
 - **Site Supervisor** — mobile-primary, low-end Android, frequently poor connectivity (NFR-2), logs fast and moves on.
 
 There is no approval-chain UX anywhere in this product — no multi-step wizards, no "pending manager approval" states. Every screen assumes the simplicity mandate from the brief: minimal required fields, dropdowns and defaults over typing, no enterprise-ERP density.
+
+**Client Presentation** — a related but separate artifact (`apps/web/public/presentation.html`), not an in-app IA surface. It is a single self-contained, scrollable HTML page built for a client demo — "how the system works," told in plain language to someone who has never used the product. It inherits `DESIGN.md`'s tokens directly (same colors, type scale, shadows, motion ceiling) so it visually reads as "the same product," but it is presentational, not operational: no login, no live data entry, no navigation chrome. It draws its module explanations, flows, and examples from the same shared content source that powers Help & Guides below (see Component Patterns → Guide content source) — the two are never authored independently.
+
 
 ## Information Architecture
 
@@ -51,7 +54,14 @@ There is no approval-chain UX anywhere in this product — no multi-step wizards
 
 Sidebar groups: ungrouped (Dashboard, Sites, Daily Activity) → **Materials** (Inventory, Materials, Movements) → **People** (Team & Labour, Payments) → **Assets** (Machinery & Vehicles, Vendors, RMC, Expenses) → **Insights** (Reports) → Settings pinned to the bottom. This structure was chosen over a flat 15-item list because it groups by *what the Owner is thinking about*, not by database table — materials-in-motion, people-and-money, and site-assets each cluster together.
 
-→ Composition reference: `mockups/*.html` (all 20 screens, fully cross-linked and click-through). Spine wins on conflict.
+> **Note (post-launch drift):** as `apps/web` grew past this mockup set, the shipped sidebar regrouped to Stock / People / Money / Machinery & Vehicles / Reports and gained two new surfaces this table predates: Waste & Disposal (per-trip disposal cost, under Stock — the closest semantic fit, an inventory-outflow concept like Movements) and Audit Log (under Settings — a trust/accountability surface, not daily work). Code is ground truth for the live grouping; this table stays the historical IA rationale. The addition below follows the *live* grouping.
+
+**Help & Guides** (`/help` in `apps/web`, new) — pinned at the bottom of the sidebar, directly above Settings. Same reasoning as Settings' placement: a utility surface reached when needed, not part of the daily Dashboard → Sites → DSR loop. Contains:
+- A landing page: "What do you want help with?" search + Getting Started / Sites / Materials / Labour / DSR / Owner section cards.
+- One visual step-by-step guide per real task (see Component Patterns → Guide Step below), each ending in a genuine "Try it yourself" link into the real page it teaches.
+- Every guide, and the landing page's section cards, are rendered from the same shared content source the Client Presentation draws from (see Foundation) — a guide added once appears in both places.
+
+→ Composition reference: `mockups/*.html` (the original 20 screens, fully cross-linked and click-through) plus the live `apps/web` app itself for everything built since. Spine wins on conflict.
 
 ## Voice and Tone
 
@@ -65,6 +75,18 @@ Microcopy. Brand aesthetic posture lives in `DESIGN.md.Brand & Style`.
 | Use exact glossary terms always: Site, Godown, DSR, Advance, Outstanding Balance, Team Member, Correct | Substitute synonyms: "warehouse," "employee," "edit," "project" alone |
 | State what happened and what to do next, in plain operational language | Use exclamation points, emoji, or gamified language ("🎉 Great job!") |
 | Same tone for Owner and Supervisor — counts, verbs, facts | A friendlier/simpler tone for the Supervisor as if they need hand-holding |
+
+**Help & Guides / Client Presentation addendum** — the operational app's tone above (facts, no hand-holding) is for people who already know the product. Explanatory content is different: it is written for someone who has never seen construction-management software, so it goes one step simpler *in addition to* every rule above, not instead of it:
+
+| Do | Don't |
+|---|---|
+| "When material is used, the stock automatically goes down." | "Inventory mutation is triggered on consumption record creation." |
+| "The supervisor records what happened at the site today." | "Users submit daily activity data via the DSR entity." |
+| Keep exact glossary terms (Site, DSR, Advance, Godown, Team Member, Correct) — but explain each one in plain words the first time it appears in a guide | Invent friendlier synonyms for glossary terms ("warehouse" for Godown) — the client needs to learn the product's real vocabulary, just explained simply |
+| One idea per sentence; short sentences over compound ones | Long paragraphs explaining several ideas at once |
+| Real construction numbers in examples (100 bags of cement, ₹2,000 advance) | Abstract placeholders ("Item A," "Amount X") |
+| Explain *why* a screen exists before *how* to use it ("Inventory tells you how much material is at each site" before the steps) | Jump straight into steps with no reason given |
+| Label anything not yet shipped **Coming Soon**; log improvement ideas as **Recommended Future Improvements** — never present either as available today | Describe a planned or ideal feature as if it already works |
 
 ## Component Patterns
 
@@ -81,6 +103,10 @@ Behavioral. Visual specs live in `DESIGN.md.Components`.
 | DSR sync-state indicator | Mobile DSR entry, Daily Activity log | Two unambiguously distinct states: "Saved on device — will sync when back online" (warning tokens + wifi-off icon) vs. "Synced" (success tokens + check-circle icon). Never a single ambiguous "pending" spinner. |
 | Photo capture / upload | Mobile DSR entry (camera), Desktop DSR entry (drag-drop) | Thumbnail grid, always additive (no forced single-photo limit). Desktop offers drag-drop; mobile offers camera-icon tap — same underlying field, platform-appropriate input method. |
 | Correction banner | Desktop DSR entry (`19-daily-activity-entry.html`) | Explains that this same form both creates new entries and files corrections; a correction prepends a reason requirement and links to the original. Read this as documentation-in-product, not decoration. |
+| Guide step | Help & Guides guide pages | A numbered card per step: step number in a filled `accent-teal-700` circle, one short instruction, an optional real screenshot with the relevant field/button highlighted (never a full unannotated screenshot), a flow-line connector (arrow, `≤160ms` fade-in on scroll into view — same motion ceiling as everything else, no bounce) to the next step. The final step of every guide is a real "Try it yourself" link into the live page it just taught — an actual `<a>`, never a fake button. |
+| Guide content source | Help & Guides, Client Presentation | Both surfaces render from one shared content source (module explanations: what/why/who/how/after-save/example; flow stories; FAQ entries) — a guide or example authored once appears in both places automatically. Editing content in two places is a defect, not a maintenance choice. |
+| Contextual help ("ⓘ") | Inline next to any field or concept a first-time user would find confusing (e.g. "Material Consumption," "Advance") | A small ghost icon-button (ⓘ), same visual family as row-action icon buttons. Click/tap opens a short popover (2–3 sentences max, same plain-language rule as Help & Guides) anchored to the icon — never a full-screen takeover, never navigation away from the field the user was filling in. Pulled from the same shared content source as the matching guide's "What is this?" answer. |
+| Help search | Help & Guides landing page | One search field: "What do you want help with?" Matches guide titles and their content by plain-text search — no fuzzy AI matching required, this is a small, known content set. Empty-query state shows the section cards (Getting Started / Sites / Materials / Labour / DSR / Owner); a query with zero matches follows the standard Empty state pattern below (message + suggestion to browse by section, never a dead end). |
 
 ## State Patterns
 
@@ -126,6 +152,8 @@ Behavioral. Visual contrast lives in `DESIGN.md` (all token pairs AA-checked at 
 | Mobile (Site Supervisor) | No sidebar. Minimal top bar (Site name + date). Single-column, full-width fields, camera-native photo capture. Device-frame convention in mockups is illustrative only — production renders as a normal responsive page, not a literal phone-shaped frame. |
 | Tablet | Inherits desktop layout with sidebar collapsing behavior to be defined at implementation (not yet decided — flag as an open item if a tablet-specific breakpoint proves necessary once `apps/web` exists). |
 | Owner on mobile | Reads the same desktop-oriented screens in a responsive single-column fallback (tables scroll horizontally or stack to cards) — the Owner is not forced into the Supervisor's DSR-only flow just because they're on a phone. |
+| Help & Guides on mobile | Must work especially well here — Supervisors are mobile-primary and this is the surface a Supervisor learns from unsupervised. Single-column guide steps, screenshots scaled to fit width without horizontal scroll, the contextual-help popover sized for a thumb tap and positioned to never get clipped off-screen. |
+| Client Presentation | Desktop / laptop / tablet only (a sales-demo artifact, presented to a client, not a field tool) — no mobile-specific layout required, but must not visually break on a tablet if opened there. |
 
 ## Inspiration & Anti-patterns
 
@@ -170,3 +198,12 @@ Failure: he tries to submit a second DSR for the same Site/date before the first
 2. He records a ₹2,000 Adjustment against this week's Payment, with a one-line reason.
 3. The system won't let the adjustment exceed the current balance — the field itself carries that constraint as helper text, not as a rejected-form surprise after submission.
 4. **Climax:** the balance updates to ₹6,000 immediately, timestamped and attributed, with no approval gate and no separate "adjustment request" workflow — matching the brief's explicit "no unnecessary approval chains" principle.
+
+### Flow 5 — Priya learns to record material consumption, alone, on her first day (Site Supervisor, first week, mobile)
+
+1. Priya's Owner told her to "record when material gets used," but nobody sat down to train her.
+2. She taps the ⓘ next to "Material Consumption" the first time she sees the field — a short popover explains it in one plain sentence, right where she's stuck, no navigation away from the DSR she was filling in.
+3. She still wants a fuller walkthrough, so she opens Help & Guides from the bottom of the sidebar and searches "how do I record material used."
+4. The guide shows five numbered steps with real screenshots — open Inventory, pick the Site, pick the Material, enter the quantity, save — each with the exact field or button highlighted, not a wall of text.
+5. The last step is a working "Try it yourself" link that drops her straight onto the real Consumption page, already knowing what she's looking at.
+6. **Climax:** she completes the entry correctly on her own, and the guide's last line — "the site's stock automatically goes down" — matches exactly what she sees happen. Nobody had to sit beside her.

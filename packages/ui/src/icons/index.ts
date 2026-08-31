@@ -11,6 +11,8 @@ export * from "./truck-icon";
 export * from "./building-icon";
 export * from "./droplet-icon";
 export * from "./receipt-icon";
+export * from "./info-icon";
+export * from "./help-circle-icon";
 export * from "./bar-chart-icon";
 export * from "./plus-icon";
 export * from "./rotate-ccw-icon";

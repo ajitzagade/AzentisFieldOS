@@ -18,7 +18,8 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx infra/prisma/seed.ts",
-    "db:seed:catalog": "tsx infra/prisma/seed-catalog.ts"
+    "db:seed:catalog": "tsx infra/prisma/seed-catalog.ts",
+    "presentation:build": "tsx scripts/generate-presentation.mjs"
   },
   "prisma": {
     "seed": "tsx infra/prisma/seed.ts"

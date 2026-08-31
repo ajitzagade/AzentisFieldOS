@@ -2,7 +2,7 @@
 name: AzentisFieldOS
 description: Premium construction-contractor operations SaaS for Indian civil contractors. From-scratch design system realized as Tailwind v4 `@theme` tokens in `packages/ui` (architecture AD-4/AD-5) — this file is the single source of truth those tokens are generated from.
 status: final
-updated: 2026-08-12
+updated: 2026-08-31
 colors:
   surface-0: '#FBFAF7'
   surface-1: '#FFFFFF'
@@ -169,6 +169,22 @@ components:
     foreground: '{colors.warning-700}'
     border: '#E8CC8F'
     radius: '{rounded.md}'
+  help-bubble:
+    icon-foreground: '{colors.ink-500}'
+    icon-hover-foreground: '{colors.accent-teal-700}'
+    popover-background: '{colors.surface-1}'
+    popover-border: '{colors.border-hairline}'
+    popover-radius: '{rounded.md}'
+    popover-elevation: shadow-2
+  guide-step:
+    number-background: '{colors.accent-teal-700}'
+    number-foreground: '#FFFFFF'
+    number-radius: '{rounded.full}'
+    card-background: '{colors.surface-1}'
+    card-border: '{colors.border-hairline}'
+    card-radius: '{rounded.lg}'
+    card-elevation: shadow-1
+    connector-color: '{colors.border-strong}'
 ---
 
 ## Brand & Style
@@ -239,6 +255,8 @@ Rounded but not soft — `rounded.sm` (6px) for chips and small controls, `round
 - **Icon system** — a single inline-SVG line-icon set, 24×24 viewbox, 1.75 stroke-width, round caps/joins, `stroke="currentColor"` throughout so every icon inherits its container's color automatically. No icon font, no external CDN — every icon ships inline in each screen for the offline-first, low-bandwidth reality of this product.
 - **Device frame** — for mobile (Site Supervisor) screens only: a dark bezel (`shadow-3`) framing a `rounded.xl` screen area, used to make unambiguous in reviews which screens are the phone experience vs. the desktop experience.
 - **Gap flag** — a warning-toned inline banner (icon + message + primary action) for anything that needs attention without being an error — e.g., "Site X has not submitted a report yet today." Distinct from a badge (which labels a single row) and distinct from an error state (which means something failed).
+- **Help bubble** — a small `ⓘ` ghost icon-button (`ink-500`, hovers to `accent-teal-700` — same interaction language as every other icon affordance) that opens a short anchored popover (`surface-1`, `shadow-2`, `rounded.md`) with 2–3 sentences of plain-language explanation. Never a full-screen takeover; never navigates the user away from what they were doing.
+- **Guide step** — a numbered explanation card for Help & Guides: a filled `accent-teal-700` circle holding the step number, a `card-title` instruction line, an optional annotated screenshot, and a thin `border-strong` connector line to the next step. `shadow-1` at rest (this is explanatory content, not drill-down data, so it sits one elevation below a primary Card).
 
 ## Do's and Don'ts
 
@@ -252,3 +270,5 @@ Rounded but not soft — `rounded.sm` (6px) for chips and small controls, `round
 | Keep hover/transition motion ≤160ms, subtle | Add bounce, spring, or decorative animation |
 | Load fonts from the system stack only | Load a webfont (breaks the 2G/3G budget for field users) |
 | Design every table for loading / data / empty / error states (AD-6) | Ship a table that only handles the happy path |
+| Write Help & Guides / Client Presentation copy in plain, concrete language (see `EXPERIENCE.md` Voice and Tone addendum) | Reuse the operational app's terse factual tone for content aimed at a first-time, non-technical reader |
+| Label anything unbuilt as **Coming Soon** or **Recommended Future Improvements** | Present a planned or ideal feature as if it exists today |
