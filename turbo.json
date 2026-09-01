@@ -5,7 +5,9 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/infra/prisma/**"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**", "api/index.js"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**", "api/index.js"],
+      "env": ["VERCEL_ENV"],
+      "passThroughEnv": ["DATABASE_URL"]
     },
     "dev": {
       "cache": false,
