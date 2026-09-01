@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "prisma generate --schema ../../infra/prisma/schema.prisma && nest build && node esbuild.vercel.mjs",
+    "build": "prisma generate --schema ../../infra/prisma/schema.prisma && node scripts/migrate-if-production.mjs && nest build && node esbuild.vercel.mjs",
     "dev": "nest build && node dist/src/main.js",
     "start": "nest build && node dist/src/main.js",
     "start:dev": "nest build && node dist/src/main.js",
