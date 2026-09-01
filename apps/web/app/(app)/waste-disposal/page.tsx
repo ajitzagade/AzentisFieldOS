@@ -17,6 +17,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 
 interface SiteOption {
@@ -140,6 +141,17 @@ const columns: DataTableColumn<WasteDisposalRow>[] = [
     cell: (r) => <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/waste-disposal/${r.id}/correct`} />,
   },
 ];
+
+const mobileCard: DataTableMobileCard<WasteDisposalRow> = {
+  primary: (r) => (
+    <span className="flex flex-wrap items-center gap-1.5">
+      {r.wasteType}
+      {r.correctsId ? <Badge variant="warning">Correction</Badge> : null}
+    </span>
+  ),
+  omitHeaders: ["Waste type"],
+  action: (r) => <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/waste-disposal/${r.id}/correct`} />,
+};
 
 const breakdownColumns = <T,>(
   label: string,
@@ -271,6 +283,7 @@ export default async function WasteDisposalPage({
       <h2 className="mb-3 text-card-title text-ink-900">Disposal Entries</h2>
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(r) => r.id}
         state={
           rows.length === 0

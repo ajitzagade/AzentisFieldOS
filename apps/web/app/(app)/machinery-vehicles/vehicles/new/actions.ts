@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createVehicleSchema } from "@azentisfieldos/shared";
+import { parseCreateVehicleForm } from "./parse";
 
 export interface CreateVehicleFormState {
   errors?: Record<string, string[]>;
@@ -15,14 +15,7 @@ export async function createVehicleAction(
   _prevState: CreateVehicleFormState,
   formData: FormData,
 ): Promise<CreateVehicleFormState> {
-  const parsed = createVehicleSchema.safeParse({
-    number: formData.get("number"),
-    typeId: formData.get("typeId"),
-    // FormData.get() returns null (not undefined) for an absent field —
-    // z.string().optional() accepts undefined but rejects null.
-    ownership: formData.get("ownership") || undefined,
-    driver: formData.get("driver") || undefined,
-  });
+  const parsed = parseCreateVehicleForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

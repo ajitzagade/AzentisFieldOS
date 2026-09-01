@@ -14,7 +14,16 @@ import {
   XIcon,
 } from "@azentisfieldos/ui";
 import type { Role } from "@azentisfieldos/shared";
-import { HELP_NAV_ITEM, NAV_GROUPS, SETTINGS_NAV_ITEM, UNGROUPED_NAV_ITEMS, type NavItem } from "./nav-config";
+import {
+  HELP_NAV_ITEM,
+  NAV_GROUPS,
+  SETTINGS_NAV_ITEM,
+  SUPERVISOR_NAV_GROUPS,
+  SUPERVISOR_QUICK_BAR_ITEMS,
+  SUPERVISOR_UNGROUPED_NAV_ITEMS,
+  UNGROUPED_NAV_ITEMS,
+  type NavItem,
+} from "./nav-config";
 import { FlashToast } from "./flash-toast";
 import { GlobalSearchButton, GlobalSearchDialog, useGlobalSearchController } from "./global-search";
 import { APP_DISPLAY_NAME } from "../../../lib/tenant";
@@ -23,10 +32,12 @@ import { usePwaInstall } from "../../../lib/use-pwa-install";
 // Every role gets the same sidebar-driven shell (product direction 2026-08-27,
 // superseding EXPERIENCE.md's original Owner/Admin-sidebar vs Supervisor-top-bar
 // split): the left nav rail on the left, the selected item's content on the
-// right, for all accounts. The one role difference kept here is the `Settings`
-// item — Owner/Admin only, since that surface hard-404s for a Site Supervisor
-// (Story 14.2's server-side guard), so surfacing it to them would be a broken
-// link, not access.
+// right, for all accounts. What differs by role is the nav *content*
+// (simplicity review 2026-09-01): the Supervisor rail is a task-first trim
+// (see SUPERVISOR_* in nav-config.ts) plus a fixed mobile bottom quick-bar;
+// the Owner keeps the full rail. Settings stays Owner/Admin-only, since that
+// surface hard-404s for a Site Supervisor (Story 14.2's server-side guard),
+// so surfacing it to them would be a broken link, not access.
 //
 // The *layout* is viewport-responsive: the navy rail shows from `lg` up, and
 // below that it collapses behind a hamburger into an accessible slide-in drawer.
@@ -79,6 +90,14 @@ function SidebarNav({
   onRequestInstall: () => void;
   onOpenSearch: () => void;
 }) {
+  // Task-first trim for the Supervisor (simplicity review 2026-09-01): six
+  // daily surfaces instead of the Owner's full 14-item rail. Owner surfaces
+  // stay reachable via the Supervisor Home's "More" list and direct URLs —
+  // this is de-emphasis, not access control (server @Roles guards remain
+  // the real boundary).
+  const ungroupedItems = role === "SITE_SUPERVISOR" ? SUPERVISOR_UNGROUPED_NAV_ITEMS : UNGROUPED_NAV_ITEMS;
+  const navGroups = role === "SITE_SUPERVISOR" ? SUPERVISOR_NAV_GROUPS : NAV_GROUPS;
+
   return (
     <>
       <div className="mb-6 flex items-center gap-2 px-2">
@@ -95,11 +114,11 @@ function SidebarNav({
         className="mb-4 text-ink-on-accent/80 hover:bg-white/10 hover:text-ink-on-accent"
       />
 
-      {UNGROUPED_NAV_ITEMS.map((item) => (
+      {ungroupedItems.map((item) => (
         <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} onNavigate={onNavigate} />
       ))}
 
-      {NAV_GROUPS.map((group) => (
+      {navGroups.map((group) => (
         <div key={group.label}>
           <div className="px-2 pt-4 pb-1 text-eyebrow text-ink-on-accent/50 uppercase">{group.label}</div>
           {group.items.map((item) => (
@@ -148,6 +167,40 @@ function SidebarNav({
         </button>
       </form>
     </>
+  );
+}
+
+// The Supervisor's persistent mobile bottom bar (simplicity review 2026-09-01):
+// the one-tap layer the hamburger drawer can't provide. Four fixed items,
+// thumb-reachable, visible on every screen below `lg`. Active state pairs
+// color with weight + aria-current (never color alone — accessibility floor).
+function SupervisorQuickBar({ pathname }: { pathname: string }) {
+  return (
+    <nav
+      aria-label="Quick actions"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border-hairline bg-surface-1 pb-[env(safe-area-inset-bottom)] lg:hidden"
+    >
+      <div className="flex">
+        {SUPERVISOR_QUICK_BAR_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(pathname, item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-caption transition-colors duration-(--default-transition-duration) ease-(--ease-standard) focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none",
+                active ? "font-semibold text-accent-teal-700" : "font-medium text-ink-500 hover:text-ink-700",
+              )}
+            >
+              <Icon className="size-5" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 
@@ -259,9 +312,18 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
         </div>
       ) : null}
 
-      <main className="flex-1 px-4 py-6 lg:overflow-y-auto lg:px-10 lg:py-8">
+      {/* Supervisor content gets extra bottom padding below lg so the fixed
+          quick-bar never covers the last row / submit button of a page. */}
+      <main
+        className={cn(
+          "flex-1 px-4 py-6 lg:overflow-y-auto lg:px-10 lg:py-8",
+          role === "SITE_SUPERVISOR" && "pb-24 lg:pb-8",
+        )}
+      >
         <div className="max-w-310">{children}</div>
       </main>
+
+      {role === "SITE_SUPERVISOR" ? <SupervisorQuickBar pathname={pathname} /> : null}
 
       <ConfirmDialog
         open={installDialogOpen}
@@ -285,8 +347,9 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
 export function AppShell({ role, children }: AppShellProps) {
   const pathname = usePathname();
 
-  // Sidebar shell for every role (product direction) — the `role` only decides
-  // whether the Settings item is shown (Owner/Admin), not whether there's a rail.
+  // Sidebar shell for every role (product direction) — the `role` decides the
+  // nav set (Supervisor trim + bottom quick-bar vs the Owner's full rail) and
+  // the Settings item, not whether there's a rail.
   // The toast system mounts once here so every page (and every Server
   // Action redirect carrying ?flash=) reports success through one channel.
   return (

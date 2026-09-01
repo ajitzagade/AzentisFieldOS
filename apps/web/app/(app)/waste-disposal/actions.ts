@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createWasteDisposalSchema } from "@azentisfieldos/shared";
+import { parseWasteDisposalForm } from "./parse";
 
 export interface CreateWasteDisposalFormState {
   errors?: Record<string, string[]>;
@@ -17,26 +17,7 @@ export async function createWasteDisposalAction(
   _prevState: CreateWasteDisposalFormState,
   formData: FormData,
 ): Promise<CreateWasteDisposalFormState> {
-  const otherChargesRaw = formData.get("otherCharges");
-  const parsed = createWasteDisposalSchema.safeParse({
-    siteId: formData.get("siteId"),
-    wasteType: formData.get("wasteType"),
-    quantityDetails: formData.get("quantityDetails") || undefined,
-    ownership: formData.get("ownership"),
-    vendorId: formData.get("vendorId") || undefined,
-    machineryId: formData.get("machineryId") || undefined,
-    vehicleId: formData.get("vehicleId") || undefined,
-    vehicleDetails: formData.get("vehicleDetails") || undefined,
-    tripCount: Number(formData.get("tripCount")),
-    ratePerTrip: Number(formData.get("ratePerTrip")),
-    otherCharges: otherChargesRaw ? Number(otherChargesRaw) : undefined,
-    disposalLocation: formData.get("disposalLocation") || undefined,
-    paymentStatus: formData.get("paymentStatus") || undefined,
-    notes: formData.get("notes") || undefined,
-    disposedAt: formData.get("disposedAt"),
-    correctsId: formData.get("correctsId") || undefined,
-    reason: formData.get("reason") || undefined,
-  });
+  const parsed = parseWasteDisposalForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

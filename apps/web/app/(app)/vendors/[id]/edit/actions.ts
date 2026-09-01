@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { updateVendorSchema } from "@azentisfieldos/shared";
+import { parseUpdateVendorForm } from "./parse";
 
 export interface UpdateVendorFormState {
   errors?: Record<string, string[]>;
@@ -17,18 +17,7 @@ export async function updateVendorAction(
   _prevState: UpdateVendorFormState,
   formData: FormData,
 ): Promise<UpdateVendorFormState> {
-  const parsed = updateVendorSchema.safeParse({
-    name: formData.get("name"),
-    // The form always resubmits every field (full-replace, not a diff) —
-    // an intentionally-blanked field must reach the API as an explicit
-    // `null` so it's actually cleared, not silently dropped by
-    // JSON.stringify omitting an `undefined` key.
-    contactPerson: formData.get("contactPerson") || null,
-    phone: formData.get("phone") || null,
-    email: formData.get("email") || null,
-    address: formData.get("address") || null,
-    materialsSupplied: formData.getAll("materialsSupplied"),
-  });
+  const parsed = parseUpdateVendorForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

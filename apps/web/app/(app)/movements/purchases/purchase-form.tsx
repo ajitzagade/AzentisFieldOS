@@ -14,6 +14,8 @@ import {
   Card,
   CheckCircleIcon,
   ComboboxField,
+  CorrectedValueField,
+  DetailsDisclosure,
   FilterIcon,
   HashIcon,
   LayersIcon,
@@ -27,8 +29,11 @@ import {
   WalletIcon,
 } from "@azentisfieldos/ui";
 import { stockStatus, useStock, withStockMeta } from "../../../../lib/use-site-stock";
+import { useClientValidation } from "../../../../lib/use-client-validation";
+import { SiteField } from "../../_components/site-field";
 import { ChallanPhotoField } from "../../_components/challan-photo-field";
 import { createPurchaseAction, type CreatePurchaseFormState } from "./actions";
+import { parsePurchaseForm } from "./parse";
 
 interface MaterialSizeOption {
   id: string;
@@ -90,16 +95,41 @@ type PurchaseFormProps = {
    * SITE and skips the toggle entirely — a UX convenience, not a
    * different data path (Purchase.destination = SITE either way). */
   fixedDestination?: "SITE";
+  /** D7: false for a Site Supervisor — the pricing card (Rate / Total /
+   * Payment Status) is not rendered at all and the entry is recorded as
+   * "Pricing pending" for the Owner to complete later. Defaults true. */
+  showPricing?: boolean;
 } & (
-  | { mode: "new"; correctsId?: undefined; initial?: PurchaseFormInitialValues }
-  | { mode: "correct"; correctsId: string; initial: PurchaseFormInitialValues }
+  | { mode: "new"; correctsId?: undefined; initial?: PurchaseFormInitialValues; original?: undefined }
+  | {
+      mode: "correct";
+      correctsId: string;
+      initial: PurchaseFormInitialValues;
+      /** The ledger row being corrected — drives the corrected-value entry
+       * (D4) and whether pricing fields exist to correct at all (D7). */
+      original: { quantity: number; priced: boolean };
+    }
 );
 
-export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, initial, fixedDestination, teamNames = [] }: PurchaseFormProps) {
+export function PurchaseForm({
+  mode,
+  correctsId,
+  materialSizes,
+  sites,
+  vendors,
+  initial,
+  fixedDestination,
+  teamNames = [],
+  showPricing = true,
+  original,
+}: PurchaseFormProps) {
   const [state, formAction] = useActionState(createPurchaseAction, initialState);
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
+  // Same shared validator as the Server Action (AD-7) — inline errors
+  // pre-submit; server-only failures still arrive via `state.errors`.
+  const validation = useClientValidation(parsePurchaseForm);
   const [destination, setDestination] = useState<"GODOWN" | "SITE">(fixedDestination ?? initial?.destination ?? "GODOWN");
 
   // A Purchase adds stock, so no overdraw warning applies — but the current
@@ -124,8 +154,41 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
   const selectedUnit = materialSizes.find((m) => m.id === materialSizeId)?.description;
   const unitSuffix = selectedUnit ? ` (${selectedUnit})` : "";
 
+  // D5: Total auto-computes from quantity × rate; the user may still type
+  // over it (a delivery bill can carry rounding or extra charges), and a
+  // later quantity/rate change recomputes — dropping the manual override so
+  // the visible figures never silently disagree.
+  const [quantity, setQuantity] = useState("");
+  const [rate, setRate] = useState(initial?.rate ?? "");
+  const [manualTotal, setManualTotal] = useState<string | null>(initial?.totalAmount ?? null);
+  const computedTotal =
+    quantity.trim() !== "" && rate.trim() !== "" && Number.isFinite(Number(quantity)) && Number.isFinite(Number(rate))
+      ? String(Math.round(Number(quantity) * Number(rate) * 100) / 100)
+      : "";
+  const totalValue = manualTotal ?? computedTotal;
+
+  const fieldError = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
+
+  // Pricing fields are rendered for the Owner's new entry and for a
+  // correction of a priced Purchase; a Supervisor's new entry and a
+  // correction of a still-unpriced one carry no money fields at all (D7).
+  const pricingRendered = mode === "correct" ? original.priced : showPricing;
+
+  const hasOptionalInitial = Boolean(
+    initial?.invoiceOrChallanNo ??
+      initial?.challanPhotoUrl ??
+      initial?.deliveryLocation ??
+      initial?.vehicleDetails ??
+      initial?.receiverName ??
+      initial?.notes,
+  );
+
   return (
-    <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
+    <form
+      action={formAction}
+      onSubmit={validation.guard(mode === "correct" ? confirmation.guard() : undefined)}
+      noValidate
+    >
       {mode === "correct" ? (
         <Card className="mb-4 border-warning-700 bg-warning-100">
           <h2 className="mb-1 flex items-center gap-2 text-card-title text-warning-700">
@@ -133,11 +196,10 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
             Filing a correction
           </h2>
           <p className="mb-3 text-body-sm text-warning-700">
-            This creates a new, linked entry — the original Purchase is never edited or deleted (AD-9). Enter the
-            quantity to add or remove as a signed adjustment (e.g. -20), not the corrected total.
+            This creates a new, linked entry — the original Purchase is never edited or deleted (AD-9).
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
+          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={fieldError("reason")} />
         </Card>
       ) : null}
 
@@ -150,7 +212,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           disabled={mode === "correct"}
           defaultValue={initial?.vendorId ?? ""}
           options={[{ value: "", label: "Select a Vendor" }, ...vendors.map((v) => ({ value: v.id, label: v.name }))]}
-          error={state.errors?.vendorId?.[0]}
+          error={fieldError("vendorId")}
         />
         {mode === "correct" ? <input type="hidden" name="vendorId" value={initial?.vendorId} /> : null}
 
@@ -166,7 +228,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           hint={stock?.text}
           hintTone={stock?.tone}
           emptyMessage="No matching Material"
-          error={state.errors?.materialSizeId?.[0]}
+          error={fieldError("materialSizeId")}
         />
         <input type="hidden" name="materialSizeId" value={materialSizeId} />
 
@@ -185,67 +247,122 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
               { value: "GODOWN", label: "Godown" },
               { value: "SITE", label: "Site" },
             ]}
-            error={state.errors?.destination?.[0]}
+            error={fieldError("destination")}
           />
         )}
         {mode === "correct" && !fixedDestination ? <input type="hidden" name="destination" value={destination} /> : null}
 
         {destination === "SITE" ? (
-          <>
-            <SelectField
-              label="Site"
-              name="siteId"
+          mode === "correct" ? (
+            <>
+              <SelectField
+                label="Site"
+                name="siteId"
+                required
+                icon={<MapPinIcon className="size-4" />}
+                disabled
+                value={siteId}
+                onChange={() => {}}
+                options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
+                error={fieldError("siteId")}
+              />
+              <input type="hidden" name="siteId" value={initial?.siteId} />
+            </>
+          ) : (
+            // Searchable + device-remembered Site picker (D5) — submits the
+            // hidden `siteId` itself and keeps the stock hint in sync.
+            <SiteField
+              sites={sites}
               required
-              icon={<MapPinIcon className="size-4" />}
-              disabled={mode === "correct"}
-              value={siteId}
-              onChange={(e) => setSiteId(e.target.value)}
-              options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
-              error={state.errors?.siteId?.[0]}
+              initialSiteId={initial?.siteId}
+              onSiteChange={setSiteId}
+              error={fieldError("siteId")}
             />
-            {mode === "correct" ? <input type="hidden" name="siteId" value={initial?.siteId} /> : null}
-          </>
+          )
         ) : null}
       </Card>
 
       <Card className="mb-4">
-        <TextField
-          label={mode === "correct" ? `Quantity adjustment${unitSuffix}` : `Quantity${unitSuffix}`}
-          name="quantity"
-          type="number"
-          step="any"
-          required
-          icon={<HashIcon className="size-4" />}
-          hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -20." : undefined}
-          error={state.errors?.quantity?.[0]}
-        />
-        <AmountField
-          label="Rate"
-          name="rate"
-          required
-          defaultValue={initial?.rate}
-          error={state.errors?.rate?.[0]}
-        />
-        <AmountField
-          label="Total Amount"
-          name="totalAmount"
-          required
-          defaultValue={initial?.totalAmount}
-          error={state.errors?.totalAmount?.[0]}
-        />
-        <SelectField
-          label="Payment Status"
-          name="paymentStatus"
-          required
-          icon={<WalletIcon className="size-4" />}
-          defaultValue={initial?.paymentStatus ?? "PAID"}
-          options={[
-            { value: "PAID", label: "Paid" },
-            { value: "PARTIAL", label: "Partial" },
-            { value: "UNPAID", label: "Unpaid" },
-          ]}
-          error={state.errors?.paymentStatus?.[0]}
-        />
+        {mode === "correct" ? (
+          // D4: the user types the corrected quantity — the signed delta the
+          // ledger needs is derived and submitted underneath.
+          <CorrectedValueField
+            label={`Correct quantity${unitSuffix}`}
+            name="quantity"
+            originalValue={original.quantity}
+            unit={selectedUnit}
+            required
+            error={fieldError("quantity")}
+          />
+        ) : (
+          <TextField
+            label={`Quantity${unitSuffix}`}
+            name="quantity"
+            type="number"
+            step="any"
+            inputMode="decimal"
+            required
+            icon={<HashIcon className="size-4" />}
+            value={quantity}
+            onChange={(e) => {
+              setQuantity(e.target.value);
+              setManualTotal(null);
+            }}
+            error={fieldError("quantity")}
+          />
+        )}
+
+        {pricingRendered ? (
+          <>
+            {/* Tells the shared parser that pricing is visible here and
+                therefore required — a Supervisor's form omits all of this. */}
+            <input type="hidden" name="pricingShown" value="1" />
+            <AmountField
+              label="Rate"
+              name="rate"
+              required
+              value={rate}
+              onChange={(e) => {
+                setRate(e.target.value);
+                if (mode === "new") setManualTotal(null);
+              }}
+              error={fieldError("rate")}
+            />
+            <AmountField
+              label="Total Amount"
+              name="totalAmount"
+              required
+              value={totalValue}
+              onChange={(e) => setManualTotal(e.target.value)}
+              error={fieldError("totalAmount")}
+            />
+            <SelectField
+              label="Payment Status"
+              name="paymentStatus"
+              required
+              icon={<WalletIcon className="size-4" />}
+              defaultValue={initial?.paymentStatus ?? "PAID"}
+              options={[
+                { value: "PAID", label: "Paid" },
+                { value: "PARTIAL", label: "Partial" },
+                { value: "UNPAID", label: "Unpaid" },
+              ]}
+              error={fieldError("paymentStatus")}
+            />
+          </>
+        ) : mode === "new" ? (
+          // D7: the Supervisor records the physical facts only.
+          <p className="mb-4 rounded-md bg-surface-2 px-3 py-2 text-caption text-ink-700">
+            Rates &amp; amounts are entered by the office — you don&apos;t need the bill.
+          </p>
+        ) : (
+          // Correcting a still-unpriced entry: only the quantity can be wrong
+          // here; pricing arrives later through the Owner's pricing queue.
+          <p className="mb-4 rounded-md bg-surface-2 px-3 py-2 text-caption text-ink-700">
+            This entry has no pricing yet — it stays &quot;Pricing pending&quot; until the office adds it.
+          </p>
+        )}
+
         <TextField
           label="Purchase Date"
           name="purchasedAt"
@@ -253,27 +370,32 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           required
           icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.purchasedAt ?? todayDate()}
-          error={state.errors?.purchasedAt?.[0]}
+          error={fieldError("purchasedAt")}
         />
       </Card>
 
-      <Card className="mb-4">
+      {/* D5: optional paperwork folds behind one toggle so the required path
+          reads short on a phone; collapsed fields still submit. */}
+      <DetailsDisclosure
+        summary="More details — challan no., photo, vehicle, receiver, notes"
+        defaultOpen={hasOptionalInitial}
+      >
         <TextField
           label="Invoice / Challan No."
           name="invoiceOrChallanNo"
           hint="Optional"
           icon={<HashIcon className="size-4" />}
           defaultValue={initial?.invoiceOrChallanNo}
-          error={state.errors?.invoiceOrChallanNo?.[0]}
+          error={fieldError("invoiceOrChallanNo")}
         />
-        <ChallanPhotoField initialUrl={initial?.challanPhotoUrl} error={state.errors?.challanPhotoUrl?.[0]} />
+        <ChallanPhotoField initialUrl={initial?.challanPhotoUrl} error={fieldError("challanPhotoUrl")} />
         <TextField
           label="Delivery Location"
           name="deliveryLocation"
           hint="Optional"
           icon={<MapPinIcon className="size-4" />}
           defaultValue={initial?.deliveryLocation}
-          error={state.errors?.deliveryLocation?.[0]}
+          error={fieldError("deliveryLocation")}
         />
         <TextField
           label="Vehicle Details"
@@ -282,7 +404,7 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           icon={<TruckIcon className="size-4" />}
           placeholder="e.g. MH12AB1234"
           defaultValue={initial?.vehicleDetails}
-          error={state.errors?.vehicleDetails?.[0]}
+          error={fieldError("vehicleDetails")}
         />
         {/* Native datalist: suggests Team Member names while still accepting
             any free-typed name (a receiver need not be on the team — the
@@ -294,15 +416,15 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
           icon={<UserIcon className="size-4" />}
           defaultValue={initial?.receiverName}
           list="purchase-receiver-names"
-          error={state.errors?.receiverName?.[0]}
+          error={fieldError("receiverName")}
         />
         <datalist id="purchase-receiver-names">
           {teamNames.map((name) => (
             <option key={name} value={name} />
           ))}
         </datalist>
-        <TextField label="Notes" name="notes" hint="Optional" icon={<PencilIcon className="size-4" />} defaultValue={initial?.notes} error={state.errors?.notes?.[0]} />
-      </Card>
+        <TextField label="Notes" name="notes" hint="Optional" icon={<PencilIcon className="size-4" />} defaultValue={initial?.notes} error={fieldError("notes")} />
+      </DetailsDisclosure>
 
       {state.formError ? (
         <p role="alert" className="mb-4 text-caption text-danger-700">
@@ -320,8 +442,10 @@ export function PurchaseForm({ mode, correctsId, materialSizes, sites, vendors, 
         confirmLabel={"Submit Correction"}
         onConfirm={confirmation.confirm}
       >
-        <ConfirmDialogRow label="Quantity adjustment" value={formValue(confirmation.values, "quantity")} />
-        <ConfirmDialogRow label="Total amount" value={formValue(confirmation.values, "totalAmount")} />
+        <ConfirmDialogRow label="Quantity change" value={formValue(confirmation.values, "quantity")} />
+        {pricingRendered ? (
+          <ConfirmDialogRow label="Total amount" value={formValue(confirmation.values, "totalAmount")} />
+        ) : null}
         {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
       </ConfirmDialog>
 

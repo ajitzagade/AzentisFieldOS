@@ -1,7 +1,14 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { HELP_CONTENT } from "@azentisfieldos/shared";
+import { HelpBubble } from "@azentisfieldos/ui";
 import { RmcForm, type RmcFormInitialValues } from "../../rmc-form";
+
+// The same explanation Help & Guides shows for the Correct concept — one
+// shared content source, read here inline (same pattern as the Consumption
+// page's contextual help).
+const CORRECT_HELP = HELP_CONTENT.contextualHelp.find((h) => h.key === "correct");
 
 interface SiteOption {
   id: string;
@@ -18,6 +25,8 @@ interface RmcEntryForCorrection {
   siteId: string;
   vendorId: string;
   grade: string;
+  // Prisma Decimal — serialized as a string over JSON.
+  quantityM3: string;
   ratePerM3: string;
   totalAmount: string;
   invoiceOrChallanNo: string | null;
@@ -65,6 +74,9 @@ export default async function CorrectRmcEntryPage({ params }: { params: Promise<
     siteId: entry.siteId,
     vendorId: entry.vendorId,
     grade: entry.grade,
+    // The original quantity/total — correct mode shows them so the user
+    // types corrected values and the form derives the signed deltas.
+    quantityM3: entry.quantityM3,
     ratePerM3: entry.ratePerM3,
     totalAmount: entry.totalAmount,
     invoiceOrChallanNo: entry.invoiceOrChallanNo ?? undefined,
@@ -80,7 +92,10 @@ export default async function CorrectRmcEntryPage({ params }: { params: Promise<
         </Link>{" "}
         / Correct
       </div>
-      <h1 className="mb-6 text-page-title text-ink-900">Correct RMC Delivery</h1>
+      <h1 className="mb-6 flex items-center gap-2 text-page-title text-ink-900">
+        Correct RMC Delivery
+        {CORRECT_HELP ? <HelpBubble>{CORRECT_HELP.explanation}</HelpBubble> : null}
+      </h1>
       <RmcForm mode="correct" correctsId={entry.id} sites={sites} vendors={vendors} initial={initial} />
     </div>
   );

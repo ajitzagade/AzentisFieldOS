@@ -1,7 +1,14 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { HELP_CONTENT } from "@azentisfieldos/shared";
+import { HelpBubble } from "@azentisfieldos/ui";
 import { AdvanceForm } from "../advance-form";
+
+// The same explanation Help & Guides and the Client Presentation show for
+// this concept — one shared content source, read here inline (EXPERIENCE.md
+// Component Patterns → Contextual help).
+const ADVANCE_HELP = HELP_CONTENT.contextualHelp.find((h) => h.key === "advance");
 
 interface TeamMemberOption {
   id: string;
@@ -33,7 +40,10 @@ export default async function NewAdvancePage({ params }: { params: Promise<{ id:
         </Link>{" "}
         / Record Advance
       </div>
-      <h1 className="mb-6 text-page-title text-ink-900">Record an Advance</h1>
+      <h1 className="mb-6 flex items-center gap-2 text-page-title text-ink-900">
+        Record an Advance
+        {ADVANCE_HELP ? <HelpBubble>{ADVANCE_HELP.explanation}</HelpBubble> : null}
+      </h1>
       <AdvanceForm mode="new" teamMemberId={teamMember.id} />
     </div>
   );

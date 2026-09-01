@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { BoxIcon, Button, Card, ComboboxField, FilterIcon, LayersIcon, PlusIcon, TextField } from "@azentisfieldos/ui";
+import { useClientValidation } from "@/lib/use-client-validation";
 import { createMaterialAction, type CreateMaterialFormState } from "./actions";
+import { parseCreateMaterialForm } from "./parse";
 
 interface Option {
   id: string;
@@ -27,6 +29,9 @@ export function NewMaterialForm({ categories, units }: { categories: Option[]; u
   const [state, formAction] = useActionState(createMaterialAction, initialState);
   const [categoryId, setCategoryId] = useState("");
   const [unitId, setUnitId] = useState("");
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseCreateMaterialForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   // AC (Task 4): a Material can't be created without an existing Category
   // and Unit to attach it to — guide the admin to create one first instead
@@ -59,7 +64,7 @@ export function NewMaterialForm({ categories, units }: { categories: Option[]; u
 
   return (
     <Card>
-      <form action={formAction} noValidate>
+      <form action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Name"
           name="name"
@@ -67,7 +72,7 @@ export function NewMaterialForm({ categories, units }: { categories: Option[]; u
           maxLength={200}
           icon={<LayersIcon className="size-4" />}
           placeholder="e.g. OPC 53 Cement"
-          error={state.errors?.name?.[0]}
+          error={errorFor("name")}
         />
         <ComboboxField
           label="Category"
@@ -78,7 +83,7 @@ export function NewMaterialForm({ categories, units }: { categories: Option[]; u
           onValueChange={(value) => setCategoryId(value ?? "")}
           placeholder="Type a Category…"
           emptyMessage="No matching Category"
-          error={state.errors?.categoryId?.[0]}
+          error={errorFor("categoryId")}
         />
         <input type="hidden" name="categoryId" value={categoryId} />
         <ComboboxField
@@ -91,7 +96,7 @@ export function NewMaterialForm({ categories, units }: { categories: Option[]; u
           onValueChange={(value) => setUnitId(value ?? "")}
           placeholder="Type a Unit…"
           emptyMessage="No matching Unit"
-          error={state.errors?.unitId?.[0]}
+          error={errorFor("unitId")}
         />
         <input type="hidden" name="unitId" value={unitId} />
 

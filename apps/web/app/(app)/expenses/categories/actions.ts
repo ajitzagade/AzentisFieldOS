@@ -2,10 +2,8 @@
 
 import { authedFetch } from "@/lib/api";
 import { revalidatePath } from "next/cache";
-import {
-  createExpenseCategorySchema,
-  updateExpenseCategorySchema,
-} from "@azentisfieldos/shared";
+import { updateExpenseCategorySchema } from "@azentisfieldos/shared";
+import { parseCreateExpenseCategoryForm } from "./parse";
 
 // Story 14.3: the admin list plus the Record Expense entry-form picker (AC #1).
 function revalidateExpenseCategoryPaths() {
@@ -22,7 +20,7 @@ export async function createExpenseCategoryAction(
   _prevState: CreateExpenseCategoryFormState,
   formData: FormData,
 ): Promise<CreateExpenseCategoryFormState> {
-  const parsed = createExpenseCategorySchema.safeParse({ name: formData.get("name") });
+  const parsed = parseCreateExpenseCategoryForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

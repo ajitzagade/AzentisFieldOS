@@ -43,7 +43,9 @@ describe("NewMovementPage", () => {
 
     await renderNewMovementPage();
 
-    expect(screen.getByRole("option", { name: "NH-48 Highway Widening" })).toBeInTheDocument();
+    // SiteField is a searchable combobox — options render on demand; the
+    // labelled combobox itself proves the Site picker is wired.
+    expect(screen.getByLabelText("Destination Site")).toHaveAttribute("role", "combobox");
 
     const user = userEvent.setup();
     const materialPicker = screen.getByLabelText("Material / Size");
@@ -88,7 +90,8 @@ describe("NewMovementPage", () => {
     render(element);
 
     expect(document.querySelector('input[name="materialSizeId"]')).toHaveValue("ms1");
-    expect(screen.getByLabelText("Destination Site")).toHaveValue("site1");
+    // The combobox shows the Site name; the hidden field carries the id.
+    expect(screen.getByLabelText("Destination Site")).toHaveValue("NH-48 Highway Widening");
   });
 
   it("prefills from a bare ?materialSizeId= with no ?materialId= at all — the exact URL shape the Material-availability page's Transfer link produces (Story 16.3)", async () => {

@@ -2,10 +2,8 @@
 
 import { authedFetch } from "@/lib/api";
 import { revalidatePath } from "next/cache";
-import {
-  createVehicleTypeSchema,
-  updateVehicleTypeSchema,
-} from "@azentisfieldos/shared";
+import { updateVehicleTypeSchema } from "@azentisfieldos/shared";
+import { parseCreateVehicleTypeForm } from "./parse";
 
 // Story 14.3: the admin list plus the Register Vehicle entry-form picker (AC #1).
 function revalidateVehicleTypePaths() {
@@ -22,7 +20,7 @@ export async function createVehicleTypeAction(
   _prevState: CreateVehicleTypeFormState,
   formData: FormData,
 ): Promise<CreateVehicleTypeFormState> {
-  const parsed = createVehicleTypeSchema.safeParse({ name: formData.get("name") });
+  const parsed = parseCreateVehicleTypeForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

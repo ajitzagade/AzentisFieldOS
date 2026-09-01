@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createMachinerySchema } from "@azentisfieldos/shared";
+import { parseCreateMachineryForm } from "./parse";
 
 export interface CreateMachineryFormState {
   errors?: Record<string, string[]>;
@@ -14,16 +14,7 @@ export async function createMachineryAction(
   _prevState: CreateMachineryFormState,
   formData: FormData,
 ): Promise<CreateMachineryFormState> {
-  const parsed = createMachinerySchema.safeParse({
-    name: formData.get("name"),
-    typeId: formData.get("typeId"),
-    assetNumber: formData.get("assetNumber"),
-    // FormData.get() returns null (not undefined) for an absent field —
-    // z.string().optional() accepts undefined but rejects null.
-    model: formData.get("model") || undefined,
-    ownership: formData.get("ownership") || undefined,
-    operator: formData.get("operator") || undefined,
-  });
+  const parsed = parseCreateMachineryForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

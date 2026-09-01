@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { BuildingIcon, Button, Card, CheckCircleIcon, FilterIcon, GearIcon, HashIcon, LayersIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { updateMachineryAction, type UpdateMachineryFormState } from "./actions";
+import { useClientValidation } from "@/lib/use-client-validation";
+import { parseUpdateMachineryForm } from "./parse";
 import type { MachineryDetail } from "./page";
 
 interface Option {
@@ -36,10 +38,13 @@ export function EditMachineryForm({
   machineryTypes: Option[];
 }) {
   const [state, formAction] = useActionState(updateMachineryAction.bind(null, machinery.id), initialState);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseUpdateMachineryForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   return (
     <Card>
-      <form action={formAction} noValidate>
+      <form action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Name"
           name="name"
@@ -47,7 +52,7 @@ export function EditMachineryForm({
           maxLength={200}
           icon={<LayersIcon className="size-4" />}
           defaultValue={machinery.name}
-          error={state.errors?.name?.[0]}
+          error={errorFor("name")}
         />
         <SelectField
           label="Type"
@@ -56,7 +61,7 @@ export function EditMachineryForm({
           defaultValue={machinery.type.id}
           icon={<FilterIcon className="size-4" />}
           options={machineryTypes.map((t) => ({ value: t.id, label: t.name }))}
-          error={state.errors?.typeId?.[0]}
+          error={errorFor("typeId")}
         />
         <TextField
           label="Asset / Registration Number"
@@ -65,7 +70,7 @@ export function EditMachineryForm({
           maxLength={100}
           icon={<HashIcon className="size-4" />}
           defaultValue={machinery.assetNumber}
-          error={state.errors?.assetNumber?.[0]}
+          error={errorFor("assetNumber")}
         />
         <TextField
           label="Model"
@@ -74,7 +79,7 @@ export function EditMachineryForm({
           maxLength={200}
           icon={<GearIcon className="size-4" />}
           defaultValue={machinery.model ?? undefined}
-          error={state.errors?.model?.[0]}
+          error={errorFor("model")}
         />
         <TextField
           label="Ownership"
@@ -83,7 +88,7 @@ export function EditMachineryForm({
           maxLength={200}
           icon={<BuildingIcon className="size-4" />}
           defaultValue={machinery.ownership ?? undefined}
-          error={state.errors?.ownership?.[0]}
+          error={errorFor("ownership")}
         />
         <TextField
           label="Operator"
@@ -92,7 +97,7 @@ export function EditMachineryForm({
           maxLength={200}
           icon={<UserIcon className="size-4" />}
           defaultValue={machinery.operator ?? undefined}
-          error={state.errors?.operator?.[0]}
+          error={errorFor("operator")}
         />
 
         {state.formError ? (

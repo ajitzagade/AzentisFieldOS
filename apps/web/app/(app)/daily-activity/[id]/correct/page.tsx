@@ -21,7 +21,7 @@ async function getDsr(id: string): Promise<DsrForCorrection | null> {
   const res = await authedFetch(`/dsr/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
-    throw new Error(`Failed to load Daily Site Report (${res.status})`);
+    throw new Error(`Failed to load Daily Report (${res.status})`);
   }
   return res.json();
 }
@@ -61,7 +61,7 @@ export default async function CorrectDsrPage({ params }: { params: Promise<{ id:
     <>
       <div className="mb-2 text-eyebrow text-ink-500">
         <Link href="/daily-activity" className="hover:text-accent-teal-700 hover:underline">
-          Daily Activity
+          Daily Reports
         </Link>{" "}
         /{" "}
         <Link href={`/daily-activity/${dsr.id}`} className="hover:text-accent-teal-700 hover:underline">
@@ -69,7 +69,7 @@ export default async function CorrectDsrPage({ params }: { params: Promise<{ id:
         </Link>{" "}
         / Correct
       </div>
-      <h1 className="mb-6 text-page-title text-ink-900">Correct Daily Activity — {dsr.site.name}</h1>
+      <h1 className="mb-6 text-page-title text-ink-900">Correct Daily Report — {dsr.site.name}</h1>
 
       <DsrDesktopForm mode="correct" originalId={dsr.id} initial={initial} />
     </>

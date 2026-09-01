@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createMaterialSchema } from "@azentisfieldos/shared";
+import { parseCreateMaterialForm } from "./parse";
 
 export interface CreateMaterialFormState {
   errors?: Record<string, string[]>;
@@ -14,11 +14,7 @@ export async function createMaterialAction(
   _prevState: CreateMaterialFormState,
   formData: FormData,
 ): Promise<CreateMaterialFormState> {
-  const parsed = createMaterialSchema.safeParse({
-    name: formData.get("name"),
-    categoryId: formData.get("categoryId"),
-    unitId: formData.get("unitId"),
-  });
+  const parsed = parseCreateMaterialForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

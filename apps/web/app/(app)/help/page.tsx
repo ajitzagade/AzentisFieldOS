@@ -13,7 +13,7 @@ const SECTIONS: { label: string; moduleIds: string[] }[] = [
   { label: "Sites", moduleIds: ["sites", "site-detail"] },
   { label: "Materials", moduleIds: ["materials", "inventory", "purchases", "movements", "consumption"] },
   { label: "Labour", moduleIds: ["team", "advances", "payments"] },
-  { label: "Daily Site Report", moduleIds: ["dsr"] },
+  { label: "Daily Report", moduleIds: ["dsr"] },
   { label: "Owner", moduleIds: ["reports", "vendors", "waste-disposal"] },
 ];
 
@@ -53,7 +53,7 @@ export default function HelpPage() {
           </h2>
           {results.length === 0 ? (
             <p className="text-body-sm text-ink-500">
-              Try a different search, or browse a section below — Sites, Materials, Labour, Daily Site Report, Owner.
+              Try a different search, or browse a section below — Sites, Materials, Labour, Daily Report, Owner.
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

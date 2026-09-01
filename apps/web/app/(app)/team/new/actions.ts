@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createTeamMemberSchema } from "@azentisfieldos/shared";
+import { parseCreateTeamMemberForm } from "./parse";
 
 export interface CreateTeamMemberFormState {
   errors?: Record<string, string[]>;
@@ -13,14 +13,7 @@ export async function createTeamMemberAction(
   _prevState: CreateTeamMemberFormState,
   formData: FormData,
 ): Promise<CreateTeamMemberFormState> {
-  const parsed = createTeamMemberSchema.safeParse({
-    name: formData.get("name"),
-    // FormData.get() returns null (not undefined) for an absent field —
-    // z.string().optional() accepts undefined but rejects null.
-    designation: formData.get("designation") || undefined,
-    contact: formData.get("contact") || undefined,
-    employmentTypeId: formData.get("employmentTypeId"),
-  });
+  const parsed = parseCreateTeamMemberForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

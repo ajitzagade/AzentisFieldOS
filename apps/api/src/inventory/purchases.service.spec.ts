@@ -8,6 +8,7 @@ function makeService(overrides: {
   purchaseFindUnique?: ReturnType<typeof vi.fn>;
   godownStockUpsert?: ReturnType<typeof vi.fn>;
   siteStockUpsert?: ReturnType<typeof vi.fn>;
+  purchaseUpdate?: ReturnType<typeof vi.fn>;
 }) {
   const purchaseCreate =
     overrides.purchaseCreate ?? vi.fn().mockResolvedValue({ id: 'p1' });
@@ -23,8 +24,10 @@ function makeService(overrides: {
     siteStock: { upsert: siteStockUpsert },
   };
 
+  const purchaseUpdate = overrides.purchaseUpdate ?? vi.fn().mockResolvedValue({ id: 'p1' });
+
   const prisma = {
-    purchase: { findUnique: purchaseFindUnique },
+    purchase: { findUnique: purchaseFindUnique, update: purchaseUpdate },
     $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(tx)),
   };
 
@@ -38,6 +41,7 @@ function makeService(overrides: {
     purchaseCreate,
     godownStockUpsert,
     siteStockUpsert,
+    purchaseUpdate,
   };
 }
 
@@ -232,7 +236,7 @@ describe('PurchasesService.summaryForVendor', () => {
     expect(aggregate.mock.calls[0]![0].where.vendorId).toBe('v1');
     expect(aggregate.mock.calls[1]![0].where).toEqual({
       vendorId: 'v1',
-      paymentStatus: { not: 'PAID' },
+      paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
     });
   });
 
@@ -271,5 +275,53 @@ describe('PurchasesService.countThisMonth', () => {
     const { gte, lt } = count.mock.calls[0]![0].where.purchasedAt;
     expect(gte.getDate()).toBe(1);
     expect(lt.getTime()).toBeGreaterThan(gte.getTime());
+  });
+});
+
+// D7: the one-time pricing completion of a Supervisor's unpriced inward
+// entry. The guard is the whole point — it must refuse an already-priced
+// row so AD-9's append-only rule keeps governing every recorded value.
+describe('PurchasesService.completePricing', () => {
+  const pricing = { rate: 390, totalAmount: 19500, paymentStatus: 'UNPAID' as const };
+
+  it('fills rate/totalAmount/paymentStatus on an unpriced Purchase', async () => {
+    const purchaseFindUnique = vi
+      .fn()
+      .mockResolvedValue({ id: 'p1', totalAmount: null });
+    const purchaseUpdate = vi
+      .fn()
+      .mockResolvedValue({ id: 'p1', ...pricing });
+    const { service } = makeService({ purchaseFindUnique, purchaseUpdate });
+
+    await expect(service.completePricing('p1', pricing)).resolves.toEqual({
+      id: 'p1',
+      ...pricing,
+    });
+    expect(purchaseUpdate).toHaveBeenCalledWith({
+      where: { id: 'p1' },
+      data: pricing,
+    });
+  });
+
+  it('rejects an already-priced Purchase — changes must be corrections', async () => {
+    const purchaseFindUnique = vi
+      .fn()
+      .mockResolvedValue({ id: 'p1', totalAmount: new Prisma.Decimal(5000) });
+    const purchaseUpdate = vi.fn();
+    const { service } = makeService({ purchaseFindUnique, purchaseUpdate });
+
+    await expect(service.completePricing('p1', pricing)).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(purchaseUpdate).not.toHaveBeenCalled();
+  });
+
+  it('404s for a Purchase that does not exist', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue(null);
+    const { service } = makeService({ purchaseFindUnique });
+
+    await expect(service.completePricing('missing', pricing)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });

@@ -3,8 +3,10 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { BuildingIcon, Button, Card, CheckCircleIcon, MailIcon, MapPinIcon, PhoneIcon, TextField, UserIcon } from "@azentisfieldos/ui";
+import { useClientValidation } from "@/lib/use-client-validation";
 import { MaterialsSuppliedField } from "../../materials-supplied-field";
 import { updateVendorAction, type UpdateVendorFormState } from "./actions";
+import { parseUpdateVendorForm } from "./parse";
 import type { Vendor } from "../../page";
 
 function SubmitButton() {
@@ -21,10 +23,13 @@ const initialState: UpdateVendorFormState = {};
 
 export function EditVendorForm({ vendor }: { vendor: Vendor }) {
   const [state, formAction] = useActionState(updateVendorAction.bind(null, vendor.id), initialState);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseUpdateVendorForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   return (
     <Card>
-      <form action={formAction} noValidate>
+      <form action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Name"
           name="name"
@@ -32,7 +37,7 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
           maxLength={200}
           icon={<BuildingIcon className="size-4" />}
           defaultValue={vendor.name}
-          error={state.errors?.name?.[0]}
+          error={errorFor("name")}
         />
         <TextField
           label="Contact person"
@@ -41,7 +46,7 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
           maxLength={200}
           icon={<UserIcon className="size-4" />}
           defaultValue={vendor.contactPerson ?? ""}
-          error={state.errors?.contactPerson?.[0]}
+          error={errorFor("contactPerson")}
         />
         <TextField
           label="Phone"
@@ -51,7 +56,7 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
           maxLength={50}
           icon={<PhoneIcon className="size-4" />}
           defaultValue={vendor.phone ?? ""}
-          error={state.errors?.phone?.[0]}
+          error={errorFor("phone")}
         />
         <TextField
           label="Email"
@@ -61,7 +66,7 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
           maxLength={200}
           icon={<MailIcon className="size-4" />}
           defaultValue={vendor.email ?? ""}
-          error={state.errors?.email?.[0]}
+          error={errorFor("email")}
         />
         <TextField
           label="Address"
@@ -70,12 +75,12 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
           maxLength={500}
           icon={<MapPinIcon className="size-4" />}
           defaultValue={vendor.address ?? ""}
-          error={state.errors?.address?.[0]}
+          error={errorFor("address")}
         />
         <MaterialsSuppliedField
           name="materialsSupplied"
           defaultValue={vendor.materialsSupplied}
-          error={state.errors?.materialsSupplied?.[0]}
+          error={errorFor("materialsSupplied")}
         />
 
         {state.formError ? (

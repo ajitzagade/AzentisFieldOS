@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button, Card, ClipboardIcon, LayersIcon, PhoneIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { useClientValidation } from "@/lib/use-client-validation";
 import { createTeamMemberAction, type CreateTeamMemberFormState } from "./actions";
+import { parseCreateTeamMemberForm } from "./parse";
 
 interface Option {
   id: string;
@@ -25,6 +27,9 @@ const initialState: CreateTeamMemberFormState = {};
 
 export function NewTeamMemberForm({ employmentTypes }: { employmentTypes: Option[] }) {
   const [state, formAction] = useActionState(createTeamMemberAction, initialState);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseCreateTeamMemberForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   if (employmentTypes.length === 0) {
     return (
@@ -42,14 +47,14 @@ export function NewTeamMemberForm({ employmentTypes }: { employmentTypes: Option
 
   return (
     <Card>
-      <form action={formAction} noValidate>
+      <form action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Name"
           name="name"
           required
           maxLength={200}
           icon={<UserIcon className="size-4" />}
-          error={state.errors?.name?.[0]}
+          error={errorFor("name")}
         />
         <TextField
           label="Role / Designation"
@@ -58,7 +63,7 @@ export function NewTeamMemberForm({ employmentTypes }: { employmentTypes: Option
           maxLength={200}
           icon={<ClipboardIcon className="size-4" />}
           placeholder="e.g. Site Supervisor, Mason, Helper"
-          error={state.errors?.designation?.[0]}
+          error={errorFor("designation")}
         />
         <TextField
           label="Contact"
@@ -67,7 +72,7 @@ export function NewTeamMemberForm({ employmentTypes }: { employmentTypes: Option
           hint="Optional"
           maxLength={100}
           icon={<PhoneIcon className="size-4" />}
-          error={state.errors?.contact?.[0]}
+          error={errorFor("contact")}
         />
         <SelectField
           label="Employment Type"
@@ -79,7 +84,7 @@ export function NewTeamMemberForm({ employmentTypes }: { employmentTypes: Option
             { value: "", label: "Select an Employment Type" },
             ...employmentTypes.map((e) => ({ value: e.id, label: e.name })),
           ]}
-          error={state.errors?.employmentTypeId?.[0]}
+          error={errorFor("employmentTypeId")}
         />
 
         {state.formError ? (

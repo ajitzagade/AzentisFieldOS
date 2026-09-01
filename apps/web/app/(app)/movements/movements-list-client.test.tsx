@@ -32,6 +32,7 @@ const godownPurchase: MovementLogRow = {
   item: {
     id: "p1",
     destination: "GODOWN",
+    totalAmount: "5000",
     quantity: "200",
     purchasedAt: "2026-08-11T00:00:00.000Z",
     site: null,
@@ -111,7 +112,10 @@ describe("MovementsListClient", () => {
 
   it("shows the zero-records-ever empty state when there is no active search or filter", () => {
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText(/No Purchases, movements, consumption, or wastage\/return recorded yet\./)).toBeInTheDocument();
+    // Rendered as both the desktop table panel and the mobile card panel.
+    expect(
+      screen.getAllByText(/No Purchases, movements, consumption, or wastage\/return recorded yet\./),
+    ).toHaveLength(2);
   });
 
   it("shows the no-matches empty state with Clear filters when a search is active and nothing matches", async () => {
@@ -119,8 +123,8 @@ describe("MovementsListClient", () => {
     const user = userEvent.setup();
     renderClient({ rows: [], total: 0 });
 
-    expect(screen.getByText("No entries match your search or filters.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getAllByText("No entries match your search or filters.")).toHaveLength(2);
+    await user.click(screen.getAllByRole("button", { name: "Clear filters" })[0]!);
     expect(clearAll).toHaveBeenCalledOnce();
   });
 
@@ -128,7 +132,7 @@ describe("MovementsListClient", () => {
     hookState = { q: "", getFilter: (name) => (name === "from" ? "2026-08-01" : null) };
     renderClient({ rows: [], total: 0 });
 
-    expect(screen.getByText("No entries match your search or filters.")).toBeInTheDocument();
+    expect(screen.getAllByText("No entries match your search or filters.")).toHaveLength(2);
     expect(
       screen.queryByText(/No Purchases, movements, consumption, or wastage\/return recorded yet\./),
     ).not.toBeInTheDocument();

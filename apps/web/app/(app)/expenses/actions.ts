@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createExpenseSchema } from "@azentisfieldos/shared";
+import { parseCreateExpenseForm } from "./parse";
 
 export interface CreateExpenseFormState {
   errors?: Record<string, string[]>;
@@ -17,17 +17,7 @@ export async function createExpenseAction(
   _prevState: CreateExpenseFormState,
   formData: FormData,
 ): Promise<CreateExpenseFormState> {
-  const parsed = createExpenseSchema.safeParse({
-    siteId: formData.get("siteId"),
-    categoryId: formData.get("categoryId"),
-    amount: Number(formData.get("amount")),
-    description: formData.get("description") || undefined,
-    paymentMethod: formData.get("paymentMethod") || undefined,
-    personOrVendor: formData.get("personOrVendor") || undefined,
-    incurredAt: formData.get("incurredAt"),
-    correctsId: formData.get("correctsId") || undefined,
-    reason: formData.get("reason") || undefined,
-  });
+  const parsed = parseCreateExpenseForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

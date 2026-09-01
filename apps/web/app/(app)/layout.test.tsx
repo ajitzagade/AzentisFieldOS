@@ -35,14 +35,18 @@ afterEach(() => {
 });
 
 describe("AppLayout role resolution", () => {
-  it("renders the sidebar for a SITE_SUPERVISOR too, but without the Settings link", async () => {
+  it("renders the trimmed task-first sidebar for a SITE_SUPERVISOR, without the Settings link", async () => {
     mockMe("SITE_SUPERVISOR");
     await renderLayout();
 
     expect(authedFetchMock).toHaveBeenCalledWith("/users/me", { cache: "no-store" });
-    // Sidebar shell for all roles now — nav is present…
-    expect(screen.getByRole("link", { name: /Dashboard/ })).toBeInTheDocument();
-    // …but Settings (Owner/Admin-only, 404s for a Supervisor) is not shown.
+    // Supervisor nav is the 7-item trim: Home instead of Dashboard…
+    expect(screen.getAllByRole("link", { name: /Home/ }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /Team & Attendance/ })).toBeInTheDocument();
+    // …owner surfaces are not in the supervisor's nav…
+    expect(screen.queryByRole("link", { name: /Dashboard/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Vendors/ })).not.toBeInTheDocument();
+    // …and Settings (Owner/Admin-only, 404s for a Supervisor) is not shown.
     expect(screen.queryByRole("link", { name: /Settings/ })).not.toBeInTheDocument();
     expect(screen.getByText("page content")).toBeInTheDocument();
   });
@@ -55,12 +59,12 @@ describe("AppLayout role resolution", () => {
     expect(screen.getByRole("link", { name: /Settings/ })).toBeInTheDocument();
   });
 
-  it("defaults to the least-privileged role if the identity lookup fails (sidebar, but never the admin-only Settings)", async () => {
+  it("defaults to the least-privileged role if the identity lookup fails (supervisor sidebar, never the admin-only Settings)", async () => {
     authedFetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
     await renderLayout();
 
-    // Falls back to SITE_SUPERVISOR: the sidebar renders, but Settings does not.
-    expect(screen.getByRole("link", { name: /Dashboard/ })).toBeInTheDocument();
+    // Falls back to SITE_SUPERVISOR: the trimmed sidebar renders, but Settings does not.
+    expect(screen.getAllByRole("link", { name: /Home/ }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("link", { name: /Settings/ })).not.toBeInTheDocument();
     expect(screen.getByText("page content")).toBeInTheDocument();
   });

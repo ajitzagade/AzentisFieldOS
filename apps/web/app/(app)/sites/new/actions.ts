@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createSiteSchema } from "@azentisfieldos/shared";
+import { parseCreateSiteForm } from "./parse";
 
 export interface CreateSiteFormState {
   errors?: Record<string, string[]>;
@@ -19,13 +19,7 @@ export async function createSiteAction(
   _prevState: CreateSiteFormState,
   formData: FormData,
 ): Promise<CreateSiteFormState> {
-  const parsed = createSiteSchema.safeParse({
-    name: formData.get("name"),
-    location: formData.get("location"),
-    status: formData.get("status"),
-    contractReference: formData.get("contractReference") || undefined,
-    description: formData.get("description") || undefined,
-  });
+  const parsed = parseCreateSiteForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

@@ -14,6 +14,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { useListQueryState } from "../../../lib/use-list-query-state";
 import { useDebouncedSearch } from "../../../lib/use-debounced-search";
@@ -88,6 +89,16 @@ const columns: DataTableColumn<RmcEntryRow>[] = [
   },
 ];
 
+const mobileCard: DataTableMobileCard<RmcEntryRow> = {
+  primary: (row) => (
+    <>
+      {row.vendor.name} <span className="text-ink-500">· {row.grade}</span>
+    </>
+  ),
+  omitHeaders: ["Vendor", "Grade"],
+  action: (row) => <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/rmc/${row.id}/correct`} />,
+};
+
 export function RmcEntriesListClient({
   rows,
   total,
@@ -118,6 +129,7 @@ export function RmcEntriesListClient({
 
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(row) => row.id}
         sort={query.sort ? { key: query.sort, order: query.order ?? "asc" } : undefined}
         onSortChange={query.setSort}

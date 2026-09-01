@@ -334,7 +334,7 @@ export function BrandingForm({ config }: { config: BrandingConfig }) {
             <div className="text-caption font-bold">{tenantName || "Your Company"}</div>
           </div>
           <div className="px-4 py-4 text-caption text-ink-500">
-            Daily Site Report · NH-48 Highway Widening — Package 3
+            Daily Report · NH-48 Highway Widening — Package 3
             {gstin.trim() ? (
               <>
                 <br />

@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createRmcEntrySchema } from "@azentisfieldos/shared";
+import { parseRmcEntryForm } from "./parse";
 
 export interface CreateRmcEntryFormState {
   errors?: Record<string, string[]>;
@@ -17,19 +17,7 @@ export async function createRmcEntryAction(
   _prevState: CreateRmcEntryFormState,
   formData: FormData,
 ): Promise<CreateRmcEntryFormState> {
-  const parsed = createRmcEntrySchema.safeParse({
-    siteId: formData.get("siteId"),
-    vendorId: formData.get("vendorId"),
-    quantityM3: Number(formData.get("quantityM3")),
-    grade: formData.get("grade"),
-    ratePerM3: Number(formData.get("ratePerM3")),
-    totalAmount: Number(formData.get("totalAmount")),
-    invoiceOrChallanNo: formData.get("invoiceOrChallanNo") || undefined,
-    challanPhotoUrl: formData.get("challanPhotoUrl") || undefined,
-    deliveredAt: formData.get("deliveredAt"),
-    correctsId: formData.get("correctsId") || undefined,
-    reason: formData.get("reason") || undefined,
-  });
+  const parsed = parseRmcEntryForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

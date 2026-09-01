@@ -5,6 +5,8 @@ import { useFormStatus } from "react-dom";
 import { Badge, BoxIcon, Button, Card, CheckCircleIcon, ComboboxField, FilterIcon, HashIcon, LayersIcon, PencilIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import type { CustomFieldDefinition, CustomFieldType } from "@azentisfieldos/shared";
 import { updateMaterialAction, type UpdateMaterialFormState } from "./actions";
+import { useClientValidation } from "@/lib/use-client-validation";
+import { parseUpdateMaterialForm } from "./parse";
 import type { MaterialDetail } from "./page";
 
 interface Option {
@@ -43,6 +45,9 @@ export function EditMaterialForm({
   units: Option[];
 }) {
   const [state, formAction] = useActionState(updateMaterialAction.bind(null, material.id), initialState);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseUpdateMaterialForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
   const [isActive, setIsActive] = useState(material.isActive);
   const [categoryId, setCategoryId] = useState(material.category.id);
   const [unitId, setUnitId] = useState(material.unit.id);
@@ -63,7 +68,7 @@ export function EditMaterialForm({
 
   return (
     <Card>
-      <form action={formAction} noValidate>
+      <form action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Name"
           name="name"
@@ -71,7 +76,7 @@ export function EditMaterialForm({
           maxLength={200}
           icon={<LayersIcon className="size-4" />}
           defaultValue={material.name}
-          error={state.errors?.name?.[0]}
+          error={errorFor("name")}
         />
         <ComboboxField
           label="Category"
@@ -82,7 +87,7 @@ export function EditMaterialForm({
           onValueChange={(value) => setCategoryId(value ?? "")}
           placeholder="Type a Category…"
           emptyMessage="No matching Category"
-          error={state.errors?.categoryId?.[0]}
+          error={errorFor("categoryId")}
         />
         <input type="hidden" name="categoryId" value={categoryId} />
         <ComboboxField
@@ -94,7 +99,7 @@ export function EditMaterialForm({
           onValueChange={(value) => setUnitId(value ?? "")}
           placeholder="Type a Unit…"
           emptyMessage="No matching Unit"
-          error={state.errors?.unitId?.[0]}
+          error={errorFor("unitId")}
         />
         <input type="hidden" name="unitId" value={unitId} />
         <TextField
@@ -106,7 +111,7 @@ export function EditMaterialForm({
           icon={<HashIcon className="size-4" />}
           hint="Optional — flags this Material on the Inventory page once its Godown stock (summed across all Sizes) falls below this. Leave blank to never flag it."
           defaultValue={material.lowStockThreshold ?? undefined}
-          error={state.errors?.lowStockThreshold?.[0]}
+          error={errorFor("lowStockThreshold")}
         />
 
         <div className="mb-4 flex items-center gap-2">

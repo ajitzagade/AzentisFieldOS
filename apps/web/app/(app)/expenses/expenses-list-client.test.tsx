@@ -44,9 +44,10 @@ function renderClient(overrides: Partial<Parameters<typeof ExpensesListClient>[0
 }
 
 describe("ExpensesListClient", () => {
-  it("renders every row", () => {
+  it("renders every row in the desktop table and as a mobile card", () => {
     renderClient();
-    expect(screen.getByText("Diesel refill")).toBeInTheDocument();
+    // Once in the md+ table row, once as a detail row on the below-md card.
+    expect(screen.getAllByText("Diesel refill")).toHaveLength(2);
   });
 
   it("debounces the search box before writing to the URL", () => {
@@ -69,14 +70,15 @@ describe("ExpensesListClient", () => {
 
   it("shows the zero-Expenses-ever empty state with no active search", () => {
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Expenses recorded yet.")).toBeInTheDocument();
+    // Rendered as both the desktop table panel and the mobile card panel.
+    expect(screen.getAllByText("No Expenses recorded yet.")).toHaveLength(2);
   });
 
   it("shows the no-matches empty state with Clear filters when a search is active", () => {
     hookState = { q: "nonexistent" };
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Expenses match your search.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getAllByText("No Expenses match your search.")).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]!);
     expect(clearAll).toHaveBeenCalledOnce();
   });
 

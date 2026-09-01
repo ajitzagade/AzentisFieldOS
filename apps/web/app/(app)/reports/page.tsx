@@ -642,7 +642,7 @@ function SiteReportView({
         <TextField label="To" name="to" type="date" defaultValue={to ?? ""} />
       </FilterForm>
 
-      <h2 className="mb-3 text-card-title text-ink-900">DSR History</h2>
+      <h2 className="mb-3 text-card-title text-ink-900">Daily Report History</h2>
       <DataTable
         columns={dsrHistoryColumns}
         rowKey={(row) => row.id}
@@ -652,7 +652,7 @@ function SiteReportView({
             ? {
                 status: "empty",
                 icon: <ClipboardIcon />,
-                message: "No Daily Site Reports in this date range.",
+                message: "No Daily Reports in this date range.",
               }
             : { status: "success", rows: report.dsrs }
         }
@@ -1575,7 +1575,7 @@ export default async function ReportsPage({
             ? {
                 status: "empty",
                 message:
-                  "No reports yet. A branded Daily Site Report compiles and delivers automatically once a Site submits its first DSR.",
+                  "No reports yet. A branded Daily Report compiles and delivers automatically once a Site submits its first Daily Report.",
               }
             : { status: "success", rows: reports }
         }

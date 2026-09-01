@@ -13,6 +13,7 @@ import {
   Card,
   CheckCircleIcon,
   ComboboxField,
+  CorrectedValueField,
   LayersIcon,
   MapPinIcon,
   PencilIcon,
@@ -22,7 +23,10 @@ import {
   UserIcon,
   WalletIcon,
 } from "@azentisfieldos/ui";
+import { useClientValidation } from "@/lib/use-client-validation";
+import { SiteField } from "../_components/site-field";
 import { createExpenseAction, type CreateExpenseFormState } from "./actions";
+import { parseCreateExpenseForm } from "./parse";
 
 interface SiteOption {
   id: string;
@@ -63,27 +67,39 @@ type ExpenseFormProps = {
   sites: SiteOption[];
   categories: CategoryOption[];
 } & (
-  | { mode: "new"; correctsId?: undefined; initial?: ExpenseFormInitialValues }
-  | { mode: "correct"; correctsId: string; initial: ExpenseFormInitialValues }
+  | { mode: "new"; correctsId?: undefined; originalAmount?: undefined; initial?: ExpenseFormInitialValues }
+  // originalAmount is the value currently on the ledger — CorrectedValueField
+  // reads it so the user types the corrected amount, never a delta they
+  // computed in their head (simplicity review 2026-09-01, decision D4).
+  | { mode: "correct"; correctsId: string; originalAmount: number; initial: ExpenseFormInitialValues }
 );
 
 // FR-41: record a Site Expense (date, Site, category, amount, description,
 // payment method, person/vendor). Reuses Epic 5's delta-correction pattern
-// (Story 5.1 Dev Notes): in correct mode the Amount field is a signed delta
-// on top of the current total, not a restated total, and Site/Category lock
-// because ExpensesService.create validates a correction stays tied to the
-// same Site/Category as the Expense it corrects. The "optional document"
-// (FR-41) is deferred — no shared file-upload primitive exists in
-// packages/ui yet (see Story 11.1 Completion Notes).
-export function ExpenseForm({ mode, correctsId, sites, categories, initial }: ExpenseFormProps) {
+// (Story 5.1 Dev Notes): in correct mode the submitted amount is still a
+// signed delta on top of the current total (server contract unchanged), but
+// the user types the corrected amount and CorrectedValueField derives the
+// delta. Site/Category lock in correct mode because ExpensesService.create
+// validates a correction stays tied to the same Site/Category as the Expense
+// it corrects. The "optional document" (FR-41) is deferred — no shared
+// file-upload primitive exists in packages/ui yet (see Story 11.1 Completion
+// Notes).
+export function ExpenseForm({ mode, correctsId, originalAmount, sites, categories, initial }: ExpenseFormProps) {
   const [state, formAction] = useActionState(createExpenseAction, initialState);
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseCreateExpenseForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
 
   return (
-    <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
+    <form
+      action={formAction}
+      onSubmit={validation.guard(mode === "correct" ? confirmation.guard() : undefined)}
+      noValidate
+    >
       {mode === "correct" ? (
         <Card className="mb-4 border-warning-700 bg-warning-100">
           <h2 className="mb-1 flex items-center gap-2 text-card-title text-warning-700">
@@ -91,26 +107,30 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
             Filing a correction
           </h2>
           <p className="mb-3 text-body-sm text-warning-700">
-            This creates a new, linked entry — the original Expense is never edited or deleted (AD-9). Enter the
-            amount to add or remove as a signed adjustment (e.g. -500), not the corrected total.
+            This creates a new, linked entry — the original Expense is never edited or deleted (AD-9).
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
+          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={errorFor("reason")} />
         </Card>
       ) : null}
 
       <Card className="mb-4">
-        <SelectField
-          label="Site"
-          name="siteId"
-          required
-          icon={<MapPinIcon className="size-4" />}
-          disabled={mode === "correct"}
-          defaultValue={initial?.siteId ?? ""}
-          options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
-          error={state.errors?.siteId?.[0]}
-        />
-        {mode === "correct" ? <input type="hidden" name="siteId" value={initial?.siteId} /> : null}
+        {mode === "correct" ? (
+          <>
+            <SelectField
+              label="Site"
+              required
+              icon={<MapPinIcon className="size-4" />}
+              disabled
+              defaultValue={initial?.siteId ?? ""}
+              options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
+              error={errorFor("siteId")}
+            />
+            <input type="hidden" name="siteId" value={initial?.siteId} />
+          </>
+        ) : (
+          <SiteField sites={sites} required initialSiteId={initial?.siteId} error={errorFor("siteId")} />
+        )}
 
         <ComboboxField
           label="Category"
@@ -123,19 +143,24 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
           placeholder="Type a Category…"
           hint={mode === "correct" ? undefined : "e.g. Fuel for diesel/petrol, Site Expenses for miscellaneous"}
           emptyMessage="No matching Category"
-          error={state.errors?.categoryId?.[0]}
+          error={errorFor("categoryId")}
         />
         <input type="hidden" name="categoryId" value={categoryId} />
       </Card>
 
       <Card className="mb-4">
-        <AmountField
-          label={mode === "correct" ? "Amount adjustment" : "Amount"}
-          name="amount"
-          required
-          hint={mode === "correct" ? "Signed delta applied on top of the current total — e.g. -500." : undefined}
-          error={state.errors?.amount?.[0]}
-        />
+        {mode === "correct" ? (
+          <CorrectedValueField
+            label="Correct amount"
+            name="amount"
+            originalValue={originalAmount}
+            unit="₹"
+            required
+            error={errorFor("amount")}
+          />
+        ) : (
+          <AmountField label="Amount" name="amount" required error={errorFor("amount")} />
+        )}
         <TextField
           label="Date"
           name="incurredAt"
@@ -143,7 +168,7 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
           required
           icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.incurredAt ?? todayDate()}
-          error={state.errors?.incurredAt?.[0]}
+          error={errorFor("incurredAt")}
         />
         <TextField
           label="Description"
@@ -152,7 +177,7 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
           icon={<PencilIcon className="size-4" />}
           placeholder="e.g. Diesel for site generator"
           defaultValue={initial?.description}
-          error={state.errors?.description?.[0]}
+          error={errorFor("description")}
         />
         <TextField
           label="Payment Method"
@@ -161,7 +186,7 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
           icon={<WalletIcon className="size-4" />}
           placeholder="e.g. Cash, UPI"
           defaultValue={initial?.paymentMethod}
-          error={state.errors?.paymentMethod?.[0]}
+          error={errorFor("paymentMethod")}
         />
         <TextField
           label="Person / Vendor"
@@ -169,7 +194,7 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
           hint="Optional"
           icon={<UserIcon className="size-4" />}
           defaultValue={initial?.personOrVendor}
-          error={state.errors?.personOrVendor?.[0]}
+          error={errorFor("personOrVendor")}
         />
       </Card>
 
@@ -189,7 +214,10 @@ export function ExpenseForm({ mode, correctsId, sites, categories, initial }: Ex
         confirmLabel={"Submit Correction"}
         onConfirm={confirmation.confirm}
       >
-        <ConfirmDialogRow label="Amount adjustment" value={formValue(confirmation.values, "amount")} />
+        {/* The submitted "amount" field carries the signed delta derived from
+            the typed corrected value — label it as the change so the replay
+            stays truthful. */}
+        <ConfirmDialogRow label="Amount change" value={formValue(confirmation.values, "amount")} />
         {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
       </ConfirmDialog>
 

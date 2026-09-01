@@ -15,9 +15,11 @@ import {
   SelectField,
   TextField,
   Pagination,
+  WalletIcon,
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { useListQueryState } from "../../../lib/use-list-query-state";
 import { useDebouncedSearch } from "../../../lib/use-debounced-search";
@@ -33,12 +35,14 @@ interface MovementRow {
   date: string;
   correctHref: string;
   confirmReceiptHref?: string;
+  pricingHref?: string;
 }
 
 interface PurchaseListItem {
   id: string;
   destination: "GODOWN" | "SITE";
   quantity: string;
+  totalAmount: string | null;
   purchasedAt: string;
   site: { id: string; name: string } | null;
   materialSize: { label: string; material: { name: string; unit: { name: string } } };
@@ -90,19 +94,30 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function purchaseToMovementRow(purchase: PurchaseListItem): MovementRow {
+function purchaseToMovementRow(purchase: PurchaseListItem, canPrice: boolean): MovementRow {
   const materialLabel = `${purchase.materialSize.material.name} (${purchase.materialSize.label})`;
   const qty = formatQuantity(purchase.quantity, purchase.materialSize.material.unit.name);
+  // D7: an inward entry recorded at the gate without the bill waits for the
+  // Owner's pricing — flagged inline, never shown as a silent ₹0.
+  const pricingPending = purchase.totalAmount === null;
   return {
     id: purchase.id,
     sortKey: new Date(purchase.purchasedAt).getTime(),
-    typeBadge: <Badge variant="success">Purchase</Badge>,
+    typeBadge: pricingPending ? (
+      <span className="inline-flex flex-wrap items-center gap-1">
+        <Badge variant="success">Purchase</Badge>
+        <Badge variant="warning">Pricing pending</Badge>
+      </span>
+    ) : (
+      <Badge variant="success">Purchase</Badge>
+    ),
     material: materialLabel,
     flow: purchase.destination === "GODOWN" ? "Godown" : (purchase.site?.name ?? "Site"),
     sentQty: qty,
     receivedQty: qty,
     date: formatDate(purchase.purchasedAt),
     correctHref: `/movements/purchases/${purchase.id}/correct`,
+    pricingHref: pricingPending && canPrice ? `/movements/purchases/${purchase.id}/pricing` : undefined,
   };
 }
 
@@ -161,7 +176,7 @@ function returnWastageToMovementRow(entry: ReturnWastageListItem): MovementRow {
   return {
     id: entry.id,
     sortKey: new Date(entry.recordedAt).getTime(),
-    typeBadge: <Badge variant="danger">Wastage &amp; Return</Badge>,
+    typeBadge: <Badge variant="danger">Wastage / Return</Badge>,
     material: materialLabel,
     flow: entry.site.name,
     sentQty: qty,
@@ -171,10 +186,10 @@ function returnWastageToMovementRow(entry: ReturnWastageListItem): MovementRow {
   };
 }
 
-function toMovementRow(row: MovementLogRow): MovementRow {
+function toMovementRow(row: MovementLogRow, canPrice: boolean): MovementRow {
   switch (row.type) {
     case "PURCHASE":
-      return purchaseToMovementRow(row.item as PurchaseListItem);
+      return purchaseToMovementRow(row.item as PurchaseListItem, canPrice);
     case "MOVEMENT":
       return movementToMovementRow(row.item as MovementListItem);
     case "CONSUMPTION":
@@ -201,18 +216,47 @@ const columns: DataTableColumn<MovementRow>[] = [
             Confirm Receipt
           </Link>
         ) : null}
+        {r.pricingHref ? (
+          <Link href={r.pricingHref} className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
+            <WalletIcon className="size-4" />
+            Add Pricing
+          </Link>
+        ) : null}
         <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={r.correctHref} />
       </div>
     ),
   },
 ];
 
+const mobileCard: DataTableMobileCard<MovementRow> = {
+  primary: (r) => (
+    <span className="flex flex-wrap items-center gap-2">
+      {r.typeBadge}
+      {r.material}
+    </span>
+  ),
+  omitHeaders: ["Type", "Material"],
+  action: (r) => <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={r.correctHref} />,
+  footer: (r) =>
+    r.pricingHref ? (
+      <Link href={r.pricingHref} className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
+        <WalletIcon className="size-4" />
+        Add Pricing
+      </Link>
+    ) : r.confirmReceiptHref ? (
+      <Link href={r.confirmReceiptHref} className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
+        <CheckCircleIcon className="size-4" />
+        Confirm Receipt
+      </Link>
+    ) : null,
+};
+
 const TYPE_OPTIONS = [
   { value: "", label: "All types" },
   { value: "PURCHASE", label: "Purchase" },
   { value: "MOVEMENT", label: "Movement" },
   { value: "CONSUMPTION", label: "Consumption" },
-  { value: "RETURN_WASTAGE", label: "Wastage & Return" },
+  { value: "RETURN_WASTAGE", label: "Wastage / Return" },
 ];
 
 export function MovementsListClient({
@@ -221,12 +265,15 @@ export function MovementsListClient({
   page,
   pageSize,
   sites,
+  canPrice = false,
 }: {
   rows: MovementLogRow[];
   total: number;
   page: number;
   pageSize: number;
   sites: SiteOption[];
+  /** D7: Owner/Admin only — renders "Add Pricing" on unpriced Purchases. */
+  canPrice?: boolean;
 }) {
   const query = useListQueryState();
   const search = useDebouncedSearch(query.q, query.setQuery);
@@ -237,7 +284,7 @@ export function MovementsListClient({
     Boolean(query.getFilter("siteId")) ||
     Boolean(query.getFilter("from")) ||
     Boolean(query.getFilter("to"));
-  const displayRows = rows.map(toMovementRow);
+  const displayRows = rows.map((row) => toMovementRow(row, canPrice));
 
   return (
     <>
@@ -245,7 +292,7 @@ export function MovementsListClient({
         <div>
           <h1 className="text-page-title text-ink-900">Movements</h1>
           <p className="text-body-sm text-ink-500">
-            Purchases, Godown &amp; Site transfers, Consumption and Wastage &amp; Returns — every entry is permanent history
+            Purchases, Godown &amp; Site transfers, Consumption and Wastage / Returns — every entry is permanent history
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
@@ -302,6 +349,7 @@ export function MovementsListClient({
 
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(r) => r.id}
         sort={query.sort ? { key: query.sort, order: query.order ?? "asc" } : undefined}
         onSortChange={query.setSort}

@@ -1,0 +1,1218 @@
+<title>AzentisFieldOS — Simplicity Mockups</title>
+<style>
+  :root {
+    --ground: #F6F4EE;
+    --panel: #FFFFFF;
+    --panel-2: #F3F1EA;
+    --ink: #1B2430;
+    --ink-2: #3E4757;
+    --ink-3: #6B7280;
+    --line: #E4E0D3;
+    --line-strong: #D2CBB8;
+    --teal: #0F5257;
+    --teal-soft: #E4EFEE;
+    --navy: #16273E;
+    --gold: #96700F;
+    --gold-soft: #FBF0DA;
+    --danger: #A32E2E;
+    --danger-soft: #FBE7E5;
+    --success: #1E6B45;
+    --success-soft: #E4F3EA;
+    --warn: #8A5A12;
+    --warn-soft: #FBF0DA;
+    --shadow: 0 1px 2px rgba(27,36,48,.06), 0 8px 24px rgba(27,36,48,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #14181F;
+      --panel: #191F27;
+      --panel-2: #212933;
+      --ink: #F1EEE4;
+      --ink-2: #C7CCD6;
+      --ink-3: #8D95A3;
+      --line: #313B48;
+      --line-strong: #414E5E;
+      --teal: #4FB8AE;
+      --teal-soft: #1B3B3A;
+      --gold: #E3B24B;
+      --gold-soft: #2E2413;
+      --danger: #F0847E;
+      --danger-soft: #3A1E1E;
+      --success: #5FCF93;
+      --success-soft: #163527;
+      --warn: #E3B24B;
+      --warn-soft: #2E2413;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #14181F; --panel: #191F27; --panel-2: #212933;
+    --ink: #F1EEE4; --ink-2: #C7CCD6; --ink-3: #8D95A3;
+    --line: #313B48; --line-strong: #414E5E;
+    --teal: #4FB8AE; --teal-soft: #1B3B3A;
+    --gold: #E3B24B; --gold-soft: #2E2413;
+    --danger: #F0847E; --danger-soft: #3A1E1E;
+    --success: #5FCF93; --success-soft: #163527;
+    --warn: #E3B24B; --warn-soft: #2E2413;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"] {
+    --ground: #F6F4EE; --panel: #FFFFFF; --panel-2: #F3F1EA;
+    --ink: #1B2430; --ink-2: #3E4757; --ink-3: #6B7280;
+    --line: #E4E0D3; --line-strong: #D2CBB8;
+    --teal: #0F5257; --teal-soft: #E4EFEE;
+    --gold: #96700F; --gold-soft: #FBF0DA;
+    --danger: #A32E2E; --danger-soft: #FBE7E5;
+    --success: #1E6B45; --success-soft: #E4F3EA;
+    --warn: #8A5A12; --warn-soft: #FBF0DA;
+    --shadow: 0 1px 2px rgba(27,36,48,.06), 0 8px 24px rgba(27,36,48,.08);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  header.masthead { margin-bottom: 12px; }
+  .eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--teal); margin: 0 0 8px;
+  }
+  h1 { font-size: 30px; font-weight: 650; letter-spacing: -.015em; line-height: 1.2; margin: 0 0 10px; text-wrap: balance; }
+  .lede { color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .notice {
+    margin: 24px 0 0; padding: 12px 16px; border-radius: 10px;
+    background: var(--teal-soft); color: var(--ink); border: 1px solid var(--line);
+    font-size: 13.5px; max-width: 72ch;
+  }
+  .notice strong { color: var(--teal); }
+
+  section.block { margin-top: 72px; }
+  .block-head { max-width: 72ch; }
+  .block-head .eyebrow { color: var(--ink-3); }
+  h2 { font-size: 22px; font-weight: 650; letter-spacing: -.005em; margin: 0 0 8px; text-wrap: balance; }
+  .why { color: var(--ink-2); font-size: 14px; margin: 0 0 6px; }
+  .pick {
+    display: inline-block; margin-top: 6px; font-size: 12.5px; font-weight: 600;
+    color: var(--gold); background: var(--gold-soft); border-radius: 999px; padding: 3px 12px;
+  }
+
+  .frames { display: flex; flex-wrap: wrap; gap: 32px; margin-top: 28px; align-items: flex-start; }
+  figure.shot { margin: 0; width: 372px; max-width: 100%; }
+  figure.shot figcaption { margin-bottom: 12px; }
+  .shot-label { font-size: 13.5px; font-weight: 650; }
+  .shot-label .tag {
+    font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    border-radius: 999px; padding: 2px 10px; margin-right: 8px; vertical-align: 1px;
+  }
+  .tag.now { background: var(--danger-soft); color: var(--danger); }
+  .tag.new { background: var(--success-soft); color: var(--success); }
+  .tag.alt { background: var(--gold-soft); color: var(--gold); }
+  .shot-note { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.45; }
+
+  /* ——— Phone frame: always renders the product's light theme ——— */
+  .phone {
+    width: 372px; max-width: 100%;
+    border-radius: 26px; border: 1px solid var(--line-strong);
+    background: #FBFAF7; color: #1B2430;
+    box-shadow: var(--shadow);
+    overflow: hidden; position: relative;
+    font-size: 13.5px; line-height: 1.5;
+  }
+  .p-top {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; background: #FFFFFF; border-bottom: 1px solid #E4E0D3;
+  }
+  .p-top .burger, .p-top .search { color: #3E4757; display: flex; }
+  .p-top .brand { font-size: 15px; font-weight: 650; color: #1B2430; }
+  .p-top .search { margin-left: auto; }
+  .p-body { padding: 16px 16px 20px; }
+  .p-body.has-bar { padding-bottom: 76px; }
+
+  .p-h1 { font-size: 22px; font-weight: 650; letter-spacing: -.01em; margin: 0; color: #1B2430; }
+  .p-sub { font-size: 12.5px; color: #6B7280; margin: 2px 0 0; }
+
+  .gapflag {
+    margin-top: 14px; border: 1px solid #E9C990; background: #FBF0DA;
+    border-radius: 10px; padding: 12px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .gapflag .g-msg { display: flex; gap: 8px; color: #8A5A12; font-weight: 500; font-size: 13px; }
+  .gapflag svg { flex: none; margin-top: 1px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+    background: #0F5257; color: #FFFFFF; font-weight: 600; font-size: 13px;
+    border-radius: 10px; padding: 8px 14px;
+  }
+  .btn.small { font-size: 12.5px; padding: 6px 12px; }
+  .btn.ghost { background: transparent; color: #0F5257; border: 1px solid #D2CBB8; }
+
+  .allgood {
+    margin-top: 14px; display: flex; gap: 8px; align-items: flex-start;
+    color: #1E6B45; font-weight: 500; font-size: 13px;
+    background: #E4F3EA; border: 1px solid #BFE3CC; border-radius: 10px; padding: 12px;
+  }
+
+  .taskgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .task {
+    background: #FFFFFF; border: 1px solid #E4E0D3; border-radius: 14px;
+    padding: 14px 12px; min-height: 104px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .task.hero { grid-column: 1 / -1; min-height: 0; flex-direction: row; align-items: center; gap: 12px; background: #0F5257; border-color: #0F5257; }
+  .task.hero .t-label, .task.hero .t-hint { color: #FFFFFF; }
+  .task.hero .t-hint { color: rgba(255,255,255,.75); }
+  .task svg { color: #0F5257; }
+  .task.hero svg { color: #FFFFFF; }
+  .t-label { font-weight: 650; font-size: 14.5px; color: #1B2430; }
+  .t-hint { font-size: 11.5px; color: #6B7280; line-height: 1.4; }
+
+  .tasklist { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .tasklist .task { flex-direction: row; align-items: center; min-height: 0; padding: 14px; gap: 12px; }
+  .tasklist .t-body { flex: 1; }
+  .tasklist .chev { margin-left: auto; color: #6B7280; }
+
+  .morehead { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #6B7280; margin: 18px 0 8px; }
+  .morelist { display: flex; flex-direction: column; gap: 8px; }
+  .morerow {
+    display: flex; align-items: center; gap: 10px;
+    background: #FFFFFF; border: 1px solid #E4E0D3; border-radius: 10px; padding: 10px 12px;
+  }
+  .morerow svg { color: #6B7280; }
+  .morerow .m-label { font-weight: 600; font-size: 13px; color: #1B2430; }
+  .morerow .m-hint { font-size: 11.5px; color: #6B7280; }
+  .morerow .chev { margin-left: auto; color: #6B7280; }
+
+  .quickbar {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: #FFFFFF; border-top: 1px solid #E4E0D3;
+    display: flex; padding-bottom: 6px;
+  }
+  .qb-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 9px 0 4px; font-size: 11px; font-weight: 500; color: #6B7280;
+  }
+  .qb-item.active { color: #0F5257; font-weight: 650; }
+
+  /* Drawer mock */
+  .drawer { background: #16273E; color: #F7F5EE; padding: 18px 14px 20px; min-height: 560px; }
+  .drawer .d-brand { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .d-mark { width: 30px; height: 30px; border-radius: 8px; background: #0F5257; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+  .d-name { font-weight: 650; font-size: 15px; }
+  .d-group { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: rgba(247,245,238,.5); padding: 14px 10px 4px; }
+  .d-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; font-size: 13.5px; font-weight: 500; color: rgba(247,245,238,.82); }
+  .d-item svg { flex: none; opacity: .9; }
+  .d-item.active { background: #0F5257; color: #FFFFFF; }
+  .d-item.dim { opacity: .55; }
+
+  /* Table vs cards */
+  .tbl-clip { position: relative; overflow: hidden; border: 1px solid #E4E0D3; border-radius: 10px; background: #FFFFFF; margin-top: 14px; }
+  .tbl-clip::after {
+    content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 56px;
+    background: linear-gradient(to right, rgba(255,255,255,0), #FFFFFF);
+  }
+  table.mock { border-collapse: collapse; font-size: 12.5px; min-width: 720px; }
+  table.mock th, table.mock td { padding: 9px 12px; white-space: nowrap; text-align: left; border-bottom: 1px solid #EFECE2; }
+  table.mock th { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #6B7280; font-weight: 600; }
+  table.mock tr:nth-child(even) td { background: #FBFAF7; }
+  .num { font-variant-numeric: tabular-nums; }
+  .swipe-hint { font-size: 11.5px; color: #A32E2E; margin-top: 8px; display: flex; gap: 6px; align-items: center; }
+
+  .cardlist { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+  .paycard { background: #FFFFFF; border: 1px solid #E4E0D3; border-radius: 12px; padding: 12px 14px; }
+  .pc-top { display: flex; align-items: flex-start; gap: 8px; }
+  .pc-name { font-weight: 650; font-size: 14.5px; color: #1B2430; }
+  .pc-role { font-size: 11.5px; color: #6B7280; }
+  .pc-amt { margin-left: auto; text-align: right; }
+  .pc-amt .v { font-weight: 700; font-size: 16px; color: #1B2430; font-variant-numeric: tabular-nums; }
+  .pc-amt .l { font-size: 10.5px; color: #6B7280; text-transform: uppercase; letter-spacing: .05em; }
+  .pc-rows { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; font-size: 12px; color: #3E4757; }
+  .pc-rows b { font-weight: 600; color: #1B2430; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; }
+  .pill.unpaid { background: #FBE7E5; color: #A32E2E; }
+  .pill.paid { background: #E4F3EA; color: #1E6B45; }
+  .pill.partial { background: #FBF0DA; color: #8A5A12; }
+  .pc-actions { margin-top: 8px; display: flex; justify-content: flex-end; }
+  .iconbtn { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #E4E0D3; color: #3E4757; background: #FFFFFF; }
+
+  /* Form mocks */
+  .fcard { background: #FFFFFF; border: 1px solid #E4E0D3; border-radius: 12px; padding: 14px; margin-top: 12px; display: flex; flex-direction: column; gap: 12px; }
+  .fcard.warn { background: #FBF0DA; border-color: #E9C990; }
+  .fcard.warn .w-title { display: flex; gap: 8px; align-items: center; color: #8A5A12; font-weight: 650; font-size: 14px; }
+  .fcard.warn p { margin: 0; font-size: 12.5px; color: #8A5A12; }
+  .field label { display: block; font-size: 12.5px; font-weight: 600; color: #3E4757; margin-bottom: 5px; }
+  .field label .req { color: #A32E2E; }
+  .input {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #D2CBB8; border-radius: 10px; background: #FFFFFF;
+    padding: 9px 12px; font-size: 14px; color: #1B2430;
+  }
+  .input.ro { background: #F3F1EA; color: #3E4757; }
+  .input .ph { color: #9AA1AC; }
+  .input svg { color: #6B7280; flex: none; }
+  .hint { font-size: 11.5px; color: #6B7280; margin-top: 4px; }
+  .hint.good { color: #1E6B45; font-weight: 500; }
+  .hint.bad { color: #A32E2E; font-weight: 500; }
+  .hint.warn2 { color: #8A5A12; font-weight: 500; }
+  .delta-line { margin-top: 6px; font-size: 12.5px; background: #E4EFEE; color: #0F5257; border-radius: 8px; padding: 7px 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .more-toggle {
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+    border: 1px dashed #D2CBB8; border-radius: 10px; padding: 10px;
+    color: #3E4757; font-weight: 600; font-size: 13px; background: #FBFAF7;
+  }
+  .fieldcount { font-size: 11.5px; color: #6B7280; text-align: center; margin-top: 4px; }
+
+  .longform-strip { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+  .lf { height: 34px; border: 1px solid #E4E0D3; border-radius: 8px; background: #FFFFFF; display: flex; align-items: center; padding: 0 10px; font-size: 11.5px; color: #6B7280; }
+  .lf b { color: #3E4757; font-weight: 600; margin-right: 6px; }
+  .lf .req { color: #A32E2E; margin-left: 2px; }
+
+  /* Terminology table */
+  .term-wrap { overflow-x: auto; margin-top: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  table.term { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 13.5px; }
+  table.term th, table.term td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.term th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
+  table.term tr:last-child td { border-bottom: 0; }
+  .old { color: var(--danger); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .newt { color: var(--success); font-weight: 600; }
+  .where { color: var(--ink-3); font-size: 12.5px; }
+
+  /* Decision list */
+  .decisions { margin-top: 28px; display: flex; flex-direction: column; gap: 12px; }
+  .dec { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; display: flex; gap: 14px; align-items: baseline; }
+  .dec .dn { font-weight: 700; color: var(--teal); font-variant-numeric: tabular-nums; flex: none; }
+  .dec .dq { font-weight: 600; }
+  .dec .dopts { color: var(--ink-2); font-size: 13.5px; margin-top: 2px; }
+
+  /* ——— Desktop frame ——— */
+  .desk-scroll { overflow-x: auto; margin-top: 28px; padding-bottom: 6px; }
+  .desk {
+    min-width: 920px; max-width: 1080px;
+    border-radius: 14px; border: 1px solid var(--line-strong);
+    background: #FBFAF7; color: #1B2430;
+    box-shadow: var(--shadow); overflow: hidden;
+    display: flex; font-size: 13px; line-height: 1.5;
+  }
+  .d-rail { width: 208px; flex: none; background: #16273E; color: #F7F5EE; padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .d-rail .d-brand { margin-bottom: 12px; }
+  .d-rail .d-item { padding: 7px 10px; font-size: 12.5px; }
+  .d-rail .d-group { padding: 10px 10px 3px; }
+  .d-main { flex: 1; padding: 24px 28px 28px; min-width: 0; }
+  .d-pagehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+  .d-title { font-size: 22px; font-weight: 650; letter-spacing: -.01em; }
+  .d-sub { font-size: 12px; color: #6B7280; margin-top: 2px; }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .tile { background: #FFFFFF; border: 1px solid #E4E0D3; border-radius: 12px; padding: 12px; }
+  .tile .tv { font-size: 24px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .tile .tl { font-size: 11px; color: #6B7280; margin-top: 2px; }
+  .tile.gold .tv { color: #96700F; }
+  .d-sechead { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #6B7280; margin: 18px 0 8px; }
+  .desk .taskgrid { grid-template-columns: repeat(3, 1fr); margin-top: 0; }
+  .desk .task { min-height: 96px; }
+  .callout-ring { outline: 2px solid #C7912B; outline-offset: 3px; border-radius: 10px; }
+  .ring-note { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: #96700F; margin-top: 6px; }
+
+  .divider { border: 0; border-top: 1px solid var(--line); margin: 64px 0 0; }
+  @media (max-width: 480px) { .wrap { padding: 32px 14px 72px; } h1 { font-size: 25px; } }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow">AzentisFieldOS · UX Simplicity Review · 1 Sep 2026</p>
+    <h1>Mockups: what the supervisor-first app would look like</h1>
+    <p class="lede">
+      Every screen below is a proposal rendered with the product's real design tokens and realistic
+      site data — nothing here has been built. Sections marked <strong>Current</strong> show the app as it
+      is today; <strong>Proposed</strong> shows the change. Where there is a genuine layout choice, both
+      options are shown. Decisions you need to make are numbered <strong>D1–D6</strong> and collected at
+      the end.
+    </p>
+    <p class="notice">
+      <strong>Status:</strong> all implementation is paused. The code written earlier today is parked in a
+      git stash, untouched — none of it is in the app. Nothing proceeds until you pick from this page.
+    </p>
+  </header>
+
+  <!-- ============================================================ -->
+  <section class="block" id="home">
+    <div class="block-head">
+      <p class="eyebrow">Section 1 · Supervisor Home</p>
+      <h2>What a supervisor sees when they open the app</h2>
+      <p class="why">
+        Today a supervisor lands on the Owner's cross-site money dashboard, and every daily task is 3+ taps
+        behind the hamburger. Proposal: supervisors get a task-first Home — report status on top, six big
+        buttons, one tap each. The Owner's dashboard is unchanged.
+      </p>
+      <span class="pick">Decision D1 — pick layout 1A (grid) or 1B (list)</span>
+    </div>
+
+    <div class="frames">
+      <!-- Option 1A: grid -->
+      <figure class="shot">
+        <figcaption>
+          <div class="shot-label"><span class="tag new">Proposed 1A</span>Task grid — Daily Report as a full-width hero button</div>
+          <p class="shot-note">Fastest visual scan; the day's must-do task is impossible to miss. Bottom bar stays on every screen.</p>
+        </figcaption>
+        <div class="phone">
+          <div class="p-top">
+            <span class="burger"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></span>
+            <span class="brand">Sandeep Enterprises</span>
+            <span class="search"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+          </div>
+          <div class="p-body has-bar">
+            <h3 class="p-h1" style="margin:0">Today</h3>
+            <p class="p-sub">Tuesday, 1 September</p>
+
+            <div class="gapflag">
+              <span class="g-msg">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4m0 3h.01"/></svg>
+                Daily Report still due today for NH-48 Highway Widening — Package 3.
+              </span>
+            </div>
+
+            <div class="taskgrid">
+              <div class="task hero">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 2h6v4H9zM9 11h6M9 15h4"/></svg>
+                <div>
+                  <div class="t-label">Start Daily Report</div>
+                  <div class="t-hint">Today's work, crew, materials &amp; photos</div>
+                </div>
+              </div>
+              <div class="task">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>
+                <div><div class="t-label">Material Received</div><div class="t-hint">New stock arrived at site or Godown</div></div>
+              </div>
+              <div class="task">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3l4 4-4 4M21 7H8M7 21l-4-4 4-4M3 17h13"/></svg>
+                <div><div class="t-label">Material Sent</div><div class="t-hint">Godown → site, or site → site</div></div>
+              </div>
+              <div class="task">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5zM2 12l10 5 10-5M2 17l10 5 10-5"/></svg>
+                <div><div class="t-label">Material Used</div><div class="t-hint">Stock used in today's work</div></div>
+              </div>
+              <div class="task">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <div><div class="t-label">Attendance</div><div class="t-hint">Mark who worked today</div></div>
+              </div>
+              <div class="task">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2v11z"/><circle cx="12" cy="13" r="4"/></svg>
+                <div><div class="t-label">Site Photos</div><div class="t-hint">View or add photos for a site</div></div>
+              </div>
+            </div>
+
+            <div class="morehead">More</div>
+            <div class="morelist">
+              <div class="morerow">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+                <div><div class="m-label">RMC Delivery</div><div class="m-hint">Ready-mix concrete received</div></div>
+                <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span>
+              </div>
+              <div class="morerow">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3l4 4-4 4M21 7H8M7 21l-4-4 4-4M3 17h13"/></svg>
+                <div><div class="m-label">Wastage / Return</div><div class="m-hint">Material returned or wasted</div></div>
+                <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span>
+              </div>
+              <div class="morerow">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2h16v20l-2-1.5L16 22l-2-1.5L12 22l-2-1.5L8 22l-2-1.5L4 22V2z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+                <div><div class="m-label">Expense</div><div class="m-hint">Money spent at site</div></div>
+                <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span>
+              </div>
+            </div>
+          </div>
+          <div class="quickbar">
+            <span class="qb-item active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V10z"/></svg>Home</span>
+            <span class="qb-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 2h6v4H9zM9 11h6M9 15h4"/></svg>Report</span>
+            <span class="qb-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>Materials</span>
+            <span class="qb-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3m.1 4h.01"/></svg>Help</span>
+          </div>
+        </div>
+      </figure>
+
+      <!-- Option 1B: list -->
+      <figure class="shot">
+        <figcaption>
+          <div class="shot-label"><span class="tag alt">Proposed 1B</span>Task list — one full-width row per task</div>
+          <p class="shot-note">Bigger tap targets, easier one-thumb reach, reads top-to-bottom like a checklist. Slightly more scrolling.</p>
+        </figcaption>
+        <div class="phone">
+          <div class="p-top">
+            <span class="burger"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></span>
+            <span class="brand">Sandeep Enterprises</span>
+            <span class="search"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+          </div>
+          <div class="p-body has-bar">
+            <h3 class="p-h1" style="margin:0">Today</h3>
+            <p class="p-sub">Tuesday, 1 September</p>
+
+            <div class="allgood">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m8.5 12.5 2.5 2.5 4.5-5.5"/></svg>
+              Every site has submitted today's Daily Report.
+            </div>
+
+            <div class="tasklist">
+              <div class="task">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 2h6v4H9zM9 11h6M9 15h4"/></svg>
+                <div class="t-body"><div class="t-label">Daily Report</div><div class="t-hint">Today's work, crew, materials &amp; photos</div></div>
+                <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span>
+              </div>
+              <div class="task">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>
+                <div class="t-body"><div class="t-label">Material Received</div><div class="t-hint">New stock arrived at site or Godown</div></div>
+                <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span>
+              </div>
+              <div class="task">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3l4 4-4 4M21 7H8M7 21l-4-4 4-4M3 17h13"/></svg>
+                <div class="t-body"><div class="t-label">Material Sent</div><div class="t-hint">Godown → site, or site → site</div></div>
+                <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span>
+              </div>
+              <div class="task">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5zM2 12l10 5 10-5M2 17l10 5 10-5"/></svg>
+                <div class="t-body"><div class="t-label">Material Used</div><div class="t-hint">Stock used in today's work</div></div>
+                <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span>
+              </div>
+              <div class="task">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <div class="t-body"><div class="t-label">Attendance</div><div class="t-hint">Mark who worked today</div></div>
+                <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span>
+              </div>
+              <div class="task">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2v11z"/><circle cx="12" cy="13" r="4"/></svg>
+                <div class="t-body"><div class="t-label">Site Photos</div><div class="t-hint">View or add photos for a site</div></div>
+                <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span>
+              </div>
+            </div>
+          </div>
+          <div class="quickbar">
+            <span class="qb-item active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V10z"/></svg>Home</span>
+            <span class="qb-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 2h6v4H9zM9 11h6M9 15h4"/></svg>Report</span>
+            <span class="qb-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>Materials</span>
+            <span class="qb-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3m.1 4h.01"/></svg>Help</span>
+          </div>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="nav">
+    <div class="block-head">
+      <p class="eyebrow">Section 2 · Supervisor Navigation</p>
+      <h2>The menu drawer, trimmed for supervisors</h2>
+      <p class="why">
+        Today a supervisor's menu shows all 13 owner items (Vendors, Payments, Reports…). Proposal: supervisors
+        see 7 items covering their real work. Nothing is removed from the product — owner surfaces stay reachable
+        from Home → More and by direct link, and the Owner's own menu is untouched.
+      </p>
+      <span class="pick">Decision D2 — approve trim, or adjust which items stay</span>
+    </div>
+
+    <div class="frames">
+      <figure class="shot">
+        <figcaption>
+          <div class="shot-label"><span class="tag now">Current</span>13 items, identical to the Owner's menu</div>
+          <p class="shot-note">A supervisor hunting for "record cement used" must pick from Stock / People / Money / Machinery / Reports.</p>
+        </figcaption>
+        <div class="phone">
+          <div class="drawer">
+            <div class="d-brand"><span class="d-mark">S</span><span class="d-name">Sandeep Enterprises</span></div>
+            <div class="d-item">Dashboard</div>
+            <div class="d-item">Sites</div>
+            <div class="d-item">Daily Activity</div>
+            <div class="d-group">Stock</div>
+            <div class="d-item">Inventory</div>
+            <div class="d-item">Movements</div>
+            <div class="d-item dim">Materials</div>
+            <div class="d-item">Waste &amp; Disposal</div>
+            <div class="d-group">People</div>
+            <div class="d-item">Team &amp; Labour</div>
+            <div class="d-item dim">Payments</div>
+            <div class="d-group">Money</div>
+            <div class="d-item dim">Vendors</div>
+            <div class="d-item dim">Expenses</div>
+            <div class="d-item dim">RMC</div>
+            <div class="d-group">Machinery &amp; Vehicles</div>
+            <div class="d-item dim">Machinery &amp; Vehicles</div>
+            <div class="d-group">Reports</div>
+            <div class="d-item dim">Reports</div>
+            <div class="d-item">Help &amp; Guides</div>
+          </div>
+        </div>
+        <p class="shot-note" style="margin-top:8px">Faded items = rarely or never part of a supervisor's job (owner/back-office surfaces).</p>
+      </figure>
+
+      <figure class="shot">
+        <figcaption>
+          <div class="shot-label"><span class="tag new">Proposed</span>7 items — the supervisor's actual work</div>
+          <p class="shot-note">"Daily Activity" renamed to "Daily Report" (see Section 6). Owner's menu stays exactly as it is today.</p>
+        </figcaption>
+        <div class="phone">
+          <div class="drawer">
+            <div class="d-brand"><span class="d-mark">S</span><span class="d-name">Sandeep Enterprises</span></div>
+            <div class="d-item active">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V10z"/></svg>
+              Home
+            </div>
+            <div class="d-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              Sites
+            </div>
+            <div class="d-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 2h6v4H9zM9 11h6M9 15h4"/></svg>
+              Daily Report
+            </div>
+            <div class="d-group">Stock</div>
+            <div class="d-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>
+              Inventory
+            </div>
+            <div class="d-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3l4 4-4 4M21 7H8M7 21l-4-4 4-4M3 17h13"/></svg>
+              Movements
+            </div>
+            <div class="d-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4m0 3h.01"/></svg>
+              Waste &amp; Disposal
+            </div>
+            <div class="d-group">People</div>
+            <div class="d-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Team &amp; Attendance
+            </div>
+            <div style="height:14px"></div>
+            <div class="d-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3m.1 4h.01"/></svg>
+              Help &amp; Guides
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="tables">
+    <div class="block-head">
+      <p class="eyebrow">Section 3 · Wide tables on phones</p>
+      <h2>Payments, RMC, Expenses, Movements &amp; Waste as cards on mobile</h2>
+      <p class="why">
+        These lists have 7–9 columns; on a phone the amount and the Correct button fall off-screen and must be
+        found by sideways swiping. Proposal: below tablet width, each row becomes a card showing the key facts,
+        with the action always visible. Desktop keeps the exact table it has today.
+      </p>
+      <span class="pick">Decision D3 — yes to cards, or keep sideways-scrolling tables</span>
+    </div>
+
+    <div class="frames">
+      <figure class="shot">
+        <figcaption>
+          <div class="shot-label"><span class="tag now">Current</span>Payments on a phone — columns cut off</div>
+          <p class="shot-note">Net Payable and the actions are past the right edge; the user must swipe each row to see what matters most.</p>
+        </figcaption>
+        <div class="phone">
+          <div class="p-top">
+            <span class="burger"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></span>
+            <span class="brand">Payments</span>
+          </div>
+          <div class="p-body">
+            <div class="tbl-clip">
+              <table class="mock">
+                <tr><th>Team Member</th><th>Role</th><th>Period</th><th>Days</th><th>Gross</th><th>Deductions</th><th>Net Payable</th><th>Status</th><th></th></tr>
+                <tr><td>Prakash Jadhav</td><td>Mason</td><td>25–31 Aug</td><td class="num">6</td><td class="num">₹14,500</td><td class="num">₹2,000</td><td class="num">₹12,500</td><td>Unpaid</td><td>›</td></tr>
+                <tr><td>Ravi Kumar</td><td>Helper</td><td>25–31 Aug</td><td class="num">7</td><td class="num">₹8,200</td><td class="num">₹0</td><td class="num">₹8,200</td><td>Paid</td><td>›</td></tr>
+                <tr><td>Sunil Pawar</td><td>Operator</td><td>25–31 Aug</td><td class="num">5</td><td class="num">₹17,500</td><td class="num">₹2,500</td><td class="num">₹15,000</td><td>Partial</td><td>›</td></tr>
+                <tr><td>Anita Gaikwad</td><td>Helper</td><td>25–31 Aug</td><td class="num">6</td><td class="num">₹7,800</td><td class="num">₹0</td><td class="num">₹7,800</td><td>Unpaid</td><td>›</td></tr>
+              </table>
+            </div>
+            <div class="swipe-hint">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></svg>
+              Net Payable, Status and actions are off-screen — swipe to find them
+            </div>
+          </div>
+        </div>
+      </figure>
+
+      <figure class="shot">
+        <figcaption>
+          <div class="shot-label"><span class="tag new">Proposed</span>The same rows as cards — nothing hidden</div>
+          <p class="shot-note">Name and money first, status as a colored pill with text (never color alone), Correct always visible.</p>
+        </figcaption>
+        <div class="phone">
+          <div class="p-top">
+            <span class="burger"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></span>
+            <span class="brand">Payments</span>
+          </div>
+          <div class="p-body">
+            <div class="cardlist">
+              <div class="paycard">
+                <div class="pc-top">
+                  <div><div class="pc-name">Prakash Jadhav</div><div class="pc-role">Mason · 25–31 Aug · 6 days</div></div>
+                  <div class="pc-amt"><div class="v">₹12,500</div><div class="l">Net payable</div></div>
+                </div>
+                <div class="pc-rows"><span>Gross <b class="num">₹14,500</b></span><span>Deductions <b class="num">₹2,000</b></span><span class="pill unpaid">Unpaid</span></div>
+                <div class="pc-actions"><span class="iconbtn" title="Correct"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></span></div>
+              </div>
+              <div class="paycard">
+                <div class="pc-top">
+                  <div><div class="pc-name">Ravi Kumar</div><div class="pc-role">Helper · 25–31 Aug · 7 days</div></div>
+                  <div class="pc-amt"><div class="v">₹8,200</div><div class="l">Net payable</div></div>
+                </div>
+                <div class="pc-rows"><span>Gross <b class="num">₹8,200</b></span><span>Deductions <b class="num">₹0</b></span><span class="pill paid">Paid</span></div>
+                <div class="pc-actions"><span class="iconbtn" title="Correct"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></span></div>
+              </div>
+              <div class="paycard">
+                <div class="pc-top">
+                  <div><div class="pc-name">Sunil Pawar</div><div class="pc-role">Operator · 25–31 Aug · 5 days</div></div>
+                  <div class="pc-amt"><div class="v">₹15,000</div><div class="l">Net payable</div></div>
+                </div>
+                <div class="pc-rows"><span>Gross <b class="num">₹17,500</b></span><span>Deductions <b class="num">₹2,500</b></span><span class="pill partial">Partial</span></div>
+                <div class="pc-actions"><span class="iconbtn" title="Correct"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="corrections">
+    <div class="block-head">
+      <p class="eyebrow">Section 4 · Corrections</p>
+      <h2>Fixing a wrong quantity without doing maths</h2>
+      <p class="why">
+        Scenario: yesterday's cement purchase from Shree Balaji Traders was recorded as 100 bags; it was
+        actually 80. Today the user must calculate and type <strong>-20</strong> themselves. Proposal: they
+        type the correct number, <strong>80</strong>, and the app shows and records the difference. The permanent
+        ledger underneath is completely unchanged — it still stores a linked, reason-carrying adjustment entry.
+      </p>
+      <span class="pick">Decision D4 — corrected-value entry, or keep delta with a live preview</span>
+    </div>
+
+    <div class="frames">
+      <figure class="shot">
+        <figcaption>
+          <div class="shot-label"><span class="tag now">Current</span>User computes the signed adjustment</div>
+          <p class="shot-note">Typing "+20" instead of "−20" silently doubles the error — the form can't tell intent from a sign slip.</p>
+        </figcaption>
+        <div class="phone">
+          <div class="p-top"><span class="brand">Correct Purchase</span></div>
+          <div class="p-body">
+            <div class="fcard warn">
+              <div class="w-title">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                Filing a correction
+              </div>
+              <p>Enter the quantity to add or remove as a signed adjustment (e.g. -20), not the corrected total.</p>
+            </div>
+            <div class="fcard">
+              <div class="field">
+                <label>Material</label>
+                <div class="input ro">Cement (OPC 53 Grade) — bags</div>
+              </div>
+              <div class="field">
+                <label>Quantity adjustment (bags) <span class="req">*</span></label>
+                <div class="input">-20</div>
+                <div class="hint">Signed delta applied on top of the current balance — e.g. -20.</div>
+              </div>
+              <div class="field">
+                <label>Reason for this correction <span class="req">*</span></label>
+                <div class="input"><span class="ph">Why is this being corrected?</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </figure>
+
+      <figure class="shot">
+        <figcaption>
+          <div class="shot-label"><span class="tag new">Proposed</span>User types the right number; the app does the maths</div>
+          <p class="shot-note">The recorded ledger entry is identical either way — this only changes what the human has to think about.</p>
+        </figcaption>
+        <div class="phone">
+          <div class="p-top"><span class="brand">Correct Purchase</span></div>
+          <div class="p-body">
+            <div class="fcard warn">
+              <div class="w-title">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                Filing a correction
+              </div>
+              <p>This creates a new, linked entry — the original purchase is never edited or deleted.</p>
+            </div>
+            <div class="fcard">
+              <div class="field">
+                <label>Material</label>
+                <div class="input ro">Cement (OPC 53 Grade) — bags</div>
+              </div>
+              <div class="field">
+                <label>Correct quantity (bags) <span class="req">*</span></label>
+                <div class="input">80</div>
+                <div class="delta-line">Was 100 bags → change of −20 bags will be recorded</div>
+              </div>
+              <div class="field">
+                <label>Reason for this correction <span class="req">*</span></label>
+                <div class="input">Counted 80 bags on delivery, challan confirmed</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="forms">
+    <div class="block-head">
+      <p class="eyebrow">Section 5 · Entry forms</p>
+      <h2>Record Purchase: 15 fields → 7 visible, total auto-computed</h2>
+      <p class="why">
+        Today the purchase form shows 15 fields at once and makes the user hand-type both Rate and Total
+        Amount (a mismatch is easy and matters — it's money). Proposal: optional paperwork fields fold into
+        "More details", the Total computes itself from quantity × rate (still editable if the bill differs),
+        and mistakes show up while typing instead of after pressing Submit.
+      </p>
+      <span class="pick">Decision D5 — approve all three (collapse + auto-total + inline validation), or pick a subset</span>
+    </div>
+
+    <div class="frames">
+      <figure class="shot">
+        <figcaption>
+          <div class="shot-label"><span class="tag now">Current</span>Everything at once, everything typed</div>
+          <p class="shot-note">15 fields in one scroll; errors only appear after submitting and waiting for the server.</p>
+        </figcaption>
+        <div class="phone">
+          <div class="p-top"><span class="brand">Record Purchase</span></div>
+          <div class="p-body">
+            <div class="longform-strip">
+              <div class="lf"><b>Vendor</b><span class="req">*</span></div>
+              <div class="lf"><b>Material / Size</b><span class="req">*</span></div>
+              <div class="lf"><b>Destination</b><span class="req">*</span></div>
+              <div class="lf"><b>Site</b><span class="req">*</span></div>
+              <div class="lf"><b>Quantity</b><span class="req">*</span></div>
+              <div class="lf"><b>Rate</b><span class="req">*</span>&nbsp; typed by hand</div>
+              <div class="lf"><b>Total Amount</b><span class="req">*</span>&nbsp; typed by hand again</div>
+              <div class="lf"><b>Payment Status</b><span class="req">*</span></div>
+              <div class="lf"><b>Purchase Date</b><span class="req">*</span></div>
+              <div class="lf"><b>Invoice / Challan No.</b>&nbsp; optional</div>
+              <div class="lf"><b>Challan Photo</b>&nbsp; optional</div>
+              <div class="lf"><b>Delivery Location</b>&nbsp; optional</div>
+              <div class="lf"><b>Vehicle Details</b>&nbsp; optional</div>
+              <div class="lf"><b>Receiver Name</b>&nbsp; optional</div>
+              <div class="lf"><b>Notes</b>&nbsp; optional</div>
+            </div>
+            <div class="fieldcount">15 fields visible · errors shown only after Submit</div>
+          </div>
+        </div>
+      </figure>
+
+      <figure class="shot">
+        <figcaption>
+          <div class="shot-label"><span class="tag new">Proposed</span>Required first; the rest one tap away</div>
+          <p class="shot-note">Site remembers the last one used. Total = quantity × rate, shown in words like a cheque book. Same data saved.</p>
+        </figcaption>
+        <div class="phone">
+          <div class="p-top"><span class="brand">Record Purchase</span></div>
+          <div class="p-body">
+            <div class="fcard">
+              <div class="field">
+                <label>Vendor <span class="req">*</span></label>
+                <div class="input">Shree Balaji Traders</div>
+              </div>
+              <div class="field">
+                <label>Material / Size <span class="req">*</span></label>
+                <div class="input">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                  Cement (OPC 53 Grade)
+                </div>
+                <div class="hint good">In stock at NH-48 — Package 3: 42 bags</div>
+              </div>
+              <div class="field">
+                <label>Deliver to <span class="req">*</span></label>
+                <div class="input">NH-48 Highway Widening — Package 3</div>
+                <div class="hint">Remembered from your last entry</div>
+              </div>
+              <div class="field">
+                <label>Quantity (bags) <span class="req">*</span></label>
+                <div class="input">50</div>
+              </div>
+              <div class="field">
+                <label>Rate <span class="req">*</span></label>
+                <div class="input">₹ 390</div>
+              </div>
+              <div class="field">
+                <label>Total Amount</label>
+                <div class="input ro">₹ 19,500 — auto-calculated</div>
+                <div class="hint">Nineteen thousand five hundred rupees · tap to override if the bill differs</div>
+              </div>
+              <div class="more-toggle">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+                More details — challan no., photo, vehicle, receiver, notes
+              </div>
+            </div>
+            <div class="fieldcount">7 fields visible · 6 folded away · mistakes flagged while typing</div>
+          </div>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="terms">
+    <div class="block-head">
+      <p class="eyebrow">Section 6 · One name per thing</p>
+      <h2>Terminology: four names for the daily report become one</h2>
+      <p class="why">
+        The same report is called "Daily Activity" in the menu, "Daily Site Report" in page text, "DSR" in
+        badges and columns, and "New Report" on the button. Proposal: <strong>"Daily Report"</strong> everywhere
+        a user reads it. Trade vocabulary the field already uses — Godown, Challan, Advance — stays exactly
+        as-is; only our own inconsistencies change. Page addresses don't change, so bookmarks keep working.
+      </p>
+      <span class="pick">Decision D6 — approve "Daily Report", or choose a different single name</span>
+    </div>
+
+    <div class="term-wrap">
+      <table class="term">
+        <tr><th>Where it appears</th><th>Today</th><th>Proposed</th></tr>
+        <tr>
+          <td>Menu item <span class="where">(sidebar / drawer)</span></td>
+          <td><span class="old">Daily Activity</span></td>
+          <td><span class="newt">Daily Report</span></td>
+        </tr>
+        <tr>
+          <td>Sites list column <span class="where">(Sites page)</span></td>
+          <td><span class="old">DSR today</span></td>
+          <td><span class="newt">Report today</span></td>
+        </tr>
+        <tr>
+          <td>Site page badge</td>
+          <td><span class="old">No DSR yet today</span></td>
+          <td><span class="newt">No report yet today</span></td>
+        </tr>
+        <tr>
+          <td>Entry form title <span class="where">(mobile form)</span></td>
+          <td><span class="old">Daily Site Report</span></td>
+          <td><span class="newt">Daily Report</span></td>
+        </tr>
+        <tr>
+          <td>Reports page heading</td>
+          <td><span class="old">DSR History</span></td>
+          <td><span class="newt">Daily Report History</span></td>
+        </tr>
+        <tr>
+          <td>Missing-report warning <span class="where">(dashboard)</span></td>
+          <td><span class="old">…has not submitted a Daily Site Report yet today</span></td>
+          <td><span class="newt">…has not submitted a Daily Report yet today</span></td>
+        </tr>
+        <tr>
+          <td>Concrete section <span class="where">(inside the report form)</span></td>
+          <td><span class="old">RMC used</span></td>
+          <td><span class="newt">RMC (ready-mix concrete) used</span> <span class="where">— spelled out once per screen</span></td>
+        </tr>
+        <tr>
+          <td>Movement type label</td>
+          <td><span class="old">Wastage &amp; Return</span> <span class="where">and</span> <span class="old">Wastage / Return</span> <span class="where">(both exist)</span></td>
+          <td><span class="newt">Wastage / Return</span> <span class="where">— one spelling</span></td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="desktop">
+    <div class="block-head">
+      <p class="eyebrow">Section 7 · The web app on desktop</p>
+      <h2>Same changes in the browser — and what stays untouched</h2>
+      <p class="why">
+        Everything above is one web app, not a separate mobile app. On a laptop the supervisor gets the same
+        Home with the trimmed sidebar always visible (no bottom bar needed — the rail does that job). The
+        Owner's desktop dashboard keeps everything it has today; its only change is one new button. Desktop
+        tables stay tables (cards are phones-only), and the simplified forms work identically on both.
+      </p>
+      <span class="pick">No new decision — covered by D1, D2 and D5</span>
+    </div>
+
+    <div class="desk-scroll">
+      <figure class="shot" style="width:auto; max-width:none">
+        <figcaption>
+          <div class="shot-label"><span class="tag new">Proposed</span>Supervisor signed in on a laptop</div>
+          <p class="shot-note">Trimmed 7-item rail (D2) + the same task-first Home (D1) in three columns. One click to any daily task.</p>
+        </figcaption>
+        <div class="desk">
+          <div class="d-rail">
+            <div class="d-brand"><span class="d-mark">S</span> <span class="d-name">Sandeep Enterprises</span></div>
+            <div class="d-item active">Home</div>
+            <div class="d-item">Sites</div>
+            <div class="d-item">Daily Report</div>
+            <div class="d-group">Stock</div>
+            <div class="d-item">Inventory</div>
+            <div class="d-item">Movements</div>
+            <div class="d-item">Waste &amp; Disposal</div>
+            <div class="d-group">People</div>
+            <div class="d-item">Team &amp; Attendance</div>
+            <div style="flex:1"></div>
+            <div class="d-item">Help &amp; Guides</div>
+            <div class="d-item">Sign out</div>
+          </div>
+          <div class="d-main">
+            <div class="d-pagehead">
+              <div>
+                <div class="d-title">Today</div>
+                <div class="d-sub">Tuesday, 1 September</div>
+              </div>
+            </div>
+            <div class="gapflag" style="margin:0 0 16px">
+              <span class="g-msg">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4m0 3h.01"/></svg>
+                Daily Report still due today for NH-48 Highway Widening — Package 3.
+              </span>
+              <span class="btn small">Start Daily Report</span>
+            </div>
+            <div class="taskgrid">
+              <div class="task"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 2h6v4H9zM9 11h6M9 15h4"/></svg><div><div class="t-label">Daily Report</div><div class="t-hint">Today's work, crew, materials &amp; photos</div></div></div>
+              <div class="task"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg><div><div class="t-label">Material Received</div><div class="t-hint">New stock arrived at site or Godown</div></div></div>
+              <div class="task"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3l4 4-4 4M21 7H8M7 21l-4-4 4-4M3 17h13"/></svg><div><div class="t-label">Material Sent</div><div class="t-hint">Godown → site, or site → site</div></div></div>
+              <div class="task"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5zM2 12l10 5 10-5M2 17l10 5 10-5"/></svg><div><div class="t-label">Material Used</div><div class="t-hint">Stock used in today's work</div></div></div>
+              <div class="task"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><div><div class="t-label">Attendance</div><div class="t-hint">Mark who worked today</div></div></div>
+              <div class="task"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2v11z"/><circle cx="12" cy="13" r="4"/></svg><div><div class="t-label">Site Photos</div><div class="t-hint">View or add photos for a site</div></div></div>
+            </div>
+            <div class="d-sechead">More</div>
+            <div class="morelist" style="flex-direction:row; gap:8px">
+              <div class="morerow" style="flex:1"><div><div class="m-label">RMC Delivery</div></div></div>
+              <div class="morerow" style="flex:1"><div><div class="m-label">Wastage / Return</div></div></div>
+              <div class="morerow" style="flex:1"><div><div class="m-label">Expense</div></div></div>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+
+    <div class="desk-scroll">
+      <figure class="shot" style="width:auto; max-width:none">
+        <figcaption>
+          <div class="shot-label"><span class="tag new">Owner — unchanged</span>The Owner's desktop dashboard stays as-is</div>
+          <p class="shot-note">Full 13-item menu, Today tiles, Money and Overall sections all untouched. The one addition is ringed in gold: a "New Daily Report" button so the Owner can also file a report without hunting.</p>
+        </figcaption>
+        <div class="desk">
+          <div class="d-rail">
+            <div class="d-brand"><span class="d-mark">S</span> <span class="d-name">Sandeep Enterprises</span></div>
+            <div class="d-item active">Dashboard</div>
+            <div class="d-item">Sites</div>
+            <div class="d-item">Daily Report</div>
+            <div class="d-group">Stock</div>
+            <div class="d-item">Inventory</div>
+            <div class="d-item">Movements</div>
+            <div class="d-item">Materials</div>
+            <div class="d-item">Waste &amp; Disposal</div>
+            <div class="d-group">People</div>
+            <div class="d-item">Team &amp; Labour</div>
+            <div class="d-item">Payments</div>
+            <div class="d-group">Money</div>
+            <div class="d-item">Vendors</div>
+            <div class="d-item">Expenses</div>
+            <div class="d-item">RMC</div>
+            <div class="d-group">More</div>
+            <div class="d-item">Machinery &amp; Vehicles</div>
+            <div class="d-item">Reports</div>
+            <div class="d-item">Help &amp; Guides</div>
+            <div class="d-item">Settings</div>
+          </div>
+          <div class="d-main">
+            <div class="d-pagehead">
+              <div>
+                <div class="d-title">Dashboard</div>
+                <div class="d-sub">Tuesday, 1 September 2026 — overview across all sites</div>
+              </div>
+              <div>
+                <span class="btn callout-ring">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                  New Daily Report
+                </span>
+                <div class="ring-note">← the only change on this page</div>
+              </div>
+            </div>
+            <div class="d-sechead" style="margin-top:0">Today</div>
+            <div class="tiles">
+              <div class="tile"><div class="tv">2 / 3</div><div class="tl">Sites Reporting Today</div></div>
+              <div class="tile"><div class="tv">34</div><div class="tl">Labour Working Today</div></div>
+              <div class="tile"><div class="tv">7</div><div class="tl">Materials Received Today</div></div>
+              <div class="tile gold"><div class="tv">₹46,300</div><div class="tl">Expenses Today</div></div>
+            </div>
+            <div class="gapflag" style="margin-top:14px">
+              <span class="g-msg">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4m0 3h.01"/></svg>
+                NH-48 Highway Widening — Package 3 has not submitted a Daily Report yet today.
+              </span>
+              <span class="btn small">View Site</span>
+            </div>
+            <div class="d-sechead">Money</div>
+            <div class="tiles" style="grid-template-columns: repeat(3, 1fr)">
+              <div class="tile"><div class="tv">₹3,82,400</div><div class="tl">Expenses This Month</div></div>
+              <div class="tile"><div class="tv">₹1,64,750</div><div class="tl">Vendor Outstanding</div></div>
+              <div class="tile"><div class="tv">₹2,08,750</div><div class="tl">Cash Tied Up</div></div>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+
+    <p class="why" style="margin-top:20px; max-width:72ch">
+      Also true on desktop: the simplified Purchase form (Section 5) and corrected-value corrections
+      (Section 4) behave exactly the same in the browser — same fields, more horizontal room. The
+      Payments/RMC/Expenses tables keep their current full-column desktop layout; the card view (Section 3)
+      applies only below tablet width.
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="inward-pricing">
+    <div class="block-head">
+      <p class="eyebrow">Section 8 · New — Inward entries without prices (your request)</p>
+      <h2>Supervisor records what arrived; the Owner prices it later</h2>
+      <p class="why">
+        Requested change: when a supervisor records Material Received, they should <strong>not see the money
+        section at all</strong> — no Rate, no Total Amount, no Payment Status. They record the physical facts
+        (vendor, material, quantity, challan photo). The entry is saved immediately and stock goes up, but it
+        sits as <strong>"Pricing pending"</strong> until the Owner opens it and enters rate and amount — with
+        the quantity shown for verification. The Owner's own inward entries keep the full form with prices,
+        exactly as in Section 5.
+      </p>
+      <span class="pick">Decision D7 — approve this flow, or adjust which fields the supervisor sees</span>
+    </div>
+
+    <div class="frames">
+      <figure class="shot">
+        <figcaption>
+          <div class="shot-label"><span class="tag new">Supervisor</span>Material Received — no money fields</div>
+          <p class="shot-note">Six fields, all things the person at the gate actually knows. A quiet note says the office adds pricing.</p>
+        </figcaption>
+        <div class="phone">
+          <div class="p-top"><span class="brand">Material Received</span></div>
+          <div class="p-body">
+            <div class="fcard">
+              <div class="field">
+                <label>Vendor <span class="req">*</span></label>
+                <div class="input">Shree Balaji Traders</div>
+              </div>
+              <div class="field">
+                <label>Material / Size <span class="req">*</span></label>
+                <div class="input">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                  Cement (OPC 53 Grade)
+                </div>
+              </div>
+              <div class="field">
+                <label>Deliver to <span class="req">*</span></label>
+                <div class="input">NH-48 Highway Widening — Package 3</div>
+                <div class="hint">Remembered from your last entry</div>
+              </div>
+              <div class="field">
+                <label>Quantity (bags) <span class="req">*</span></label>
+                <div class="input">50</div>
+              </div>
+              <div class="field">
+                <label>Challan Photo</label>
+                <div class="input"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2v11z"/><circle cx="12" cy="13" r="4"/></svg> challan_0109.jpg attached</div>
+              </div>
+              <div class="more-toggle">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+                More details — challan no., vehicle, receiver, notes
+              </div>
+              <div class="hint" style="text-align:center">Rates &amp; amounts are entered by the office — you don't need the bill.</div>
+            </div>
+          </div>
+        </div>
+      </figure>
+
+      <figure class="shot">
+        <figcaption>
+          <div class="shot-label"><span class="tag new">Owner</span>Pricing queue — complete the money details</div>
+          <p class="shot-note">Supervisor entries wait under "Pricing pending" (also flagged on the Dashboard). Quantity is shown read-only for verification; Total auto-calculates.</p>
+        </figcaption>
+        <div class="phone">
+          <div class="p-top"><span class="brand">Movements</span></div>
+          <div class="p-body">
+            <div class="gapflag" style="margin-top:0">
+              <span class="g-msg">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4m0 3h.01"/></svg>
+                2 inward entries are waiting for pricing.
+              </span>
+            </div>
+            <div class="cardlist">
+              <div class="paycard">
+                <div class="pc-top">
+                  <div>
+                    <div class="pc-name">Cement (OPC 53 Grade) · 50 bags</div>
+                    <div class="pc-role">Shree Balaji Traders → NH-48 Pkg 3 · today, by Ramesh</div>
+                  </div>
+                </div>
+                <div class="pc-rows"><span class="pill partial">Pricing pending</span></div>
+                <div class="fcard" style="margin-top:10px">
+                  <div class="field">
+                    <label>Quantity received</label>
+                    <div class="input ro">50 bags — recorded at the gate</div>
+                  </div>
+                  <div class="field">
+                    <label>Rate <span class="req">*</span></label>
+                    <div class="input">₹ 390</div>
+                  </div>
+                  <div class="field">
+                    <label>Total Amount</label>
+                    <div class="input ro">₹ 19,500 — auto-calculated</div>
+                  </div>
+                  <div class="field">
+                    <label>Payment Status <span class="req">*</span></label>
+                    <div class="input">Unpaid</div>
+                  </div>
+                  <span class="btn small">Save pricing</span>
+                </div>
+              </div>
+              <div class="paycard">
+                <div class="pc-top">
+                  <div>
+                    <div class="pc-name">TMT Steel 12mm · 2,400 kg</div>
+                    <div class="pc-role">Kanha Steel Co. → Godown · today, by Ramesh</div>
+                  </div>
+                </div>
+                <div class="pc-rows"><span class="pill partial">Pricing pending</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+
+    <p class="why" style="margin-top:20px; max-width:72ch">
+      Notes on how this behaves: stock is updated the moment the supervisor saves — pricing never blocks the
+      material being usable. Vendor Outstanding and expense figures simply exclude unpriced entries until the
+      Owner completes them (shown honestly as "2 pending", never as ₹0). And the permanent-ledger rule is
+      respected: the supervisor's entry is never overwritten — the Owner is filling in fields that were
+      recorded as "to be priced", one time; any change <em>after</em> pricing goes through the normal
+      Correct flow. This applies to the supervisor's direct vendor-to-site entries too.
+    </p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ============================================================ -->
+  <section class="block" id="decide">
+    <div class="block-head">
+      <p class="eyebrow">Your call</p>
+      <h2>Six decisions — reply with the numbers</h2>
+      <p class="why">Example reply: <em>"D1: 1A · D2: yes · D3: yes · D4: corrected value · D5: all · D6: yes"</em>. Anything you want changed in a mockup first — say the word and I'll revise this page instead of writing code.</p>
+    </div>
+    <div class="decisions">
+      <div class="dec"><span class="dn">D1</span><div><div class="dq">Supervisor Home layout</div><div class="dopts">1A grid with hero Daily Report button · 1B full-width list rows · or request changes</div></div></div>
+      <div class="dec"><span class="dn">D2</span><div><div class="dq">Trimmed supervisor menu (7 items)</div><div class="dopts">Approve as mocked · adjust which items stay (e.g. keep RMC or Expenses in the menu) · skip</div></div></div>
+      <div class="dec"><span class="dn">D3</span><div><div class="dq">Cards instead of sideways tables on phones</div><div class="dopts">Approve for Payments, RMC, Expenses, Movements, Waste · or keep tables</div></div></div>
+      <div class="dec"><span class="dn">D4</span><div><div class="dq">Corrections: type the corrected value</div><div class="dopts">Approve · or keep signed-delta entry but add the live "new total" preview line</div></div></div>
+      <div class="dec"><span class="dn">D5</span><div><div class="dq">Purchase/RMC form simplification</div><div class="dopts">All three (fold optional fields + auto-total + inline validation) · or a subset</div></div></div>
+      <div class="dec"><span class="dn">D6</span><div><div class="dq">"Daily Report" as the one name</div><div class="dopts">Approve · or pick a different single name (e.g. keep "DSR" everywhere instead)</div></div></div>
+      <div class="dec"><span class="dn">D7</span><div><div class="dq">Inward entries: supervisor without prices, Owner prices later</div><div class="dopts">Approve as mocked · adjust which fields the supervisor sees · skip</div></div></div>
+    </div>
+  </section>
+</div>

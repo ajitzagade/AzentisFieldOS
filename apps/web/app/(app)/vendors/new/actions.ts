@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createVendorSchema } from "@azentisfieldos/shared";
+import { parseCreateVendorForm } from "./parse";
 
 export interface CreateVendorFormState {
   errors?: Record<string, string[]>;
@@ -17,14 +17,7 @@ export async function createVendorAction(
   _prevState: CreateVendorFormState,
   formData: FormData,
 ): Promise<CreateVendorFormState> {
-  const parsed = createVendorSchema.safeParse({
-    name: formData.get("name"),
-    contactPerson: formData.get("contactPerson") || undefined,
-    phone: formData.get("phone") || undefined,
-    email: formData.get("email") || undefined,
-    address: formData.get("address") || undefined,
-    materialsSupplied: formData.getAll("materialsSupplied"),
-  });
+  const parsed = parseCreateVendorForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

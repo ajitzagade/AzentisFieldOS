@@ -19,6 +19,8 @@ interface ReturnWastageForCorrection {
   id: string;
   siteId: string;
   kind: "RETURN" | "WASTAGE";
+  // Prisma Decimal — serialized as a string over JSON.
+  quantity: string;
   notes: string | null;
   recordedAt: string;
   materialSize: { id: string };
@@ -71,6 +73,9 @@ export default async function CorrectReturnWastagePage({ params }: { params: Pro
     siteId: entry.siteId,
     materialSizeId: entry.materialSize.id,
     kind: entry.kind,
+    // The original quantity — correct mode shows it so the user types the
+    // corrected value and the form derives the signed delta.
+    quantity: Number(entry.quantity),
     notes: entry.notes ?? undefined,
     recordedAt: entry.recordedAt.slice(0, 10),
   };

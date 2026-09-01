@@ -17,6 +17,8 @@ const originalFetch = global.fetch;
 const originalApiUrl = process.env.NEXT_PUBLIC_API_URL;
 
 beforeEach(() => {
+  // SiteField remembers the last Site on-device; tests must not leak it.
+  window.localStorage.clear();
   process.env.NEXT_PUBLIC_API_URL = "http://localhost:3001";
   pushMock.mockClear();
 });
@@ -37,7 +39,9 @@ describe("WorkRecordForm", () => {
     const user = userEvent.setup();
     render(<WorkRecordForm sites={sites} teamMembers={teamMembers} />);
 
-    await user.selectOptions(screen.getByLabelText("Site"), "site1");
+    // SiteField is a searchable combobox: type, then click the option.
+    await user.type(screen.getByLabelText("Site"), "NH-48");
+    await user.click(await screen.findByText("NH-48 Highway Widening"));
 
     await waitFor(() => {
       expect(screen.getByText("Ravi Kumar")).toBeInTheDocument();
@@ -58,7 +62,9 @@ describe("WorkRecordForm", () => {
 
     const user = userEvent.setup();
     render(<WorkRecordForm sites={sites} teamMembers={teamMembers} />);
-    await user.selectOptions(screen.getByLabelText("Site"), "site1");
+    // SiteField is a searchable combobox: type, then click the option.
+    await user.type(screen.getByLabelText("Site"), "NH-48");
+    await user.click(await screen.findByText("NH-48 Highway Widening"));
     await waitFor(() => expect(screen.getByText("Ravi Kumar")).toBeInTheDocument());
 
     expect(screen.getByLabelText("Hours for Ravi Kumar")).toBeInTheDocument();
@@ -81,7 +87,9 @@ describe("WorkRecordForm", () => {
 
     const user = userEvent.setup();
     render(<WorkRecordForm sites={sites} teamMembers={teamMembers} />);
-    await user.selectOptions(screen.getByLabelText("Site"), "site1");
+    // SiteField is a searchable combobox: type, then click the option.
+    await user.type(screen.getByLabelText("Site"), "NH-48");
+    await user.click(await screen.findByText("NH-48 Highway Widening"));
 
     await waitFor(() => expect(screen.getByText("Dinesh More")).toBeInTheDocument());
     expect(screen.getAllByText("Present")).toHaveLength(2);
@@ -93,7 +101,9 @@ describe("WorkRecordForm", () => {
 
     const user = userEvent.setup();
     render(<WorkRecordForm sites={sites} teamMembers={teamMembers} />);
-    await user.selectOptions(screen.getByLabelText("Site"), "site1");
+    // SiteField is a searchable combobox: type, then click the option.
+    await user.type(screen.getByLabelText("Site"), "NH-48");
+    await user.click(await screen.findByText("NH-48 Highway Widening"));
 
     await waitFor(() => {
       expect(screen.getByText(/Couldn't load the default crew/)).toBeInTheDocument();
@@ -106,7 +116,9 @@ describe("WorkRecordForm", () => {
 
     const user = userEvent.setup();
     render(<WorkRecordForm sites={sites} teamMembers={teamMembers} />);
-    await user.selectOptions(screen.getByLabelText("Site"), "site1");
+    // SiteField is a searchable combobox: type, then click the option.
+    await user.type(screen.getByLabelText("Site"), "NH-48");
+    await user.click(await screen.findByText("NH-48 Highway Widening"));
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
     await user.type(screen.getByLabelText("Add Team Member"), "dinesh");
@@ -126,7 +138,9 @@ describe("WorkRecordForm", () => {
 
     const user = userEvent.setup();
     render(<WorkRecordForm sites={sites} teamMembers={teamMembers} />);
-    await user.selectOptions(screen.getByLabelText("Site"), "site1");
+    // SiteField is a searchable combobox: type, then click the option.
+    await user.type(screen.getByLabelText("Site"), "NH-48");
+    await user.click(await screen.findByText("NH-48 Highway Widening"));
     await waitFor(() => expect(screen.getByText("Ravi Kumar")).toBeInTheDocument());
 
     await user.click(screen.getByRole("button", { name: "Save Attendance" }));
@@ -152,7 +166,9 @@ describe("WorkRecordForm", () => {
 
     const user = userEvent.setup();
     render(<WorkRecordForm sites={sites} teamMembers={teamMembers} />);
-    await user.selectOptions(screen.getByLabelText("Site"), "site1");
+    // SiteField is a searchable combobox: type, then click the option.
+    await user.type(screen.getByLabelText("Site"), "NH-48");
+    await user.click(await screen.findByText("NH-48 Highway Widening"));
     await waitFor(() => expect(screen.getByText("Ravi Kumar")).toBeInTheDocument());
 
     await user.click(screen.getByRole("button", { name: "Save Attendance" }));

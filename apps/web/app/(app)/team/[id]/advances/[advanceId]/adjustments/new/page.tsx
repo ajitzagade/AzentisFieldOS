@@ -1,7 +1,14 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { HELP_CONTENT } from "@azentisfieldos/shared";
+import { HelpBubble } from "@azentisfieldos/ui";
 import { AdjustmentForm } from "../adjustment-form";
+
+// An Adjustment reduces the Outstanding Balance — the shared
+// outstanding-balance explanation is the concept a first-time user needs
+// here (one shared content source, same as Help & Guides).
+const OUTSTANDING_BALANCE_HELP = HELP_CONTENT.contextualHelp.find((h) => h.key === "outstanding-balance");
 
 interface TeamMemberOption {
   id: string;
@@ -34,7 +41,10 @@ export default async function NewAdjustmentPage({ params }: { params: Promise<{ 
         </Link>{" "}
         / Record Adjustment
       </div>
-      <h1 className="mb-6 text-page-title text-ink-900">Record an Advance Adjustment</h1>
+      <h1 className="mb-6 flex items-center gap-2 text-page-title text-ink-900">
+        Record an Advance Adjustment
+        {OUTSTANDING_BALANCE_HELP ? <HelpBubble>{OUTSTANDING_BALANCE_HELP.explanation}</HelpBubble> : null}
+      </h1>
       <AdjustmentForm
         mode="new"
         teamMemberId={teamMember.id}

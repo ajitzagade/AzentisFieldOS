@@ -13,6 +13,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { useListQueryState } from "../../../lib/use-list-query-state";
 import { useDebouncedSearch } from "../../../lib/use-debounced-search";
@@ -64,6 +65,17 @@ const columns: DataTableColumn<ExpenseRow>[] = [
   },
 ];
 
+const mobileCard: DataTableMobileCard<ExpenseRow> = {
+  primary: (row) => (
+    <>
+      {row.category.name}{" "}
+      <span className="text-gold-700 tabular-nums">{formatMoney(Number(row.amount))}</span>
+    </>
+  ),
+  omitHeaders: ["Category", "Amount"],
+  action: (row) => <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/expenses/${row.id}/correct`} />,
+};
+
 export function ExpensesListClient({
   rows,
   total,
@@ -94,6 +106,7 @@ export function ExpensesListClient({
 
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(row) => row.id}
         sort={query.sort ? { key: query.sort, order: query.order ?? "asc" } : undefined}
         onSortChange={query.setSort}

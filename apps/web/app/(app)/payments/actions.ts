@@ -3,7 +3,7 @@
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createPaymentSchema } from "@azentisfieldos/shared";
+import { parseCreatePaymentForm } from "./parse";
 
 export interface CreatePaymentFormState {
   errors?: Record<string, string[]>;
@@ -19,24 +19,7 @@ export async function createPaymentAction(
   _prevState: CreatePaymentFormState,
   formData: FormData,
 ): Promise<CreatePaymentFormState> {
-  const includeAdjustment = formData.get("includeAdjustment") === "true";
-
-  const parsed = createPaymentSchema.safeParse({
-    teamMemberId: formData.get("teamMemberId"),
-    basePay: Number(formData.get("basePay")),
-    additionalAmount: formData.get("additionalAmount") ? Number(formData.get("additionalAmount")) : undefined,
-    deductions: formData.get("deductions") ? Number(formData.get("deductions")) : undefined,
-    payPeriod: formData.get("payPeriod") || undefined,
-    advanceAdjustment: includeAdjustment
-      ? {
-          advanceId: formData.get("advanceId"),
-          amount: Number(formData.get("adjustmentAmount")),
-          note: formData.get("adjustmentNote") || undefined,
-        }
-      : undefined,
-    correctsId: formData.get("correctsId") || undefined,
-    reason: formData.get("reason") || undefined,
-  });
+  const parsed = parseCreatePaymentForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

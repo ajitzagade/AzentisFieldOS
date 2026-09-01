@@ -2,10 +2,8 @@
 
 import { authedFetch } from "@/lib/api";
 import { revalidatePath } from "next/cache";
-import {
-  createEmploymentTypeSchema,
-  updateEmploymentTypeSchema,
-} from "@azentisfieldos/shared";
+import { updateEmploymentTypeSchema } from "@azentisfieldos/shared";
+import { parseCreateEmploymentTypeForm } from "./parse";
 
 export interface CreateEmploymentTypeFormState {
   errors?: Record<string, string[]>;
@@ -23,7 +21,7 @@ export async function createEmploymentTypeAction(
   _prevState: CreateEmploymentTypeFormState,
   formData: FormData,
 ): Promise<CreateEmploymentTypeFormState> {
-  const parsed = createEmploymentTypeSchema.safeParse({ name: formData.get("name") });
+  const parsed = parseCreateEmploymentTypeForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

@@ -82,13 +82,13 @@ describe("RmcPage", () => {
 
     await renderRmcPage();
 
-    expect(screen.getByText("Anand RMC Suppliers")).toBeInTheDocument();
-    expect(screen.getByText("NH-48 Highway Widening — Package 3")).toBeInTheDocument();
-    expect(screen.getByText("M25")).toBeInTheDocument();
-    expect(screen.getByText("42 m³")).toBeInTheDocument();
-    expect(screen.getByText("₹6,200")).toBeInTheDocument();
-    expect(screen.getByText("₹2,60,400")).toBeInTheDocument();
-    expect(screen.getByText("INV-RMC-1187")).toBeInTheDocument();
+    expect(screen.getAllByText("Anand RMC Suppliers").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("NH-48 Highway Widening — Package 3").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("M25").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("42 m³").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("₹6,200").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("₹2,60,400").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("INV-RMC-1187").length).toBeGreaterThan(0);
   });
 
   it("AC #3: offers only a Correct action per row, never Edit/Delete (AD-9)", async () => {
@@ -96,7 +96,7 @@ describe("RmcPage", () => {
 
     await renderRmcPage();
 
-    expect(screen.getByRole("link", { name: "Correct" })).toHaveAttribute("href", "/rmc/rmc1/correct");
+    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/rmc/rmc1/correct");
     expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
   });
@@ -106,8 +106,8 @@ describe("RmcPage", () => {
 
     await renderRmcPage();
 
-    expect(screen.getByText("No RMC deliveries logged yet.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Record your first RMC Delivery/ })).toHaveAttribute("href", "/rmc/new");
+    expect(screen.getAllByText("No RMC deliveries logged yet.")).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Record your first RMC Delivery/ })[0]).toHaveAttribute("href", "/rmc/new");
   });
 
   it("links the header action to the RMC entry form", async () => {

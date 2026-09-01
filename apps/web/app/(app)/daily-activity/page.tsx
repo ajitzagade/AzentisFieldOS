@@ -43,7 +43,7 @@ async function getSites(): Promise<Site[]> {
 async function getReports(date: string): Promise<DsrListRow[]> {
   const res = await authedFetch(`/dsr?date=${date}`, { cache: "no-store" });
   if (!res.ok) {
-    throw new Error(`Failed to load Daily Site Reports (${res.status})`);
+    throw new Error(`Failed to load Daily Reports (${res.status})`);
   }
   return res.json();
 }
@@ -133,9 +133,9 @@ export default async function DailyActivityPage({
     <>
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-page-title text-ink-900">Daily Activity</h1>
+          <h1 className="text-page-title text-ink-900">Daily Reports</h1>
           <p className="text-body-sm text-ink-500">
-            Daily Site Reports across all Sites — {formatDate(date)}
+            Daily Reports across all Sites — {formatDate(date)}
             {isToday ? "" : " (past day)"}
           </p>
         </div>

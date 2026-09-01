@@ -2,8 +2,10 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, TextField } from "@azentisfieldos/ui";
+import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, CorrectedValueField, PencilIcon, RotateCcwIcon, TextField } from "@azentisfieldos/ui";
+import { useClientValidation } from "@/lib/use-client-validation";
 import { createAdvanceAdjustmentAction, type CreateAdvanceAdjustmentFormState } from "./actions";
+import { parseCreateAdvanceAdjustmentForm } from "./parse";
 
 export interface AdjustmentFormInitialValues {
   note?: string;
@@ -30,28 +32,39 @@ function formatMoney(amount: string) {
   return `₹${Number(amount).toLocaleString("en-IN")}`;
 }
 
+type AdjustmentFormProps = {
+  teamMemberId: string;
+  advanceId: string;
+  outstandingBalance: string;
+  initial?: AdjustmentFormInitialValues;
+} & (
+  | { mode: "new"; correctsId?: undefined; originalAmount?: undefined }
+  // The value currently on the ledger — CorrectedValueField reads it so the
+  // user types the corrected amount, never a delta they computed in their
+  // head (simplicity review 2026-09-01, decision D4).
+  | { mode: "correct"; correctsId: string; originalAmount: number }
+);
+
 export function AdjustmentForm({
   mode,
   teamMemberId,
   advanceId,
   correctsId,
+  originalAmount,
   outstandingBalance,
   initial,
-}: {
-  mode: "new" | "correct";
-  teamMemberId: string;
-  advanceId: string;
-  correctsId?: string;
-  outstandingBalance: string;
-  initial?: AdjustmentFormInitialValues;
-}) {
+}: AdjustmentFormProps) {
   const [state, formAction] = useActionState(createAdvanceAdjustmentAction, initialState);
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
+  // Inline pre-submit validation via the same parse the Server Action runs
+  // (AD-7) — the confirmation dialog only opens once the input parses.
+  const validation = useClientValidation(parseCreateAdvanceAdjustmentForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   return (
-    <form action={formAction} onSubmit={confirmation.guard()} noValidate>
+    <form action={formAction} onSubmit={validation.guard(confirmation.guard())} noValidate>
       <input type="hidden" name="teamMemberId" value={teamMemberId} />
       <input type="hidden" name="advanceId" value={advanceId} />
 
@@ -62,8 +75,7 @@ export function AdjustmentForm({
             Filing a correction
           </h2>
           <p className="mb-3 text-body-sm text-warning-700">
-            This creates a new, linked entry — the original Adjustment is never edited or deleted (AD-9). Enter the
-            amount to add or remove as a signed adjustment (e.g. -1000), not the corrected total.
+            This creates a new, linked entry — the original Adjustment is never edited or deleted (AD-9).
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
           <TextField
@@ -71,23 +83,30 @@ export function AdjustmentForm({
             name="correctionReason"
             required
             icon={<PencilIcon className="size-4" />}
-            error={state.errors?.correctionReason?.[0]}
+            error={errorFor("correctionReason")}
           />
         </Card>
       ) : null}
 
       <Card className="mb-4">
-        <AmountField
-          label={mode === "correct" ? "Amount adjustment" : "Adjustment amount"}
-          name="amount"
-          required
-          hint={
-            mode === "correct"
-              ? "Signed delta applied on top of the current balance — e.g. -1000."
-              : `Cannot exceed ${formatMoney(outstandingBalance)} (current Outstanding Balance)`
-          }
-          error={state.errors?.amount?.[0]}
-        />
+        {mode === "correct" ? (
+          <CorrectedValueField
+            label="Correct adjustment amount"
+            name="amount"
+            originalValue={originalAmount}
+            unit="₹"
+            required
+            error={errorFor("amount")}
+          />
+        ) : (
+          <AmountField
+            label="Adjustment amount"
+            name="amount"
+            required
+            hint={`Cannot exceed ${formatMoney(outstandingBalance)} (current Outstanding Balance)`}
+            error={errorFor("amount")}
+          />
+        )}
         <TextField
           label="Date"
           name="adjustedAt"
@@ -95,7 +114,7 @@ export function AdjustmentForm({
           required
           icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.adjustedAt ?? todayDate()}
-          error={state.errors?.adjustedAt?.[0]}
+          error={errorFor("adjustedAt")}
         />
       </Card>
 
@@ -106,7 +125,7 @@ export function AdjustmentForm({
           hint="Optional — e.g. adjusted against this week's payment"
           icon={<PencilIcon className="size-4" />}
           defaultValue={initial?.note}
-          error={state.errors?.note?.[0]}
+          error={errorFor("note")}
         />
       </Card>
 
@@ -126,8 +145,11 @@ export function AdjustmentForm({
         confirmLabel={"Confirm & Submit"}
         onConfirm={confirmation.confirm}
       >
-        <ConfirmDialogRow label="Amount" value={formValue(confirmation.values, "amount")} />
-        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
+        {/* In correct mode the submitted "amount" field carries the signed
+            delta derived from the typed corrected value — label it as the
+            change so the replay stays truthful. */}
+        <ConfirmDialogRow label={mode === "correct" ? "Amount change" : "Amount"} value={formValue(confirmation.values, "amount")} />
+        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "note")} /> : null}
       </ConfirmDialog>
 
     </form>

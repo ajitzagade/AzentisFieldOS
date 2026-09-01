@@ -13,6 +13,7 @@ import {
   Card,
   CheckCircleIcon,
   ComboboxField,
+  CorrectedValueField,
   HashIcon,
   AmountField,
   MapPinIcon,
@@ -23,7 +24,10 @@ import {
   TextareaField,
   TruckIcon,
 } from "@azentisfieldos/ui";
+import { useClientValidation } from "../../../lib/use-client-validation";
+import { SiteField } from "../_components/site-field";
 import { createWasteDisposalAction, type CreateWasteDisposalFormState } from "./actions";
+import { parseWasteDisposalForm } from "./parse";
 
 interface SiteOption {
   id: string;
@@ -52,6 +56,10 @@ export interface WasteDisposalFormInitialValues {
   machineryId?: string;
   vehicleId?: string;
   vehicleDetails?: string;
+  /** Originals required by correct mode so the user can type corrected
+   * values instead of computing signed deltas. */
+  tripCount?: number;
+  otherCharges?: string;
   ratePerTrip?: string;
   disposalLocation?: string;
   notes?: string;
@@ -90,6 +98,10 @@ export function WasteDisposalForm({
   initial?: WasteDisposalFormInitialValues;
 }) {
   const [state, formAction] = useActionState(createWasteDisposalAction, initialState);
+  // Client-side pre-submit validation runs the exact same parse as the
+  // Server Action (AD-7) — inline errors without a server round-trip.
+  const validation = useClientValidation(parseWasteDisposalForm);
+  const fieldError = (name: string) => validation.errors[name]?.[0] ?? state.errors?.[name]?.[0];
   // Money movement (FR-54) — held for re-verification before it goes to
   // the ledger, same rule as the Purchase/Movement forms.
   const confirmation = useSubmitConfirmation();
@@ -111,7 +123,8 @@ export function WasteDisposalForm({
   const vehicleId = equipmentValue.startsWith("vehicle:") ? equipmentValue.slice(8) : "";
 
   // The multiplication the user should never do by hand: shown live, and
-  // computed authoritatively again on the server.
+  // computed authoritatively again on the server. (New entries only — in
+  // correct mode the corrected-value fields speak their own change lines.)
   const trips = Number(tripCount);
   const rate = Number(ratePerTrip);
   const other = Number(otherCharges || 0);
@@ -123,7 +136,11 @@ export function WasteDisposalForm({
   const correcting = mode === "correct";
 
   return (
-    <form action={formAction} onSubmit={correcting ? confirmation.guard() : undefined} noValidate>
+    <form
+      action={formAction}
+      onSubmit={correcting ? validation.guard(confirmation.guard()) : validation.guard()}
+      noValidate
+    >
       {correcting ? (
         <Card className="mb-4 border-warning-700 bg-warning-100">
           <h2 className="mb-1 flex items-center gap-2 text-card-title text-warning-700">
@@ -131,8 +148,7 @@ export function WasteDisposalForm({
             Filing a correction
           </h2>
           <p className="mb-3 text-body-sm text-warning-700">
-            This creates a new, linked entry — the original is never edited or deleted (AD-9). Enter
-            trips and other charges as signed adjustments (e.g. -2 trips), not corrected totals.
+            This creates a new, linked entry — the original is never edited or deleted (AD-9).
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
           <TextField
@@ -140,23 +156,29 @@ export function WasteDisposalForm({
             name="reason"
             required
             icon={<PencilIcon className="size-4" />}
-            error={state.errors?.reason?.[0]}
+            error={fieldError("reason")}
           />
         </Card>
       ) : null}
 
       <Card className="mb-4">
-        <SelectField
-          label="Site"
-          name="siteId"
-          required
-          icon={<MapPinIcon className="size-4" />}
-          disabled={correcting}
-          defaultValue={initial?.siteId ?? ""}
-          options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
-          error={state.errors?.siteId?.[0]}
-        />
-        {correcting ? <input type="hidden" name="siteId" value={initial?.siteId} /> : null}
+        {correcting ? (
+          <>
+            <SelectField
+              label="Site"
+              name="siteId"
+              required
+              icon={<MapPinIcon className="size-4" />}
+              disabled
+              defaultValue={initial?.siteId ?? ""}
+              options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
+              error={fieldError("siteId")}
+            />
+            <input type="hidden" name="siteId" value={initial?.siteId} />
+          </>
+        ) : (
+          <SiteField sites={sites} required initialSiteId={initial?.siteId} error={fieldError("siteId")} />
+        )}
 
         <TextField
           label="Waste / material type"
@@ -165,7 +187,7 @@ export function WasteDisposalForm({
           disabled={correcting}
           placeholder="e.g. Debris, Excavated earth / murum"
           defaultValue={initial?.wasteType}
-          error={state.errors?.wasteType?.[0]}
+          error={fieldError("wasteType")}
         />
         {correcting ? <input type="hidden" name="wasteType" value={initial?.wasteType} /> : null}
 
@@ -175,7 +197,7 @@ export function WasteDisposalForm({
           hint="Optional — informational only, e.g. approx 40 MT"
           disabled={correcting}
           defaultValue={initial?.quantityDetails}
-          error={state.errors?.quantityDetails?.[0]}
+          error={fieldError("quantityDetails")}
         />
 
         <TextField
@@ -185,7 +207,7 @@ export function WasteDisposalForm({
           required
           icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.disposedAt ?? todayDate()}
-          error={state.errors?.disposedAt?.[0]}
+          error={fieldError("disposedAt")}
         />
       </Card>
 
@@ -206,7 +228,7 @@ export function WasteDisposalForm({
             { value: "HIRED", label: "Hired (third party)" },
             { value: "OWN", label: "Own vehicle / machine" },
           ]}
-          error={state.errors?.ownership?.[0]}
+          error={fieldError("ownership")}
         />
         {correcting ? <input type="hidden" name="ownership" value={initial?.ownership} /> : null}
 
@@ -222,7 +244,7 @@ export function WasteDisposalForm({
               onValueChange={(value) => setVendorId(value ?? "")}
               placeholder="Type a Vendor name…"
               emptyMessage="No matching Vendor — add them under Vendors first"
-              error={state.errors?.vendorId?.[0]}
+              error={fieldError("vendorId")}
             />
             <input type="hidden" name="vendorId" value={correcting ? (initial?.vendorId ?? "") : vendorId} />
           </>
@@ -238,7 +260,7 @@ export function WasteDisposalForm({
           placeholder="Type a machine name or vehicle number…"
           hint={ownership === "HIRED" ? "Optional — only if one of your own assets did the trips" : "Optional"}
           emptyMessage="No matching Machinery or Vehicle in the registers"
-          error={state.errors?.machineryId?.[0] ?? state.errors?.vehicleId?.[0]}
+          error={fieldError("machineryId") ?? fieldError("vehicleId")}
         />
         <input type="hidden" name="machineryId" value={correcting ? (initial?.machineryId ?? "") : machineryId} />
         <input type="hidden" name="vehicleId" value={correcting ? (initial?.vehicleId ?? "") : vehicleId} />
@@ -249,23 +271,36 @@ export function WasteDisposalForm({
           hint="Optional — e.g. hired dumper MH15CD5678"
           disabled={correcting}
           defaultValue={initial?.vehicleDetails}
-          error={state.errors?.vehicleDetails?.[0]}
+          error={fieldError("vehicleDetails")}
         />
       </Card>
 
       <Card className="mb-4">
-        <TextField
-          label={correcting ? "Trips adjustment" : "Number of trips"}
-          name="tripCount"
-          type="number"
-          step="1"
-          required
-          icon={<HashIcon className="size-4" />}
-          value={tripCount}
-          onChange={(e) => setTripCount(e.target.value)}
-          hint={correcting ? "Signed delta applied on top of the original — e.g. -2." : undefined}
-          error={state.errors?.tripCount?.[0]}
-        />
+        {correcting ? (
+          // The user types the values that are actually right; the signed
+          // deltas the ledger needs are derived and submitted for them.
+          <CorrectedValueField
+            label="Corrected number of trips"
+            name="tripCount"
+            originalValue={initial?.tripCount ?? 0}
+            unit="trips"
+            required
+            error={fieldError("tripCount")}
+          />
+        ) : (
+          <TextField
+            label="Number of trips"
+            name="tripCount"
+            type="number"
+            step="1"
+            inputMode="decimal"
+            required
+            icon={<HashIcon className="size-4" />}
+            value={tripCount}
+            onChange={(e) => setTripCount(e.target.value)}
+            error={fieldError("tripCount")}
+          />
+        )}
         <AmountField
           label="Rate per trip"
           name="ratePerTrip"
@@ -273,28 +308,36 @@ export function WasteDisposalForm({
           disabled={correcting}
           value={ratePerTrip}
           onChange={(e) => setRatePerTrip(e.target.value)}
-          error={state.errors?.ratePerTrip?.[0]}
+          error={fieldError("ratePerTrip")}
         />
         {correcting ? <input type="hidden" name="ratePerTrip" value={initial?.ratePerTrip} /> : null}
-        <AmountField
-          label={correcting ? "Other charges adjustment" : "Other charges"}
-          name="otherCharges"
-          hint={
-            correcting
-              ? "Signed delta — e.g. -300. Leave blank for no change."
-              : "Optional — loading / JCB / toll etc."
-          }
-          value={otherCharges}
-          onChange={(e) => setOtherCharges(e.target.value)}
-          error={state.errors?.otherCharges?.[0]}
-        />
-        <p className="text-body-sm text-ink-700">
-          {correcting ? "Total adjustment" : "Total amount"}:{" "}
-          <span className="font-semibold text-gold-700 tabular-nums">
-            {computedTotal === null ? "—" : `₹${computedTotal.toLocaleString("en-IN")}`}
-          </span>{" "}
-          <span className="text-caption text-ink-500">(trips × rate + other charges, computed automatically)</span>
-        </p>
+        {correcting ? (
+          <CorrectedValueField
+            label="Corrected other charges"
+            name="otherCharges"
+            originalValue={Number(initial?.otherCharges ?? 0)}
+            unit="₹"
+            error={fieldError("otherCharges")}
+          />
+        ) : (
+          <AmountField
+            label="Other charges"
+            name="otherCharges"
+            hint="Optional — loading / JCB / toll etc."
+            value={otherCharges}
+            onChange={(e) => setOtherCharges(e.target.value)}
+            error={fieldError("otherCharges")}
+          />
+        )}
+        {!correcting ? (
+          <p className="text-body-sm text-ink-700">
+            Total amount:{" "}
+            <span className="font-semibold text-gold-700 tabular-nums">
+              {computedTotal === null ? "—" : `₹${computedTotal.toLocaleString("en-IN")}`}
+            </span>{" "}
+            <span className="text-caption text-ink-500">(trips × rate + other charges, computed automatically)</span>
+          </p>
+        ) : null}
       </Card>
 
       <Card className="mb-4">
@@ -309,7 +352,7 @@ export function WasteDisposalForm({
               { value: "PARTIAL", label: "Partial" },
               { value: "PAID", label: "Paid" },
             ]}
-            error={state.errors?.paymentStatus?.[0]}
+            error={fieldError("paymentStatus")}
           />
         ) : null}
         <TextField
@@ -319,7 +362,7 @@ export function WasteDisposalForm({
           icon={<MapPinIcon className="size-4" />}
           disabled={correcting}
           defaultValue={initial?.disposalLocation}
-          error={state.errors?.disposalLocation?.[0]}
+          error={fieldError("disposalLocation")}
         />
         <TextareaField
           label="Notes"
@@ -328,7 +371,7 @@ export function WasteDisposalForm({
           hint="Optional"
           disabled={correcting}
           defaultValue={initial?.notes}
-          error={state.errors?.notes?.[0]}
+          error={fieldError("notes")}
         />
       </Card>
 
@@ -348,8 +391,10 @@ export function WasteDisposalForm({
         confirmLabel="Submit Correction"
         onConfirm={confirmation.confirm}
       >
-        <ConfirmDialogRow label="Trips adjustment" value={formValue(confirmation.values, "tripCount")} />
-        <ConfirmDialogRow label="Other charges adjustment" value={formValue(confirmation.values, "otherCharges")} />
+        {/* The replay shows what the submission actually carries: the signed
+            deltas derived from the corrected values. */}
+        <ConfirmDialogRow label="Trips change" value={formValue(confirmation.values, "tripCount")} />
+        <ConfirmDialogRow label="Other charges change" value={formValue(confirmation.values, "otherCharges")} />
         <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} />
       </ConfirmDialog>
     </form>

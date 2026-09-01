@@ -138,7 +138,7 @@ export default async function DailyReportPage({
           )}
           <div>
             <div className="text-card-title font-bold">{content.branding.tenantName}</div>
-            <div className="text-caption text-ink-500">Daily Site Report</div>
+            <div className="text-caption text-ink-500">Daily Report</div>
           </div>
         </div>
 

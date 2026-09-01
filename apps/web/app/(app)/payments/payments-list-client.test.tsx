@@ -49,9 +49,10 @@ function renderClient(overrides: Partial<Parameters<typeof PaymentsListClient>[0
 }
 
 describe("PaymentsListClient", () => {
-  it("renders every row", () => {
+  it("renders every row in the desktop table and as a mobile card", () => {
     renderClient();
-    expect(screen.getByText("Ravi Kumar")).toBeInTheDocument();
+    // Once in the md+ table row, once as the below-md card's primary line.
+    expect(screen.getAllByText("Ravi Kumar")).toHaveLength(2);
   });
 
   it("debounces the search box before writing to the URL", () => {
@@ -74,14 +75,15 @@ describe("PaymentsListClient", () => {
 
   it("shows the zero-Payments-ever empty state with no active search", () => {
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Payments recorded yet.")).toBeInTheDocument();
+    // Rendered as both the desktop table panel and the mobile card panel.
+    expect(screen.getAllByText("No Payments recorded yet.")).toHaveLength(2);
   });
 
   it("shows the no-matches empty state with Clear filters when a search is active", () => {
     hookState = { q: "nonexistent" };
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Payments match your search.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getAllByText("No Payments match your search.")).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]!);
     expect(clearAll).toHaveBeenCalledOnce();
   });
 

@@ -30,8 +30,8 @@ describe("PurchaseForm", () => {
 
     await user.selectOptions(screen.getByLabelText("Destination"), "SITE");
 
-    expect(screen.getByLabelText("Site")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "NH-48 Highway Widening" })).toBeInTheDocument();
+    // D5: the Site picker is the searchable SiteField combobox, not a native select.
+    expect(screen.getByLabelText("Site")).toHaveAttribute("role", "combobox");
   });
 
   it("shows a correction banner with a required reason field, and locks Vendor/Material/Destination in correct mode", () => {
@@ -43,6 +43,7 @@ describe("PurchaseForm", () => {
         sites={sites}
         vendors={vendors}
         initial={{ vendorId: "v1", materialSizeId: "ms1", destination: "GODOWN", rate: "50", totalAmount: "5000", purchasedAt: "2026-08-11" }}
+        original={{ quantity: 100, priced: true }}
       />,
     );
 
@@ -54,8 +55,9 @@ describe("PurchaseForm", () => {
     expect(screen.getByRole("button", { name: "Submit Correction" })).toBeInTheDocument();
   });
 
-  it("labels the quantity field as an adjustment with a delta hint in correct mode", () => {
-    render(
+  it("D4: correct mode asks for the corrected quantity and derives the signed delta underneath", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
       <PurchaseForm
         mode="correct"
         correctsId="p1"
@@ -63,18 +65,41 @@ describe("PurchaseForm", () => {
         sites={sites}
         vendors={vendors}
         initial={{ vendorId: "v1", materialSizeId: "ms1", destination: "GODOWN", rate: "50", totalAmount: "5000", purchasedAt: "2026-08-11" }}
+        original={{ quantity: 100, priced: true }}
       />,
     );
 
-    expect(screen.getByLabelText("Quantity adjustment")).toBeInTheDocument();
-    expect(screen.getByText(/Signed delta applied on top of the current balance/)).toBeInTheDocument();
+    const field = screen.getByLabelText("Correct quantity");
+    expect(screen.getByText(/Currently recorded: 100/)).toBeInTheDocument();
+    await user.type(field, "80");
+    expect(screen.getByText(/Was 100 → change of −20 will be recorded/)).toBeInTheDocument();
+    // The FormData contract is unchanged: a hidden `quantity` carries the delta.
+    expect(container.querySelector('input[type="hidden"][name="quantity"]')).toHaveValue("-20");
+  });
+
+  it("D7: correcting a still-unpriced Purchase renders no pricing fields, only the pending note", () => {
+    render(
+      <PurchaseForm
+        mode="correct"
+        correctsId="p1"
+        materialSizes={materialSizes}
+        sites={sites}
+        vendors={vendors}
+        initial={{ vendorId: "v1", materialSizeId: "ms1", destination: "GODOWN", purchasedAt: "2026-08-11" }}
+        original={{ quantity: 100, priced: false }}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Rate")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Total Amount")).not.toBeInTheDocument();
+    expect(screen.getByText(/no pricing yet/)).toBeInTheDocument();
   });
 
   it("Story 5.3: with fixedDestination='SITE', shows the Site picker immediately and hides the Destination toggle", () => {
     render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} fixedDestination="SITE" />);
 
     expect(screen.queryByLabelText("Destination")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Site")).toBeInTheDocument();
+    expect(screen.getByLabelText("Site")).toHaveAttribute("role", "combobox");
   });
 
   it("Story 9.1: sources the Vendor field from the Vendor list, not free text", () => {
@@ -103,5 +128,42 @@ describe("PurchaseForm — Receiver Name suggestions (story 15.5)", () => {
   it("renders an empty datalist (plain text field) when no team names are provided", () => {
     const { container } = render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} />);
     expect(container.querySelectorAll("datalist#purchase-receiver-names option")).toHaveLength(0);
+  });
+});
+
+describe("PurchaseForm — pricing visibility and auto-total (D5/D7)", () => {
+  it("hides Rate/Total/Payment Status for a Supervisor and shows the office note", () => {
+    render(
+      <PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} showPricing={false} />,
+    );
+
+    expect(screen.queryByLabelText("Rate")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Total Amount")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Payment Status")).not.toBeInTheDocument();
+    expect(screen.getByText(/Rates & amounts are entered by the office/)).toBeInTheDocument();
+  });
+
+  it("auto-computes Total = quantity × rate for the Owner, still editable", async () => {
+    const user = userEvent.setup();
+    render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} />);
+
+    await user.type(screen.getByLabelText("Quantity"), "50");
+    await user.type(screen.getByLabelText("Rate"), "390");
+    expect(screen.getByLabelText("Total Amount")).toHaveValue(19500);
+    // The amount-in-words readback confirms the auto-computed figure.
+    expect(screen.getByText(/Nineteen Thousand Five Hundred/i)).toBeInTheDocument();
+
+    // Manual override wins until quantity/rate change again.
+    await user.clear(screen.getByLabelText("Total Amount"));
+    await user.type(screen.getByLabelText("Total Amount"), "19600");
+    expect(screen.getByLabelText("Total Amount")).toHaveValue(19600);
+  });
+
+  it("folds the optional paperwork fields behind a More details disclosure", () => {
+    const { container } = render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} />);
+    const details = container.querySelector("details");
+    expect(details).not.toBeNull();
+    expect(details).not.toHaveAttribute("open");
+    expect(screen.getByText(/More details/)).toBeInTheDocument();
   });
 });

@@ -28,7 +28,7 @@ describe("AppShell", () => {
     // Ungrouped items
     expect(screen.getByRole("link", { name: /Dashboard/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Sites/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Daily Activity/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Daily Report/ })).toBeInTheDocument();
 
     // Group labels (Story 16.4 regroup) — "Machinery & Vehicles" and
     // "Reports" each appear twice (the promoted single-item group's own
@@ -137,7 +137,7 @@ describe("AppShell", () => {
     expect(screen.getByRole("button", { name: /Open navigation menu/ })).toBeInTheDocument();
   });
 
-  it("renders the sidebar for SITE_SUPERVISOR, but hides the Owner/Admin-only Settings item", () => {
+  it("renders the trimmed sidebar for SITE_SUPERVISOR, hiding Owner/Admin-only surfaces", () => {
     mockPathname = "/";
     render(
       <AppShell role="SITE_SUPERVISOR">
@@ -145,7 +145,9 @@ describe("AppShell", () => {
       </AppShell>,
     );
     // Sidebar nav is present for the Supervisor now (same shell as Owner/Admin).
-    expect(screen.getByRole("link", { name: /Dashboard/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Home/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: /Dashboard/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Vendors/ })).not.toBeInTheDocument();
     expect(screen.getAllByText("Materials").length).toBeGreaterThan(0);
     // Settings hard-404s for a Supervisor, so it must not appear as a link.
     expect(screen.queryByRole("link", { name: /Settings/ })).not.toBeInTheDocument();

@@ -18,6 +18,8 @@ interface MaterialListItem {
 interface ConsumptionForCorrection {
   id: string;
   siteId: string;
+  // Prisma Decimal — serialized as a string over JSON.
+  quantity: string;
   activityReference: string | null;
   notes: string | null;
   consumedAt: string;
@@ -70,6 +72,9 @@ export default async function CorrectConsumptionPage({ params }: { params: Promi
   const initial: ConsumptionFormInitialValues = {
     siteId: consumption.siteId,
     materialSizeId: consumption.materialSize.id,
+    // The original quantity — correct mode shows it so the user types the
+    // corrected value and the form derives the signed delta.
+    quantity: Number(consumption.quantity),
     activityReference: consumption.activityReference ?? undefined,
     notes: consumption.notes ?? undefined,
     consumedAt: consumption.consumedAt.slice(0, 10),

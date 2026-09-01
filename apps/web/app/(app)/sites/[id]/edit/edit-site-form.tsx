@@ -3,7 +3,9 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button, Card, CheckCircleIcon, FilterIcon, HashIcon, MapPinIcon, SelectField, TextField, TextareaField } from "@azentisfieldos/ui";
+import { useClientValidation } from "@/lib/use-client-validation";
 import { updateSiteAction, type UpdateSiteFormState } from "./actions";
+import { parseUpdateSiteForm } from "./parse";
 import type { Site } from "../../page";
 
 const STATUS_OPTIONS = [
@@ -26,10 +28,13 @@ const initialState: UpdateSiteFormState = {};
 
 export function EditSiteForm({ site }: { site: Site }) {
   const [state, formAction] = useActionState(updateSiteAction.bind(null, site.id), initialState);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseUpdateSiteForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   return (
     <Card>
-      <form action={formAction} noValidate>
+      <form action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Name"
           name="name"
@@ -37,7 +42,7 @@ export function EditSiteForm({ site }: { site: Site }) {
           maxLength={200}
           icon={<MapPinIcon className="size-4" />}
           defaultValue={site.name}
-          error={state.errors?.name?.[0]}
+          error={errorFor("name")}
         />
         <TextField
           label="Location"
@@ -46,7 +51,7 @@ export function EditSiteForm({ site }: { site: Site }) {
           maxLength={500}
           icon={<MapPinIcon className="size-4" />}
           defaultValue={site.location}
-          error={state.errors?.location?.[0]}
+          error={errorFor("location")}
         />
         <SelectField
           label="Status"
@@ -54,7 +59,7 @@ export function EditSiteForm({ site }: { site: Site }) {
           defaultValue={site.status}
           icon={<FilterIcon className="size-4" />}
           options={STATUS_OPTIONS}
-          error={state.errors?.status?.[0]}
+          error={errorFor("status")}
         />
         <TextField
           label="Contract reference"
@@ -63,7 +68,7 @@ export function EditSiteForm({ site }: { site: Site }) {
           maxLength={200}
           icon={<HashIcon className="size-4" />}
           defaultValue={site.contractReference ?? ""}
-          error={state.errors?.contractReference?.[0]}
+          error={errorFor("contractReference")}
         />
         <TextareaField
           label="Description"
@@ -72,7 +77,7 @@ export function EditSiteForm({ site }: { site: Site }) {
           rows={3}
           maxLength={2000}
           defaultValue={site.description ?? ""}
-          error={state.errors?.description?.[0]}
+          error={errorFor("description")}
         />
 
         {state.formError ? (

@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createPurchaseSchema } from "@azentisfieldos/shared";
+import { parsePurchaseForm } from "./parse";
 
 export interface CreatePurchaseFormState {
   errors?: Record<string, string[]>;
@@ -17,25 +17,8 @@ export async function createPurchaseAction(
   _prevState: CreatePurchaseFormState,
   formData: FormData,
 ): Promise<CreatePurchaseFormState> {
-  const parsed = createPurchaseSchema.safeParse({
-    vendorId: formData.get("vendorId"),
-    materialSizeId: formData.get("materialSizeId"),
-    destination: formData.get("destination"),
-    siteId: formData.get("siteId") || undefined,
-    quantity: Number(formData.get("quantity")),
-    rate: Number(formData.get("rate")),
-    totalAmount: Number(formData.get("totalAmount")),
-    invoiceOrChallanNo: formData.get("invoiceOrChallanNo") || undefined,
-    challanPhotoUrl: formData.get("challanPhotoUrl") || undefined,
-    paymentStatus: formData.get("paymentStatus"),
-    deliveryLocation: formData.get("deliveryLocation") || undefined,
-    vehicleDetails: formData.get("vehicleDetails") || undefined,
-    receiverName: formData.get("receiverName") || undefined,
-    notes: formData.get("notes") || undefined,
-    purchasedAt: formData.get("purchasedAt"),
-    correctsId: formData.get("correctsId") || undefined,
-    reason: formData.get("reason") || undefined,
-  });
+  // Shared with the client form's pre-submit validation (AD-7) — see parse.ts.
+  const parsed = parsePurchaseForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

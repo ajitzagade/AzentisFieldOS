@@ -150,4 +150,134 @@ describe("DataTable", () => {
     expect(screen.getByRole("button", { name: "Material" }).textContent).not.toContain("▼");
     expect(screen.getByRole("button", { name: "Material" }).textContent).not.toContain("▲");
   });
+
+  describe("mobileCard mode", () => {
+    const mobileCard = {
+      primary: (row: Row) => row.name,
+      omitHeaders: ["Material"],
+      action: (row: Row) => (
+        <a href={`/materials/${row.id}/correct`} aria-label={`Correct ${row.name}`}>
+          fix
+        </a>
+      ),
+    };
+
+    it("renders no card list at all when mobileCard is not provided", () => {
+      const { container } = render(
+        <DataTable columns={columns} rowKey={(r) => r.id} state={{ status: "success", rows }} />,
+      );
+      expect(container.querySelector("ul")).toBeNull();
+      // The table wrapper is not viewport-hidden when there is no card mode.
+      expect(container.firstElementChild?.className).not.toContain("max-md:hidden");
+    });
+
+    it("renders each row as a list-item card below md while keeping the desktop table intact", () => {
+      const { container } = render(
+        <DataTable columns={columns} rowKey={(r) => r.id} state={{ status: "success", rows }} mobileCard={mobileCard} />,
+      );
+      // Desktop: the table still renders, hidden only below md.
+      expect(container.querySelector("table")).not.toBeNull();
+      expect(container.firstElementChild?.className).toContain("max-md:hidden");
+      // Mobile: a semantic list, hidden at md and up, one item per row.
+      const list = container.querySelector("ul") as HTMLElement;
+      expect(list.className).toContain("md:hidden");
+      expect(list.querySelectorAll("li")).toHaveLength(rows.length);
+    });
+
+    it("renders the primary line and label/value detail rows, excluding omitted and empty headers", () => {
+      const withAction: DataTableColumn<Row>[] = [...columns, { header: "", cell: () => <button>row action</button> }];
+      const { container } = render(
+        <DataTable
+          columns={withAction}
+          rowKey={(r) => r.id}
+          state={{ status: "success", rows }}
+          mobileCard={mobileCard}
+        />,
+      );
+      const card = container.querySelector("li") as HTMLElement;
+      // Primary line carries the key field, bolder.
+      expect(card.textContent).toContain("Cement");
+      expect((card.querySelector(".font-semibold") as HTMLElement).textContent).toContain("Cement");
+      // Detail rows: Qty appears as a dt/dd pair; the omitted "Material"
+      // header and the empty-header action column produce no detail row.
+      const labels = Array.from(card.querySelectorAll("dt")).map((dt) => dt.textContent);
+      expect(labels).toEqual(["Qty"]);
+      expect(card.querySelector("dd")?.textContent).toBe("120");
+    });
+
+    it("keeps the row action top-right with a touch-size target and an accessible name", () => {
+      render(
+        <DataTable columns={columns} rowKey={(r) => r.id} state={{ status: "success", rows }} mobileCard={mobileCard} />,
+      );
+      const action = screen.getByRole("link", { name: "Correct Cement" });
+      expect(action.parentElement?.className).toContain("min-w-11");
+      expect(action.parentElement?.className).toContain("min-h-11");
+    });
+
+    it("makes the whole card a link when rowHref is defined, without nesting the action inside it", () => {
+      const { container } = render(
+        <DataTable
+          columns={columns}
+          rowKey={(r) => r.id}
+          state={{ status: "success", rows }}
+          rowHref={(r) => `/materials/${r.id}`}
+          mobileCard={mobileCard}
+        />,
+      );
+      const card = container.querySelector("li") as HTMLElement;
+      const cardLink = card.querySelector('a[href="/materials/1"]') as HTMLElement;
+      // Stretched-link pattern: the anchor's ::after covers the card.
+      expect(cardLink.className).toContain("after:absolute");
+      expect(cardLink.className).toContain("after:inset-0");
+      // The action link is a sibling, never a descendant, of the card link.
+      expect(cardLink.querySelector("a")).toBeNull();
+      expect(card.querySelector('a[href="/materials/1/correct"]')).not.toBeNull();
+    });
+
+    it("renders pulsing card skeletons, not a table skeleton, for the mobile loading state", () => {
+      const { container } = render(
+        <DataTable columns={columns} rowKey={(r) => r.id} state={{ status: "loading" }} mobileCard={mobileCard} />,
+      );
+      const list = container.querySelector("ul") as HTMLElement;
+      const skeletonCards = list.querySelectorAll("li");
+      expect(skeletonCards).toHaveLength(5);
+      expect(skeletonCards[0]?.className).toContain("animate-pulse");
+      expect(list.querySelector("table")).toBeNull();
+      // The table's own skeleton still exists for md and up.
+      expect(container.querySelectorAll("tbody tr")).toHaveLength(5);
+    });
+
+    it("renders the empty state and its action as a mobile panel too", () => {
+      const { container } = render(
+        <DataTable
+          columns={columns}
+          rowKey={(r) => r.id}
+          state={{ status: "empty", message: "No materials yet.", action: <button>Add material</button> }}
+          mobileCard={mobileCard}
+        />,
+      );
+      const panels = screen.getAllByText("No materials yet.");
+      expect(panels).toHaveLength(2);
+      const mobilePanel = container.querySelector("div.md\\:hidden") as HTMLElement;
+      expect(mobilePanel.textContent).toContain("No materials yet.");
+      expect(mobilePanel.querySelector("button")?.textContent).toBe("Add material");
+    });
+
+    it("renders the error retry affordance as a mobile panel too", () => {
+      const onRetry = vi.fn();
+      const { container } = render(
+        <DataTable
+          columns={columns}
+          rowKey={(r) => r.id}
+          state={{ status: "error", message: "Couldn't load materials.", retryLabel: "Try again", onRetry }}
+          mobileCard={mobileCard}
+        />,
+      );
+      const mobilePanel = container.querySelector("div.md\\:hidden") as HTMLElement;
+      const retry = mobilePanel.querySelector("button") as HTMLButtonElement;
+      expect(retry.textContent).toBe("Try again");
+      retry.click();
+      expect(onRetry).toHaveBeenCalledOnce();
+    });
+  });
 });

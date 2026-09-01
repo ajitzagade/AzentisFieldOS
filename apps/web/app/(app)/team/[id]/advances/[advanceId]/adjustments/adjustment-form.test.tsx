@@ -22,6 +22,7 @@ describe("AdjustmentForm", () => {
     render(
       <AdjustmentForm
         mode="correct"
+        originalAmount={5000}
         teamMemberId="tm1"
         advanceId="adv1"
         correctsId="aa1"
@@ -36,9 +37,11 @@ describe("AdjustmentForm", () => {
   });
 
   it("labels the amount field as an adjustment-of-an-adjustment with a delta hint in correct mode", () => {
-    render(<AdjustmentForm mode="correct" teamMemberId="tm1" advanceId="adv1" correctsId="aa1" outstandingBalance="8000" />);
+    render(<AdjustmentForm mode="correct"
+        originalAmount={5000} teamMemberId="tm1" advanceId="adv1" correctsId="aa1" outstandingBalance="8000" />);
 
-    expect(screen.getByLabelText("Amount adjustment")).toBeInTheDocument();
-    expect(screen.getByText(/Signed delta applied on top of the current balance/)).toBeInTheDocument();
+    // D4: the user types the corrected amount; the delta is derived underneath.
+    expect(screen.getByLabelText("Correct adjustment amount")).toBeInTheDocument();
+    expect(screen.getByText(/Currently recorded: ₹5,000/)).toBeInTheDocument();
   });
 });

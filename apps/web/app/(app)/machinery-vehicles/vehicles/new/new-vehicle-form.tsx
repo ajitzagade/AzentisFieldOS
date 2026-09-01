@@ -5,6 +5,8 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { BuildingIcon, Button, Card, FilterIcon, HashIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { createVehicleAction, type CreateVehicleFormState } from "./actions";
+import { useClientValidation } from "@/lib/use-client-validation";
+import { parseCreateVehicleForm } from "./parse";
 
 interface Option {
   id: string;
@@ -25,6 +27,9 @@ const initialState: CreateVehicleFormState = {};
 
 export function NewVehicleForm({ vehicleTypes }: { vehicleTypes: Option[] }) {
   const [state, formAction] = useActionState(createVehicleAction, initialState);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseCreateVehicleForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   if (vehicleTypes.length === 0) {
     return (
@@ -42,7 +47,7 @@ export function NewVehicleForm({ vehicleTypes }: { vehicleTypes: Option[] }) {
 
   return (
     <Card>
-      <form action={formAction} noValidate>
+      <form action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Number"
           name="number"
@@ -50,7 +55,7 @@ export function NewVehicleForm({ vehicleTypes }: { vehicleTypes: Option[] }) {
           maxLength={100}
           icon={<HashIcon className="size-4" />}
           placeholder="e.g. MH12AB1234"
-          error={state.errors?.number?.[0]}
+          error={errorFor("number")}
         />
         <SelectField
           label="Type"
@@ -62,16 +67,16 @@ export function NewVehicleForm({ vehicleTypes }: { vehicleTypes: Option[] }) {
             { value: "", label: "Select a Vehicle Type" },
             ...vehicleTypes.map((t) => ({ value: t.id, label: t.name })),
           ]}
-          error={state.errors?.typeId?.[0]}
+          error={errorFor("typeId")}
         />
-        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} icon={<BuildingIcon className="size-4" />} placeholder="e.g. Owned, Rented" error={state.errors?.ownership?.[0]} />
+        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} icon={<BuildingIcon className="size-4" />} placeholder="e.g. Owned, Rented" error={errorFor("ownership")} />
         <TextField
           label="Driver"
           name="driver"
           hint="Optional"
           maxLength={200}
           icon={<UserIcon className="size-4" />}
-          error={state.errors?.driver?.[0]}
+          error={errorFor("driver")}
         />
 
         {state.formError ? (

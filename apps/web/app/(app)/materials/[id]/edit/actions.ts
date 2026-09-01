@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { updateMaterialSchema } from "@azentisfieldos/shared";
+import { parseUpdateMaterialForm } from "./parse";
 
 export interface UpdateMaterialFormState {
   errors?: Record<string, string[]>;
@@ -19,36 +19,19 @@ export async function updateMaterialAction(
 ): Promise<UpdateMaterialFormState> {
   // FR-7: Custom Fields are staged client-side (edit-material-form.tsx)
   // and submitted as one JSON-encoded hidden field alongside the rest of
-  // this same form — there is no independent Custom Field endpoint.
+  // this same form — there is no independent Custom Field endpoint. Guard
+  // unreadable JSON with a formError here before delegating to the shared
+  // parse, which handles the rest of the coercion.
   const rawCustomFields = formData.get("customFields");
-  let customFields: unknown;
   if (typeof rawCustomFields === "string" && rawCustomFields.length > 0) {
     try {
-      customFields = JSON.parse(rawCustomFields);
+      JSON.parse(rawCustomFields);
     } catch {
       return { formError: "Something went wrong reading the Custom Fields. Please try again." };
     }
   }
 
-  // Empty means "clear the threshold" (null), not "field omitted" — unlike
-  // the other optional() fields above, lowStockThreshold is nullable(), so
-  // an explicit null is meaningful input, not something to coerce away.
-  const rawLowStockThreshold = formData.get("lowStockThreshold");
-  const lowStockThreshold =
-    typeof rawLowStockThreshold === "string" && rawLowStockThreshold.length > 0 ? Number(rawLowStockThreshold) : null;
-
-  const parsed = updateMaterialSchema.safeParse({
-    // FormData.get() returns null (not undefined) for an absent field —
-    // z.uuid().optional() / z.string().min(1).optional() accept undefined
-    // but reject null, so this must be coerced explicitly (same pattern
-    // sites/new/actions.ts already uses for contractReference).
-    name: formData.get("name") || undefined,
-    categoryId: formData.get("categoryId") || undefined,
-    unitId: formData.get("unitId") || undefined,
-    isActive: formData.get("isActive") === "true",
-    customFields,
-    lowStockThreshold,
-  });
+  const parsed = parseUpdateMaterialForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

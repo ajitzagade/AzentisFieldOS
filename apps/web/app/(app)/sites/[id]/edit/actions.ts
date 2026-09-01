@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { updateSiteSchema } from "@azentisfieldos/shared";
+import { parseUpdateSiteForm } from "./parse";
 
 export interface UpdateSiteFormState {
   errors?: Record<string, string[]>;
@@ -18,13 +18,7 @@ export async function updateSiteAction(
   _prevState: UpdateSiteFormState,
   formData: FormData,
 ): Promise<UpdateSiteFormState> {
-  const parsed = updateSiteSchema.safeParse({
-    name: formData.get("name"),
-    location: formData.get("location"),
-    status: formData.get("status"),
-    contractReference: formData.get("contractReference") || undefined,
-    description: formData.get("description") || undefined,
-  });
+  const parsed = parseUpdateSiteForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

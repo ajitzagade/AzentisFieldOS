@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { revalidatePath } from "next/cache";
-import { createMaterialSizeSchema } from "@azentisfieldos/shared";
+import { parseAddMaterialSizeForm } from "./parse";
 
 export interface AddSizeFormState {
   errors?: Record<string, string[]>;
@@ -18,7 +18,7 @@ export async function addMaterialSizeAction(
   _prevState: AddSizeFormState,
   formData: FormData,
 ): Promise<AddSizeFormState> {
-  const parsed = createMaterialSizeSchema.safeParse({ label: formData.get("label") });
+  const parsed = parseAddMaterialSizeForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

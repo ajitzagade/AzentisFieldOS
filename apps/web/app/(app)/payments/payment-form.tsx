@@ -2,8 +2,15 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, ComboboxField, PencilIcon, RotateCcwIcon, SelectField, TextField, UserIcon, WalletIcon } from "@azentisfieldos/ui";
+import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, ComboboxField, HelpBubble, PencilIcon, RotateCcwIcon, SelectField, TextField, UserIcon, WalletIcon } from "@azentisfieldos/ui";
+import { HELP_CONTENT } from "@azentisfieldos/shared";
+import { useClientValidation } from "@/lib/use-client-validation";
 import { createPaymentAction, type CreatePaymentFormState } from "./actions";
+import { parseCreatePaymentForm } from "./parse";
+
+// The same explanation Help & Guides and the Client Presentation show for
+// this concept — one shared content source, read here inline.
+const NET_PAYABLE_HELP = HELP_CONTENT.contextualHelp.find((h) => h.key === "net-payable");
 
 interface TeamMemberOption {
   id: string;
@@ -65,6 +72,10 @@ export function PaymentForm({
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
+  // Inline pre-submit validation via the same parse the Server Action runs
+  // (AD-7) — the confirmation dialog only opens once the input parses.
+  const validation = useClientValidation(parseCreatePaymentForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   const [teamMemberId, setTeamMemberId] = useState(fixedTeamMemberId ?? "");
   const [basePay, setBasePay] = useState(initial?.basePay ?? "");
@@ -87,7 +98,7 @@ export function PaymentForm({
     (includeAdjustment ? Number(adjustmentAmount) || 0 : 0);
 
   return (
-    <form action={formAction} onSubmit={confirmation.guard()} noValidate>
+    <form action={formAction} onSubmit={validation.guard(confirmation.guard())} noValidate>
       <input type="hidden" name="includeAdjustment" value={includeAdjustment ? "true" : "false"} />
 
       {mode === "correct" ? (
@@ -101,7 +112,7 @@ export function PaymentForm({
             correct set of values below, not a delta.
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
+          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={errorFor("reason")} />
         </Card>
       ) : null}
 
@@ -116,7 +127,7 @@ export function PaymentForm({
           onValueChange={(value) => setTeamMemberId(value ?? "")}
           placeholder="Type a name…"
           emptyMessage="No matching Team Member"
-          error={state.errors?.teamMemberId?.[0]}
+          error={errorFor("teamMemberId")}
         />
         <input type="hidden" name="teamMemberId" value={teamMemberId} />
 
@@ -127,7 +138,7 @@ export function PaymentForm({
           required
           value={basePay}
           onChange={(e) => setBasePay(e.target.value)}
-          error={state.errors?.basePay?.[0]}
+          error={errorFor("basePay")}
         />
         <AmountField
           label="Additional Amount"
@@ -135,7 +146,7 @@ export function PaymentForm({
           min={0}
           value={additionalAmount}
           onChange={(e) => setAdditionalAmount(e.target.value)}
-          error={state.errors?.additionalAmount?.[0]}
+          error={errorFor("additionalAmount")}
         />
         <AmountField
           label="Deductions"
@@ -143,7 +154,7 @@ export function PaymentForm({
           min={0}
           value={deductions}
           onChange={(e) => setDeductions(e.target.value)}
-          error={state.errors?.deductions?.[0]}
+          error={errorFor("deductions")}
         />
         <TextField
           label="Period"
@@ -151,7 +162,7 @@ export function PaymentForm({
           icon={<CalendarIcon className="size-4" />}
           hint="Optional — e.g. 1-15 Aug 2026"
           defaultValue={initial?.payPeriod}
-          error={state.errors?.payPeriod?.[0]}
+          error={errorFor("payPeriod")}
         />
       </Card>
 
@@ -180,7 +191,7 @@ export function PaymentForm({
                 { value: "", label: teamMemberId ? "Select an Advance" : "Select a Team Member first" },
                 ...teamMemberAdvances.map((a) => ({ value: a.id, label: a.label })),
               ]}
-              error={state.errors?.advanceId?.[0]}
+              error={errorFor("advanceId")}
             />
             <AmountField
               label="Adjustment Amount"
@@ -193,15 +204,18 @@ export function PaymentForm({
                   ? `Cannot exceed ${formatMoney(Number(selectedTeamMember.outstandingAdvanceBalance))} (current Outstanding Balance)`
                   : undefined
               }
-              error={state.errors?.adjustmentAmount?.[0]}
+              error={errorFor("adjustmentAmount")}
             />
-            <TextField label="Adjustment Note" name="adjustmentNote" hint="Optional" icon={<PencilIcon className="size-4" />} error={state.errors?.adjustmentNote?.[0]} />
+            <TextField label="Adjustment Note" name="adjustmentNote" hint="Optional" icon={<PencilIcon className="size-4" />} error={errorFor("adjustmentNote")} />
           </>
         ) : null}
       </Card>
 
       <Card className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <span className="text-body-sm text-ink-500">Net Payable</span>
+        <span className="flex items-center gap-1 text-body-sm text-ink-500">
+          Net Payable
+          {NET_PAYABLE_HELP ? <HelpBubble>{NET_PAYABLE_HELP.explanation}</HelpBubble> : null}
+        </span>
         <span className="text-card-title font-bold text-gold-700 tabular-nums">{formatMoney(netPayable)}</span>
       </Card>
 

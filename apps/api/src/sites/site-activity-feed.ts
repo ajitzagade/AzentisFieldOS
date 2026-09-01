@@ -103,7 +103,9 @@ export async function getSiteActivityFeed(
       type: 'PURCHASE',
       occurredAt: p.purchasedAt.toISOString(),
       summary: `${p.materialSize.material.name} (${p.materialSize.label}), ${p.quantity.toString()} — from ${p.vendor.name}`,
-      amount: p.totalAmount.toNumber(),
+      // D7: an unpriced ("Pricing pending") Purchase has no amount yet —
+      // the feed shows it honestly as amount-less, never as ₹0.
+      amount: p.totalAmount?.toNumber() ?? null,
     })),
     ...movements.map((m): FeedItem => ({
       id: m.id,

@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createAdvanceAdjustmentSchema } from "@azentisfieldos/shared";
+import { parseCreateAdvanceAdjustmentForm } from "./parse";
 
 export interface CreateAdvanceAdjustmentFormState {
   errors?: Record<string, string[]>;
@@ -18,15 +18,7 @@ export async function createAdvanceAdjustmentAction(
 ): Promise<CreateAdvanceAdjustmentFormState> {
   const teamMemberId = formData.get("teamMemberId") as string;
 
-  const parsed = createAdvanceAdjustmentSchema.safeParse({
-    advanceId: formData.get("advanceId"),
-    paymentId: formData.get("paymentId") || undefined,
-    amount: Number(formData.get("amount")),
-    note: formData.get("note") || undefined,
-    adjustedAt: formData.get("adjustedAt"),
-    correctsId: formData.get("correctsId") || undefined,
-    correctionReason: formData.get("correctionReason") || undefined,
-  });
+  const parsed = parseCreateAdvanceAdjustmentForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

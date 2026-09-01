@@ -26,11 +26,12 @@ interface PurchaseForCorrection {
   vendorId: string;
   destination: "GODOWN" | "SITE";
   siteId: string | null;
-  rate: string;
-  totalAmount: string;
+  quantity: string;
+  rate: string | null;
+  totalAmount: string | null;
   invoiceOrChallanNo: string | null;
   challanPhotoUrl: string | null;
-  paymentStatus: "PAID" | "PARTIAL" | "UNPAID";
+  paymentStatus: "PAID" | "PARTIAL" | "UNPAID" | null;
   deliveryLocation: string | null;
   vehicleDetails: string | null;
   receiverName: string | null;
@@ -101,11 +102,11 @@ export default async function CorrectPurchasePage({ params }: { params: Promise<
     materialSizeId: purchase.materialSize.id,
     destination: purchase.destination,
     siteId: purchase.siteId ?? undefined,
-    rate: purchase.rate,
-    totalAmount: purchase.totalAmount,
+    rate: purchase.rate ?? undefined,
+    totalAmount: purchase.totalAmount ?? undefined,
     invoiceOrChallanNo: purchase.invoiceOrChallanNo ?? undefined,
     challanPhotoUrl: purchase.challanPhotoUrl ?? undefined,
-    paymentStatus: purchase.paymentStatus,
+    paymentStatus: purchase.paymentStatus ?? undefined,
     deliveryLocation: purchase.deliveryLocation ?? undefined,
     vehicleDetails: purchase.vehicleDetails ?? undefined,
     receiverName: purchase.receiverName ?? undefined,
@@ -122,7 +123,16 @@ export default async function CorrectPurchasePage({ params }: { params: Promise<
         / Correct
       </div>
       <h1 className="mb-6 text-page-title text-ink-900">Correct Purchase</h1>
-      <PurchaseForm mode="correct" correctsId={purchase.id} materialSizes={materialSizes} sites={sites} vendors={vendors} initial={initial} teamNames={teamNames} />
+      <PurchaseForm
+        mode="correct"
+        correctsId={purchase.id}
+        materialSizes={materialSizes}
+        sites={sites}
+        vendors={vendors}
+        initial={initial}
+        teamNames={teamNames}
+        original={{ quantity: Number(purchase.quantity), priced: purchase.totalAmount !== null }}
+      />
     </div>
   );
 }

@@ -52,6 +52,8 @@ function mockFetchRouter(handlers: {
 }
 
 beforeEach(() => {
+  // SiteField remembers the last Site on-device; tests must not leak it.
+  window.localStorage.clear();
   process.env.NEXT_PUBLIC_API_URL = "http://localhost:3001";
   searchParams.current = new URLSearchParams();
 });
@@ -70,10 +72,10 @@ describe("NewDsrPage", () => {
 
     render(<NewDsrPage />);
 
-    await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
     expect(screen.getByText("Crew present today")).toBeInTheDocument();
     expect(screen.getByText("Materials consumed")).toBeInTheDocument();
-    expect(screen.getByText("RMC used")).toBeInTheDocument();
+    expect(screen.getByText("RMC (ready-mix concrete) used")).toBeInTheDocument();
     expect(screen.getByText("Expenses")).toBeInTheDocument();
     expect(screen.getByText("Equipment used today")).toBeInTheDocument();
   });
@@ -89,8 +91,8 @@ describe("NewDsrPage", () => {
 
     render(<NewDsrPage />);
 
-    await waitFor(() => expect(screen.getByLabelText("Site")).toHaveValue("site-2"));
-    expect(screen.getByRole("button", { name: "Submit Daily Site Report" })).toBeEnabled();
+    await waitFor(() => expect(screen.getByLabelText("Site")).toHaveValue("Metro Depot"));
+    expect(screen.getByRole("button", { name: "Submit Daily Report" })).toBeEnabled();
   });
 
   it("pre-populates the crew checklist from the defaults endpoint once a Site and date are set", async () => {
@@ -100,10 +102,11 @@ describe("NewDsrPage", () => {
     });
 
     render(<NewDsrPage />);
-    await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
 
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Site"), "site-1");
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
 
     await screen.findByText("Ramesh Yadav");
     expect(screen.getByLabelText("Ramesh Yadav")).toBeChecked();
@@ -119,7 +122,7 @@ describe("NewDsrPage", () => {
     });
 
     render(<NewDsrPage />);
-    await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
 
     const user = userEvent.setup();
     const picker = screen.getByLabelText("Add crew member");
@@ -143,10 +146,11 @@ describe("NewDsrPage", () => {
     });
 
     render(<NewDsrPage />);
-    await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
 
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Site"), "site-1");
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
     await user.click(screen.getByRole("button", { name: "Add material" }));
 
     const materialPicker = screen.getByLabelText("Material");
@@ -157,7 +161,7 @@ describe("NewDsrPage", () => {
     // "20" is never ambiguous.
     await user.type(screen.getByLabelText("Quantity (Bags)"), "20");
 
-    await user.click(screen.getByRole("button", { name: "Submit Daily Site Report" }));
+    await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
     await screen.findByText("Synced");
 
     const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
@@ -186,10 +190,11 @@ describe("NewDsrPage", () => {
     });
 
     render(<NewDsrPage />);
-    await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
 
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Site"), "site-1");
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
     await user.click(screen.getByRole("button", { name: "Add material" }));
 
     const materialPicker = screen.getByLabelText("Material");
@@ -209,17 +214,18 @@ describe("NewDsrPage", () => {
     });
 
     render(<NewDsrPage />);
-    await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
 
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Site"), "site-1");
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
 
     const picker = screen.getByLabelText("Add machinery or vehicle");
     await waitFor(() => expect(picker).toBeEnabled());
     await user.type(picker, "jcb");
     await user.click(await screen.findByText("JCB 3DX"));
 
-    await user.click(screen.getByRole("button", { name: "Submit Daily Site Report" }));
+    await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
     await screen.findByText("Synced");
 
     const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
@@ -235,7 +241,7 @@ describe("NewDsrPage", () => {
     mockFetchRouter({ sites: [{ id: "site-1", name: "NH-48" }] });
     render(<NewDsrPage />);
 
-    expect(screen.getByRole("button", { name: "Submit Daily Site Report" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Submit Daily Report" })).toBeDisabled();
   });
 
   it("shows a conflict error inline, not a raw status, when the API returns 409", async () => {
@@ -245,11 +251,12 @@ describe("NewDsrPage", () => {
     });
 
     render(<NewDsrPage />);
-    await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
 
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Site"), "site-1");
-    await user.click(screen.getByRole("button", { name: "Submit Daily Site Report" }));
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+    await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
 
     await screen.findByText("A report for this Site today already exists");
   });
@@ -264,11 +271,12 @@ describe("NewDsrPage", () => {
     });
 
     render(<NewDsrPage />);
-    await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
 
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Site"), "site-1");
-    await user.click(screen.getByRole("button", { name: "Submit Daily Site Report" }));
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+    await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
 
     await screen.findByText("Not enough Site Stock for this Consumption.");
   });
@@ -277,11 +285,12 @@ describe("NewDsrPage", () => {
     mockFetchRouter({ sites: [{ id: "site-1", name: "NH-48" }], dsr: { status: 201 } });
 
     render(<NewDsrPage />);
-    await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
 
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Site"), "site-1");
-    await user.click(screen.getByRole("button", { name: "Submit Daily Site Report" }));
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+    await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
 
     await screen.findByText("Synced");
     expect(await listQueuedDsrs()).toHaveLength(0);
@@ -291,11 +300,12 @@ describe("NewDsrPage", () => {
     mockFetchRouter({ sites: [{ id: "site-1", name: "NH-48" }], dsr: "network-error" });
 
     render(<NewDsrPage />);
-    await waitFor(() => expect(screen.getByRole("option", { name: "NH-48" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
 
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Site"), "site-1");
-    await user.click(screen.getByRole("button", { name: "Submit Daily Site Report" }));
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+    await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
 
     await screen.findByText("Saved on device — will sync when back online");
     const queued = await listQueuedDsrs();

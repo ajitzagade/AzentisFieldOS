@@ -70,7 +70,7 @@ async function getDsrDetail(id: string): Promise<DsrDetail | null> {
   const res = await authedFetch(`/dsr/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
-    throw new Error(`Failed to load Daily Site Report (${res.status})`);
+    throw new Error(`Failed to load Daily Report (${res.status})`);
   }
   return res.json();
 }
@@ -102,7 +102,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
     <>
       <div className="mb-2 text-eyebrow text-ink-500">
         <Link href="/daily-activity" className="hover:text-accent-teal-700 hover:underline">
-          Daily Activity
+          Daily Reports
         </Link>{" "}
         / {dsr.site.name}
       </div>
@@ -192,7 +192,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
         </Card>
 
         <Card>
-          <h2 className="mb-3 text-card-title text-ink-900">RMC used</h2>
+          <h2 className="mb-3 text-card-title text-ink-900">RMC (ready-mix concrete) used</h2>
           {dsr.rmcEntries.length === 0 ? (
             <p className="text-body-sm text-ink-500">No RMC delivery logged for this report.</p>
           ) : (

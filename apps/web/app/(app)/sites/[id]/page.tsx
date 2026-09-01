@@ -277,7 +277,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             className={cn(buttonVariants({ variant: "primary" }))}
           >
             <ClipboardIcon className="size-4" />
-            Today&apos;s DSR
+            Today&apos;s Report
           </Link>
           <Link href={`/sites/${site.id}/photos`} className={cn(buttonVariants({ variant: "secondary" }))}>
             <CameraIcon className="size-4" />
@@ -306,7 +306,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             {todaysDsr ? (
               <>
                 <Badge variant="success" icon={<CheckCircleIcon />}>
-                  DSR submitted today
+                  Report submitted today
                 </Badge>
                 <span className="flex items-center gap-1.5 text-body-sm text-ink-700">
                   <UsersIcon className="size-4 text-ink-500" />
@@ -318,7 +318,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
                 </span>
               </>
             ) : (
-              <Badge variant="neutral">No DSR yet today</Badge>
+              <Badge variant="neutral">No report yet today</Badge>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -365,7 +365,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
           />
         </div>
         <div>
-          <div className="mb-4 text-section-header text-ink-900">Recent Daily Site Reports</div>
+          <div className="mb-4 text-section-header text-ink-900">Recent Daily Reports</div>
           <DataTable
             columns={recentDsrColumns}
             rowKey={(row) => row.id}
@@ -374,7 +374,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
               recentDsrs === null
                 ? { status: "empty", icon: <ClipboardIcon />, message: "Couldn't load recent reports right now." }
                 : recentDsrs.length === 0
-                  ? { status: "empty", icon: <ClipboardIcon />, message: "No Daily Site Reports in the last 30 days." }
+                  ? { status: "empty", icon: <ClipboardIcon />, message: "No Daily Reports in the last 30 days." }
                   : { status: "success", rows: recentDsrs }
             }
           />
@@ -397,7 +397,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
           <p className="text-body-sm text-ink-500">Couldn&apos;t load this Site&apos;s photos right now.</p>
         ) : photos.length === 0 ? (
           <p className="text-body-sm text-ink-500">
-            No photos yet for this Site — they arrive with Daily Site Reports.
+            No photos yet for this Site — they arrive with Daily Reports.
           </p>
         ) : (
           <PhotoGalleryGrid photos={photos.slice(0, RECENT_PHOTOS_LIMIT)} />

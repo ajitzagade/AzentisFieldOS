@@ -22,6 +22,7 @@ describe("AdvanceForm", () => {
     render(
       <AdvanceForm
         mode="correct"
+        originalAmount={5000}
         teamMemberId="tm1"
         correctsId="a1"
         initial={{ reason: "Medical", paymentMethod: "Cash", givenAt: "2026-08-10" }}
@@ -34,9 +35,11 @@ describe("AdvanceForm", () => {
   });
 
   it("labels the amount field as an adjustment with a delta hint in correct mode", () => {
-    render(<AdvanceForm mode="correct" teamMemberId="tm1" correctsId="a1" />);
+    render(<AdvanceForm mode="correct"
+        originalAmount={5000} teamMemberId="tm1" correctsId="a1" />);
 
-    expect(screen.getByLabelText("Amount adjustment")).toBeInTheDocument();
-    expect(screen.getByText(/Signed delta applied on top of the current balance/)).toBeInTheDocument();
+    // D4: the user types the corrected amount; the delta is derived underneath.
+    expect(screen.getByLabelText("Correct amount")).toBeInTheDocument();
+    expect(screen.getByText(/Currently recorded: ₹5,000/)).toBeInTheDocument();
   });
 });

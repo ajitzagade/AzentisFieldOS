@@ -201,11 +201,18 @@ model Purchase {
   siteId               String? // required when destination = SITE (FR-8, FR-10)
   site                 Site?               @relation(fields: [siteId], references: [id])
   quantity             Decimal
-  rate                 Decimal
-  totalAmount          Decimal
+  // Pricing is nullable (decision D7, 2026-09-01): a Site Supervisor records
+  // the physical facts at the gate (vendor/material/quantity/challan) and the
+  // Owner/Admin completes rate/totalAmount/paymentStatus later via
+  // PATCH /purchases/:id/pricing. `totalAmount IS NULL` ⇔ "Pricing pending".
+  // That PATCH is a one-time fill of these to-be-priced fields only — never
+  // a change to an already-priced row (AD-9's append-only rule still governs
+  // every recorded value; priced corrections go through the Correct flow).
+  rate                 Decimal?
+  totalAmount          Decimal?
   invoiceOrChallanNo   String?
   challanPhotoUrl      String?
-  paymentStatus        String
+  paymentStatus        String?
   deliveryLocation     String?
   vehicleDetails       String?
   receiverName         String? // FR-10 direct Vendor->Site

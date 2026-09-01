@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createReturnWastageSchema } from "@azentisfieldos/shared";
+import { parseReturnWastageForm } from "./parse";
 
 export interface CreateReturnWastageFormState {
   errors?: Record<string, string[]>;
@@ -16,16 +16,7 @@ export async function createReturnWastageAction(
   _prevState: CreateReturnWastageFormState,
   formData: FormData,
 ): Promise<CreateReturnWastageFormState> {
-  const parsed = createReturnWastageSchema.safeParse({
-    siteId: formData.get("siteId"),
-    materialSizeId: formData.get("materialSizeId"),
-    kind: formData.get("kind"),
-    quantity: Number(formData.get("quantity")),
-    notes: formData.get("notes") || undefined,
-    recordedAt: formData.get("recordedAt"),
-    correctsId: formData.get("correctsId") || undefined,
-    reason: formData.get("reason") || undefined,
-  });
+  const parsed = parseReturnWastageForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

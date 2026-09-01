@@ -2,7 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Badge, Button, CalendarIcon, Card, CheckCircleIcon, ComboboxField, MapPinIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { Badge, Button, CalendarIcon, Card, CheckCircleIcon, ComboboxField, PlusIcon, TextField, UserIcon } from "@azentisfieldos/ui";
+import { SiteField } from "../../../_components/site-field";
 import { useAuthedFetch } from "../../../../../lib/use-authed-fetch";
 
 interface SiteOption {
@@ -135,14 +136,7 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
   return (
     <form onSubmit={handleSubmit}>
       <Card className="mb-4">
-        <SelectField
-          label="Site"
-          required
-          icon={<MapPinIcon className="size-4" />}
-          value={siteId}
-          onChange={(e) => setSiteId(e.target.value)}
-          options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
-        />
+        <SiteField sites={sites} required onSiteChange={setSiteId} />
         <TextField label="Date" type="date" required icon={<CalendarIcon className="size-4" />} value={workDate} onChange={(e) => setWorkDate(e.target.value)} />
       </Card>
 
@@ -181,6 +175,7 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
                     type="number"
                     step="any"
                     min={0}
+                    inputMode="decimal"
                     placeholder="Hours"
                     aria-label={`Hours for ${row.name}`}
                     value={row.hours}
@@ -191,6 +186,7 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
                     type="number"
                     step="any"
                     min={0}
+                    inputMode="decimal"
                     placeholder="OT hours"
                     aria-label={`Overtime hours for ${row.name}`}
                     value={row.overtimeHours}

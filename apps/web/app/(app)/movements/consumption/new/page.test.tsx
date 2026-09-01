@@ -40,7 +40,9 @@ describe("NewConsumptionPage", () => {
 
     await renderNewConsumptionPage();
 
-    expect(screen.getByRole("option", { name: "Sector 12 Metro Depot" })).toBeInTheDocument();
+    // SiteField is a searchable combobox — options render on demand; the
+    // labelled combobox itself proves the Site picker is wired.
+    expect(screen.getByLabelText("Site")).toHaveAttribute("role", "combobox");
 
     const user = userEvent.setup();
     const materialPicker = screen.getByLabelText("Material / Size");

@@ -108,7 +108,7 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getByRole("link", { name: "Correct" })).toHaveAttribute("href", "/movements/purchases/p1/correct");
+    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/movements/purchases/p1/correct");
   });
 
   it("renders a gold Movement badge and a Godown -> destination Site flow", async () => {
@@ -131,8 +131,8 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getByText("Pending receipt")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Confirm Receipt/ })).toHaveAttribute("href", "/movements/m1/confirm-receipt");
+    expect(screen.getAllByText("Pending receipt").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /Confirm Receipt/ })[0]).toHaveAttribute("href", "/movements/m1/confirm-receipt");
   });
 
   it("does not show a Confirm Receipt action once receivedQuantity is set", async () => {
@@ -140,7 +140,7 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.queryByRole("link", { name: /Confirm Receipt/ })).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("link", { name: /Confirm Receipt/ })).toHaveLength(0);
   });
 
   it("renders a sent/received shortfall in the warning color, not silently reconciled", async () => {
@@ -148,7 +148,7 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    const received = screen.getByText("1240 Kg");
+    const received = screen.getAllByText("1240 Kg")[0]!;
     expect(received).toHaveClass("text-warning-700");
   });
 
@@ -157,7 +157,7 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getByRole("link", { name: "Correct" })).toHaveAttribute("href", "/movements/godown-to-site/m2/correct");
+    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/movements/godown-to-site/m2/correct");
   });
 
   it("renders the empty state with a record-first-Purchase action when there are zero rows", async () => {
@@ -165,8 +165,8 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getByText(/No Purchases, movements, consumption, or wastage\/return recorded yet\./)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Record your first Purchase/ })).toHaveAttribute("href", "/movements/purchases/new");
+    expect(screen.getAllByText(/No Purchases, movements, consumption, or wastage\/return recorded yet\./)).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Record your first Purchase/ })[0]).toHaveAttribute("href", "/movements/purchases/new");
   });
 
   it("links the header actions to every entry form", async () => {
@@ -228,10 +228,10 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getByRole("link", { name: "Correct" })).toHaveAttribute("href", "/movements/consumption/c1/correct");
+    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/movements/consumption/c1/correct");
   });
 
-  it("renders a danger Wastage & Return badge with matching Sent/Received Qty (no sent/received-gap concept)", async () => {
+  it("renders a danger Wastage / Return badge with matching Sent/Received Qty (no sent/received-gap concept)", async () => {
     mockFetchRouter({
       rows: [
         {
@@ -252,7 +252,7 @@ describe("MovementsPage", () => {
     await renderMovementsPage();
 
     const table = within(screen.getByRole("table"));
-    expect(table.getByText("Wastage & Return")).toBeInTheDocument();
+    expect(table.getByText("Wastage / Return")).toBeInTheDocument();
     expect(table.getByText("Aggregate (20mm)")).toBeInTheDocument();
     expect(table.getAllByText("2 Ton")).toHaveLength(2);
   });
@@ -277,7 +277,7 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getByRole("link", { name: "Correct" })).toHaveAttribute("href", "/movements/return-wastage/rw1/correct");
+    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/movements/return-wastage/rw1/correct");
   });
 
   it("requests page 1 / the default page size when no searchParams are given", async () => {

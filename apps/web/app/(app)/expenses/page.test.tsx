@@ -82,12 +82,12 @@ describe("ExpensesPage", () => {
 
     await renderExpensesPage();
 
-    expect(screen.getByText("NH-48 Highway Widening")).toBeInTheDocument();
-    expect(screen.getByText("Fuel")).toBeInTheDocument();
-    expect(screen.getByText("₹5,000")).toBeInTheDocument();
-    expect(screen.getByText("Diesel for site generator")).toBeInTheDocument();
-    expect(screen.getByText("Cash")).toBeInTheDocument();
-    expect(screen.getByText("HP Petrol Pump")).toBeInTheDocument();
+    expect(screen.getAllByText("NH-48 Highway Widening").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Fuel").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("₹5,000").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Diesel for site generator").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cash").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("HP Petrol Pump").length).toBeGreaterThan(0);
   });
 
   it("AC #3: offers only a Correct action per row, never Edit/Delete (AD-9)", async () => {
@@ -95,7 +95,7 @@ describe("ExpensesPage", () => {
 
     await renderExpensesPage();
 
-    expect(screen.getByRole("link", { name: "Correct" })).toHaveAttribute("href", "/expenses/exp1/correct");
+    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/expenses/exp1/correct");
     expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
   });
@@ -105,8 +105,8 @@ describe("ExpensesPage", () => {
 
     await renderExpensesPage();
 
-    expect(screen.getByText("No Expenses recorded yet.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Record your first Expense/ })).toHaveAttribute("href", "/expenses/new");
+    expect(screen.getAllByText("No Expenses recorded yet.")).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Record your first Expense/ })[0]).toHaveAttribute("href", "/expenses/new");
   });
 
   it("links the header actions to the entry form and the categories admin", async () => {

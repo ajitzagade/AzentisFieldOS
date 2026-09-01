@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, ArrowsIcon, Button, CalendarIcon, Card, CheckCircleIcon, MapPinIcon, PencilIcon, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createAssetMovementAction, type CreateAssetMovementFormState } from "./actions";
+import { useClientValidation } from "@/lib/use-client-validation";
+import { parseCreateAssetMovementForm } from "./parse";
 
 interface SiteOption {
   id: string;
@@ -50,13 +52,16 @@ type AssetMovementFormProps = {
 // this form's copy (AC #3).
 export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites, initial }: AssetMovementFormProps) {
   const [state, formAction] = useActionState(createAssetMovementAction, initialState);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseCreateAssetMovementForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
   const [toStatus, setToStatus] = useState<AssetLocationStatus>(initial?.toStatus ?? "AT_SITE");
 
   return (
-    <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
+    <form action={formAction} onSubmit={validation.guard(mode === "correct" ? confirmation.guard() : undefined)} noValidate>
       <input type="hidden" name="assetType" value={assetType} />
       <input type="hidden" name="assetId" value={assetId} />
 
@@ -71,7 +76,7 @@ export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites,
             actual, correct destination below — this is a manually recorded fact, not a delta.
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
+          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={errorFor("reason")} />
         </Card>
       ) : null}
 
@@ -88,7 +93,7 @@ export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites,
             { value: "MAINTENANCE", label: "Maintenance" },
             { value: "AVAILABLE", label: "Available" },
           ]}
-          error={state.errors?.toStatus?.[0]}
+          error={errorFor("toStatus")}
         />
 
         {toStatus === "AT_SITE" ? (
@@ -99,7 +104,7 @@ export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites,
             icon={<MapPinIcon className="size-4" />}
             defaultValue={initial?.siteId ?? ""}
             options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
-            error={state.errors?.siteId?.[0]}
+            error={errorFor("siteId")}
           />
         ) : null}
 
@@ -110,7 +115,7 @@ export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites,
           required
           icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.movedAt ?? todayDate()}
-          error={state.errors?.movedAt?.[0]}
+          error={errorFor("movedAt")}
         />
         <p className="text-eyebrow text-ink-500">Manually recorded — not live GPS tracking.</p>
       </Card>

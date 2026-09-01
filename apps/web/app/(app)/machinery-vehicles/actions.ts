@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createAssetMovementSchema, createAssetServiceLogSchema, updateAssetServiceLogSchema } from "@azentisfieldos/shared";
+import { parseCreateAssetMovementForm, parseCreateServiceLogForm, parseUpdateServiceLogForm } from "./parse";
 
 export interface CreateAssetMovementFormState {
   errors?: Record<string, string[]>;
@@ -20,17 +20,7 @@ export async function createAssetMovementAction(
   _prevState: CreateAssetMovementFormState,
   formData: FormData,
 ): Promise<CreateAssetMovementFormState> {
-  const toStatus = formData.get("toStatus");
-
-  const parsed = createAssetMovementSchema.safeParse({
-    assetType: formData.get("assetType"),
-    assetId: formData.get("assetId"),
-    toStatus,
-    siteId: toStatus === "AT_SITE" ? formData.get("siteId") || undefined : undefined,
-    movedAt: formData.get("movedAt"),
-    correctsId: formData.get("correctsId") || undefined,
-    reason: formData.get("reason") || undefined,
-  });
+  const parsed = parseCreateAssetMovementForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
@@ -92,16 +82,7 @@ export async function createServiceLogAction(
   _prevState: ServiceLogFormState,
   formData: FormData,
 ): Promise<ServiceLogFormState> {
-  const cost = formData.get("cost");
-
-  const parsed = createAssetServiceLogSchema.safeParse({
-    assetType: formData.get("assetType"),
-    assetId: formData.get("assetId"),
-    kind: formData.get("kind"),
-    notes: formData.get("notes") || undefined,
-    cost: cost ? Number(cost) : undefined,
-    serviceDate: formData.get("serviceDate"),
-  });
+  const parsed = parseCreateServiceLogForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
@@ -147,19 +128,8 @@ export async function updateServiceLogAction(
   formData: FormData,
 ): Promise<ServiceLogFormState> {
   const assetId = formData.get("assetId") as string;
-  const cost = formData.get("cost");
 
-  // The form always resubmits every field (full-replace, not a diff) —
-  // an intentionally-blanked Notes/Cost must reach the API as an explicit
-  // `null` so it's actually cleared, not silently dropped by
-  // JSON.stringify omitting an `undefined` key (same reasoning as
-  // updateMachineryAction).
-  const parsed = updateAssetServiceLogSchema.safeParse({
-    kind: formData.get("kind") || undefined,
-    notes: formData.get("notes") || null,
-    cost: cost ? Number(cost) : null,
-    serviceDate: formData.get("serviceDate") || undefined,
-  });
+  const parsed = parseUpdateServiceLogForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

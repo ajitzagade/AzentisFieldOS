@@ -1,7 +1,14 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { HELP_CONTENT } from "@azentisfieldos/shared";
+import { HelpBubble } from "@azentisfieldos/ui";
 import { WasteDisposalForm, type WasteDisposalFormInitialValues } from "../../waste-disposal-form";
+
+// The same explanation Help & Guides shows for the Correct concept — one
+// shared content source, read here inline (same pattern as the Consumption
+// page's contextual help).
+const CORRECT_HELP = HELP_CONTENT.contextualHelp.find((h) => h.key === "correct");
 
 interface SiteOption {
   id: string;
@@ -23,7 +30,10 @@ interface WasteDisposalForCorrection {
   machineryId: string | null;
   vehicleId: string | null;
   vehicleDetails: string | null;
+  tripCount: number;
   ratePerTrip: string;
+  // Prisma Decimal — serialized as a string over JSON.
+  otherCharges: string | null;
   disposalLocation: string | null;
   notes: string | null;
   disposedAt: string;
@@ -70,6 +80,10 @@ export default async function CorrectWasteDisposalPage({ params }: { params: Pro
     machineryId: disposal.machineryId ?? undefined,
     vehicleId: disposal.vehicleId ?? undefined,
     vehicleDetails: disposal.vehicleDetails ?? undefined,
+    // The original trips/other charges — correct mode shows them so the
+    // user types corrected values and the form derives the signed deltas.
+    tripCount: disposal.tripCount,
+    otherCharges: disposal.otherCharges ?? undefined,
     ratePerTrip: disposal.ratePerTrip,
     disposalLocation: disposal.disposalLocation ?? undefined,
     notes: disposal.notes ?? undefined,
@@ -84,7 +98,10 @@ export default async function CorrectWasteDisposalPage({ params }: { params: Pro
         </Link>{" "}
         / Correct
       </div>
-      <h1 className="mb-6 text-page-title text-ink-900">Correct Waste Disposal</h1>
+      <h1 className="mb-6 flex items-center gap-2 text-page-title text-ink-900">
+        Correct Waste Disposal
+        {CORRECT_HELP ? <HelpBubble>{CORRECT_HELP.explanation}</HelpBubble> : null}
+      </h1>
       <WasteDisposalForm mode="correct" correctsId={disposal.id} sites={sites} vendors={vendors} equipment={[]} initial={initial} />
     </div>
   );

@@ -15,7 +15,8 @@ describe("ExpenseForm", () => {
     render(<ExpenseForm mode="new" sites={sites} categories={categories} />);
 
     expect(screen.getByLabelText("Site")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "NH-48 Highway Widening" })).toBeInTheDocument();
+    // SiteField is a searchable combobox — the labelled combobox proves the wiring.
+    expect(screen.getByLabelText("Site")).toHaveAttribute("role", "combobox");
     expect(screen.getByLabelText("Category")).toBeInTheDocument();
     expect(screen.getByLabelText("Category")).toHaveAttribute("role", "combobox");
     expect(screen.getByLabelText("Amount")).toBeInTheDocument();
@@ -29,6 +30,7 @@ describe("ExpenseForm", () => {
     render(
       <ExpenseForm
         mode="correct"
+        originalAmount={5000}
         correctsId="exp1"
         sites={sites}
         categories={categories}
@@ -47,6 +49,7 @@ describe("ExpenseForm", () => {
     render(
       <ExpenseForm
         mode="correct"
+        originalAmount={5000}
         correctsId="exp1"
         sites={sites}
         categories={categories}
@@ -54,7 +57,8 @@ describe("ExpenseForm", () => {
       />,
     );
 
-    expect(screen.getByLabelText("Amount adjustment")).toBeInTheDocument();
-    expect(screen.getByText(/Signed delta applied on top of the current total/)).toBeInTheDocument();
+    // D4: the user types the corrected amount; the delta is derived underneath.
+    expect(screen.getByLabelText("Correct amount")).toBeInTheDocument();
+    expect(screen.getByText(/Currently recorded: ₹5,000/)).toBeInTheDocument();
   });
 });

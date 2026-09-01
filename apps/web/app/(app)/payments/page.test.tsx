@@ -96,13 +96,13 @@ describe("PaymentsPage", () => {
 
     await renderPaymentsPage();
 
-    expect(screen.getByText("Ravi Kumar")).toBeInTheDocument();
-    expect(screen.getByText("1-15 Aug 2026")).toBeInTheDocument();
-    expect(screen.getByText("₹13,500")).toBeInTheDocument();
-    expect(screen.getByText("−₹3,000")).toBeInTheDocument();
-    expect(screen.getByText("Pending")).toBeInTheDocument();
-    expect(screen.getByTestId("mark-paid-p1")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Correct" })).toHaveAttribute("href", "/payments/p1/correct");
+    expect(screen.getAllByText("Ravi Kumar")).toHaveLength(2);
+    expect(screen.getAllByText("1-15 Aug 2026").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("₹13,500").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("−₹3,000").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Pending").length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("mark-paid-p1").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/payments/p1/correct");
   });
 
   it("does not render a Mark Paid action for an already-paid row", async () => {
@@ -110,8 +110,8 @@ describe("PaymentsPage", () => {
 
     await renderPaymentsPage();
 
-    expect(screen.getByText("Paid")).toBeInTheDocument();
-    expect(screen.queryByTestId("mark-paid-p1")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Paid").length).toBeGreaterThan(0);
+    expect(screen.queryAllByTestId("mark-paid-p1")).toHaveLength(0);
   });
 
   it("shows ₹0 for the Advance Adjustment column when a Payment has none linked (AC #3)", async () => {
@@ -123,7 +123,7 @@ describe("PaymentsPage", () => {
 
     await renderPaymentsPage();
 
-    expect(screen.getByText("₹0")).toBeInTheDocument();
+    expect(screen.getAllByText("₹0").length).toBeGreaterThan(0);
   });
 
   it("shows the empty state with a Record-your-first-Payment action when there are zero rows", async () => {
@@ -131,8 +131,8 @@ describe("PaymentsPage", () => {
 
     await renderPaymentsPage();
 
-    expect(screen.getByText("No Payments recorded yet.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Record your first Payment/ })).toHaveAttribute("href", "/payments/new");
+    expect(screen.getAllByText("No Payments recorded yet.")).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Record your first Payment/ })[0]).toHaveAttribute("href", "/payments/new");
   });
 
   it("links the header action to /payments/new", async () => {

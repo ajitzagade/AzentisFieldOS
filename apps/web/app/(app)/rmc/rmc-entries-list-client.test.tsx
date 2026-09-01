@@ -48,7 +48,7 @@ function renderClient(overrides: Partial<Parameters<typeof RmcEntriesListClient>
 describe("RmcEntriesListClient", () => {
   it("renders every row", () => {
     renderClient();
-    expect(screen.getByText("Anand RMC Suppliers")).toBeInTheDocument();
+    expect(screen.getAllByText("Anand RMC Suppliers")).toHaveLength(2);
   });
 
   it("debounces the search box before writing to the URL", () => {
@@ -71,14 +71,15 @@ describe("RmcEntriesListClient", () => {
 
   it("shows the zero-deliveries-ever empty state with no active search", () => {
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No RMC deliveries logged yet.")).toBeInTheDocument();
+    // Rendered as both the desktop table panel and the mobile card panel.
+    expect(screen.getAllByText("No RMC deliveries logged yet.")).toHaveLength(2);
   });
 
   it("shows the no-matches empty state with Clear filters when a search is active", () => {
     hookState = { q: "nonexistent" };
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No RMC deliveries match your search.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getAllByText("No RMC deliveries match your search.")).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]!);
     expect(clearAll).toHaveBeenCalledOnce();
   });
 

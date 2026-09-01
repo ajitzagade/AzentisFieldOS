@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  CompletePurchasePricingInput,
   CreatePurchaseInput,
   InventoryReportFilters,
 } from '@azentisfieldos/shared';
@@ -109,6 +110,40 @@ export class PurchasesService {
     return where;
   }
 
+  // D7: a Supervisor's inward entry arrives without pricing; the Owner
+  // completes it exactly once. `totalAmount IS NULL` is the pending marker.
+  // This UPDATE is the deliberate, reviewed exception to AD-9's no-UPDATE
+  // rule: it only ever fills fields that were recorded as "to be priced" —
+  // the guard below refuses to touch a row that already carries pricing,
+  // so no recorded value is ever overwritten. Post-pricing changes go
+  // through the normal correction flow (POST with correctsId).
+  async completePricing(id: string, input: CompletePurchasePricingInput) {
+    const purchase = await this.prisma.purchase.findUnique({ where: { id } });
+    if (!purchase) {
+      throw new NotFoundException(`Purchase ${id} not found`);
+    }
+    if (purchase.totalAmount !== null) {
+      throw new BadRequestException(
+        'This Purchase is already priced — changes to a priced Purchase must be filed as a correction',
+      );
+    }
+    return this.prisma.purchase.update({
+      where: { id },
+      data: {
+        rate: input.rate,
+        totalAmount: input.totalAmount,
+        paymentStatus: input.paymentStatus,
+      },
+    });
+  }
+
+  // D7: how many inward entries still await pricing — the Dashboard
+  // gap-flag's honest count (unpriced rows are excluded from every money
+  // figure rather than pretending to be ₹0).
+  countPendingPricing() {
+    return this.prisma.purchase.count({ where: { totalAmount: null } });
+  }
+
   // Story 5.7's Inventory page "Purchases This Month" stat tile — a count
   // query, not a client-side filter over the full unbounded Purchase list.
   countThisMonth() {
@@ -167,7 +202,10 @@ export class PurchasesService {
         _sum: { totalAmount: true },
       }),
       this.prisma.purchase.aggregate({
-        where: { vendorId, paymentStatus: { not: 'PAID' } },
+        // Explicit statuses, not `not: 'PAID'` — an unpriced (D7 "Pricing
+        // pending", paymentStatus NULL) Purchase must not count as owed
+        // money; it is surfaced through countPendingPricing instead.
+        where: { vendorId, paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
         _sum: { totalAmount: true },
       }),
     ]);

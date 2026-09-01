@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { createConsumptionSchema } from "@azentisfieldos/shared";
+import { parseConsumptionForm } from "./parse";
 
 export interface CreateConsumptionFormState {
   errors?: Record<string, string[]>;
@@ -16,16 +16,7 @@ export async function createConsumptionAction(
   _prevState: CreateConsumptionFormState,
   formData: FormData,
 ): Promise<CreateConsumptionFormState> {
-  const parsed = createConsumptionSchema.safeParse({
-    siteId: formData.get("siteId"),
-    materialSizeId: formData.get("materialSizeId"),
-    quantity: Number(formData.get("quantity")),
-    activityReference: formData.get("activityReference") || undefined,
-    notes: formData.get("notes") || undefined,
-    consumedAt: formData.get("consumedAt"),
-    correctsId: formData.get("correctsId") || undefined,
-    reason: formData.get("reason") || undefined,
-  });
+  const parsed = parseConsumptionForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

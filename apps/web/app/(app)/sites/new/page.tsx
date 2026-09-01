@@ -3,7 +3,9 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button, Card, FilterIcon, HashIcon, MapPinIcon, PlusIcon, SelectField, TextField, TextareaField } from "@azentisfieldos/ui";
+import { useClientValidation } from "@/lib/use-client-validation";
 import { createSiteAction, type CreateSiteFormState } from "./actions";
+import { parseCreateSiteForm } from "./parse";
 
 const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "Active" },
@@ -25,12 +27,15 @@ const initialState: CreateSiteFormState = {};
 
 export default function NewSitePage() {
   const [state, formAction] = useActionState(createSiteAction, initialState);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseCreateSiteForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   return (
     <div className="max-w-160">
       <h1 className="mb-6 text-page-title text-ink-900">Add Site</h1>
       <Card>
-        <form action={formAction} noValidate>
+        <form action={formAction} onSubmit={validation.guard()} noValidate>
           <TextField
             label="Name"
             name="name"
@@ -38,7 +43,7 @@ export default function NewSitePage() {
             maxLength={200}
             icon={<MapPinIcon className="size-4" />}
             placeholder="e.g. Riverside Tower"
-            error={state.errors?.name?.[0]}
+            error={errorFor("name")}
           />
           <TextField
             label="Location"
@@ -47,7 +52,7 @@ export default function NewSitePage() {
             maxLength={500}
             icon={<MapPinIcon className="size-4" />}
             placeholder="e.g. 12 MG Road, Pune"
-            error={state.errors?.location?.[0]}
+            error={errorFor("location")}
           />
           <SelectField
             label="Status"
@@ -55,7 +60,7 @@ export default function NewSitePage() {
             defaultValue="ACTIVE"
             icon={<FilterIcon className="size-4" />}
             options={STATUS_OPTIONS}
-            error={state.errors?.status?.[0]}
+            error={errorFor("status")}
           />
           <TextField
             label="Contract reference"
@@ -63,7 +68,7 @@ export default function NewSitePage() {
             hint="Optional"
             maxLength={200}
             icon={<HashIcon className="size-4" />}
-            error={state.errors?.contractReference?.[0]}
+            error={errorFor("contractReference")}
           />
           <TextareaField
             label="Description"
@@ -71,7 +76,7 @@ export default function NewSitePage() {
             hint="Optional"
             rows={3}
             maxLength={2000}
-            error={state.errors?.description?.[0]}
+            error={errorFor("description")}
           />
 
           {state.formError ? (

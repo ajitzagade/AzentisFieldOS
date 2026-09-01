@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import { getTeamNames } from "../../team-names";
 import { PurchaseForm } from "../purchase-form";
 
@@ -44,11 +45,12 @@ async function getVendors(): Promise<VendorOption[]> {
 }
 
 export default async function NewPurchasePage() {
-  const [sites, materials, vendors, teamNames] = await Promise.all([
+  const [sites, materials, vendors, teamNames, role] = await Promise.all([
     getSites(),
     getMaterials(),
     getVendors(),
     getTeamNames(),
+    currentRole(),
   ]);
 
   // A Purchase always targets a specific Size, never a bare Material — a
@@ -64,7 +66,16 @@ export default async function NewPurchasePage() {
   return (
     <div className="max-w-160">
       <h1 className="mb-6 text-page-title text-ink-900">Record Purchase</h1>
-      <PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} teamNames={teamNames} />
+      {/* D7: a Supervisor records the physical facts only — the pricing card
+          is Owner/Admin's, completed later via the pricing queue. */}
+      <PurchaseForm
+        mode="new"
+        materialSizes={materialSizes}
+        sites={sites}
+        vendors={vendors}
+        teamNames={teamNames}
+        showPricing={role === "OWNER_ADMIN"}
+      />
     </div>
   );
 }

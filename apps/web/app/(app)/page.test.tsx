@@ -43,24 +43,29 @@ const baseSitesPreview = [
   { id: "s2", name: "Metro Depot", location: "Pune", status: "ON_HOLD" },
 ];
 
-// Route each Dashboard fetch to its own fixture — the page issues three
-// parallel requests (today / overall / sites-preview).
+// Route each fetch to its own fixture — the page resolves the role first
+// (/users/me), then the Owner Dashboard issues its parallel requests
+// (today / overall / sites-preview / expenses summary / vendors).
 function mockDashboard(overrides: {
   today?: Record<string, unknown>;
   overall?: Record<string, unknown>;
   sitesPreview?: unknown[];
+  role?: string;
 }) {
   const today = overrides.today ?? baseToday;
   const overall = overrides.overall ?? baseOverall;
   const sitesPreview = overrides.sitesPreview ?? baseSitesPreview;
+  const role = overrides.role ?? "OWNER_ADMIN";
 
   global.fetch = vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
-    const body = url.includes("/dashboard/overall")
-      ? overall
-      : url.includes("/dashboard/sites-preview")
-        ? sitesPreview
-        : today;
+    const body = url.includes("/users/me")
+      ? { role }
+      : url.includes("/dashboard/overall")
+        ? overall
+        : url.includes("/dashboard/sites-preview")
+          ? sitesPreview
+          : today;
     return Promise.resolve({ ok: true, json: async () => body });
   }) as unknown as typeof fetch;
 }
@@ -103,11 +108,11 @@ describe("DashboardPage", () => {
     await renderDashboard();
 
     expect(
-      screen.getByText("Metro Depot has not submitted a Daily Site Report yet today."),
+      screen.getByText("Metro Depot has not submitted a Daily Report yet today."),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Riverside Bridge Approach has not submitted a Daily Site Report yet today.",
+        "Riverside Bridge Approach has not submitted a Daily Report yet today.",
       ),
     ).toBeInTheDocument();
 
@@ -187,6 +192,9 @@ describe("DashboardPage", () => {
     // per card while Today/Overall render exactly as before.
     global.fetch = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
+      // The role lookup must still succeed — a failed /users/me falls back to
+      // the Supervisor Home, which is its own test below.
+      if (url.includes("/users/me")) return Promise.resolve({ ok: true, json: async () => ({ role: "OWNER_ADMIN" }) });
       if (url.includes("/dashboard/overall")) return Promise.resolve({ ok: true, json: async () => baseOverall });
       if (url.includes("/dashboard/sites-preview"))
         return Promise.resolve({ ok: true, json: async () => baseSitesPreview });
@@ -256,5 +264,22 @@ describe("DashboardPage", () => {
     expect(screen.queryByText("Sites Reporting Today")).toBeNull();
     expect(screen.queryByText("Active Sites")).toBeNull();
     expect(screen.queryByRole("link", { name: /view all sites/i })).toBeNull();
+  });
+  it("renders the task-first Supervisor Home for SITE_SUPERVISOR instead of the Owner rollup", async () => {
+    mockDashboard({ role: "SITE_SUPERVISOR", today: { ...baseToday, sitesMissingDsrToday: [{ siteId: "s1", name: "NH-48 Widening" }] } });
+    await renderDashboard();
+
+    // The hero card and the gap-flag action both start the Daily Report.
+    const startLinks = screen.getAllByRole("link", { name: /Start Daily Report/ });
+    expect(startLinks.length).toBeGreaterThan(0);
+    for (const link of startLinks) expect(link).toHaveAttribute("href", "/dsr/new");
+    expect(screen.getByText("Material Received")).toBeInTheDocument();
+    expect(screen.getByText("Material Used")).toBeInTheDocument();
+    expect(screen.getByText("Attendance")).toBeInTheDocument();
+    // The report-due strip names the exact Site.
+    expect(screen.getByText(/NH-48 Widening/)).toBeInTheDocument();
+    // None of the Owner's financial rollup appears.
+    expect(screen.queryByText("Vendor Outstanding")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cash Tied Up")).not.toBeInTheDocument();
   });
 });

@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Purchase" ALTER COLUMN "rate" DROP NOT NULL,
+ALTER COLUMN "totalAmount" DROP NOT NULL,
+ALTER COLUMN "paymentStatus" DROP NOT NULL;

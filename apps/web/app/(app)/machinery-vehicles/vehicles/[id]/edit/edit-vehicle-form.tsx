@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { BuildingIcon, Button, Card, CheckCircleIcon, FilterIcon, HashIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { updateVehicleAction, type UpdateVehicleFormState } from "./actions";
+import { useClientValidation } from "@/lib/use-client-validation";
+import { parseUpdateVehicleForm } from "./parse";
 import type { VehicleDetail } from "./page";
 
 interface Option {
@@ -30,10 +32,13 @@ const initialState: UpdateVehicleFormState = {};
 // transaction (AC #3).
 export function EditVehicleForm({ vehicle, vehicleTypes }: { vehicle: VehicleDetail; vehicleTypes: Option[] }) {
   const [state, formAction] = useActionState(updateVehicleAction.bind(null, vehicle.id), initialState);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseUpdateVehicleForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   return (
     <Card>
-      <form action={formAction} noValidate>
+      <form action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Number"
           name="number"
@@ -41,7 +46,7 @@ export function EditVehicleForm({ vehicle, vehicleTypes }: { vehicle: VehicleDet
           maxLength={100}
           icon={<HashIcon className="size-4" />}
           defaultValue={vehicle.number}
-          error={state.errors?.number?.[0]}
+          error={errorFor("number")}
         />
         <SelectField
           label="Type"
@@ -50,7 +55,7 @@ export function EditVehicleForm({ vehicle, vehicleTypes }: { vehicle: VehicleDet
           defaultValue={vehicle.type.id}
           icon={<FilterIcon className="size-4" />}
           options={vehicleTypes.map((t) => ({ value: t.id, label: t.name }))}
-          error={state.errors?.typeId?.[0]}
+          error={errorFor("typeId")}
         />
         <TextField
           label="Ownership"
@@ -59,7 +64,7 @@ export function EditVehicleForm({ vehicle, vehicleTypes }: { vehicle: VehicleDet
           maxLength={200}
           icon={<BuildingIcon className="size-4" />}
           defaultValue={vehicle.ownership ?? undefined}
-          error={state.errors?.ownership?.[0]}
+          error={errorFor("ownership")}
         />
         <TextField
           label="Driver"
@@ -68,7 +73,7 @@ export function EditVehicleForm({ vehicle, vehicleTypes }: { vehicle: VehicleDet
           maxLength={200}
           icon={<UserIcon className="size-4" />}
           defaultValue={vehicle.driver ?? undefined}
-          error={state.errors?.driver?.[0]}
+          error={errorFor("driver")}
         />
 
         {state.formError ? (

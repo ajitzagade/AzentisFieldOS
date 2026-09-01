@@ -95,7 +95,7 @@ export default async function ExpensesPage({
       />
 
       <p className="mt-4 text-caption text-ink-500">
-        Expenses can be recorded here directly, or logged as part of a Daily Site Report.
+        Expenses can be recorded here directly, or logged as part of a Daily Report.
       </p>
     </>
   );

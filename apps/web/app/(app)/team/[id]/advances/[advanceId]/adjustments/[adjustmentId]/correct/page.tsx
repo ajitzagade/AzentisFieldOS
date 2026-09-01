@@ -5,6 +5,7 @@ import { AdjustmentForm, type AdjustmentFormInitialValues } from "../../adjustme
 
 interface AdjustmentForCorrection {
   id: string;
+  amount: string;
   note: string | null;
   adjustedAt: string;
   advance: {
@@ -57,6 +58,7 @@ export default async function CorrectAdjustmentPage({
         teamMemberId={id}
         advanceId={advanceId}
         correctsId={adjustment.id}
+        originalAmount={Number(adjustment.amount)}
         outstandingBalance={adjustment.advance.teamMember.outstandingAdvanceBalance}
         initial={initial}
       />

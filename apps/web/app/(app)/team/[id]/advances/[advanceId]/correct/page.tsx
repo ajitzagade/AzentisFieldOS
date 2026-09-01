@@ -48,7 +48,13 @@ export default async function CorrectAdvancePage({ params }: { params: Promise<{
         / Correct Advance
       </div>
       <h1 className="mb-6 text-page-title text-ink-900">Correct Advance</h1>
-      <AdvanceForm mode="correct" teamMemberId={id} correctsId={advance.id} initial={initial} />
+      <AdvanceForm
+        mode="correct"
+        teamMemberId={id}
+        correctsId={advance.id}
+        originalAmount={Number(advance.amount)}
+        initial={initial}
+      />
     </div>
   );
 }

@@ -72,7 +72,8 @@ describe("NewSiteToSiteTransferPage", () => {
     await renderPage({ materialSizeId: "ms2", sourceSiteId: "site1" });
 
     expect(document.querySelector('input[name="materialSizeId"]')).toHaveValue("ms2");
-    expect(screen.getByLabelText("Source Site")).toHaveValue("site1");
+    // The combobox shows the Site name; the hidden field carries the id.
+    expect(screen.getByLabelText("Source Site")).toHaveValue("NH-48 Highway Widening");
   });
 
   it("ignores an unrecognized ?materialSizeId=/?sourceSiteId= rather than crashing", async () => {

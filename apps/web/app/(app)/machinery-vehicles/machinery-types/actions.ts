@@ -2,10 +2,8 @@
 
 import { authedFetch } from "@/lib/api";
 import { revalidatePath } from "next/cache";
-import {
-  createMachineryTypeSchema,
-  updateMachineryTypeSchema,
-} from "@azentisfieldos/shared";
+import { updateMachineryTypeSchema } from "@azentisfieldos/shared";
+import { parseCreateMachineryTypeForm } from "./parse";
 
 // Story 14.3: the admin list plus the Register Machine entry-form picker (AC #1).
 function revalidateMachineryTypePaths() {
@@ -22,7 +20,7 @@ export async function createMachineryTypeAction(
   _prevState: CreateMachineryTypeFormState,
   formData: FormData,
 ): Promise<CreateMachineryTypeFormState> {
-  const parsed = createMachineryTypeSchema.safeParse({ name: formData.get("name") });
+  const parsed = parseCreateMachineryTypeForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

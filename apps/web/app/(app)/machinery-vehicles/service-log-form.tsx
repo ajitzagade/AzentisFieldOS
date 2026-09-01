@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { AmountField, Button, CalendarIcon, Card, CheckCircleIcon, FilterIcon, PencilIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createServiceLogAction, updateServiceLogAction, type ServiceLogFormState } from "./actions";
+import { useClientValidation } from "@/lib/use-client-validation";
+import { parseCreateServiceLogForm, parseUpdateServiceLogForm } from "./parse";
 import type { ServiceLogKind } from "./service-history";
 
 export interface ServiceLogFormInitialValues {
@@ -45,9 +47,12 @@ export function ServiceLogForm(props: ServiceLogFormProps) {
   const boundAction =
     props.mode === "new" ? createServiceLogAction : updateServiceLogAction.bind(null, props.logId, assetType);
   const [state, formAction] = useActionState(boundAction, initialState);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(props.mode === "new" ? parseCreateServiceLogForm : parseUpdateServiceLogForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   return (
-    <form action={formAction} noValidate>
+    <form action={formAction} onSubmit={validation.guard()} noValidate>
       <input type="hidden" name="assetType" value={assetType} />
       <input type="hidden" name="assetId" value={assetId} />
 
@@ -63,7 +68,7 @@ export function ServiceLogForm(props: ServiceLogFormProps) {
             { value: "MAINTENANCE", label: "Maintenance" },
             { value: "REPAIR", label: "Repair" },
           ]}
-          error={state.errors?.kind?.[0]}
+          error={errorFor("kind")}
         />
         <TextField
           label="Service Date"
@@ -72,7 +77,7 @@ export function ServiceLogForm(props: ServiceLogFormProps) {
           required
           icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.serviceDate ?? todayDate()}
-          error={state.errors?.serviceDate?.[0]}
+          error={errorFor("serviceDate")}
         />
         <AmountField
           label="Cost"
@@ -80,7 +85,7 @@ export function ServiceLogForm(props: ServiceLogFormProps) {
           min={0}
           hint="Optional"
           defaultValue={initial?.cost}
-          error={state.errors?.cost?.[0]}
+          error={errorFor("cost")}
         />
         <TextField
           label="Notes"
@@ -89,7 +94,7 @@ export function ServiceLogForm(props: ServiceLogFormProps) {
           maxLength={1000}
           icon={<PencilIcon className="size-4" />}
           defaultValue={initial?.notes}
-          error={state.errors?.notes?.[0]}
+          error={errorFor("notes")}
         />
       </Card>
 

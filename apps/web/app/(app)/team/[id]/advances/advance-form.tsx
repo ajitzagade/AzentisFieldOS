@@ -2,8 +2,10 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, TextField, WalletIcon } from "@azentisfieldos/ui";
+import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, CorrectedValueField, PencilIcon, RotateCcwIcon, TextField, WalletIcon } from "@azentisfieldos/ui";
+import { useClientValidation } from "@/lib/use-client-validation";
 import { createAdvanceAction, type CreateAdvanceFormState } from "./actions";
+import { parseCreateAdvanceForm } from "./parse";
 
 export interface AdvanceFormInitialValues {
   amount?: string;
@@ -28,24 +30,29 @@ function todayDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function AdvanceForm({
-  mode,
-  teamMemberId,
-  correctsId,
-  initial,
-}: {
-  mode: "new" | "correct";
+type AdvanceFormProps = {
   teamMemberId: string;
-  correctsId?: string;
   initial?: AdvanceFormInitialValues;
-}) {
+} & (
+  | { mode: "new"; correctsId?: undefined; originalAmount?: undefined }
+  // The value currently on the ledger — CorrectedValueField reads it so the
+  // user types the corrected amount, never a delta they computed in their
+  // head (simplicity review 2026-09-01, decision D4).
+  | { mode: "correct"; correctsId: string; originalAmount: number }
+);
+
+export function AdvanceForm({ mode, teamMemberId, correctsId, originalAmount, initial }: AdvanceFormProps) {
   const [state, formAction] = useActionState(createAdvanceAction, initialState);
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
+  // Inline pre-submit validation via the same parse the Server Action runs
+  // (AD-7) — the confirmation dialog only opens once the input parses.
+  const validation = useClientValidation(parseCreateAdvanceForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   return (
-    <form action={formAction} onSubmit={confirmation.guard()} noValidate>
+    <form action={formAction} onSubmit={validation.guard(confirmation.guard())} noValidate>
       <input type="hidden" name="teamMemberId" value={teamMemberId} />
 
       {mode === "correct" ? (
@@ -55,8 +62,7 @@ export function AdvanceForm({
             Filing a correction
           </h2>
           <p className="mb-3 text-body-sm text-warning-700">
-            This creates a new, linked entry — the original Advance is never edited or deleted (AD-9). Enter the
-            amount to add or remove as a signed adjustment (e.g. -2000), not the corrected total.
+            This creates a new, linked entry — the original Advance is never edited or deleted (AD-9).
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
           <TextField
@@ -64,20 +70,24 @@ export function AdvanceForm({
             name="correctionReason"
             required
             icon={<PencilIcon className="size-4" />}
-            error={state.errors?.correctionReason?.[0]}
+            error={errorFor("correctionReason")}
           />
         </Card>
       ) : null}
 
       <Card className="mb-4">
-        <AmountField
-          label={mode === "correct" ? "Amount adjustment" : "Amount"}
-          name="amount"
-          required
-          defaultValue={initial?.amount}
-          hint={mode === "correct" ? "Signed delta applied on top of the current balance — e.g. -2000." : undefined}
-          error={state.errors?.amount?.[0]}
-        />
+        {mode === "correct" ? (
+          <CorrectedValueField
+            label="Correct amount"
+            name="amount"
+            originalValue={originalAmount}
+            unit="₹"
+            required
+            error={errorFor("amount")}
+          />
+        ) : (
+          <AmountField label="Amount" name="amount" required defaultValue={initial?.amount} error={errorFor("amount")} />
+        )}
         <TextField
           label="Date"
           name="givenAt"
@@ -85,7 +95,7 @@ export function AdvanceForm({
           required
           icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.givenAt ?? todayDate()}
-          error={state.errors?.givenAt?.[0]}
+          error={errorFor("givenAt")}
         />
       </Card>
 
@@ -96,7 +106,7 @@ export function AdvanceForm({
           hint="Optional — why this Advance was given, e.g. medical emergency"
           icon={<PencilIcon className="size-4" />}
           defaultValue={initial?.reason}
-          error={state.errors?.reason?.[0]}
+          error={errorFor("reason")}
         />
         <TextField
           label="Payment Method"
@@ -105,7 +115,7 @@ export function AdvanceForm({
           icon={<WalletIcon className="size-4" />}
           placeholder="e.g. Cash, Bank Transfer"
           defaultValue={initial?.paymentMethod}
-          error={state.errors?.paymentMethod?.[0]}
+          error={errorFor("paymentMethod")}
         />
       </Card>
 
@@ -125,7 +135,10 @@ export function AdvanceForm({
         confirmLabel={"Confirm & Submit"}
         onConfirm={confirmation.confirm}
       >
-        <ConfirmDialogRow label="Amount" value={formValue(confirmation.values, "amount")} />
+        {/* In correct mode the submitted "amount" field carries the signed
+            delta derived from the typed corrected value — label it as the
+            change so the replay stays truthful. */}
+        <ConfirmDialogRow label={mode === "correct" ? "Amount change" : "Amount"} value={formValue(confirmation.values, "amount")} />
         {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
       </ConfirmDialog>
 

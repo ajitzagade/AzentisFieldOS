@@ -15,6 +15,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { useListQueryState } from "../../../lib/use-list-query-state";
 import { useDebouncedSearch } from "../../../lib/use-debounced-search";
@@ -84,13 +85,35 @@ const columns: DataTableColumn<PaymentListItem>[] = [
       <div className="flex items-center justify-end gap-1">
         {p.status === "pending" ? <MarkPaidButton id={p.id} /> : null}
         <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/payments/${p.id}/correct`} />
-        <Link href={`/team/${p.teamMember.id}`} className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}>
+        <Link
+          href={`/team/${p.teamMember.id}`}
+          aria-label={`View ${p.teamMember.name}`}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}
+        >
           <ChevronRightIcon className="size-4" />
         </Link>
       </div>
     ),
   },
 ];
+
+const mobileCard: DataTableMobileCard<PaymentListItem> = {
+  primary: (p) => p.teamMember.name,
+  omitHeaders: ["Team Member"],
+  action: (p) => (
+    <>
+      <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/payments/${p.id}/correct`} />
+      <Link
+        href={`/team/${p.teamMember.id}`}
+        aria-label={`View ${p.teamMember.name}`}
+        className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}
+      >
+        <ChevronRightIcon className="size-4" />
+      </Link>
+    </>
+  ),
+  footer: (p) => (p.status === "pending" ? <MarkPaidButton id={p.id} /> : null),
+};
 
 export function PaymentsListClient({
   rows,
@@ -122,6 +145,7 @@ export function PaymentsListClient({
 
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(p) => p.id}
         sort={query.sort ? { key: query.sort, order: query.order ?? "asc" } : undefined}
         onSortChange={query.setSort}

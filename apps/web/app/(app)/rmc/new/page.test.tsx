@@ -40,7 +40,9 @@ describe("NewRmcEntryPage", () => {
 
     await renderNewRmcEntryPage();
 
-    expect(screen.getByRole("option", { name: "NH-48 Highway Widening" })).toBeInTheDocument();
+    // SiteField is a searchable combobox — options render on demand; the
+    // labelled combobox itself proves the Site picker is wired.
+    expect(screen.getByLabelText("Site")).toHaveAttribute("role", "combobox");
     expect(screen.getByRole("button", { name: "Record RMC Delivery" })).toBeInTheDocument();
 
     const user = userEvent.setup();

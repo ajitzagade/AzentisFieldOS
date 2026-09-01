@@ -14,6 +14,8 @@ export * from "./components/field";
 export * from "./components/combobox-field";
 export * from "./components/amount-field";
 export * from "./components/confirm-dialog";
+export * from "./components/corrected-value-field";
+export * from "./components/details-disclosure";
 export * from "./components/search-palette";
 export * from "./components/toast";
 export * from "./lib/amount-in-words";

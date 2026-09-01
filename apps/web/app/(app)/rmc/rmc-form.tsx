@@ -14,6 +14,7 @@ import {
   Card,
   CheckCircleIcon,
   ComboboxField,
+  CorrectedValueField,
   DropletIcon,
   HashIcon,
   MapPinIcon,
@@ -22,8 +23,11 @@ import {
   SelectField,
   TextField,
 } from "@azentisfieldos/ui";
+import { useClientValidation } from "../../../lib/use-client-validation";
 import { ChallanPhotoField } from "../_components/challan-photo-field";
+import { SiteField } from "../_components/site-field";
 import { createRmcEntryAction, type CreateRmcEntryFormState } from "./actions";
+import { parseRmcEntryForm } from "./parse";
 
 interface SiteOption {
   id: string;
@@ -39,6 +43,9 @@ export interface RmcFormInitialValues {
   siteId?: string;
   vendorId?: string;
   grade?: string;
+  /** Originals required by correct mode so the user can type corrected
+   * values instead of computing signed deltas. */
+  quantityM3?: string;
   ratePerM3?: string;
   totalAmount?: string;
   invoiceOrChallanNo?: string;
@@ -75,21 +82,47 @@ type RmcFormProps = {
 
 // AC #1: RMC deliveries are recorded as their own entity — this form posts
 // to POST /rmc-entries, never touching a Purchase/Movement path. Reuses
-// Epic 5's Purchase delta-correction pattern (Story 5.1 Dev Notes): the
-// Quantity field is a signed delta on top of the current total when
-// correcting, not a restated total, and Site/Vendor/Grade lock in correct
-// mode because RmcService.create validates a correction stays tied to the
-// same delivery context.
+// Epic 5's Purchase delta-correction pattern (Story 5.1 Dev Notes): a
+// correction submits a signed delta on top of the current total (derived
+// from the corrected value the user types), and Site/Vendor/Grade lock in
+// correct mode because RmcService.create validates a correction stays tied
+// to the same delivery context.
 export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], initial }: RmcFormProps) {
   const [state, formAction] = useActionState(createRmcEntryAction, initialState);
+  // Client-side pre-submit validation runs the exact same parse as the
+  // Server Action (AD-7) — inline errors without a server round-trip.
+  const validation = useClientValidation(parseRmcEntryForm);
+  const fieldError = (name: string) => validation.errors[name]?.[0] ?? state.errors?.[name]?.[0];
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
   const [vendorId, setVendorId] = useState(initial?.vendorId ?? "");
   const [grade, setGrade] = useState(initial?.grade ?? "");
 
+  // New-entry auto-total: Total Amount = quantity × rate whenever either
+  // changes — the multiplication the user should never do by hand. Typing
+  // directly into Total overrides the computed value (odd invoices exist),
+  // and the override holds until the next quantity/rate change recomputes
+  // over it. Total stays a real submitted field either way — the server
+  // contract is unchanged.
+  const [quantityM3, setQuantityM3] = useState("");
+  const [ratePerM3, setRatePerM3] = useState(initial?.ratePerM3 ?? "");
+  const [totalAmount, setTotalAmount] = useState(initial?.totalAmount ?? "");
+
+  function recomputeTotal(nextQuantity: string, nextRate: string) {
+    const quantity = Number(nextQuantity);
+    const rate = Number(nextRate);
+    if (nextQuantity.trim() !== "" && nextRate.trim() !== "" && Number.isFinite(quantity) && Number.isFinite(rate)) {
+      setTotalAmount((quantity * rate).toFixed(2));
+    }
+  }
+
   return (
-    <form action={formAction} onSubmit={mode === "correct" ? confirmation.guard() : undefined} noValidate>
+    <form
+      action={formAction}
+      onSubmit={mode === "correct" ? validation.guard(confirmation.guard()) : validation.guard()}
+      noValidate
+    >
       {mode === "correct" ? (
         <Card className="mb-4 border-warning-700 bg-warning-100">
           <h2 className="mb-1 flex items-center gap-2 text-card-title text-warning-700">
@@ -97,26 +130,31 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
             Filing a correction
           </h2>
           <p className="mb-3 text-body-sm text-warning-700">
-            This creates a new, linked entry — the original RMC delivery is never edited or deleted (AD-9). Enter
-            the quantity to add or remove as a signed adjustment (e.g. -6), not the corrected total.
+            This creates a new, linked entry — the original RMC delivery is never edited or deleted (AD-9).
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
-          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={state.errors?.reason?.[0]} />
+          <TextField label="Reason for this correction" name="reason" required icon={<PencilIcon className="size-4" />} error={fieldError("reason")} />
         </Card>
       ) : null}
 
       <Card className="mb-4">
-        <SelectField
-          label="Site"
-          name="siteId"
-          required
-          icon={<MapPinIcon className="size-4" />}
-          disabled={mode === "correct"}
-          defaultValue={initial?.siteId ?? ""}
-          options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
-          error={state.errors?.siteId?.[0]}
-        />
-        {mode === "correct" ? <input type="hidden" name="siteId" value={initial?.siteId} /> : null}
+        {mode === "correct" ? (
+          <>
+            <SelectField
+              label="Site"
+              name="siteId"
+              required
+              icon={<MapPinIcon className="size-4" />}
+              disabled
+              defaultValue={initial?.siteId ?? ""}
+              options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
+              error={fieldError("siteId")}
+            />
+            <input type="hidden" name="siteId" value={initial?.siteId} />
+          </>
+        ) : (
+          <SiteField sites={sites} required initialSiteId={initial?.siteId} error={fieldError("siteId")} />
+        )}
 
         <ComboboxField
           label="Vendor"
@@ -128,7 +166,7 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
           onValueChange={(value) => setVendorId(value ?? "")}
           placeholder="Type a Vendor name…"
           emptyMessage="No matching Vendor"
-          error={state.errors?.vendorId?.[0]}
+          error={fieldError("vendorId")}
         />
         <input type="hidden" name="vendorId" value={vendorId} />
 
@@ -143,7 +181,7 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
               onValueChange={(value) => setGrade(value ?? "")}
               placeholder="Type a grade — e.g. M25"
               emptyMessage="No matching grade — add it under Materials → RMC"
-              error={state.errors?.grade?.[0]}
+              error={fieldError("grade")}
             />
             <input type="hidden" name="grade" value={grade} />
           </>
@@ -157,7 +195,7 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
               icon={<DropletIcon className="size-4" />}
               disabled={mode === "correct"}
               defaultValue={initial?.grade}
-              error={state.errors?.grade?.[0]}
+              error={fieldError("grade")}
             />
             {mode === "correct" ? <input type="hidden" name="grade" value={initial?.grade} /> : null}
           </>
@@ -165,30 +203,65 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
       </Card>
 
       <Card className="mb-4">
-        <TextField
-          label={mode === "correct" ? "Quantity adjustment (m³)" : "Quantity (m³)"}
-          name="quantityM3"
-          type="number"
-          step="any"
-          required
-          icon={<HashIcon className="size-4" />}
-          hint={mode === "correct" ? "Signed delta applied on top of the current total — e.g. -6." : undefined}
-          error={state.errors?.quantityM3?.[0]}
-        />
+        {mode === "correct" ? (
+          // The user types the values that are actually right; the signed
+          // deltas the ledger needs are derived and submitted for them.
+          <CorrectedValueField
+            label="Corrected quantity (m³)"
+            name="quantityM3"
+            originalValue={Number(initial?.quantityM3 ?? 0)}
+            unit="m³"
+            required
+            error={fieldError("quantityM3")}
+          />
+        ) : (
+          <TextField
+            label="Quantity (m³)"
+            name="quantityM3"
+            type="number"
+            step="any"
+            inputMode="decimal"
+            required
+            icon={<HashIcon className="size-4" />}
+            value={quantityM3}
+            onChange={(e) => {
+              setQuantityM3(e.target.value);
+              recomputeTotal(e.target.value, ratePerM3);
+            }}
+            error={fieldError("quantityM3")}
+          />
+        )}
         <AmountField
           label="Rate / m³"
           name="ratePerM3"
           required
-          defaultValue={initial?.ratePerM3}
-          error={state.errors?.ratePerM3?.[0]}
+          value={ratePerM3}
+          onChange={(e) => {
+            setRatePerM3(e.target.value);
+            if (mode === "new") recomputeTotal(quantityM3, e.target.value);
+          }}
+          error={fieldError("ratePerM3")}
         />
-        <AmountField
-          label="Total Amount"
-          name="totalAmount"
-          required
-          defaultValue={initial?.totalAmount}
-          error={state.errors?.totalAmount?.[0]}
-        />
+        {mode === "correct" ? (
+          <CorrectedValueField
+            label="Corrected total amount"
+            name="totalAmount"
+            originalValue={Number(initial?.totalAmount ?? 0)}
+            unit="₹"
+            required
+            error={fieldError("totalAmount")}
+          />
+        ) : (
+          <AmountField
+            label="Total Amount"
+            name="totalAmount"
+            required
+            value={totalAmount}
+            onChange={(e) => setTotalAmount(e.target.value)}
+            hint="Auto-calculated as quantity × rate — you can type over it"
+            error={fieldError("totalAmount")}
+          />
+        )}
         <TextField
           label="Delivery Date"
           name="deliveredAt"
@@ -196,7 +269,7 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
           required
           icon={<CalendarIcon className="size-4" />}
           defaultValue={initial?.deliveredAt ?? todayDate()}
-          error={state.errors?.deliveredAt?.[0]}
+          error={fieldError("deliveredAt")}
         />
       </Card>
 
@@ -207,9 +280,9 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
           hint="Optional"
           icon={<HashIcon className="size-4" />}
           defaultValue={initial?.invoiceOrChallanNo}
-          error={state.errors?.invoiceOrChallanNo?.[0]}
+          error={fieldError("invoiceOrChallanNo")}
         />
-        <ChallanPhotoField initialUrl={initial?.challanPhotoUrl} error={state.errors?.challanPhotoUrl?.[0]} />
+        <ChallanPhotoField initialUrl={initial?.challanPhotoUrl} error={fieldError("challanPhotoUrl")} />
       </Card>
 
       {state.formError ? (
@@ -228,8 +301,10 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
         confirmLabel={"Submit Correction"}
         onConfirm={confirmation.confirm}
       >
-        <ConfirmDialogRow label="Quantity adjustment (m³)" value={formValue(confirmation.values, "quantityM3")} />
-        <ConfirmDialogRow label="Total amount" value={formValue(confirmation.values, "totalAmount")} />
+        {/* The replay shows what the submission actually carries: the signed
+            deltas derived from the corrected values. */}
+        <ConfirmDialogRow label="Quantity change (m³)" value={formValue(confirmation.values, "quantityM3")} />
+        <ConfirmDialogRow label="Total amount change" value={formValue(confirmation.values, "totalAmount")} />
         {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
       </ConfirmDialog>
 

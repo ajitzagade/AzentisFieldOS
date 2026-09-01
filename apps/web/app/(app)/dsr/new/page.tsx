@@ -12,16 +12,15 @@ import {
   Card,
   CheckCircleIcon,
   ComboboxField,
-  MapPinIcon,
   PlusIcon,
   RotateCcwIcon,
-  SelectField,
   TextField,
   TextareaField,
   TruckIcon,
   UserIcon,
   WifiOffIcon,
 } from "@azentisfieldos/ui";
+import { SiteField } from "../../_components/site-field";
 import type { CreateDsrInput } from "@azentisfieldos/shared";
 import { isQueued, localDsrKey, queueDsr, withClientGeneratedIds } from "../../../../lib/offline-db";
 import { syncQueuedDsrs } from "../../../../lib/dsr-sync";
@@ -384,20 +383,21 @@ function NewDsrForm() {
         href="/daily-activity"
         className="mb-4 inline-block text-body-sm font-medium text-accent-teal-700 hover:underline"
       >
-        ← Back to Daily Activity
+        ← Back to Daily Reports
       </Link>
-      <h1 className="mb-1 text-page-title text-ink-900">Daily Site Report</h1>
+      <h1 className="mb-1 text-page-title text-ink-900">Daily Report</h1>
       <p className="mb-6 text-body-sm text-ink-500">Log today&apos;s activity in under 5 minutes.</p>
 
       <form onSubmit={handleSubmit}>
         <Card className="mb-4">
-          <SelectField
-            label="Site"
+          {/* Searchable + device-remembered Site picker (D5): a Supervisor
+              working one Site all day opens the form already pointed at it;
+              a ?siteId= deep link still wins over the remembered one. */}
+          <SiteField
+            sites={sites}
             required
-            icon={<MapPinIcon className="size-4" />}
-            value={siteId}
-            onChange={(e) => setSiteId(e.target.value)}
-            options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
+            initialSiteId={searchParams.get("siteId") ?? undefined}
+            onSiteChange={setSiteId}
           />
           <TextField
             label="Date"
@@ -523,7 +523,7 @@ function NewDsrForm() {
         </Card>
 
         <Card className="mb-4">
-          <h2 className="mb-3 text-card-title text-ink-900">RMC used</h2>
+          <h2 className="mb-3 text-card-title text-ink-900">RMC (ready-mix concrete) used</h2>
           {rmcEntries.map((row, index) => (
             <div
               key={row.clientGeneratedId}
@@ -778,7 +778,7 @@ function NewDsrForm() {
 
         <Button type="submit" isLoading={isSubmitting} disabled={!siteId} className="w-full justify-center">
           <CheckCircleIcon className="size-4" />
-          Submit Daily Site Report
+          Submit Daily Report
         </Button>
       </form>
     </div>

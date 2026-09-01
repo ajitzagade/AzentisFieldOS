@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import type { PaginatedResult } from "@azentisfieldos/shared";
 import { MovementsListClient, type MovementLogRow } from "./movements-list-client";
 
@@ -50,7 +51,18 @@ export default async function MovementsPage({
   searchParams?: Promise<MovementsLogSearchParams>;
 }) {
   const params = (await searchParams) ?? {};
-  const [log, sites] = await Promise.all([getMovementsLog(params), getSites()]);
+  const [log, sites, role] = await Promise.all([getMovementsLog(params), getSites(), currentRole()]);
 
-  return <MovementsListClient rows={log.rows} total={log.total} page={log.page} pageSize={log.pageSize} sites={sites} />;
+  return (
+    <MovementsListClient
+      rows={log.rows}
+      total={log.total}
+      page={log.page}
+      pageSize={log.pageSize}
+      sites={sites}
+      // D7: only the Owner/Admin completes pricing (the API PATCH is
+      // role-guarded; this just keeps a dead-end button off the Supervisor's list).
+      canPrice={role === "OWNER_ADMIN"}
+    />
+  );
 }

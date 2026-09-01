@@ -17,6 +17,7 @@ interface ExpenseForCorrection {
   id: string;
   siteId: string;
   categoryId: string;
+  amount: string;
   description: string | null;
   paymentMethod: string | null;
   personOrVendor: string | null;
@@ -51,9 +52,9 @@ async function getCategories(): Promise<CategoryOption[]> {
 // AC #3: the row's "Correct" action, never Edit/Delete — pre-fills from the
 // Expense being corrected and submits to the same POST /expenses as a plain
 // create, with correctsId (set here) telling the API this is a correction
-// rather than a route split. Amount is intentionally left blank: a
-// correcting row's amount is a signed delta (Story 5.1 Dev Notes), so
-// pre-filling the original's value would read as a restated total.
+// rather than a route split. The original amount feeds CorrectedValueField
+// so the user types the corrected total and the signed delta (Story 5.1 Dev
+// Notes) is derived for them.
 export default async function CorrectExpensePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [expense, sites, categories] = await Promise.all([getExpense(id), getSites(), getCategories()]);
@@ -79,7 +80,14 @@ export default async function CorrectExpensePage({ params }: { params: Promise<{
         / Correct
       </div>
       <h1 className="mb-6 text-page-title text-ink-900">Correct Expense</h1>
-      <ExpenseForm mode="correct" correctsId={expense.id} sites={sites} categories={categories} initial={initial} />
+      <ExpenseForm
+        mode="correct"
+        correctsId={expense.id}
+        originalAmount={Number(expense.amount)}
+        sites={sites}
+        categories={categories}
+        initial={initial}
+      />
     </div>
   );
 }

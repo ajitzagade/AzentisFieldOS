@@ -66,7 +66,7 @@ export function SitesListClient({
       sortKey: "status",
     },
     {
-      header: "DSR today",
+      header: "Report today",
       cell: (site) =>
         site.dsrToday === null ? (
           <span className="text-ink-500">—</span>

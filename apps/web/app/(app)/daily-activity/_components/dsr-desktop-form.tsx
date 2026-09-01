@@ -454,7 +454,7 @@ export function DsrDesktopForm({
       </Card>
 
       <Card className="mb-4">
-        <h2 className="mb-3 text-card-title text-ink-900">RMC used</h2>
+        <h2 className="mb-3 text-card-title text-ink-900">RMC (ready-mix concrete) used</h2>
         {rmcEntries.map((row, index) => (
           <div
             key={row.clientGeneratedId}

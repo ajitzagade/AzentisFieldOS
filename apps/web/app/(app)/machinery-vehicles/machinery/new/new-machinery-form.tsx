@@ -5,6 +5,8 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { BuildingIcon, Button, Card, FilterIcon, GearIcon, HashIcon, LayersIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { createMachineryAction, type CreateMachineryFormState } from "./actions";
+import { useClientValidation } from "@/lib/use-client-validation";
+import { parseCreateMachineryForm } from "./parse";
 
 interface Option {
   id: string;
@@ -25,6 +27,9 @@ const initialState: CreateMachineryFormState = {};
 
 export function NewMachineryForm({ machineryTypes }: { machineryTypes: Option[] }) {
   const [state, formAction] = useActionState(createMachineryAction, initialState);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseCreateMachineryForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   if (machineryTypes.length === 0) {
     return (
@@ -42,7 +47,7 @@ export function NewMachineryForm({ machineryTypes }: { machineryTypes: Option[] 
 
   return (
     <Card>
-      <form action={formAction} noValidate>
+      <form action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Name"
           name="name"
@@ -50,7 +55,7 @@ export function NewMachineryForm({ machineryTypes }: { machineryTypes: Option[] 
           maxLength={200}
           icon={<LayersIcon className="size-4" />}
           placeholder="e.g. Excavator EXC-01"
-          error={state.errors?.name?.[0]}
+          error={errorFor("name")}
         />
         <SelectField
           label="Type"
@@ -62,7 +67,7 @@ export function NewMachineryForm({ machineryTypes }: { machineryTypes: Option[] 
             { value: "", label: "Select a Machinery Type" },
             ...machineryTypes.map((t) => ({ value: t.id, label: t.name })),
           ]}
-          error={state.errors?.typeId?.[0]}
+          error={errorFor("typeId")}
         />
         <TextField
           label="Asset / Registration Number"
@@ -70,17 +75,17 @@ export function NewMachineryForm({ machineryTypes }: { machineryTypes: Option[] 
           required
           maxLength={100}
           icon={<HashIcon className="size-4" />}
-          error={state.errors?.assetNumber?.[0]}
+          error={errorFor("assetNumber")}
         />
-        <TextField label="Model" name="model" hint="Optional" maxLength={200} icon={<GearIcon className="size-4" />} error={state.errors?.model?.[0]} />
-        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} icon={<BuildingIcon className="size-4" />} placeholder="e.g. Owned, Rented" error={state.errors?.ownership?.[0]} />
+        <TextField label="Model" name="model" hint="Optional" maxLength={200} icon={<GearIcon className="size-4" />} error={errorFor("model")} />
+        <TextField label="Ownership" name="ownership" hint="Optional" maxLength={200} icon={<BuildingIcon className="size-4" />} placeholder="e.g. Owned, Rented" error={errorFor("ownership")} />
         <TextField
           label="Operator"
           name="operator"
           hint="Optional"
           maxLength={200}
           icon={<UserIcon className="size-4" />}
-          error={state.errors?.operator?.[0]}
+          error={errorFor("operator")}
         />
 
         {state.formError ? (

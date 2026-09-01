@@ -202,7 +202,7 @@ describe("ReportsPage — Site & Inventory report tabs (Story 13.2)", () => {
       { siteId: "site1", from: "2026-08-01", to: "2026-08-31" },
     );
 
-    expect(screen.getByText("DSR History")).toBeInTheDocument();
+    expect(screen.getByText("Daily Report History")).toBeInTheDocument();
     expect(screen.getByText("RCC pour completed")).toBeInTheDocument();
     expect(screen.getByText("Ramesh Yadav")).toBeInTheDocument();
     expect(siteReportUrl).toContain("siteId=site1");
@@ -213,7 +213,7 @@ describe("ReportsPage — Site & Inventory report tabs (Story 13.2)", () => {
   it("Site Reports tab shows an empty DSR state for a window with no reports", async () => {
     await renderReportsPage({ sites: [{ id: "site1", name: "NH-48" }] }, { tab: "site" });
 
-    expect(screen.getByText(/No Daily Site Reports in this date range/i)).toBeInTheDocument();
+    expect(screen.getByText(/No Daily Reports in this date range/i)).toBeInTheDocument();
   });
 
   it("Inventory Reports tab renders its sections and threads siteId/materialId into the request", async () => {

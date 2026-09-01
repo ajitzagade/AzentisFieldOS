@@ -2,7 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
-import { updateVehicleSchema } from "@azentisfieldos/shared";
+import { parseUpdateVehicleForm } from "./parse";
 
 export interface UpdateVehicleFormState {
   errors?: Record<string, string[]>;
@@ -17,16 +17,7 @@ export async function updateVehicleAction(
   _prevState: UpdateVehicleFormState,
   formData: FormData,
 ): Promise<UpdateVehicleFormState> {
-  const parsed = updateVehicleSchema.safeParse({
-    number: formData.get("number") || undefined,
-    typeId: formData.get("typeId") || undefined,
-    // The form always resubmits every field (full-replace, not a diff) —
-    // an intentionally-blanked Ownership/Driver must reach the API as an
-    // explicit `null` so it's actually cleared, not silently dropped by
-    // JSON.stringify omitting an `undefined` key.
-    ownership: formData.get("ownership") || null,
-    driver: formData.get("driver") || null,
-  });
+  const parsed = parseUpdateVehicleForm(formData);
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };

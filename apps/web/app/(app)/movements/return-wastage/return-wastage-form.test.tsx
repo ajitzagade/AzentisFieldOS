@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./actions", () => ({
@@ -22,6 +23,14 @@ describe("ReturnWastageForm", () => {
     expect(screen.getByRole("button", { name: "Record Entry" })).toBeInTheDocument();
   });
 
+  it("uses the searchable Site picker in new mode, and marks quantity for the decimal keyboard", () => {
+    render(<ReturnWastageForm mode="new" materialSizes={materialSizes} sites={sites} />);
+
+    expect(screen.getByLabelText("Site")).toHaveAttribute("role", "combobox");
+    expect(document.querySelector('input[name="siteId"]')).toBeInTheDocument();
+    expect(screen.getByLabelText("Quantity")).toHaveAttribute("inputmode", "decimal");
+  });
+
   it("shows a correction banner with a required reason field, and locks Type/Site/Material in correct mode", () => {
     render(
       <ReturnWastageForm
@@ -29,7 +38,7 @@ describe("ReturnWastageForm", () => {
         correctsId="rw1"
         materialSizes={materialSizes}
         sites={sites}
-        initial={{ siteId: "site1", materialSizeId: "ms1", kind: "WASTAGE", recordedAt: "2026-08-09" }}
+        initial={{ siteId: "site1", materialSizeId: "ms1", kind: "WASTAGE", quantity: 12, recordedAt: "2026-08-09" }}
       />,
     );
 
@@ -41,18 +50,36 @@ describe("ReturnWastageForm", () => {
     expect(screen.getByRole("button", { name: "Submit Correction" })).toBeInTheDocument();
   });
 
-  it("labels the quantity field as an adjustment with a delta hint in correct mode", () => {
+  it("asks for the corrected quantity (showing the recorded original) instead of a signed delta in correct mode", () => {
     render(
       <ReturnWastageForm
         mode="correct"
         correctsId="rw1"
         materialSizes={materialSizes}
         sites={sites}
-        initial={{ siteId: "site1", materialSizeId: "ms1", kind: "WASTAGE", recordedAt: "2026-08-09" }}
+        initial={{ siteId: "site1", materialSizeId: "ms1", kind: "WASTAGE", quantity: 12, recordedAt: "2026-08-09" }}
       />,
     );
 
-    expect(screen.getByLabelText("Quantity adjustment")).toBeInTheDocument();
-    expect(screen.getByText(/Signed delta applied on top of the current balance/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Corrected quantity")).toBeInTheDocument();
+    expect(screen.getByText(/Currently recorded: 12/)).toBeInTheDocument();
+    expect(screen.queryByText(/signed adjustment/i)).not.toBeInTheDocument();
+  });
+
+  it("derives and submits the signed delta from the corrected quantity typed by the user", async () => {
+    const user = userEvent.setup();
+    render(
+      <ReturnWastageForm
+        mode="correct"
+        correctsId="rw1"
+        materialSizes={materialSizes}
+        sites={sites}
+        initial={{ siteId: "site1", materialSizeId: "ms1", kind: "WASTAGE", quantity: 12, recordedAt: "2026-08-09" }}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Corrected quantity"), "10");
+
+    expect(document.querySelector('input[name="quantity"]')).toHaveValue("-2");
   });
 });

@@ -3,7 +3,9 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button, Card, CheckCircleIcon, ClipboardIcon, LayersIcon, PhoneIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { useClientValidation } from "@/lib/use-client-validation";
 import { updateTeamMemberAction, type UpdateTeamMemberFormState } from "./actions";
+import { parseUpdateTeamMemberForm } from "./parse";
 import type { TeamMemberDetail } from "./page";
 
 interface Option {
@@ -35,10 +37,13 @@ export function EditTeamMemberForm({
 }) {
   const [state, formAction] = useActionState(updateTeamMemberAction.bind(null, teamMember.id), initialState);
   const [isActive, setIsActive] = useState(teamMember.isActive);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseUpdateTeamMemberForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   return (
     <Card>
-      <form action={formAction} noValidate>
+      <form action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Name"
           name="name"
@@ -46,7 +51,7 @@ export function EditTeamMemberForm({
           maxLength={200}
           icon={<UserIcon className="size-4" />}
           defaultValue={teamMember.name}
-          error={state.errors?.name?.[0]}
+          error={errorFor("name")}
         />
         <TextField
           label="Role / Designation"
@@ -55,7 +60,7 @@ export function EditTeamMemberForm({
           maxLength={200}
           icon={<ClipboardIcon className="size-4" />}
           defaultValue={teamMember.designation ?? undefined}
-          error={state.errors?.designation?.[0]}
+          error={errorFor("designation")}
         />
         <TextField
           label="Contact"
@@ -65,7 +70,7 @@ export function EditTeamMemberForm({
           maxLength={100}
           icon={<PhoneIcon className="size-4" />}
           defaultValue={teamMember.contact ?? undefined}
-          error={state.errors?.contact?.[0]}
+          error={errorFor("contact")}
         />
         <SelectField
           label="Employment Type"
@@ -74,7 +79,7 @@ export function EditTeamMemberForm({
           icon={<LayersIcon className="size-4" />}
           defaultValue={teamMember.employmentType.id}
           options={employmentTypes.map((e) => ({ value: e.id, label: e.name }))}
-          error={state.errors?.employmentTypeId?.[0]}
+          error={errorFor("employmentTypeId")}
         />
 
         <div className="mb-4 flex items-center gap-2">
