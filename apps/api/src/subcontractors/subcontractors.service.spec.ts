@@ -183,3 +183,37 @@ describe('SubcontractorsService.contracts', () => {
     expect(list).not.toHaveBeenCalled();
   });
 });
+
+describe('SubcontractorsService.searchCandidates', () => {
+  it('excludes soft-deleted Subcontractors and searches name/contactPerson/phone, capped at 200', async () => {
+    const findMany = vi.fn().mockResolvedValue([{ id: '1' }]);
+    const count = vi.fn().mockResolvedValue(1);
+    const { service } = makeService({ findMany, count });
+
+    const result = await service.searchCandidates('ramesh');
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        deletedAt: null,
+        OR: [
+          { name: { contains: 'ramesh', mode: 'insensitive' } },
+          { contactPerson: { contains: 'ramesh', mode: 'insensitive' } },
+          { phone: { contains: 'ramesh', mode: 'insensitive' } },
+        ],
+      },
+      orderBy: { name: 'asc' },
+      take: 200,
+    });
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        deletedAt: null,
+        OR: [
+          { name: { contains: 'ramesh', mode: 'insensitive' } },
+          { contactPerson: { contains: 'ramesh', mode: 'insensitive' } },
+          { phone: { contains: 'ramesh', mode: 'insensitive' } },
+        ],
+      },
+    });
+    expect(result).toEqual({ candidates: [{ id: '1' }], total: 1 });
+  });
+});

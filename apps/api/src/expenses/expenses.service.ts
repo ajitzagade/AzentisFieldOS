@@ -249,6 +249,40 @@ export class ExpensesService {
     };
   }
 
+  // Story 19.2: the global Search palette's Expense coverage — same
+  // q-matching fields as list() (description, personOrVendor), and the
+  // same superseded-DSR exclusion so a corrected-away entry never surfaces.
+  async searchCandidates(q: string): Promise<{
+    candidates: Prisma.ExpenseGetPayload<{
+      include: { site: true; category: true };
+    }>[];
+    total: number;
+  }> {
+    const where: Prisma.ExpenseWhereInput = {
+      ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
+      // Nested under AND, not a top-level OR — see RmcService.searchCandidates
+      // for why a second top-level OR here would clobber currentDsrRowsWhere's.
+      AND: [
+        {
+          OR: [
+            { description: { contains: q, mode: 'insensitive' as const } },
+            { personOrVendor: { contains: q, mode: 'insensitive' as const } },
+          ],
+        },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.expense.findMany({
+        where,
+        include: { site: true, category: true },
+        orderBy: { incurredAt: 'desc' },
+        take: 200,
+      }),
+      this.prisma.expense.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // A siteId/categoryId that doesn't exist must be a clean 400, not a raw
   // 500 — same pattern as RmcService.translateWriteError.
   private translateWriteError(error: unknown) {

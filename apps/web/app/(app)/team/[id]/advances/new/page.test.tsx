@@ -13,14 +13,24 @@ import NewAdvancePage from "./page";
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
 
-function mockFetchRouter(handlers: { teamMember?: unknown; teamMemberStatus?: number }) {
-  global.fetch = vi.fn(() =>
-    Promise.resolve({
+function mockFetchRouter(handlers: {
+  teamMember?: unknown;
+  teamMemberStatus?: number;
+  role?: "OWNER_ADMIN" | "SITE_SUPERVISOR";
+}) {
+  global.fetch = vi.fn((url: string) => {
+    if (String(url).includes("/users/me")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ role: handlers.role ?? "OWNER_ADMIN" }),
+      });
+    }
+    return Promise.resolve({
       ok: (handlers.teamMemberStatus ?? 200) < 400,
       status: handlers.teamMemberStatus ?? 200,
       json: async () => handlers.teamMember,
-    }),
-  ) as unknown as typeof fetch;
+    });
+  }) as unknown as typeof fetch;
 }
 
 beforeEach(() => {
@@ -54,6 +64,13 @@ describe("NewAdvancePage", () => {
     mockFetchRouter({ teamMemberStatus: 404, teamMember: undefined });
 
     await expect(renderNewAdvancePage("missing-id")).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(notFoundMock).toHaveBeenCalled();
+  });
+
+  it("404s for SITE_SUPERVISOR, since apps/api now rejects that write", async () => {
+    mockFetchRouter({ teamMember: { id: "tm1", name: "Ravi Kumar" }, role: "SITE_SUPERVISOR" });
+
+    await expect(renderNewAdvancePage("tm1")).rejects.toThrow("NEXT_NOT_FOUND");
     expect(notFoundMock).toHaveBeenCalled();
   });
 });

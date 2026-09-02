@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -104,7 +105,12 @@ function formatMoney(amount: string) {
   return `${sign}₹${Math.abs(value).toLocaleString("en-IN")}`;
 }
 
-function advanceToLedgerRow(a: AdvanceListItem): LedgerRow {
+// canManage gates Adjust/Correct too, not just the top-level "Record
+// Advance" button — both ultimately POST to the same OWNER_ADMIN-gated
+// /advances and /advance-adjustments endpoints (AD-9: a correction is just
+// another write to the same create path), so a Supervisor must not see an
+// action that would 403 on submit.
+function advanceToLedgerRow(a: AdvanceListItem, canManage: boolean): LedgerRow {
   return {
     id: a.id,
     sortKey: new Date(a.givenAt).getTime(),
@@ -112,7 +118,7 @@ function advanceToLedgerRow(a: AdvanceListItem): LedgerRow {
     typeBadge: <Badge variant="gold">Advance</Badge>,
     reason: a.reason,
     amount: a.amount,
-    actions: (
+    actions: canManage ? (
       <div className="flex items-center justify-end gap-1">
         <Link
           href={`/team/${a.teamMember.id}/advances/${a.id}/adjustments/new`}
@@ -123,11 +129,11 @@ function advanceToLedgerRow(a: AdvanceListItem): LedgerRow {
         </Link>
         <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/team/${a.teamMember.id}/advances/${a.id}/correct`} />
       </div>
-    ),
+    ) : null,
   };
 }
 
-function adjustmentToLedgerRow(adj: AdjustmentListItem): LedgerRow {
+function adjustmentToLedgerRow(adj: AdjustmentListItem, canManage: boolean): LedgerRow {
   const teamMemberId = adj.advance.teamMember.id;
   return {
     id: adj.id,
@@ -141,14 +147,14 @@ function adjustmentToLedgerRow(adj: AdjustmentListItem): LedgerRow {
     // Amount column always reads as this row's signed effect on the
     // balance, matching 09-team-member-detail.html's "−₹3,000" copy.
     amount: String(-Number(adj.amount)),
-    actions: (
+    actions: canManage ? (
       <div className="flex justify-end">
         <CorrectAction
           icon={<RotateCcwIcon className="size-4" />}
           href={`/team/${teamMemberId}/advances/${adj.advance.id}/adjustments/${adj.id}/correct`}
         />
       </div>
-    ),
+    ) : null,
   };
 }
 
@@ -183,18 +189,26 @@ const ledgerColumns: DataTableColumn<LedgerRow>[] = [
 
 export default async function TeamMemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [teamMember, workHistory, advances, adjustments] = await Promise.all([
+  const [role, teamMember, workHistory, advances, adjustments] = await Promise.all([
+    currentRole(),
     getTeamMember(id),
     getWorkHistory(id),
     getAdvances(id),
     getAdjustments(id),
   ]);
+  // Advances are Owner/Admin-only money movement (apps/api's AdvancesController
+  // enforces this server-side) — hide the entry point for a Supervisor rather
+  // than let them submit the form and hit a 403.
+  const canRecordAdvance = role === "OWNER_ADMIN";
 
   if (!teamMember) {
     notFound();
   }
 
-  const ledgerRows = [...advances.map(advanceToLedgerRow), ...adjustments.map(adjustmentToLedgerRow)].sort(
+  const ledgerRows = [
+    ...advances.map((a) => advanceToLedgerRow(a, canRecordAdvance)),
+    ...adjustments.map((adj) => adjustmentToLedgerRow(adj, canRecordAdvance)),
+  ].sort(
     (a, b) => b.sortKey - a.sortKey,
   );
 
@@ -268,10 +282,12 @@ export default async function TeamMemberDetailPage({ params }: { params: Promise
 
       <div className="mb-4 mt-8 flex flex-wrap items-center justify-between gap-3">
         <div className="text-section-header text-ink-900">Advance Ledger</div>
-        <Link href={`/team/${teamMember.id}/advances/new`} className={cn(buttonVariants({ variant: "secondary" }))}>
-          <PlusIcon className="size-4" />
-          Record Advance
-        </Link>
+        {canRecordAdvance ? (
+          <Link href={`/team/${teamMember.id}/advances/new`} className={cn(buttonVariants({ variant: "secondary" }))}>
+            <PlusIcon className="size-4" />
+            Record Advance
+          </Link>
+        ) : null}
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
         <Card>

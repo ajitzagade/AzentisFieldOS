@@ -562,3 +562,34 @@ describe('RmcService.statsThisMonth', () => {
     });
   });
 });
+
+describe('RmcService.searchCandidates', () => {
+  it('matches grade/Site name/Vendor name, excludes superseded-DSR rows the same way list() does, capped at 200', async () => {
+    const rmcEntryFindMany = vi.fn().mockResolvedValue([{ id: 'r1' }]);
+    const rmcEntryCount = vi.fn().mockResolvedValue(1);
+    const { service } = makeService({ rmcEntryFindMany, rmcEntryCount });
+
+    const result = await service.searchCandidates('m25');
+
+    const expectedWhere = {
+      OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],
+      AND: [
+        {
+          OR: [
+            { grade: { contains: 'm25', mode: 'insensitive' } },
+            { site: { name: { contains: 'm25', mode: 'insensitive' } } },
+            { vendor: { name: { contains: 'm25', mode: 'insensitive' } } },
+          ],
+        },
+      ],
+    };
+    expect(rmcEntryFindMany).toHaveBeenCalledWith({
+      where: expectedWhere,
+      include: { site: true, vendor: true },
+      orderBy: { deliveredAt: 'desc' },
+      take: 200,
+    });
+    expect(rmcEntryCount).toHaveBeenCalledWith({ where: expectedWhere });
+    expect(result).toEqual({ candidates: [{ id: 'r1' }], total: 1 });
+  });
+});

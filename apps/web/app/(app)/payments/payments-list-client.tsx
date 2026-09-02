@@ -34,7 +34,12 @@ export interface PaymentListItem {
   advanceAdjustments: { amount: string }[];
 }
 
-const columns: DataTableColumn<PaymentListItem>[] = [
+// canManage gates the write actions (Mark Paid, Correct — both ultimately
+// hit apps/api's now OWNER_ADMIN-gated /payments endpoints) column-builder
+// style, since these are module-level column/mobileCard definitions rather
+// than JSX with direct access to the component's props.
+function buildColumns(canManage: boolean): DataTableColumn<PaymentListItem>[] {
+  return [
   { header: "Team Member", cell: (p) => p.teamMember.name },
   {
     header: "Period",
@@ -83,8 +88,10 @@ const columns: DataTableColumn<PaymentListItem>[] = [
     header: "",
     cell: (p) => (
       <div className="flex items-center justify-end gap-1">
-        {p.status === "pending" ? <MarkPaidButton id={p.id} /> : null}
-        <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/payments/${p.id}/correct`} />
+        {canManage && p.status === "pending" ? <MarkPaidButton id={p.id} /> : null}
+        {canManage ? (
+          <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/payments/${p.id}/correct`} />
+        ) : null}
         <Link
           href={`/team/${p.teamMember.id}`}
           aria-label={`View ${p.teamMember.name}`}
@@ -95,41 +102,50 @@ const columns: DataTableColumn<PaymentListItem>[] = [
       </div>
     ),
   },
-];
+  ];
+}
 
-const mobileCard: DataTableMobileCard<PaymentListItem> = {
-  primary: (p) => p.teamMember.name,
-  omitHeaders: ["Team Member"],
-  action: (p) => (
-    <>
-      <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/payments/${p.id}/correct`} />
-      <Link
-        href={`/team/${p.teamMember.id}`}
-        aria-label={`View ${p.teamMember.name}`}
-        className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}
-      >
-        <ChevronRightIcon className="size-4" />
-      </Link>
-    </>
-  ),
-  footer: (p) => (p.status === "pending" ? <MarkPaidButton id={p.id} /> : null),
-};
+function buildMobileCard(canManage: boolean): DataTableMobileCard<PaymentListItem> {
+  return {
+    primary: (p) => p.teamMember.name,
+    omitHeaders: ["Team Member"],
+    action: (p) => (
+      <>
+        {canManage ? (
+          <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/payments/${p.id}/correct`} />
+        ) : null}
+        <Link
+          href={`/team/${p.teamMember.id}`}
+          aria-label={`View ${p.teamMember.name}`}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}
+        >
+          <ChevronRightIcon className="size-4" />
+        </Link>
+      </>
+    ),
+    footer: (p) => (canManage && p.status === "pending" ? <MarkPaidButton id={p.id} /> : null),
+  };
+}
 
 export function PaymentsListClient({
   rows,
   total,
   page,
   pageSize,
+  canManage,
 }: {
   rows: PaymentListItem[];
   total: number;
   page: number;
   pageSize: number;
+  canManage: boolean;
 }) {
   const query = useListQueryState();
   const search = useDebouncedSearch(query.q, query.setQuery);
 
   const hasActiveSearch = Boolean(query.q);
+  const columns = buildColumns(canManage);
+  const mobileCard = buildMobileCard(canManage);
 
   return (
     <>
@@ -166,12 +182,12 @@ export function PaymentsListClient({
                   status: "empty",
                   icon: <WalletIcon />,
                   message: "No Payments recorded yet.",
-                  action: (
+                  action: canManage ? (
                     <Link href="/payments/new" className={cn(buttonVariants({ variant: "primary" }))}>
                       <PlusIcon className="size-4" />
                       Record your first Payment
                     </Link>
-                  ),
+                  ) : undefined,
                 }
             : { status: "success", rows }
         }

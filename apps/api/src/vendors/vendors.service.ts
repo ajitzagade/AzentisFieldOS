@@ -132,4 +132,29 @@ export class VendorsService {
     await this.findOne(id);
     return this.purchasesService.summaryForVendor(id);
   }
+
+  // Story 19.2: the global Search palette's Vendor coverage — same
+  // safety-valve reasoning as SitesService.searchCandidates (search.service.ts
+  // ranks/caps the candidate set; this just returns everything DB-matched).
+  async searchCandidates(
+    q: string,
+  ): Promise<{ candidates: Vendor[]; total: number }> {
+    const where: Prisma.VendorWhereInput = {
+      deletedAt: null,
+      OR: [
+        { name: { contains: q, mode: 'insensitive' as const } },
+        { contactPerson: { contains: q, mode: 'insensitive' as const } },
+        { phone: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.vendor.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        take: 200,
+      }),
+      this.prisma.vendor.count({ where }),
+    ]);
+    return { candidates, total };
+  }
 }

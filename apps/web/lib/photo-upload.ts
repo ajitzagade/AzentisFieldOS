@@ -21,7 +21,7 @@ export async function uploadPhoto(
   if (!presignRes.ok) {
     throw new Error("Could not get an upload URL for this photo");
   }
-  const { uploadUrl, apiKey, timestamp, signature, publicId } =
+  const { uploadUrl, apiKey, timestamp, signature, publicId, allowedFormats } =
     (await presignRes.json()) as {
       uploadUrl: string;
       apiKey: string;
@@ -29,6 +29,7 @@ export async function uploadPhoto(
       signature: string;
       publicId: string;
       storageKey: string;
+      allowedFormats: string;
     };
 
   const form = new FormData();
@@ -37,6 +38,7 @@ export async function uploadPhoto(
   form.append("timestamp", String(timestamp));
   form.append("signature", signature);
   form.append("public_id", publicId);
+  form.append("allowed_formats", allowedFormats);
 
   const uploadRes = await fetch(uploadUrl, { method: "POST", body: form });
   if (!uploadRes.ok) {

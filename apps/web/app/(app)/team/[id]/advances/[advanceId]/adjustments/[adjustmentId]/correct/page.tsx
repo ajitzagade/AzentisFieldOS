@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdjustmentForm, type AdjustmentFormInitialValues } from "../../adjustment-form";
@@ -33,9 +34,14 @@ export default async function CorrectAdjustmentPage({
   params: Promise<{ id: string; advanceId: string; adjustmentId: string }>;
 }) {
   const { id, advanceId, adjustmentId } = await params;
-  const adjustment = await getAdjustment(adjustmentId);
+  const [role, adjustment] = await Promise.all([currentRole(), getAdjustment(adjustmentId)]);
 
-  if (!adjustment || adjustment.advance.teamMember.id !== id || adjustment.advance.id !== advanceId) {
+  if (
+    role !== "OWNER_ADMIN" ||
+    !adjustment ||
+    adjustment.advance.teamMember.id !== id ||
+    adjustment.advance.id !== advanceId
+  ) {
     notFound();
   }
 

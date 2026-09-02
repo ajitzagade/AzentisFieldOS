@@ -20,6 +20,7 @@ const signed = {
   signature: "test-signature",
   publicId: "dsr/dsr-1/abc",
   storageKey: "dsr/dsr-1/abc",
+  allowedFormats: "jpg,jpeg,png,webp,heic,heif",
 };
 
 // Story 1.8: the API calls (presign, confirm) now go through the shared
@@ -77,6 +78,7 @@ describe("uploadPhoto", () => {
     expect(form.get("timestamp")).toBe("1735689600");
     expect(form.get("signature")).toBe("test-signature");
     expect(form.get("public_id")).toBe("dsr/dsr-1/abc");
+    expect(form.get("allowed_formats")).toBe("jpg,jpeg,png,webp,heic,heif");
     expect(form.get("file")).toBeInstanceOf(File);
   });
 

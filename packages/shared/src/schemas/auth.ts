@@ -10,3 +10,11 @@ export const loginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+// POST /auth/refresh and POST /auth/logout bodies — both just carry the raw
+// refresh token so apps/api can look up/rotate/revoke its hashed row.
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1).max(500),
+});
+
+export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;

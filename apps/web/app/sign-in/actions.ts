@@ -4,8 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { loginSchema } from "@azentisfieldos/shared";
 import { mapLoginError } from "./map-login-error";
-
-const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days, matches apps/api's JWT expiry.
+import { setAuthCookies } from "@/lib/auth-cookies";
 
 export async function loginAction(
   _previousError: string | null,
@@ -34,19 +33,9 @@ export async function loginAction(
     return mapLoginError(response.status);
   }
 
-  const { token } = (await response.json()) as { token: string };
+  const tokens = (await response.json()) as { token: string; refreshToken: string };
   const cookieStore = await cookies();
-  cookieStore.set("session", token, {
-    // Not httpOnly: apps/web's client-side authed-fetch (lib/use-authed-fetch.ts)
-    // reads this cookie directly to attach it as a Bearer token on direct
-    // cross-origin calls to apps/api, mirroring how Clerk's own client
-    // getToken() already handed a live, usable session token to browser JS.
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_COOKIE_MAX_AGE,
-  });
+  setAuthCookies(cookieStore, tokens);
 
   redirect("/");
 }

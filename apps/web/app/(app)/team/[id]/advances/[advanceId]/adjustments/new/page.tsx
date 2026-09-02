@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { HELP_CONTENT } from "@azentisfieldos/shared";
@@ -27,9 +28,9 @@ async function getTeamMember(id: string): Promise<TeamMemberOption | null> {
 
 export default async function NewAdjustmentPage({ params }: { params: Promise<{ id: string; advanceId: string }> }) {
   const { id, advanceId } = await params;
-  const teamMember = await getTeamMember(id);
+  const [role, teamMember] = await Promise.all([currentRole(), getTeamMember(id)]);
 
-  if (!teamMember) {
+  if (role !== "OWNER_ADMIN" || !teamMember) {
     notFound();
   }
 

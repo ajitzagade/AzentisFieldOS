@@ -7,5 +7,7 @@ import { VendorsService } from './vendors.service';
   imports: [InventoryModule],
   controllers: [VendorsController],
   providers: [VendorsService],
+  // Story 19.2: SearchModule fans out to VendorsService.searchCandidates.
+  exports: [VendorsService],
 })
 export class VendorsModule {}

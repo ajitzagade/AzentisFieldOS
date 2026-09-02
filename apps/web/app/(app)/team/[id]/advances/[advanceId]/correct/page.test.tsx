@@ -13,14 +13,24 @@ import CorrectAdvancePage from "./page";
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
 
-function mockFetchRouter(handlers: { advance?: unknown; advanceStatus?: number }) {
-  global.fetch = vi.fn(() =>
-    Promise.resolve({
+function mockFetchRouter(handlers: {
+  advance?: unknown;
+  advanceStatus?: number;
+  role?: "OWNER_ADMIN" | "SITE_SUPERVISOR";
+}) {
+  global.fetch = vi.fn((url: string) => {
+    if (String(url).includes("/users/me")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ role: handlers.role ?? "OWNER_ADMIN" }),
+      });
+    }
+    return Promise.resolve({
       ok: (handlers.advanceStatus ?? 200) < 400,
       status: handlers.advanceStatus ?? 200,
       json: async () => handlers.advance,
-    }),
-  ) as unknown as typeof fetch;
+    });
+  }) as unknown as typeof fetch;
 }
 
 beforeEach(() => {
@@ -68,6 +78,13 @@ describe("CorrectAdvancePage", () => {
 
   it("calls notFound() when the Advance belongs to a different Team Member than the route", async () => {
     mockFetchRouter({ advance: { ...advance, teamMember: { id: "some-other-tm", name: "Other" } } });
+
+    await expect(renderCorrectPage("tm1", "a1")).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(notFoundMock).toHaveBeenCalled();
+  });
+
+  it("404s for SITE_SUPERVISOR, since apps/api now rejects that write", async () => {
+    mockFetchRouter({ advance, role: "SITE_SUPERVISOR" });
 
     await expect(renderCorrectPage("tm1", "a1")).rejects.toThrow("NEXT_NOT_FOUND");
     expect(notFoundMock).toHaveBeenCalled();

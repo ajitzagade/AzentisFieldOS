@@ -19,11 +19,18 @@ export class StorageService {
 
   // Sign a direct-upload request for a chosen public_id. Signature is produced
   // by the Cloudinary SDK (`api_sign_request`) — never a hand-rolled SHA-1.
-  private signUpload(publicId: string) {
+  // `allowed_formats` is part of the signed payload, so the client cannot
+  // widen it without invalidating the signature — this restricts every
+  // signed upload to real image formats matching what each caller's <input
+  // accept=...> already promises, regardless of a tampered client request.
+  // Max file size is enforced via the Cloudinary account/upload-preset
+  // settings (not a signable per-request param) — confirm that's configured
+  // on the Cloudinary dashboard before relying on this alone.
+  private signUpload(publicId: string, allowedFormats: string) {
     const timestamp = Math.floor(Date.now() / 1000);
     const { cloud_name, api_key, api_secret } = cloudinary.config();
     const signature = cloudinary.utils.api_sign_request(
-      { public_id: publicId, timestamp },
+      { public_id: publicId, timestamp, allowed_formats: allowedFormats },
       api_secret ?? '',
     );
     return {
@@ -33,6 +40,7 @@ export class StorageService {
       signature,
       publicId,
       storageKey: publicId,
+      allowedFormats,
     };
   }
 
@@ -47,7 +55,9 @@ export class StorageService {
     }
 
     const publicId = `dsr/${input.dailySiteReportId}/${crypto.randomUUID()}`;
-    return this.signUpload(publicId);
+    // Matches dsr/new/page.tsx & dsr-desktop-form.tsx's accept="image/*" —
+    // heic/heif included since field photos are commonly taken on iPhones.
+    return this.signUpload(publicId, 'jpg,jpeg,png,webp,heic,heif');
   }
 
   // Story 14.1 (FR-47): the exact same sign→POST→store-URL flow the DSR photo
@@ -58,8 +68,9 @@ export class StorageService {
   // public_id, `logoUrl` is deterministic and returned up-front.
   presignBrandingLogoUpload() {
     const publicId = `branding/logo/${crypto.randomUUID()}`;
+    // Matches branding-form.tsx's accept="image/png,image/svg+xml,image/jpeg".
     return {
-      ...this.signUpload(publicId),
+      ...this.signUpload(publicId, 'jpg,jpeg,png,svg'),
       logoUrl: cloudinaryUrl(publicId),
     };
   }
@@ -72,8 +83,9 @@ export class StorageService {
   // of the entry.
   presignChallanUpload() {
     const publicId = `challan/${crypto.randomUUID()}`;
+    // Matches challan-photo-field.tsx's accept="image/png,image/jpeg,image/webp".
     return {
-      ...this.signUpload(publicId),
+      ...this.signUpload(publicId, 'jpg,jpeg,png,webp'),
       challanPhotoUrl: cloudinaryUrl(publicId),
     };
   }

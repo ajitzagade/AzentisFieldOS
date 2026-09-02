@@ -41,6 +41,29 @@ model User {
   dailySiteReports DailySiteReport[]
   photos           Photo[]
   auditLogs        AuditLog[]
+  refreshTokens    RefreshToken[]
+}
+
+// Backs the long-lived side of auth: the access JWT (session cookie) is
+// short-lived (1h) so a stolen bearer token has a small blast radius; this
+// table lets a user stay signed in for up to 30 days via silent refresh
+// without keeping a long-lived token in browser-readable storage. Only a
+// SHA-256 hash of the raw token is stored (never the raw value) — a DB dump
+// alone can't be replayed as a session. Rotated on every use (the row used
+// to refresh is revoked and a new one issued) so a stolen-but-already-used
+// refresh token is detectable and dead on arrival for whoever replays it
+// second. This is session/auth state, not a transaction-history table —
+// AD-9's append-only rule does not apply; `revokedAt` is a plain update.
+model RefreshToken {
+  id        String    @id @default(uuid(7))
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // Audit trail (write-once, never updated or deleted): one row per

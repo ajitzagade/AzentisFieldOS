@@ -238,6 +238,41 @@ export class PurchasesService {
     };
   }
 
+  // Story 19.2: the global Search palette's Purchase coverage — Purchase
+  // has no name of its own, so this matches the linked Vendor/Material name
+  // plus the invoice/challan number.
+  async searchCandidates(q: string): Promise<{
+    candidates: Prisma.PurchaseGetPayload<{
+      include: { vendor: true; materialSize: { include: { material: true } } };
+    }>[];
+    total: number;
+  }> {
+    const where: Prisma.PurchaseWhereInput = {
+      OR: [
+        { vendor: { name: { contains: q, mode: 'insensitive' as const } } },
+        {
+          materialSize: {
+            material: { name: { contains: q, mode: 'insensitive' as const } },
+          },
+        },
+        { invoiceOrChallanNo: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.purchase.findMany({
+        where,
+        include: {
+          vendor: true,
+          materialSize: { include: { material: true } },
+        },
+        orderBy: { purchasedAt: 'desc' },
+        take: 200,
+      }),
+      this.prisma.purchase.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // A vendorId/materialSizeId/siteId that doesn't exist must be a clean
   // 400, not a raw 500 — same pattern as MaterialsService.translateWriteError.
   private translateWriteError(error: unknown) {

@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import { formatMoney } from "@/lib/format";
 import Link from "next/link";
 import type { PaginatedResult } from "@azentisfieldos/shared";
@@ -66,12 +67,17 @@ export default async function PaymentsPage({
   searchParams?: Promise<PaymentsPageSearchParams>;
 }) {
   const params = (await searchParams) ?? {};
-  const [paymentsResult, pendingCount, teamSummary, outstandingAdvances] = await Promise.all([
+  const [role, paymentsResult, pendingCount, teamSummary, outstandingAdvances] = await Promise.all([
+    currentRole(),
     getPayments(params),
     getPendingCount(),
     getTeamSummary(),
     getOutstandingAdvances(),
   ]);
+  // Payments are Owner/Admin-only money movement (apps/api's
+  // PaymentsController enforces create/mark-paid server-side) — hide the
+  // entry points for a Supervisor rather than let them hit a 403.
+  const canManagePayments = role === "OWNER_ADMIN";
 
   return (
     <>
@@ -80,10 +86,12 @@ export default async function PaymentsPage({
           <h1 className="text-page-title text-ink-900">Payments</h1>
           <p className="text-body-sm text-ink-500">Base + Additional − Deductions − Advance Adjustment = Net Payable</p>
         </div>
-        <Link href="/payments/new" className={cn(buttonVariants({ variant: "primary" }))}>
-          <PlusIcon className="size-4" />
-          Record Payment
-        </Link>
+        {canManagePayments ? (
+          <Link href="/payments/new" className={cn(buttonVariants({ variant: "primary" }))}>
+            <PlusIcon className="size-4" />
+            Record Payment
+          </Link>
+        ) : null}
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -107,6 +115,7 @@ export default async function PaymentsPage({
         total={paymentsResult.total}
         page={paymentsResult.page}
         pageSize={paymentsResult.pageSize}
+        canManage={canManagePayments}
       />
     </>
   );

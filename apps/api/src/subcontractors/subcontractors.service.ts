@@ -130,4 +130,28 @@ export class SubcontractorsService {
       data: { deletedAt: new Date() },
     });
   }
+
+  // Story 19.2: the global Search palette's Subcontractor coverage — mirrors
+  // VendorsService.searchCandidates.
+  async searchCandidates(
+    q: string,
+  ): Promise<{ candidates: Subcontractor[]; total: number }> {
+    const where: Prisma.SubcontractorWhereInput = {
+      deletedAt: null,
+      OR: [
+        { name: { contains: q, mode: 'insensitive' as const } },
+        { contactPerson: { contains: q, mode: 'insensitive' as const } },
+        { phone: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.subcontractor.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        take: 200,
+      }),
+      this.prisma.subcontractor.count({ where }),
+    ]);
+    return { candidates, total };
+  }
 }

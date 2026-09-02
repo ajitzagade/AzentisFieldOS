@@ -379,3 +379,47 @@ describe('PurchasesService.countPendingPricing', () => {
     });
   });
 });
+
+describe('PurchasesService.searchCandidates', () => {
+  it('matches Vendor name, Material name, or invoice/challan number, includes both relations, capped at 200', async () => {
+    const findMany = vi.fn().mockResolvedValue([{ id: 'p1' }]);
+    const count = vi.fn().mockResolvedValue(1);
+    const prisma = { purchase: { findMany, count } };
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+    );
+
+    const result = await service.searchCandidates('cement');
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { vendor: { name: { contains: 'cement', mode: 'insensitive' } } },
+          {
+            materialSize: {
+              material: { name: { contains: 'cement', mode: 'insensitive' } },
+            },
+          },
+          { invoiceOrChallanNo: { contains: 'cement', mode: 'insensitive' } },
+        ],
+      },
+      include: { vendor: true, materialSize: { include: { material: true } } },
+      orderBy: { purchasedAt: 'desc' },
+      take: 200,
+    });
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { vendor: { name: { contains: 'cement', mode: 'insensitive' } } },
+          {
+            materialSize: {
+              material: { name: { contains: 'cement', mode: 'insensitive' } },
+            },
+          },
+          { invoiceOrChallanNo: { contains: 'cement', mode: 'insensitive' } },
+        ],
+      },
+    });
+    expect(result).toEqual({ candidates: [{ id: 'p1' }], total: 1 });
+  });
+});

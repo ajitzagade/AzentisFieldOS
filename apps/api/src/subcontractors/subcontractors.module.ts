@@ -25,5 +25,7 @@ import { SubcontractorPaymentsService } from './subcontractor-payments.service';
     WorkEntriesService,
     SubcontractorPaymentsService,
   ],
+  // Story 19.2: SearchModule fans out to SubcontractorsService.searchCandidates.
+  exports: [SubcontractorsService],
 })
 export class SubcontractorsModule {}

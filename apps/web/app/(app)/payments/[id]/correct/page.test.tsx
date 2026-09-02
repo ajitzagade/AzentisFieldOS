@@ -16,9 +16,21 @@ import CorrectPaymentPage from "./page";
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
 
-function mockFetchRouter(handlers: { payment?: unknown; paymentStatus?: number; teamMembers?: unknown[]; advances?: unknown[] }) {
+function mockFetchRouter(handlers: {
+  payment?: unknown;
+  paymentStatus?: number;
+  teamMembers?: unknown[];
+  advances?: unknown[];
+  role?: "OWNER_ADMIN" | "SITE_SUPERVISOR";
+}) {
   global.fetch = vi.fn((url: string) => {
     const urlStr = String(url);
+    if (urlStr.includes("/users/me")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ role: handlers.role ?? "OWNER_ADMIN" }),
+      });
+    }
     if (urlStr.includes("/payments/")) {
       return Promise.resolve({
         ok: (handlers.paymentStatus ?? 200) < 400,
@@ -74,6 +86,13 @@ describe("CorrectPaymentPage", () => {
     mockFetchRouter({ paymentStatus: 404, payment: undefined });
 
     await expect(renderCorrectPage("missing-id")).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(notFoundMock).toHaveBeenCalled();
+  });
+
+  it("404s for SITE_SUPERVISOR, since apps/api now rejects that write", async () => {
+    mockFetchRouter({ payment, role: "SITE_SUPERVISOR" });
+
+    await expect(renderCorrectPage("p1")).rejects.toThrow("NEXT_NOT_FOUND");
     expect(notFoundMock).toHaveBeenCalled();
   });
 });

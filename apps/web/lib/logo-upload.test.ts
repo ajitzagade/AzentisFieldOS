@@ -20,6 +20,7 @@ const signed = {
   signature: "test-signature",
   publicId: "branding/logo/abc",
   storageKey: "branding/logo/abc",
+  allowedFormats: "jpg,jpeg,png,svg",
   logoUrl:
     "https://res.cloudinary.com/test-cloud/image/upload/branding/logo/abc",
 };
@@ -59,6 +60,7 @@ describe("uploadBrandingLogo", () => {
     expect(form).toBeInstanceOf(FormData);
     expect(form.get("signature")).toBe("test-signature");
     expect(form.get("public_id")).toBe("branding/logo/abc");
+    expect(form.get("allowed_formats")).toBe("jpg,jpeg,png,svg");
     expect(form.get("file")).toBeInstanceOf(File);
   });
 

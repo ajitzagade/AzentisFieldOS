@@ -306,3 +306,33 @@ describe('ExpensesService.summary', () => {
     expect(categoryFindUnique).not.toHaveBeenCalled();
   });
 });
+
+describe('ExpensesService.searchCandidates', () => {
+  it('matches description/personOrVendor, excludes superseded-DSR rows the same way list() does, capped at 200', async () => {
+    const expenseFindMany = vi.fn().mockResolvedValue([{ id: 'x1' }]);
+    const expenseCount = vi.fn().mockResolvedValue(1);
+    const { service } = makeService({ expenseFindMany, expenseCount });
+
+    const result = await service.searchCandidates('diesel');
+
+    const expectedWhere = {
+      OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],
+      AND: [
+        {
+          OR: [
+            { description: { contains: 'diesel', mode: 'insensitive' } },
+            { personOrVendor: { contains: 'diesel', mode: 'insensitive' } },
+          ],
+        },
+      ],
+    };
+    expect(expenseFindMany).toHaveBeenCalledWith({
+      where: expectedWhere,
+      include: { site: true, category: true },
+      orderBy: { incurredAt: 'desc' },
+      take: 200,
+    });
+    expect(expenseCount).toHaveBeenCalledWith({ where: expectedWhere });
+    expect(result).toEqual({ candidates: [{ id: 'x1' }], total: 1 });
+  });
+});

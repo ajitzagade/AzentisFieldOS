@@ -593,7 +593,6 @@ export const HELP_CONTENT = {
   comingSoon: [
     { title: "Automatic WhatsApp report delivery", detail: "Daily reports are compiled automatically today; sending them over WhatsApp is not switched on yet." },
     { title: "Marking a vendor bill as paid later", detail: "A purchase records its payment status when it's created; changing it afterwards isn't available yet." },
-    { title: "One search box for the whole app", detail: "Searching everything — sites, materials, workers, vendors — from one box is being built." },
   ],
 
   futureImprovements: [
@@ -604,3 +603,110 @@ export const HELP_CONTENT = {
 };
 
 export type HelpContent = typeof HELP_CONTENT;
+
+// ---- Search / Action palette curated Actions (Story 19.2) ----
+//
+// A hand-curated, fixed list — not derived from HELP_CONTENT.guides — so it
+// can name the exact verbs the palette supports (Record Advance, Add
+// Vendor, ...) rather than reusing guide titles written for a different
+// audience/purpose. Matching is plain-text `.includes()` against the title
+// or any keyword, mirroring apps/web's help/page.tsx guide search — no
+// fuzzy/AI matching (Story 19.2's Boundaries).
+export interface SearchAction {
+  id: string;
+  title: string;
+  /** Short subtitle shown under the title in the palette row. */
+  description: string;
+  /** Extra phrases a user might type that don't appear in `title` — kept
+   * lower-case; matching lower-cases the query before comparing. */
+  keywords: string[];
+  /** Where selecting this action navigates. `null` means it instead opens
+   * a quick-entry flow in place (currently only Record Advance, via Story
+   * 19.1's modal) — apps/web's global-search.tsx branches on this. */
+  href: string | null;
+}
+
+export const SEARCH_ACTIONS: SearchAction[] = [
+  {
+    id: "new-daily-report",
+    title: "New Daily Report",
+    description: "Start today's Daily Report",
+    keywords: ["daily report", "new report", "dsr"],
+    href: "/dsr/new",
+  },
+  {
+    id: "record-payment",
+    title: "Record Payment",
+    description: "Pay a Team Member",
+    keywords: ["record payment", "pay", "salary", "wage payment"],
+    href: "/payments/new",
+  },
+  {
+    id: "record-advance",
+    title: "Record Advance",
+    description: "Give a Team Member an advance",
+    keywords: ["record advance", "add advance", "give advance", "loan"],
+    href: null,
+  },
+  {
+    id: "add-purchase",
+    title: "Add Purchase",
+    description: "Record material received",
+    keywords: ["add purchase", "new purchase", "material received", "inward"],
+    href: "/movements/purchases/new",
+  },
+  {
+    id: "add-vendor",
+    title: "Add Vendor",
+    description: "Create a new Vendor",
+    keywords: ["add vendor", "new vendor", "supplier"],
+    href: "/vendors/new",
+  },
+  {
+    id: "add-team-member",
+    title: "Add Team Member",
+    description: "Add someone to the roster",
+    keywords: ["add team member", "new team member", "add labour", "add worker"],
+    href: "/team/new",
+  },
+  {
+    id: "add-subcontractor",
+    title: "Add Subcontractor",
+    description: "Create a new Subcontractor",
+    keywords: ["add subcontractor", "new subcontractor"],
+    href: "/subcontractors/new",
+  },
+  {
+    id: "review-and-price",
+    title: "Review & Price",
+    description: "Complete pricing on a pending Purchase",
+    keywords: ["review and price", "pricing", "price", "pending pricing"],
+    href: "/movements?type=PURCHASE",
+  },
+  {
+    id: "open-reports",
+    title: "Open Reports",
+    description: "View Reports",
+    keywords: ["reports", "open reports"],
+    href: "/reports",
+  },
+  {
+    id: "open-settings",
+    title: "Open Settings",
+    description: "App Settings",
+    keywords: ["settings", "open settings", "preferences"],
+    href: "/settings",
+  },
+];
+
+// A blank query matches nothing — same "empty search shows nothing" rule
+// as the entity search endpoints (never a full unfiltered dump).
+export function matchSearchActions(query: string): SearchAction[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return SEARCH_ACTIONS.filter(
+    (action) =>
+      action.title.toLowerCase().includes(q) ||
+      action.keywords.some((keyword) => keyword.toLowerCase().includes(q)),
+  );
+}

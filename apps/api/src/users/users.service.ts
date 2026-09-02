@@ -66,7 +66,7 @@ export class UsersService {
   // AC #1's two-role guarantee is enforced by the Zod schema before we ever
   // reach here; `role` is already narrowed to the two schema values.
   async createUser(input: CreateUserInput): Promise<SafeUser> {
-    const passwordHash = await bcrypt.hash(input.password, 10);
+    const passwordHash = await bcrypt.hash(input.password, 12);
     try {
       return await this.prisma.user.create({
         data: {

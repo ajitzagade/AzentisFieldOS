@@ -45,7 +45,9 @@ afterEach(() => {
 });
 
 function renderClient(overrides: Partial<Parameters<typeof PaymentsListClient>[0]> = {}) {
-  return render(<PaymentsListClient rows={[payment]} total={1} page={1} pageSize={25} {...overrides} />);
+  return render(
+    <PaymentsListClient rows={[payment]} total={1} page={1} pageSize={25} canManage={true} {...overrides} />,
+  );
 }
 
 describe("PaymentsListClient", () => {
@@ -91,5 +93,13 @@ describe("PaymentsListClient", () => {
     renderClient();
     fireEvent.click(screen.getByRole("button", { name: /^Net Payable/ }));
     expect(setSort).toHaveBeenCalledWith("netPayable");
+  });
+
+  it("hides Correct and the zero-state Record-Payment link when canManage is false (SITE_SUPERVISOR)", () => {
+    renderClient({ canManage: false });
+    expect(screen.queryByRole("link", { name: /Correct/ })).not.toBeInTheDocument();
+
+    renderClient({ canManage: false, rows: [], total: 0 });
+    expect(screen.queryByRole("link", { name: /Record your first Payment/ })).not.toBeInTheDocument();
   });
 });

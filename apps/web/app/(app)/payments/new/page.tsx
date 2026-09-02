@@ -1,4 +1,6 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
+import { notFound } from "next/navigation";
 import { PaymentForm } from "../payment-form";
 
 interface TeamMemberListItem {
@@ -35,8 +37,18 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
+// Payments are Owner/Admin-only money movement (apps/api's PaymentsController
+// enforces this server-side) — a Supervisor 404s here, same pattern as the
+// pricing page, rather than being let onto a form that would 403 on submit.
 export default async function NewPaymentPage() {
-  const [teamMembers, advances] = await Promise.all([getTeamMembers(), getAdvances()]);
+  const [role, teamMembers, advances] = await Promise.all([
+    currentRole(),
+    getTeamMembers(),
+    getAdvances(),
+  ]);
+  if (role !== "OWNER_ADMIN") {
+    notFound();
+  }
 
   const advanceOptions = advances.map((a) => ({
     id: a.id,

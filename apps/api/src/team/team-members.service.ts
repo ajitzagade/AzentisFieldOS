@@ -261,6 +261,30 @@ export class TeamMembersService {
     }
   }
 
+  // Story 19.2: the global Search palette's Team Member coverage — same
+  // safety-valve reasoning as SitesService.searchCandidates.
+  async searchCandidates(q: string): Promise<{
+    candidates: { id: string; name: string; designation: string | null }[];
+    total: number;
+  }> {
+    const where: Prisma.TeamMemberWhereInput = {
+      OR: [
+        { name: { contains: q, mode: 'insensitive' as const } },
+        { designation: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.teamMember.findMany({
+        where,
+        select: { id: true, name: true, designation: true },
+        orderBy: { name: 'asc' },
+        take: 200,
+      }),
+      this.prisma.teamMember.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // An employmentTypeId that doesn't exist must be a clean 400, not a raw
   // 500 — same pattern as MaterialsService.translateWriteError.
   private translateWriteError(error: unknown) {

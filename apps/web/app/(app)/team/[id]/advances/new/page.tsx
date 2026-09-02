@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { HELP_CONTENT } from "@azentisfieldos/shared";
@@ -24,11 +25,14 @@ async function getTeamMember(id: string): Promise<TeamMemberOption | null> {
   return res.json();
 }
 
+// Advances are Owner/Admin-only money movement (apps/api's AdvancesController
+// enforces this server-side) — a Supervisor 404s here, same pattern as the
+// pricing page, rather than being let onto a form that would 403 on submit.
 export default async function NewAdvancePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const teamMember = await getTeamMember(id);
+  const [role, teamMember] = await Promise.all([currentRole(), getTeamMember(id)]);
 
-  if (!teamMember) {
+  if (role !== "OWNER_ADMIN" || !teamMember) {
     notFound();
   }
 

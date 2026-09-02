@@ -265,3 +265,37 @@ describe('VendorsService.purchaseSummary', () => {
     });
   });
 });
+
+describe('VendorsService.searchCandidates', () => {
+  it('excludes soft-deleted Vendors and searches name/contactPerson/phone, capped at 200', async () => {
+    const vendorFindMany = vi.fn().mockResolvedValue([{ id: '1' }]);
+    const vendorCount = vi.fn().mockResolvedValue(1);
+    const { service } = makeService({ vendorFindMany, vendorCount });
+
+    const result = await service.searchCandidates('ramesh');
+
+    expect(vendorFindMany).toHaveBeenCalledWith({
+      where: {
+        deletedAt: null,
+        OR: [
+          { name: { contains: 'ramesh', mode: 'insensitive' } },
+          { contactPerson: { contains: 'ramesh', mode: 'insensitive' } },
+          { phone: { contains: 'ramesh', mode: 'insensitive' } },
+        ],
+      },
+      orderBy: { name: 'asc' },
+      take: 200,
+    });
+    expect(vendorCount).toHaveBeenCalledWith({
+      where: {
+        deletedAt: null,
+        OR: [
+          { name: { contains: 'ramesh', mode: 'insensitive' } },
+          { contactPerson: { contains: 'ramesh', mode: 'insensitive' } },
+          { phone: { contains: 'ramesh', mode: 'insensitive' } },
+        ],
+      },
+    });
+    expect(result).toEqual({ candidates: [{ id: '1' }], total: 1 });
+  });
+});

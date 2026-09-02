@@ -106,7 +106,7 @@ async function main() {
     process.env.SEED_ADMIN_EMAIL &&
     process.env.SEED_ADMIN_PASSWORD
   ) {
-    const passwordHash = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD, 10);
+    const passwordHash = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD, 12);
     await prisma.user.create({
       data: {
         name: process.env.SEED_ADMIN_NAME?.trim() || "Owner Admin",

@@ -1,39 +1,109 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SearchService } from './search.service';
 
+type Fn = ReturnType<typeof vi.fn>;
+
 function makeService(overrides: {
-  searchSites?: ReturnType<typeof vi.fn>;
-  searchMaterials?: ReturnType<typeof vi.fn>;
+  searchSites?: Fn;
+  searchMaterials?: Fn;
+  searchVendors?: Fn;
+  searchTeamMembers?: Fn;
+  searchPayments?: Fn;
+  searchPurchases?: Fn;
+  searchSubcontractors?: Fn;
+  searchRmc?: Fn;
+  searchExpenses?: Fn;
 }) {
-  const searchSites =
-    overrides.searchSites ??
-    vi.fn().mockResolvedValue({ candidates: [], total: 0 });
-  const searchMaterials =
-    overrides.searchMaterials ??
-    vi.fn().mockResolvedValue({ candidates: [], total: 0 });
+  const empty = () => vi.fn().mockResolvedValue({ candidates: [], total: 0 });
+
+  const searchSites = overrides.searchSites ?? empty();
+  const searchMaterials = overrides.searchMaterials ?? empty();
+  const searchVendors = overrides.searchVendors ?? empty();
+  const searchTeamMembers = overrides.searchTeamMembers ?? empty();
+  const searchPayments = overrides.searchPayments ?? empty();
+  const searchPurchases = overrides.searchPurchases ?? empty();
+  const searchSubcontractors = overrides.searchSubcontractors ?? empty();
+  const searchRmc = overrides.searchRmc ?? empty();
+  const searchExpenses = overrides.searchExpenses ?? empty();
 
   const sites = { searchCandidates: searchSites };
   const materials = { searchCandidates: searchMaterials };
+  const vendors = { searchCandidates: searchVendors };
+  const teamMembers = { searchCandidates: searchTeamMembers };
+  const payments = { searchCandidates: searchPayments };
+  const purchases = { searchCandidates: searchPurchases };
+  const subcontractors = { searchCandidates: searchSubcontractors };
+  const rmc = { searchCandidates: searchRmc };
+  const expenses = { searchCandidates: searchExpenses };
 
   const service = new SearchService(
     sites as unknown as ConstructorParameters<typeof SearchService>[0],
     materials as unknown as ConstructorParameters<typeof SearchService>[1],
+    vendors as unknown as ConstructorParameters<typeof SearchService>[2],
+    teamMembers as unknown as ConstructorParameters<typeof SearchService>[3],
+    payments as unknown as ConstructorParameters<typeof SearchService>[4],
+    purchases as unknown as ConstructorParameters<typeof SearchService>[5],
+    subcontractors as unknown as ConstructorParameters<typeof SearchService>[6],
+    rmc as unknown as ConstructorParameters<typeof SearchService>[7],
+    expenses as unknown as ConstructorParameters<typeof SearchService>[8],
   );
 
-  return { service, searchSites, searchMaterials };
+  return {
+    service,
+    searchSites,
+    searchMaterials,
+    searchVendors,
+    searchTeamMembers,
+    searchPayments,
+    searchPurchases,
+    searchSubcontractors,
+    searchRmc,
+    searchExpenses,
+  };
 }
+
+const EMPTY_GROUP = { results: [], total: 0 };
 
 describe('SearchService.search', () => {
   it('short-circuits a blank/whitespace query to empty results with no DB call', async () => {
-    const { service, searchSites, searchMaterials } = makeService({});
+    const {
+      service,
+      searchSites,
+      searchMaterials,
+      searchVendors,
+      searchTeamMembers,
+      searchPayments,
+      searchPurchases,
+      searchSubcontractors,
+      searchRmc,
+      searchExpenses,
+    } = makeService({});
 
     const result = await service.search('   ');
 
-    expect(searchSites).not.toHaveBeenCalled();
-    expect(searchMaterials).not.toHaveBeenCalled();
+    for (const fn of [
+      searchSites,
+      searchMaterials,
+      searchVendors,
+      searchTeamMembers,
+      searchPayments,
+      searchPurchases,
+      searchSubcontractors,
+      searchRmc,
+      searchExpenses,
+    ]) {
+      expect(fn).not.toHaveBeenCalled();
+    }
     expect(result).toEqual({
-      sites: { results: [], total: 0 },
-      materials: { results: [], total: 0 },
+      sites: EMPTY_GROUP,
+      materials: EMPTY_GROUP,
+      vendors: EMPTY_GROUP,
+      teamMembers: EMPTY_GROUP,
+      payments: EMPTY_GROUP,
+      purchases: EMPTY_GROUP,
+      subcontractors: EMPTY_GROUP,
+      rmc: EMPTY_GROUP,
+      expenses: EMPTY_GROUP,
     });
   });
 
@@ -109,13 +179,35 @@ describe('SearchService.search', () => {
     ]);
   });
 
-  it('queries both entities with the trimmed query', async () => {
-    const { service, searchSites, searchMaterials } = makeService({});
+  it('queries every entity with the trimmed query', async () => {
+    const {
+      service,
+      searchSites,
+      searchMaterials,
+      searchVendors,
+      searchTeamMembers,
+      searchPayments,
+      searchPurchases,
+      searchSubcontractors,
+      searchRmc,
+      searchExpenses,
+    } = makeService({});
 
     await service.search('  cement  ');
 
-    expect(searchSites).toHaveBeenCalledWith('cement');
-    expect(searchMaterials).toHaveBeenCalledWith('cement');
+    for (const fn of [
+      searchSites,
+      searchMaterials,
+      searchVendors,
+      searchTeamMembers,
+      searchPayments,
+      searchPurchases,
+      searchSubcontractors,
+      searchRmc,
+      searchExpenses,
+    ]) {
+      expect(fn).toHaveBeenCalledWith('cement');
+    }
   });
 
   it("returns the Materials group's results even when Sites search rejects (per-group error isolation)", async () => {
@@ -136,5 +228,109 @@ describe('SearchService.search', () => {
     expect(result.materials.results).toEqual([
       { id: 'm1', name: 'Cement', category: { id: 'c1', name: 'Binders' } },
     ]);
+  });
+
+  it('returns every other group even when a Story 19.2 entity (Vendors) search rejects', async () => {
+    const searchVendors = vi
+      .fn()
+      .mockRejectedValue(new Error('vendors query failed'));
+    const searchSites = vi.fn().mockResolvedValue({
+      candidates: [
+        {
+          id: 's1',
+          name: 'Nashik Metro',
+          location: 'Nashik',
+          contractReference: null,
+        },
+      ],
+      total: 1,
+    });
+    const { service } = makeService({ searchVendors, searchSites });
+
+    const result = await service.search('nashik');
+
+    expect(result.vendors).toEqual({ results: [], total: 0 });
+    expect(result.sites.results).toEqual([
+      {
+        id: 's1',
+        name: 'Nashik Metro',
+        location: 'Nashik',
+        contractReference: null,
+      },
+    ]);
+  });
+
+  it('maps a Vendor candidate to its search result shape', async () => {
+    const searchVendors = vi.fn().mockResolvedValue({
+      candidates: [
+        {
+          id: 'v1',
+          name: 'Shree Cement Traders',
+          contactPerson: 'Ramesh',
+          phone: '9876543210',
+        },
+      ],
+      total: 1,
+    });
+    const { service } = makeService({ searchVendors });
+
+    const result = await service.search('shree');
+
+    expect(result.vendors.results).toEqual([
+      {
+        id: 'v1',
+        name: 'Shree Cement Traders',
+        contactPerson: 'Ramesh',
+        phone: '9876543210',
+      },
+    ]);
+    expect(result.vendors.total).toBe(1);
+  });
+
+  it('maps a Purchase candidate to its search result shape, including a null totalAmount (D7 Pricing pending)', async () => {
+    const toNumber = (n: number) => ({ toNumber: () => n });
+    const searchPurchases = vi.fn().mockResolvedValue({
+      candidates: [
+        {
+          id: 'p1',
+          vendor: { name: 'Shree Cement Traders' },
+          materialSize: { material: { name: 'Cement' } },
+          invoiceOrChallanNo: 'INV-1',
+          totalAmount: null,
+        },
+      ],
+      total: 1,
+    });
+    const { service } = makeService({ searchPurchases });
+
+    const result = await service.search('cement');
+
+    expect(result.purchases.results).toEqual([
+      {
+        id: 'p1',
+        vendorName: 'Shree Cement Traders',
+        materialName: 'Cement',
+        totalAmount: null,
+      },
+    ]);
+
+    // A priced Purchase reports the numeric amount, not null.
+    const pricedSearch = vi.fn().mockResolvedValue({
+      candidates: [
+        {
+          id: 'p2',
+          vendor: { name: 'Shree Cement Traders' },
+          materialSize: { material: { name: 'Cement' } },
+          invoiceOrChallanNo: 'INV-2',
+          totalAmount: toNumber(50000),
+        },
+      ],
+      total: 1,
+    });
+    const { service: pricedService } = makeService({
+      searchPurchases: pricedSearch,
+    });
+    const pricedResult = await pricedService.search('cement');
+    expect(pricedResult.purchases.results[0]!.totalAmount).toBe(50000);
   });
 });

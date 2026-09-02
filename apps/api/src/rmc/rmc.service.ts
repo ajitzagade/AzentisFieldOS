@@ -313,6 +313,43 @@ export class RmcService {
     };
   }
 
+  // Story 19.2: the global Search palette's RMC coverage — same q-matching
+  // fields as list() (grade, Site name, Vendor name), and the same
+  // superseded-DSR exclusion so a corrected-away entry never surfaces.
+  async searchCandidates(q: string): Promise<{
+    candidates: Prisma.RmcEntryGetPayload<{
+      include: { site: true; vendor: true };
+    }>[];
+    total: number;
+  }> {
+    const where: Prisma.RmcEntryWhereInput = {
+      ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
+      // Nested under AND, not a top-level OR — currentDsrRowsWhere already
+      // occupies the top-level OR key above; a second top-level OR here
+      // would silently replace it instead of ANDing with it (same reason
+      // list() nests its own q-filter under AND).
+      AND: [
+        {
+          OR: [
+            { grade: { contains: q, mode: 'insensitive' as const } },
+            { site: { name: { contains: q, mode: 'insensitive' as const } } },
+            { vendor: { name: { contains: q, mode: 'insensitive' as const } } },
+          ],
+        },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.rmcEntry.findMany({
+        where,
+        include: { site: true, vendor: true },
+        orderBy: { deliveredAt: 'desc' },
+        take: 200,
+      }),
+      this.prisma.rmcEntry.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // A vendorId/siteId that doesn't exist must be a clean 400, not a raw
   // 500 — same pattern as PurchasesService.translateWriteError.
   private translateWriteError(error: unknown) {

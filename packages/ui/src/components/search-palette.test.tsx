@@ -106,6 +106,50 @@ describe("SearchPalette", () => {
     expect(onSeeAll).toHaveBeenCalledWith("sites");
   });
 
+  it('renders an icon tile for a row that has one, tinted by default and solid for a "solid" tone group', async () => {
+    render(
+      <Harness
+        query="nashik"
+        groups={[
+          { key: "sites", label: "Sites", items: [{ id: "s1", label: "Nashik Metro", icon: <span data-testid="site-icon" /> }], total: 1 },
+          {
+            key: "actions",
+            label: "Actions",
+            tone: "solid",
+            items: [{ id: "a1", label: "Record Advance", icon: <span data-testid="action-icon" /> }],
+            total: 1,
+          },
+        ]}
+      />,
+    );
+
+    const siteTile = (await screen.findByTestId("site-icon")).parentElement;
+    expect(siteTile).toHaveClass("bg-accent-teal-100");
+
+    const actionTile = screen.getByTestId("action-icon").parentElement;
+    expect(actionTile).toHaveClass("bg-accent-teal-700");
+  });
+
+  it('never renders "See all" for a "solid" tone group, even when total exceeds the item count', async () => {
+    render(
+      <Harness
+        query="add"
+        groups={[
+          {
+            key: "actions",
+            label: "Actions",
+            tone: "solid",
+            items: [{ id: "a1", label: "Add Vendor" }],
+            total: 9,
+          },
+        ]}
+      />,
+    );
+
+    expect(await screen.findByText("Add Vendor")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /see all/i })).not.toBeInTheDocument();
+  });
+
   it("moves focus from the input to the first result on ArrowDown, and back on ArrowUp", async () => {
     const user = userEvent.setup();
     render(<Harness query="nashik" groups={[SITE_GROUP]} />);

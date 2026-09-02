@@ -21,9 +21,16 @@ function mockFetchRouter(handlers: {
   pendingCount?: number;
   teamSummary?: unknown;
   outstandingAdvances?: unknown;
+  role?: "OWNER_ADMIN" | "SITE_SUPERVISOR";
 }) {
   global.fetch = vi.fn((url: string) => {
     const urlStr = String(url);
+    if (urlStr.includes("/users/me")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ role: handlers.role ?? "OWNER_ADMIN" }),
+      });
+    }
     if (urlStr.includes("/payments/count/pending")) {
       return Promise.resolve({ ok: true, json: async () => handlers.pendingCount ?? 0 });
     }
@@ -141,5 +148,15 @@ describe("PaymentsPage", () => {
     await renderPaymentsPage();
 
     expect(screen.getByRole("link", { name: /Record Payment/ })).toHaveAttribute("href", "/payments/new");
+  });
+
+  it("hides Record Payment, Mark Paid, and Correct for SITE_SUPERVISOR", async () => {
+    mockFetchRouter({ payments: [payment], role: "SITE_SUPERVISOR" });
+
+    await renderPaymentsPage();
+
+    expect(screen.queryByRole("link", { name: /^Record Payment/ })).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId("mark-paid-p1")).toHaveLength(0);
+    expect(screen.queryByRole("link", { name: "Correct" })).not.toBeInTheDocument();
   });
 });

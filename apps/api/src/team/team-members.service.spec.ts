@@ -455,3 +455,41 @@ describe('TeamMembersService.getOutstandingAdvances', () => {
     );
   });
 });
+
+describe('TeamMembersService.searchCandidates', () => {
+  it('searches by name/designation and selects only the fields the Search palette needs, capped at 200', async () => {
+    const findMany = vi
+      .fn()
+      .mockResolvedValue([
+        { id: 'tm1', name: 'Ravi Kumar', designation: 'Mason' },
+      ]);
+    const count = vi.fn().mockResolvedValue(1);
+    const { service } = makeService({ findMany, count });
+
+    const result = await service.searchCandidates('ravi');
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { name: { contains: 'ravi', mode: 'insensitive' } },
+          { designation: { contains: 'ravi', mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true, name: true, designation: true },
+      orderBy: { name: 'asc' },
+      take: 200,
+    });
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { name: { contains: 'ravi', mode: 'insensitive' } },
+          { designation: { contains: 'ravi', mode: 'insensitive' } },
+        ],
+      },
+    });
+    expect(result).toEqual({
+      candidates: [{ id: 'tm1', name: 'Ravi Kumar', designation: 'Mason' }],
+      total: 1,
+    });
+  });
+});

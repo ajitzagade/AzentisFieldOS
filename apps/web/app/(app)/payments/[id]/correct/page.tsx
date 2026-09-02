@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PaymentForm, type PaymentFormInitialValues } from "../../payment-form";
@@ -62,8 +63,13 @@ function formatDate(iso: string) {
 // field re-enters the original's complete value (Story 7.3's Dev Notes).
 export default async function CorrectPaymentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [payment, teamMembers, advances] = await Promise.all([getPayment(id), getTeamMembers(), getAdvances()]);
-  if (!payment) {
+  const [role, payment, teamMembers, advances] = await Promise.all([
+    currentRole(),
+    getPayment(id),
+    getTeamMembers(),
+    getAdvances(),
+  ]);
+  if (role !== "OWNER_ADMIN" || !payment) {
     notFound();
   }
 

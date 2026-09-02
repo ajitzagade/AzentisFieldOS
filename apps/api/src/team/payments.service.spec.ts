@@ -510,3 +510,37 @@ describe('PaymentsService.countPending', () => {
     expect(count).toHaveBeenCalledWith({ where: { status: 'pending' } });
   });
 });
+
+describe('PaymentsService.searchCandidates', () => {
+  it("matches on the linked Team Member's name or payPeriod, includes teamMember, capped at 200", async () => {
+    const findMany = vi.fn().mockResolvedValue([{ id: 'pay1' }]);
+    const count = vi.fn().mockResolvedValue(1);
+    const prisma = { payment: { findMany, count } };
+    const service = new PaymentsService(
+      prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+    );
+
+    const result = await service.searchCandidates('ravi');
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { teamMember: { name: { contains: 'ravi', mode: 'insensitive' } } },
+          { payPeriod: { contains: 'ravi', mode: 'insensitive' } },
+        ],
+      },
+      include: { teamMember: true },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { teamMember: { name: { contains: 'ravi', mode: 'insensitive' } } },
+          { payPeriod: { contains: 'ravi', mode: 'insensitive' } },
+        ],
+      },
+    });
+    expect(result).toEqual({ candidates: [{ id: 'pay1' }], total: 1 });
+  });
+});

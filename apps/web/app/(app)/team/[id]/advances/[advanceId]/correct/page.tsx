@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdvanceForm, type AdvanceFormInitialValues } from "../../advance-form";
@@ -27,9 +28,9 @@ async function getAdvance(id: string): Promise<AdvanceForCorrection | null> {
 // Consumption.
 export default async function CorrectAdvancePage({ params }: { params: Promise<{ id: string; advanceId: string }> }) {
   const { id, advanceId } = await params;
-  const advance = await getAdvance(advanceId);
+  const [role, advance] = await Promise.all([currentRole(), getAdvance(advanceId)]);
 
-  if (!advance || advance.teamMember.id !== id) {
+  if (role !== "OWNER_ADMIN" || !advance || advance.teamMember.id !== id) {
     notFound();
   }
 

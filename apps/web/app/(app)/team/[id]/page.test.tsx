@@ -19,9 +19,16 @@ function mockFetchRouter(handlers: {
   workHistory?: unknown[];
   advances?: unknown[];
   adjustments?: unknown[];
+  role?: "OWNER_ADMIN" | "SITE_SUPERVISOR";
 }) {
   global.fetch = vi.fn((url: string) => {
     const urlStr = String(url);
+    if (urlStr.includes("/users/me")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ role: handlers.role ?? "OWNER_ADMIN" }),
+      });
+    }
     if (urlStr.includes("/work-history")) {
       return Promise.resolve({ ok: true, json: async () => handlers.workHistory ?? [] });
     }
@@ -141,6 +148,19 @@ describe("TeamMemberDetailPage", () => {
     expect(screen.getByRole("link", { name: "Record Advance" })).toHaveAttribute("href", "/team/tm1/advances/new");
     expect(screen.getByRole("link", { name: "Correct" })).toHaveAttribute("href", "/team/tm1/advances/adv1/correct");
     expect(screen.getByRole("link", { name: /Adjust/ })).toHaveAttribute("href", "/team/tm1/advances/adv1/adjustments/new");
+  });
+
+  it("hides Record Advance for SITE_SUPERVISOR, since apps/api now rejects that write", async () => {
+    mockFetchRouter({
+      teamMember: baseTeamMember,
+      workHistory: [],
+      advances: [],
+      role: "SITE_SUPERVISOR",
+    });
+
+    await renderDetailPage("tm1");
+
+    expect(screen.queryByRole("link", { name: "Record Advance" })).not.toBeInTheDocument();
   });
 
   it("merges Advance and Adjustment rows into a single ledger, sorted most-recent-first, with Adjustment amounts shown as a negative delta", async () => {

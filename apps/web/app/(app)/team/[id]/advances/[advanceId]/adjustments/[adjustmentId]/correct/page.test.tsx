@@ -13,14 +13,24 @@ import CorrectAdjustmentPage from "./page";
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
 
-function mockFetchRouter(handlers: { adjustment?: unknown; adjustmentStatus?: number }) {
-  global.fetch = vi.fn(() =>
-    Promise.resolve({
+function mockFetchRouter(handlers: {
+  adjustment?: unknown;
+  adjustmentStatus?: number;
+  role?: "OWNER_ADMIN" | "SITE_SUPERVISOR";
+}) {
+  global.fetch = vi.fn((url: string) => {
+    if (String(url).includes("/users/me")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ role: handlers.role ?? "OWNER_ADMIN" }),
+      });
+    }
+    return Promise.resolve({
       ok: (handlers.adjustmentStatus ?? 200) < 400,
       status: handlers.adjustmentStatus ?? 200,
       json: async () => handlers.adjustment,
-    }),
-  ) as unknown as typeof fetch;
+    });
+  }) as unknown as typeof fetch;
 }
 
 beforeEach(() => {
@@ -77,6 +87,13 @@ describe("CorrectAdjustmentPage", () => {
 
   it("calls notFound() when the Adjustment belongs to a different Advance than the route", async () => {
     mockFetchRouter({ adjustment: { ...adjustment, advance: { ...adjustment.advance, id: "a-different-advance" } } });
+
+    await expect(renderCorrectPage("tm1", "adv1", "aa1")).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(notFoundMock).toHaveBeenCalled();
+  });
+
+  it("404s for SITE_SUPERVISOR, since apps/api now rejects that write", async () => {
+    mockFetchRouter({ adjustment, role: "SITE_SUPERVISOR" });
 
     await expect(renderCorrectPage("tm1", "adv1", "aa1")).rejects.toThrow("NEXT_NOT_FOUND");
     expect(notFoundMock).toHaveBeenCalled();

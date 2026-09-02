@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEvent, useMemo, useRef } from "react";
+import { type KeyboardEvent, type ReactNode, useMemo, useRef } from "react";
 import { Dialog } from "@base-ui-components/react/dialog";
 import { cn } from "../lib/cn";
 import { SearchIcon } from "../icons/search-icon";
@@ -18,6 +18,9 @@ export interface SearchResultItem {
   id: string;
   label: string;
   description?: string;
+  /** Icon rendered in the row's tile. Omitted rows render with no tile at
+   * all (kept optional so a caller/test can render a plain text-only row). */
+  icon?: ReactNode;
 }
 
 export interface SearchResultGroup {
@@ -25,6 +28,23 @@ export interface SearchResultGroup {
   label: string;
   items: SearchResultItem[];
   total: number;
+  /** Tile style shared by every item in this group (DESIGN.md's
+   * Search/Action palette spec): "tinted" (default) — `accent-teal-100`
+   * background/`accent-teal-700` icon — for entity rows that open a
+   * record; "solid" — filled `accent-teal-700` with a white icon — for
+   * Action rows that do something instead. Set explicitly by the caller
+   * (apps/web's global-search.tsx); never inferred from `key` here, so
+   * this stays a plain, prop-driven primitive. A "solid" group also never
+   * renders a "See all" action — Actions are a fixed curated list, not a
+   * paginated dataset. */
+  tone?: "tinted" | "solid";
+}
+
+// A "solid" (Action) group is a fixed curated list, not a paginated
+// dataset — it never grows a "See all" regardless of what `total` the
+// caller passes.
+function showsSeeAll(group: SearchResultGroup): boolean {
+  return group.tone !== "solid" && group.total > group.items.length;
 }
 
 export interface SearchPaletteProps {
@@ -74,7 +94,7 @@ export function SearchPalette({
   const focusableCount = useMemo(
     () =>
       groups.reduce(
-        (sum, group) => sum + group.items.length + (group.total > group.items.length ? 1 : 0),
+        (sum, group) => sum + group.items.length + (showsSeeAll(group) ? 1 : 0),
         0,
       ),
     [groups],
@@ -160,17 +180,32 @@ export function SearchPalette({
                           onClick={() => onSelect(group.key, item)}
                           onKeyDown={(event) => handleItemKeyDown(event, index)}
                           className={cn(
-                            "flex w-full flex-col items-start rounded-md px-3 py-2 text-left hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none",
+                            "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none",
                           )}
                         >
-                          <span className="text-body-sm text-ink-900">{item.label}</span>
-                          {item.description ? (
-                            <span className="text-eyebrow text-ink-500">{item.description}</span>
+                          {item.icon ? (
+                            <span
+                              aria-hidden="true"
+                              className={cn(
+                                "flex size-8 shrink-0 items-center justify-center rounded-md [&_svg]:size-4",
+                                group.tone === "solid"
+                                  ? "bg-accent-teal-700 text-white"
+                                  : "bg-accent-teal-100 text-accent-teal-700",
+                              )}
+                            >
+                              {item.icon}
+                            </span>
                           ) : null}
+                          <span className="flex min-w-0 flex-col items-start">
+                            <span className="text-body-sm text-ink-900">{item.label}</span>
+                            {item.description ? (
+                              <span className="text-eyebrow text-ink-500">{item.description}</span>
+                            ) : null}
+                          </span>
                         </button>
                       );
                     })}
-                    {group.total > group.items.length
+                    {showsSeeAll(group)
                       ? (() => {
                           const index = nextFlatIndex();
                           return (

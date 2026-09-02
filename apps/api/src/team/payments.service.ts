@@ -283,6 +283,32 @@ export class PaymentsService {
     return payment;
   }
 
+  // Story 19.2: the global Search palette's Payment coverage — Payment has
+  // no text field of its own worth matching besides payPeriod, so this also
+  // matches the linked Team Member's name (same relation-filter pattern
+  // list()'s `q` uses above).
+  async searchCandidates(q: string): Promise<{
+    candidates: Prisma.PaymentGetPayload<{ include: { teamMember: true } }>[];
+    total: number;
+  }> {
+    const where: Prisma.PaymentWhereInput = {
+      OR: [
+        { teamMember: { name: { contains: q, mode: 'insensitive' as const } } },
+        { payPeriod: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        include: { teamMember: true },
+        orderBy: { createdAt: 'desc' },
+        take: 200,
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // A teamMemberId/advanceId that doesn't exist must be a clean 400, not
   // a raw 500 — P2025 comes from this method's own findUniqueOrThrow,
   // P2003 from a foreign-key violation, same pattern as

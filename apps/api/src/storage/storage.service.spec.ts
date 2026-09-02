@@ -58,9 +58,16 @@ describe('StorageService.presignUpload', () => {
     expect(typeof result.timestamp).toBe('number');
     expect(result.publicId).toMatch(/^dsr\/dsr-1\/[0-9a-f-]{36}$/);
     expect(result.storageKey).toBe(result.publicId);
-    // Signed via the SDK over exactly { public_id, timestamp }.
+    expect(result.allowedFormats).toBe('jpg,jpeg,png,webp,heic,heif');
+    // Signed via the SDK over exactly { public_id, timestamp, allowed_formats }
+    // — allowed_formats is part of the signature so a tampered client can't
+    // widen it without invalidating the signature.
     expect(apiSignRequestMock).toHaveBeenCalledWith(
-      { public_id: result.publicId, timestamp: result.timestamp },
+      {
+        public_id: result.publicId,
+        timestamp: result.timestamp,
+        allowed_formats: 'jpg,jpeg,png,webp,heic,heif',
+      },
       'test-secret',
     );
   });
@@ -88,6 +95,7 @@ describe('StorageService.presignBrandingLogoUpload', () => {
       'https://api.cloudinary.com/v1_1/test-cloud/image/upload',
     );
     expect(result.signature).toBe('test-signature');
+    expect(result.allowedFormats).toBe('jpg,jpeg,png,svg');
     expect(result.logoUrl).toBe(
       `https://res.cloudinary.com/test-cloud/image/upload/${result.publicId}`,
     );
