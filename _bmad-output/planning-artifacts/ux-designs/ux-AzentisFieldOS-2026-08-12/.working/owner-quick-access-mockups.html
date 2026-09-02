@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Owner Quick-Access — Proposed Improvements</title>
+<style>
+/* ============================== TOKENS (verbatim from DESIGN.md / mockups/01-dashboard.html) ============================== */
+:root {
+  --surface-0: #FBFAF7; --surface-1: #FFFFFF; --surface-2: #F3F1EA; --surface-3: #EAE6DA;
+  --border-hairline: #E4E0D3; --border-strong: #D2CBB8;
+  --ink-900: #1B2430; --ink-700: #3E4757; --ink-500: #6B7280; --ink-on-accent: #F7F5EE;
+  --accent-teal-900: #0B3B3E; --accent-teal-700: #0F5257; --accent-teal-600: #14666C; --accent-teal-100: #E4EFEE;
+  --accent-navy-800: #16273E; --accent-navy-600: #223A5E;
+  --gold-700: #96700F; --gold-500: #C7912B; --gold-100: #FBF0DA;
+  --success-700: #1E6B45; --success-100: #E4F3EA;
+  --danger-700: #A32E2E; --danger-100: #FBE7E5;
+  --warning-700: #8A5A12; --warning-100: #FBF0DA;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fs-2xs: 11px; --fs-xs: 12.5px; --fs-sm: 13.5px; --fs-base: 15px;
+  --fs-md: 17px; --fs-lg: 21px; --fs-xl: 28px; --fs-2xl: 38px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px;
+  --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px; --sp-16: 64px;
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 20px; --r-full: 999px;
+  --shadow-1: 0 1px 2px rgba(27,36,48,.06), 0 1px 1px rgba(27,36,48,.04);
+  --shadow-2: 0 4px 12px rgba(27,36,48,.08), 0 2px 4px rgba(27,36,48,.04);
+  --shadow-3: 0 12px 32px rgba(27,36,48,.14), 0 4px 8px rgba(27,36,48,.06);
+  --shadow-2-hover: 0 8px 20px rgba(27,36,48,.12), 0 3px 6px rgba(27,36,48,.06);
+  --ease: cubic-bezier(.2,.8,.2,1); --dur-fast: 110ms; --dur-base: 160ms;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-0: #12161C; --surface-1: #191F27; --surface-2: #212933; --surface-3: #2A3340;
+    --border-hairline: #313B48; --border-strong: #414E5E;
+    --ink-900: #F1EEE4; --ink-700: #C7CCD6; --ink-500: #8D95A3; --ink-on-accent: #12161C;
+    --accent-teal-700: #4FB8AE; --accent-teal-600: #6BCFC5; --accent-teal-100: #1B3B3A;
+    --gold-700: #E3B24B; --gold-500: #E3B24B; --gold-100: #2E2413;
+    --success-700: #5FCF93; --success-100: #163527;
+    --danger-700: #F0847E; --danger-100: #3A1E1E;
+    --warning-700: #E3B24B; --warning-100: #2E2413;
+    --shadow-1: 0 1px 2px rgba(0,0,0,.4); --shadow-2: 0 6px 20px rgba(0,0,0,.45);
+    --shadow-3: 0 16px 40px rgba(0,0,0,.5); --shadow-2-hover: 0 10px 26px rgba(0,0,0,.5);
+  }
+}
+* { box-sizing: border-box; }
+body { margin:0; font-family: var(--font); background: var(--surface-0); color: var(--ink-900); font-size: var(--fs-base); line-height:1.5; -webkit-font-smoothing: antialiased; }
+.tabular { font-variant-numeric: tabular-nums lining-nums; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: var(--sp-10) var(--sp-6) var(--sp-16); }
+
+/* intro */
+.doc-header { margin-bottom: var(--sp-10); }
+.doc-header h1 { font-size: 32px; font-weight:700; letter-spacing:-.015em; margin:0 0 var(--sp-2); }
+.doc-header p { color: var(--ink-700); font-size: var(--fs-base); max-width: 760px; margin: 0 0 var(--sp-2); }
+.doc-header .meta { color: var(--ink-500); font-size: var(--fs-xs); }
+.toc { display:flex; flex-wrap:wrap; gap: var(--sp-2); margin-top: var(--sp-5); }
+.toc a { font-size: var(--fs-xs); font-weight:600; color: var(--accent-teal-700); background: var(--accent-teal-100); padding: var(--sp-1) var(--sp-3); border-radius: var(--r-full); text-decoration:none; }
+.toc a:hover { background: var(--surface-3); }
+
+/* decision blocks */
+.decision { margin: var(--sp-12) 0; padding-top: var(--sp-8); border-top: 1px solid var(--border-hairline); scroll-margin-top: 20px; }
+.decision-tag { display:inline-flex; align-items:center; gap: var(--sp-2); background: var(--accent-navy-800); color: var(--ink-on-accent); font-size: var(--fs-2xs); font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding: var(--sp-1) var(--sp-3); border-radius: var(--r-full); margin-bottom: var(--sp-3); }
+.decision h2 { font-size: 24px; font-weight:700; letter-spacing:-.01em; margin: 0 0 var(--sp-2); }
+.decision .decision-sub { color: var(--ink-700); font-size: var(--fs-base); max-width: 780px; margin: 0 0 var(--sp-6); }
+.decision .decision-sub b { color: var(--ink-900); }
+
+/* mock frame — a scaled-down "screen" to show context */
+.mock-frame { background: var(--surface-0); border: 1px solid var(--border-hairline); border-radius: var(--r-lg); box-shadow: var(--shadow-2); overflow: hidden; }
+.mock-frame .fake-chrome { display:flex; align-items:center; gap:6px; padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border-bottom: 1px solid var(--border-hairline); }
+.fake-dot { width:9px; height:9px; border-radius:50%; background: var(--border-strong); }
+.mock-frame .mock-body { padding: var(--sp-6); }
+
+.before-after { display:grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5); align-items:start; }
+@media (max-width: 900px) { .before-after { grid-template-columns: 1fr; } }
+.ba-label { font-size: var(--fs-2xs); font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom: var(--sp-2); }
+.ba-label.before { color: var(--ink-500); }
+.ba-label.after { color: var(--accent-teal-700); }
+
+.annotation { background: var(--accent-teal-100); border: 1px dashed var(--accent-teal-700); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-5); font-size: var(--fs-sm); color: var(--accent-teal-900); margin-top: var(--sp-5); }
+.annotation b { font-weight:700; }
+
+/* reused component classes (verbatim from product mockups) */
+.card { background: var(--surface-1); border: 1px solid var(--border-hairline); border-radius: var(--r-lg); box-shadow: var(--shadow-2); padding: var(--sp-6); transition: box-shadow var(--dur-base) var(--ease), transform var(--dur-base) var(--ease); }
+.card.interactive { cursor:pointer; }
+.card.interactive:hover { box-shadow: var(--shadow-2-hover); transform: translateY(-2px); }
+.stat-tile { background: var(--surface-1); border:1px solid var(--border-hairline); border-radius: var(--r-lg); box-shadow: var(--shadow-1); padding: var(--sp-4) var(--sp-5); }
+.page-title { font-size: var(--fs-xl); font-weight:650; letter-spacing:-.015em; margin:0 0 var(--sp-1); }
+.page-sub { color: var(--ink-500); font-size: var(--fs-sm); margin:0; }
+.section-header { display:flex; align-items:center; justify-content:space-between; margin: var(--sp-6) 0 var(--sp-4); }
+.section-header h3 { font-size: var(--fs-lg); font-weight:650; margin:0; }
+.btn { display:inline-flex; align-items:center; gap: var(--sp-2); font-family: var(--font); font-size: var(--fs-sm); font-weight:600; padding: var(--sp-2) var(--sp-4); border-radius: var(--r-md); border:1px solid transparent; cursor:pointer; text-decoration:none; white-space:nowrap; }
+.btn svg { width:16px; height:16px; flex-shrink:0; }
+.btn-primary { background: var(--accent-teal-700); color:#fff; box-shadow: var(--shadow-1); }
+.btn-secondary { background: var(--surface-1); color: var(--ink-900); border-color: var(--border-strong); }
+.btn-ghost { background: transparent; color: var(--ink-700); }
+.btn-sm { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); }
+.gap-flag { display:flex; align-items:center; gap: var(--sp-3); background: var(--warning-100); border:1px solid #E8CC8F; border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); color: var(--warning-700); font-size: var(--fs-sm); font-weight:600; }
+.badge { display:inline-flex; align-items:center; gap:4px; font-size: var(--fs-2xs); font-weight:600; padding:3px var(--sp-2); border-radius: var(--r-full); }
+.badge-warning { background: var(--warning-100); color: var(--warning-700); }
+.badge-success { background: var(--success-100); color: var(--success-700); }
+.money { font-variant-numeric: tabular-nums; color: var(--gold-700); font-weight:600; }
+.overall-card { display:flex; flex-direction:column; gap: var(--sp-2); }
+.overall-label { font-size: var(--fs-xs); color: var(--ink-500); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.overall-value { font-size: var(--fs-xl); font-weight:700; letter-spacing:-.015em; }
+.overall-meta { font-size: var(--fs-sm); color: var(--ink-700); }
+table.data { width:100%; border-collapse:collapse; font-size: var(--fs-sm); }
+table.data thead th { text-align:left; font-size: var(--fs-2xs); text-transform:uppercase; letter-spacing:.05em; color: var(--ink-500); font-weight:600; padding: var(--sp-3) var(--sp-4); border-bottom:1px solid var(--border-hairline); background: var(--surface-2); }
+table.data tbody tr { border-bottom:1px solid var(--border-hairline); }
+table.data tbody tr:nth-child(even) { background: var(--surface-2); }
+table.data td { padding: var(--sp-3) var(--sp-4); vertical-align:middle; }
+.table-wrap { background: var(--surface-1); border:1px solid var(--border-hairline); border-radius: var(--r-lg); box-shadow: var(--shadow-2); overflow:hidden; }
+.field input { width:100%; font-family: var(--font); font-size: var(--fs-base); padding: var(--sp-2) var(--sp-3); border:1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface-1); color: var(--ink-900); }
+.icon { width:16px; height:16px; flex-shrink:0; }
+
+/* D1 — quick actions bar */
+.qa-bar { display:flex; flex-wrap:wrap; gap: var(--sp-2); margin-top: var(--sp-4); }
+.qa-bar .btn-primary.hero { background: var(--accent-teal-700); }
+
+/* D3 — command palette */
+.palette-shell { background: rgba(27,36,48,.45); border-radius: var(--r-lg); padding: var(--sp-10) var(--sp-6); display:flex; justify-content:center; }
+.palette { width:100%; max-width: 560px; background: var(--surface-1); border-radius: var(--r-lg); box-shadow: var(--shadow-3); overflow:hidden; }
+.palette-input { display:flex; align-items:center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); border-bottom:1px solid var(--border-hairline); }
+.palette-input svg { width:18px; height:18px; color: var(--ink-500); flex-shrink:0; }
+.palette-input .q { font-size: var(--fs-md); color: var(--ink-900); font-weight:500; }
+.palette-input .cursor { display:inline-block; width:2px; height:18px; background: var(--accent-teal-700); animation: blink 1s step-end infinite; vertical-align:middle; }
+@keyframes blink { 50% { opacity:0; } }
+.palette-group-label { font-size: var(--fs-2xs); text-transform:uppercase; letter-spacing:.06em; color: var(--ink-500); font-weight:700; padding: var(--sp-3) var(--sp-5) var(--sp-1); }
+.palette-item { display:flex; align-items:center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-5); cursor:pointer; }
+.palette-item:hover, .palette-item.hi { background: var(--accent-teal-100); }
+.palette-item .pi-icon { width:30px; height:30px; border-radius: var(--r-md); background: var(--accent-teal-100); color: var(--accent-teal-700); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.palette-item.action .pi-icon { background: var(--accent-teal-700); color: #fff; }
+.palette-item .pi-icon svg { width:16px; height:16px; }
+.palette-item .pi-label { font-size: var(--fs-sm); font-weight:600; color: var(--ink-900); }
+.palette-item .pi-meta { font-size: var(--fs-2xs); color: var(--ink-500); }
+.palette-item .pi-kbd { margin-left:auto; font-size: var(--fs-2xs); color: var(--ink-500); background: var(--surface-2); border:1px solid var(--border-hairline); border-radius: var(--r-sm); padding: 2px 6px; }
+
+/* D4 — quick entry modal */
+.modal-shell { background: rgba(27,36,48,.45); border-radius: var(--r-lg); padding: var(--sp-8) var(--sp-6); display:flex; justify-content:center; }
+.modal { width:100%; max-width: 420px; background: var(--surface-1); border-radius: var(--r-lg); box-shadow: var(--shadow-3); padding: var(--sp-6); }
+.modal h4 { margin:0 0 var(--sp-1); font-size: var(--fs-md); font-weight:650; }
+.modal .modal-sub { font-size: var(--fs-xs); color: var(--ink-500); margin: 0 0 var(--sp-5); }
+.field-label { display:block; font-size: var(--fs-xs); font-weight:600; color: var(--ink-700); margin-bottom: var(--sp-1); }
+.combobox-result { display:flex; align-items:center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); font-size: var(--fs-sm); }
+.combobox-result.sel { background: var(--accent-teal-100); font-weight:600; }
+.avatar-dot { width:26px; height:26px; border-radius:50%; background: var(--accent-navy-800); color:#fff; display:flex; align-items:center; justify-content:center; font-size: var(--fs-2xs); font-weight:700; flex-shrink:0; }
+
+/* D5 — mobile phone frame */
+.phone-frame { width: 320px; border-radius: 36px; background:#000; padding: 10px; box-shadow: var(--shadow-3); margin: 0 auto; }
+.phone-screen { background: var(--surface-0); border-radius: 26px; overflow:hidden; min-height: 560px; display:flex; flex-direction:column; }
+.phone-topbar { display:flex; align-items:center; justify-content:space-between; padding: var(--sp-4) var(--sp-4) var(--sp-2); }
+.phone-topbar .ptitle { font-size: var(--fs-md); font-weight:650; }
+.phone-body { flex:1; padding: 0 var(--sp-4); overflow:hidden; }
+.quick-bar { display:flex; border-top:1px solid var(--border-hairline); background: var(--surface-1); padding: var(--sp-2) var(--sp-1) var(--sp-3); }
+.quick-bar .qb-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color: var(--ink-500); font-size: 10.5px; font-weight:600; }
+.quick-bar .qb-item svg { width:20px; height:20px; }
+.quick-bar .qb-item.active { color: var(--accent-teal-700); }
+.qb-item.plus .qb-icon-wrap { width:38px; height:38px; border-radius:50%; background: var(--accent-teal-700); color:#fff; display:flex; align-items:center; justify-content:center; margin-top:-14px; box-shadow: var(--shadow-2); }
+.qb-item.plus svg { width:20px; height:20px; }
+
+/* D6 — recently viewed */
+.recent-row { display:flex; gap: var(--sp-3); overflow-x:auto; padding-bottom: var(--sp-1); }
+.recent-chip { flex-shrink:0; display:flex; align-items:center; gap: var(--sp-2); background: var(--surface-1); border:1px solid var(--border-hairline); border-radius: var(--r-full); padding: var(--sp-2) var(--sp-4); box-shadow: var(--shadow-1); font-size: var(--fs-xs); font-weight:600; color: var(--ink-900); white-space:nowrap; }
+.recent-chip .rc-icon { width:22px; height:22px; border-radius:50%; background: var(--accent-teal-100); color: var(--accent-teal-700); display:flex; align-items:center; justify-content:center; }
+.recent-chip .rc-icon svg { width:12px; height:12px; }
+.recent-chip .rc-type { color: var(--ink-500); font-weight:500; }
+
+/* summary table */
+.summary-table { width:100%; border-collapse:collapse; font-size: var(--fs-sm); margin-top: var(--sp-4); }
+.summary-table th { text-align:left; font-size: var(--fs-2xs); text-transform:uppercase; letter-spacing:.05em; color: var(--ink-500); padding: var(--sp-2) var(--sp-3); border-bottom:2px solid var(--border-hairline); }
+.summary-table td { padding: var(--sp-3); border-bottom:1px solid var(--border-hairline); vertical-align:top; }
+.footer-note { margin-top: var(--sp-12); padding: var(--sp-6); background: var(--surface-2); border-radius: var(--r-lg); font-size: var(--fs-sm); color: var(--ink-700); }
+
+/* D7/D8 — mobile-width simulation of real component behavior */
+.mobile-sim { width: 300px; border: 1px solid var(--border-hairline); border-radius: var(--r-lg); box-shadow: var(--shadow-2); background: var(--surface-0); padding: var(--sp-5); margin: 0 auto; }
+.act-row-wrap { display:flex; flex-wrap:wrap; justify-content:flex-end; gap: var(--sp-2); }
+.act-row-wrap2 { display:flex; flex-wrap:wrap; gap: var(--sp-2); }
+.act-row-stack { display:flex; flex-direction:column; gap: var(--sp-2); }
+.act-btn { display:inline-flex; align-items:center; justify-content:center; gap: var(--sp-2); font-size: var(--fs-sm); font-weight:600; padding: var(--sp-2) var(--sp-4); border-radius: var(--r-md); border:1px solid var(--border-strong); background: var(--surface-1); color: var(--ink-900); white-space:nowrap; }
+.act-btn.primary { background: var(--accent-teal-700); color:#fff; border-color:transparent; }
+.act-btn.full { width:100%; white-space:normal; }
+.code-line { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: var(--surface-2); border:1px solid var(--border-hairline); border-radius: var(--r-sm); padding: 2px 6px; }
+.finding-list { margin: var(--sp-3) 0 0; padding-left: var(--sp-5); font-size: var(--fs-sm); color: var(--ink-700); }
+.finding-list li { margin-bottom: var(--sp-2); }
+.finding-list code { font-size: 12px; background: var(--surface-2); border:1px solid var(--border-hairline); border-radius: var(--r-sm); padding: 1px 5px; }
+.ruled-out { background: var(--surface-1); border:1px solid var(--border-hairline); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-5); font-size: var(--fs-sm); color: var(--ink-700); margin-top: var(--sp-5); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-header">
+    <h1>Owner Quick-Access — Proposed Improvements</h1>
+    <p>Eight proposed changes: six to reduce click-depth (D1-D6, drafted from a code audit), plus two mobile-alignment fixes (D7-D8) found by actually running the app locally and screenshotting Owner and Supervisor screens at a 390px viewport. Planning artifact only — mockups against the shipped <code>DESIGN.md</code> token set and real component source, no code changes made.</p>
+    <p class="meta">ux-AzentisFieldOS-2026-08-12 · Update-mode engagement · 2026-09-02 · all 8 decisions approved by Ajit</p>
+    <p class="meta">Note: "D1-D8" here are this document's own local review labels, distinct from the unrelated "D1-D7" decision numbers already used elsewhere in <code>EXPERIENCE.md</code>/<code>AGENTS.md</code> for the 2026-09-01 Supervisor-simplicity revision (e.g. "D7 inward pricing").</p>
+    <div class="toc">
+      <a href="#d1">D1 · Dashboard quick-actions bar</a>
+      <a href="#d2">D2 · Pending-pricing deep link</a>
+      <a href="#d3">D3 · Command palette action search</a>
+      <a href="#d4">D4 · Advance quick-entry</a>
+      <a href="#d5">D5 · Owner mobile quick-bar</a>
+      <a href="#d6">D6 · Recently-viewed shortcuts</a>
+      <a href="#d7">D7 · Action-button row alignment (real bug)</a>
+      <a href="#d8">D8 · Tables missing mobile card mode</a>
+    </div>
+  </div>
+
+  <!-- ============================== D1 ============================== -->
+  <div class="decision" id="d1">
+    <span class="decision-tag">D1</span>
+    <h2>Dashboard quick-actions bar</h2>
+    <p class="decision-sub">The Dashboard header today has just one button ("New Daily Report") and open space beside it. Add a row of icon+label quick actions for the next-most-frequent things an Owner does, using the same button/icon language already in the design system — no new component invented.</p>
+
+    <div class="before-after">
+      <div>
+        <div class="ba-label before">Before — today</div>
+        <div class="mock-frame">
+          <div class="fake-chrome"><span class="fake-dot"></span><span class="fake-dot"></span><span class="fake-dot"></span></div>
+          <div class="mock-body">
+            <h3 class="page-title">Dashboard</h3>
+            <p class="page-sub">Wednesday, 2 September 2026 — overview across all sites</p>
+            <div class="qa-bar">
+              <a class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>New Daily Report</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="ba-label after">After — proposed</div>
+        <div class="mock-frame">
+          <div class="fake-chrome"><span class="fake-dot"></span><span class="fake-dot"></span><span class="fake-dot"></span></div>
+          <div class="mock-body">
+            <h3 class="page-title">Dashboard</h3>
+            <p class="page-sub">Wednesday, 2 September 2026 — overview across all sites</p>
+            <div class="qa-bar">
+              <a class="btn btn-primary hero"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>New Daily Report</a>
+              <a class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.25" fill="currentColor" stroke="none"/></svg>Record Payment</a>
+              <a class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5.5c0-1.9-2-3-5-3s-5 1.5-5 3.4 2 2.9 5 3.4 5 1.5 5 3.5-2 3.2-5 3.2-5-1.1-5-3"/></svg>Record Advance</a>
+              <a class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>Add Purchase</a>
+              <a class="btn btn-ghost" style="border:1px solid var(--border-hairline); color:var(--ink-500);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search<span class="pi-kbd" style="margin-left:6px; background:var(--surface-2); border:1px solid var(--border-hairline); border-radius:4px; padding:1px 5px; font-size:10px;">⌘K</span></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <b>Why these four:</b> Record Payment, Record Advance, and Add Purchase were the three highest-friction/highest-frequency actions the audit found (Payment = 2 clicks + confirm today, Advance = 3 clicks buried in a Team Member's page, Purchase's pending-pricing loop is the D7 flow). The Search chip doubles as a discoverability hint for D3 below, so Owners learn the palette exists instead of only power users finding it. <b>New Daily Report keeps its hero-primary styling</b> — it stays visually first since it's still the single most frequent action; the rest are secondary-styled so the bar doesn't read as "five equally important buttons."
+    </div>
+  </div>
+
+  <!-- ============================== D2 ============================== -->
+  <div class="decision" id="d2">
+    <span class="decision-tag">D2</span>
+    <h2>Pending-pricing deep link fix</h2>
+    <p class="decision-sub">Today the Dashboard's pending-pricing gap-flag links to <code>/movements?type=PURCHASE</code> — a generic list the Owner has to scan for the "Pricing pending" badge. Fix: link straight to the record when there's exactly one, or to a real filtered view when there are several.</p>
+
+    <div class="before-after">
+      <div>
+        <div class="ba-label before">Before — today</div>
+        <div class="mock-frame">
+          <div class="fake-chrome"><span class="fake-dot"></span><span class="fake-dot"></span><span class="fake-dot"></span></div>
+          <div class="mock-body">
+            <div class="gap-flag">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;flex-shrink:0;"><path d="M12 3.5 22 20.5H2L12 3.5Z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.9" fill="currentColor" stroke="none"/></svg>
+              <span style="flex:1">3 purchases are waiting for pricing.</span>
+              <a class="btn btn-primary btn-sm">Add Pricing</a>
+            </div>
+            <p style="font-size: var(--fs-xs); color: var(--ink-500); margin-top:var(--sp-3);">→ lands on the full Movements list, mixed with priced entries — Owner has to find the badge.</p>
+            <div class="table-wrap" style="margin-top:var(--sp-3); opacity:.6;">
+              <table class="data"><thead><tr><th>Date</th><th>Site</th><th>Material</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>2 Sep</td><td>NH-48</td><td>Cement</td><td><span class="badge badge-warning">Pricing pending</span></td></tr>
+                <tr><td>2 Sep</td><td>Sector 12</td><td>TMT Steel</td><td><span class="badge badge-success">Paid</span></td></tr>
+                <tr><td>1 Sep</td><td>NH-48</td><td>Sand</td><td><span class="badge badge-warning">Pricing pending</span></td></tr>
+              </tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="ba-label after">After — proposed</div>
+        <div class="mock-frame">
+          <div class="fake-chrome"><span class="fake-dot"></span><span class="fake-dot"></span><span class="fake-dot"></span></div>
+          <div class="mock-body">
+            <div class="gap-flag">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;flex-shrink:0;"><path d="M12 3.5 22 20.5H2L12 3.5Z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.9" fill="currentColor" stroke="none"/></svg>
+              <span style="flex:1">3 purchases are waiting for pricing.</span>
+              <a class="btn btn-primary btn-sm">Review &amp; Price →</a>
+            </div>
+            <p style="font-size: var(--fs-xs); color: var(--ink-500); margin-top:var(--sp-3);">→ lands on Movements pre-filtered to a real "Pricing pending" tab — nothing else to scan past.</p>
+            <div class="table-wrap" style="margin-top:var(--sp-3);">
+              <div style="display:flex; gap:var(--sp-1); padding:var(--sp-2) var(--sp-3); background:var(--surface-2); border-bottom:1px solid var(--border-hairline);">
+                <span class="btn btn-ghost btn-sm">All</span>
+                <span class="btn btn-secondary btn-sm" style="background:var(--warning-100); color:var(--warning-700); border-color:#E8CC8F;">Pricing pending (3)</span>
+              </div>
+              <table class="data"><thead><tr><th>Date</th><th>Site</th><th>Material</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>2 Sep</td><td>NH-48</td><td>Cement</td><td><a class="btn btn-ghost btn-sm">Price →</a></td></tr>
+                <tr><td>1 Sep</td><td>NH-48</td><td>Sand</td><td><a class="btn btn-ghost btn-sm">Price →</a></td></tr>
+                <tr><td>30 Aug</td><td>Sector 12</td><td>Bricks</td><td><a class="btn btn-ghost btn-sm">Price →</a></td></tr>
+              </tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <b>Rule:</b> if the pending count is exactly 1, the button skips the list entirely and opens <code>/movements/purchases/:id/pricing</code> directly. If &gt;1, it opens Movements with the new "Pricing pending" tab pre-selected (button label becomes "Review &amp; Price" to set the right expectation) — same D7 pricing form underneath, just reached without scanning.
+    </div>
+  </div>
+
+  <!-- ============================== D3 ============================== -->
+  <div class="decision" id="d3">
+    <span class="decision-tag">D3</span>
+    <h2>Command palette: action search</h2>
+    <p class="decision-sub">Per your note — the existing ⌘K search only matches Sites and Materials by name. Add a parallel "Actions" group indexed by intent (verb + target), so typing what you want to <i>do</i> works as well as typing what you're looking for. Existing entity search is untouched — this is an additional group, not a replacement.</p>
+
+    <div class="mock-frame">
+      <div class="fake-chrome"><span class="fake-dot"></span><span class="fake-dot"></span><span class="fake-dot"></span></div>
+      <div class="mock-body" style="background: var(--surface-2);">
+        <div class="palette-shell" style="background:transparent; padding: var(--sp-4) 0;">
+          <div class="palette">
+            <div class="palette-input">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <span class="q">add advance<span class="cursor"></span></span>
+            </div>
+            <div class="palette-group-label">Actions</div>
+            <div class="palette-item action hi">
+              <div class="pi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
+              <div style="flex:1"><div class="pi-label">Record Advance</div><div class="pi-meta">Opens the quick-entry form — pick a Team Member next</div></div>
+              <span class="pi-kbd">↵</span>
+            </div>
+            <div class="palette-group-label">Team Members</div>
+            <div class="palette-item">
+              <div class="pi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.25"/><path d="M2.5 20c.7-3.4 3.2-5.5 6.5-5.5s5.8 2.1 6.5 5.5"/></svg></div>
+              <div style="flex:1"><div class="pi-label">Prakash Jadhav</div><div class="pi-meta">Outstanding advance ₹8,000 · NH-48</div></div>
+            </div>
+            <div class="palette-item">
+              <div class="pi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.25"/><path d="M2.5 20c.7-3.4 3.2-5.5 6.5-5.5s5.8 2.1 6.5 5.5"/></svg></div>
+              <div style="flex:1"><div class="pi-label">Advance Adjustments</div><div class="pi-meta">Payments → Advances tab</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin-top:var(--sp-8);"><h3>Other example queries</h3></div>
+    <div style="display:grid; grid-template-columns: repeat(3,1fr); gap: var(--sp-4);">
+      <div class="card" style="box-shadow:var(--shadow-1); padding:var(--sp-4);">
+        <div style="font-size:var(--fs-xs); color:var(--ink-500); font-weight:600; margin-bottom:var(--sp-2);">Typing "new vendor"</div>
+        <div class="palette-item action" style="padding:var(--sp-1) 0;"><div class="pi-icon" style="width:24px;height:24px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div><div class="pi-label" style="font-size:var(--fs-xs);">Add Vendor</div></div>
+      </div>
+      <div class="card" style="box-shadow:var(--shadow-1); padding:var(--sp-4);">
+        <div style="font-size:var(--fs-xs); color:var(--ink-500); font-weight:600; margin-bottom:var(--sp-2);">Typing "pricing"</div>
+        <div class="palette-item action" style="padding:var(--sp-1) 0;"><div class="pi-icon" style="width:24px;height:24px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div><div class="pi-label" style="font-size:var(--fs-xs);">Review &amp; Price (3 pending)</div></div>
+      </div>
+      <div class="card" style="box-shadow:var(--shadow-1); padding:var(--sp-4);">
+        <div style="font-size:var(--fs-xs); color:var(--ink-500); font-weight:600; margin-bottom:var(--sp-2);">Typing "reports"</div>
+        <div class="palette-item action" style="padding:var(--sp-1) 0;"><div class="pi-icon" style="width:24px;height:24px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div><div class="pi-label" style="font-size:var(--fs-xs);">Open Reports</div></div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <b>Two changes, not one:</b> entity search stops being Sites/Materials-only — Vendors, Team Members, Payments, Purchases, Subcontractors, RMC entries, and Expenses each become their own grouped, searchable result set, same "See all" mechanism already used for Sites/Materials. <b>Separately</b>, Actions is a small, hand-curated list (one entry per primary flow — New Daily Report, Record Payment, Record Advance, Add Purchase/Vendor/Team Member/Subcontractor, Review &amp; Price, Open Reports, Open Settings) matched by plain-text title/keyword, same mechanism as every entity group — <b>no fuzzy AI matching</b>, consistent with the Help Search pattern already in the spine. Actions always renders above entity groups when a query matches both, since "do a thing" beats "find a record" for intent-shaped queries. Selecting an action that needs a target (Record Payment, Record Advance) opens the D4 quick-entry modal instead of navigating away, so the palette becomes the fast path end-to-end.
+    </div>
+  </div>
+
+  <!-- ============================== D4 ============================== -->
+  <div class="decision" id="d4">
+    <span class="decision-tag">D4</span>
+    <h2>Advance quick-entry</h2>
+    <p class="decision-sub">Today, recording an Advance means: Dashboard → Team &amp; Labour → find the member → open their profile → "Record Advance." Reachable now in one step from the Dashboard's "Outstanding Advances" card, the quick-actions bar (D1), or the command palette (D3) — all opening the same lightweight modal instead of a full page navigation.</p>
+
+    <div class="before-after">
+      <div>
+        <div class="ba-label before">Before — today</div>
+        <div class="mock-frame">
+          <div class="fake-chrome"><span class="fake-dot"></span><span class="fake-dot"></span><span class="fake-dot"></span></div>
+          <div class="mock-body">
+            <div class="card overall-card" style="box-shadow:var(--shadow-1);">
+              <div class="overall-label">Outstanding Advances</div>
+              <div class="overall-value money tabular">₹3,14,200</div>
+              <div class="overall-meta">Across 9 Team Members with open advance balances</div>
+              <a class="btn btn-ghost btn-sm" style="margin-top:var(--sp-2);">View Payments →</a>
+            </div>
+            <p style="font-size: var(--fs-xs); color: var(--ink-500); margin-top:var(--sp-3);">Only exit is "View Payments" — no path to actually record a new advance from here. Owner must go find the person in Team &amp; Labour first.</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="ba-label after">After — proposed</div>
+        <div class="mock-frame">
+          <div class="fake-chrome"><span class="fake-dot"></span><span class="fake-dot"></span><span class="fake-dot"></span></div>
+          <div class="mock-body">
+            <div class="card overall-card" style="box-shadow:var(--shadow-1);">
+              <div class="overall-label">Outstanding Advances</div>
+              <div class="overall-value money tabular">₹3,14,200</div>
+              <div class="overall-meta">Across 9 Team Members with open advance balances</div>
+              <div style="display:flex; gap:var(--sp-2); margin-top:var(--sp-2);">
+                <a class="btn btn-secondary btn-sm">Record Advance</a>
+                <a class="btn btn-ghost btn-sm">View Payments →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin-top:var(--sp-8);"><h3>The quick-entry modal (opens in place, no page navigation)</h3></div>
+    <div class="mock-frame">
+      <div class="fake-chrome"><span class="fake-dot"></span><span class="fake-dot"></span><span class="fake-dot"></span></div>
+      <div class="mock-body" style="background: var(--surface-2);">
+        <div class="modal-shell" style="background:transparent; padding: var(--sp-4) 0;">
+          <div class="modal">
+            <h4>Record Advance</h4>
+            <p class="modal-sub">Quick entry — full history stays on the Team Member's profile.</p>
+            <label class="field-label">Team Member</label>
+            <div class="field" style="position:relative;">
+              <input value="pra" readonly>
+              <div style="border:1px solid var(--border-hairline); border-top:none; border-radius:0 0 var(--r-md) var(--r-md); background:var(--surface-1); box-shadow:var(--shadow-2); margin-top:-16px; padding-top:16px;">
+                <div class="combobox-result sel"><span class="avatar-dot">PJ</span> Prakash Jadhav <span style="margin-left:auto; color:var(--ink-500); font-size:var(--fs-2xs);">NH-48</span></div>
+                <div class="combobox-result"><span class="avatar-dot">PS</span> Pravin Salunke <span style="margin-left:auto; color:var(--ink-500); font-size:var(--fs-2xs);">Sector 12</span></div>
+              </div>
+            </div>
+            <label class="field-label" style="margin-top:var(--sp-3);">Amount</label>
+            <div class="field"><input value="₹2,000"></div>
+            <label class="field-label">Reason</label>
+            <div class="field"><input value="Advance requested for family expense"></div>
+            <div style="display:flex; gap:var(--sp-2); justify-content:flex-end; margin-top:var(--sp-2);">
+              <a class="btn btn-ghost btn-sm">Cancel</a>
+              <a class="btn btn-primary btn-sm">Save Advance</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <b>Reuses existing patterns, no new ones:</b> the Team Member combobox is the same searchable pattern as <code>SiteField</code> (search-as-you-type, no long dropdown), just scoped to Team Members. Submitting stays on the Dashboard with an inline success toast — this is a <i>shortcut</i> to the same <code>Advance</code> creation the Team Member profile already does, not a new backend flow. The full Advance ledger and adjustment history remain on the profile page, unchanged.
+    </div>
+  </div>
+
+  <!-- ============================== D5 ============================== -->
+  <div class="decision" id="d5">
+    <span class="decision-tag">D5</span>
+    <h2>Owner mobile quick-bar</h2>
+    <p class="decision-sub">Owner-on-mobile currently just gets the desktop layout in a responsive single-column fallback — no persistent quick access, unlike the Supervisor's bottom bar. Since Owner usage is mixed (some daily, some infrequent) and covers many entity types (not one dominant task like the Supervisor's Daily Report), the bar leans on the D3 search/action palette rather than trying to fit 4-6 owner actions into 4 slots.</p>
+
+    <div style="display:flex; gap: var(--sp-10); justify-content:center; flex-wrap:wrap; margin-top:var(--sp-6);">
+      <div>
+        <div class="ba-label" style="text-align:center; color:var(--ink-500);">Dashboard tab</div>
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <div class="phone-topbar"><span class="ptitle">Dashboard</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.4-2-3.4-2.3.9a7.6 7.6 0 0 0-2.6-1.5L14 2h-4l-.5 2.4a7.6 7.6 0 0 0-2.6 1.5l-2.3-.9-2 3.4 2 1.4a7.6 7.6 0 0 0 0 3l-2 1.4 2 3.4 2.3-.9c.75.66 1.63 1.17 2.6 1.5L10 22h4l.5-2.4a7.6 7.6 0 0 0 2.6-1.5l2.3.9 2-3.4-2-1.4Z"/></svg></div>
+            <div class="phone-body">
+              <div class="gap-flag" style="margin-top:var(--sp-2);"><svg style="width:16px;height:16px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20.5H2L12 3.5Z"/><path d="M12 10v4.5"/></svg><span style="font-size:12px;">3 purchases pending pricing</span></div>
+              <div class="stat-tile" style="margin-top:var(--sp-3);"><div class="overall-label">Outstanding Advances</div><div class="overall-value money tabular" style="font-size:22px;">₹3,14,200</div></div>
+              <div class="stat-tile" style="margin-top:var(--sp-3);"><div class="overall-label">Active Sites</div><div class="overall-value tabular" style="font-size:22px;">4</div></div>
+            </div>
+            <div class="quick-bar">
+              <div class="qb-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Dashboard</div>
+              <div class="qb-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>Sites</div>
+              <div class="qb-item plus"><div class="qb-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div></div>
+              <div class="qb-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search</div>
+              <div class="qb-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>More</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="ba-label" style="text-align:center; color:var(--ink-500);">Tapping the center "+" opens a sheet</div>
+        <div class="phone-frame">
+          <div class="phone-screen" style="justify-content:flex-end;">
+            <div style="padding: var(--sp-5); background:var(--surface-1); border-top-left-radius:var(--r-xl); border-top-right-radius:var(--r-xl); box-shadow: var(--shadow-3);">
+              <div style="width:36px; height:4px; background:var(--border-strong); border-radius:99px; margin:0 auto var(--sp-4);"></div>
+              <h4 style="margin:0 0 var(--sp-3); font-size:var(--fs-md); font-weight:650;">Quick Add</h4>
+              <div class="combobox-result" style="padding:var(--sp-3);"><span class="avatar-dot" style="background:var(--accent-teal-700);"><svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>New Daily Report</div>
+              <div class="combobox-result" style="padding:var(--sp-3);"><span class="avatar-dot" style="background:var(--accent-teal-700);"><svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/></svg></span>Record Payment</div>
+              <div class="combobox-result" style="padding:var(--sp-3);"><span class="avatar-dot" style="background:var(--accent-teal-700);"><svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/></svg></span>Record Advance</div>
+              <div class="combobox-result" style="padding:var(--sp-3);"><span class="avatar-dot" style="background:var(--accent-teal-700);"><svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5Z"/></svg></span>Add Purchase</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <b>Why not a direct 1:1 copy of the Supervisor's bar:</b> the Supervisor bar works because one task (Daily Report) dominates. Owner actions are more varied and entity-spanning, so the bar leans on two generalist tools instead of guessing 4 fixed slots: <b>Search</b> (opens the same D3 palette, touch-friendly, doubles as the "I don't remember where this is" escape hatch) and a center <b>"+ Quick Add"</b> sheet listing the same curated action set as D1/D3. <b>Dashboard, Sites, More</b> (opens the existing full nav) round out the bar. This is genuinely new territory — no current Owner-mobile pattern to extend — so treat it as the one item in this set most worth a second look before you commit.
+    </div>
+  </div>
+
+  <!-- ============================== D6 ============================== -->
+  <div class="decision" id="d6">
+    <span class="decision-tag">D6</span>
+    <h2>Recently-viewed shortcuts</h2>
+    <p class="decision-sub">New pattern — nothing like it exists today. A slim, horizontally-scrollable row of the last few things the Owner opened (any entity type: Site, Vendor, Team Member, Subcontractor…), placed right under the quick-actions bar. Aimed squarely at the "may not use the system every day" Owner who loses context between visits.</p>
+
+    <div class="mock-frame">
+      <div class="fake-chrome"><span class="fake-dot"></span><span class="fake-dot"></span><span class="fake-dot"></span></div>
+      <div class="mock-body">
+        <div class="section-header" style="margin-top:0;"><h3 style="font-size:var(--fs-sm); text-transform:uppercase; letter-spacing:.05em; color:var(--ink-500);">Recently viewed</h3></div>
+        <div class="recent-row">
+          <div class="recent-chip"><span class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12Z"/></svg></span>NH-48 Highway Widening <span class="rc-type">· Site</span></div>
+          <div class="recent-chip"><span class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.25"/><path d="M2.5 20c.7-3.4 3.2-5.5 6.5-5.5s5.8 2.1 6.5 5.5"/></svg></span>Prakash Jadhav <span class="rc-type">· Team Member</span></div>
+          <div class="recent-chip"><span class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/></svg></span>Shree Cement Suppliers <span class="rc-type">· Vendor</span></div>
+          <div class="recent-chip"><span class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c1-4.5 4-7 8-7s7 2.5 8 7"/></svg></span>Ganesh Pipeline Works <span class="rc-type">· Subcontractor</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <b>Scope:</b> device-local (same convention as the existing remembered-Site localStorage pattern — no new backend), last 4-6 distinct records across all detail-page types, most-recent-first, cleared on sign-out. Read-only jump links, no pinning/favoriting logic (that would be a bigger, separate feature) — this is "where was I," not "what do I care about."
+    </div>
+  </div>
+
+  <!-- ============================== D7 ============================== -->
+  <div class="decision" id="d7">
+    <span class="decision-tag">D7</span>
+    <h2>Action-button row alignment (confirmed real bug)</h2>
+    <p class="decision-sub">You flagged buttons "not properly visible / alignment issues" on mobile. I ran the app locally (Owner + Supervisor, 390px viewport) and traced it to source. Root cause: header action-button groups use <span class="code-line">flex flex-wrap</span> with no rule to stack full-width below a mobile breakpoint. When 3+ buttons of different label lengths wrap on a narrow screen, each wrapped line re-justifies independently — producing a jagged, unevenly-spaced staircase instead of a clean list.</p>
+
+    <div class="before-after">
+      <div>
+        <div class="ba-label before">Before — reproduces today</div>
+        <div class="mobile-sim">
+          <div class="act-row-wrap">
+            <a class="act-btn">+ Direct Vendor → Site</a>
+            <a class="act-btn">+ Record Movement</a>
+            <a class="act-btn">+ Record Transfer</a>
+            <a class="act-btn">+ Record Consumption</a>
+            <a class="act-btn">+ Record Wastage / Return</a>
+            <a class="act-btn primary">+ Record Purchase</a>
+          </div>
+        </div>
+        <p style="font-size:var(--fs-xs); color:var(--ink-500); text-align:center; margin-top:var(--sp-2);">Movements header, 390px — confirmed on both Owner and Supervisor sessions (same shared page)</p>
+      </div>
+      <div>
+        <div class="ba-label after">After — proposed</div>
+        <div class="mobile-sim">
+          <div class="act-row-stack">
+            <a class="act-btn full">+ Direct Vendor → Site</a>
+            <a class="act-btn full">+ Record Movement</a>
+            <a class="act-btn full">+ Record Transfer</a>
+            <a class="act-btn full">+ Record Consumption</a>
+            <a class="act-btn full">+ Record Wastage / Return</a>
+            <a class="act-btn primary full">+ Record Purchase</a>
+          </div>
+        </div>
+        <p style="font-size:var(--fs-xs); color:var(--ink-500); text-align:center; margin-top:var(--sp-2);">Same buttons, full-width single column below the mobile breakpoint — no wrap math, no jagged edges</p>
+      </div>
+    </div>
+
+    <div class="before-after" style="margin-top:var(--sp-8);">
+      <div>
+        <div class="ba-label before">Before — Site detail's "Today at this Site" card</div>
+        <div class="mobile-sim">
+          <div class="act-row-wrap2">
+            <a class="act-btn">+ Record Consumption</a>
+            <a class="act-btn">+ Record Expense</a>
+            <a class="act-btn">+ Record Disposal</a>
+          </div>
+        </div>
+        <p style="font-size:var(--fs-xs); color:var(--ink-500); text-align:center; margin-top:var(--sp-2);">"Record Consumption" strands alone on its own line with dead space beside it</p>
+      </div>
+      <div>
+        <div class="ba-label after">After — proposed</div>
+        <div class="mobile-sim">
+          <div class="act-row-stack">
+            <a class="act-btn full">+ Record Consumption</a>
+            <a class="act-btn full">+ Record Expense</a>
+            <a class="act-btn full">+ Record Disposal</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <b>Scope:</b> this is one shared pattern, not a per-page bug — the same <span class="code-line">flex flex-wrap ... gap-2</span> action-button group appears on at least a dozen pages (Movements, Site detail, Team &amp; Labour, Vendors, Subcontractors, Machinery &amp; Vehicles, Inventory, Expenses, Materials, Daily Activity, RMC). The fix is a single responsive rule (stack full-width below <span class="code-line">sm</span>, wrap inline at <span class="code-line">sm</span> and above) applied everywhere that pattern is used — not 12 separate fixes. Desktop is unaffected; this is mobile-only.
+    </div>
+
+    <div class="ruled-out">
+      <b>Checked and ruled out:</b> the screenshots also showed a small floating black circle with an "N" in the bottom-left corner on several pages. That's Next.js's own local dev-mode build indicator (shows "Compiling…"/"Rendering…" during development) — it does not render in a production build, so it's not a real product bug and needs no fix.
+    </div>
+  </div>
+
+  <!-- ============================== D8 ============================== -->
+  <div class="decision" id="d8">
+    <span class="decision-tag">D8</span>
+    <h2>Tables still missing mobile card mode</h2>
+    <p class="decision-sub">A secondary finding while investigating D7 — you said no overflow issues, and the screens you're likely looking at (Payments, RMC, Expenses, Movements, Waste &amp; Disposal) are fine, since those five already got <span class="code-line">mobileCard</span> mode in the epic-17 pass. But four list tables never did, and horizontal-scroll on a 390px screen: <b>Sites</b>, <b>Vendors</b>, <b>Team &amp; Labour</b>, and <b>Inventory's stock tables</b>. Easy to miss since there's no visible scrollbar hint — the last column just quietly runs off-screen.</p>
+
+    <ul class="finding-list">
+      <li><code>apps/web/app/(app)/sites/sites-list-client.tsx</code> — Site / Location columns, Location value clipped</li>
+      <li><code>apps/web/app/(app)/vendors/vendors-list-client.tsx</code> — Vendor / Contact person / Phone, Phone clipped</li>
+      <li><code>apps/web/app/(app)/team/team-members-list-client.tsx</code> — Name / Role / Employment Type, Employment Type clipped</li>
+      <li><code>apps/web/app/(app)/inventory/page.tsx</code> — both the Godown Stock and Site Stock tables, Qty column clipped</li>
+    </ul>
+
+    <div class="annotation">
+      <b>Fix is already proven out:</b> the shared <code>DataTable</code> component (<code>packages/ui/src/components/data-table.tsx</code>) already supports a <span class="code-line">mobileCard</span> prop — it's exactly what Payments/RMC/Expenses/Movements/Waste use today. These four just need that prop wired up with the right primary/secondary field mapping per table, following the same pattern already established. No new component, no new design work.
+    </div>
+  </div>
+
+  <div class="footer-note">
+    <b>Deferred, not designed here:</b> Vendor payment recording and Subcontractor Site Contract UI are real gaps the audit surfaced, but both need new API/backend work, not just navigation changes — logged for a separate future round rather than folded into this quick-access pass. Say the word if you'd rather pull one in now.
+  </div>
+
+</div>
+</body>
+</html>

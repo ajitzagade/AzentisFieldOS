@@ -2,7 +2,7 @@
 name: AzentisFieldOS
 description: Premium construction-contractor operations SaaS for Indian civil contractors. From-scratch design system realized as Tailwind v4 `@theme` tokens in `packages/ui` (architecture AD-4/AD-5) — this file is the single source of truth those tokens are generated from.
 status: final
-updated: 2026-08-31
+updated: 2026-09-02
 colors:
   surface-0: '#FBFAF7'
   surface-1: '#FFFFFF'
@@ -257,6 +257,10 @@ Rounded but not soft — `rounded.sm` (6px) for chips and small controls, `round
 - **Gap flag** — a warning-toned inline banner (icon + message + primary action) for anything that needs attention without being an error — e.g., "Site X has not submitted a report yet today." Distinct from a badge (which labels a single row) and distinct from an error state (which means something failed).
 - **Help bubble** — a small `ⓘ` ghost icon-button (`ink-500`, hovers to `accent-teal-700` — same interaction language as every other icon affordance) that opens a short anchored popover (`surface-1`, `shadow-2`, `rounded.md`) with 2–3 sentences of plain-language explanation. Never a full-screen takeover; never navigates the user away from what they were doing.
 - **Guide step** — a numbered explanation card for Help & Guides: a filled `accent-teal-700` circle holding the step number, a `card-title` instruction line, an optional annotated screenshot, and a thin `border-strong` connector line to the next step. `shadow-1` at rest (this is explanatory content, not drill-down data, so it sits one elevation below a primary Card).
+- **Search / Action palette** — a centered modal (`shadow-3`, `rounded.lg`, max-width ~560px) over a dimmed scrim. Search-input row up top; results grouped by uppercase eyebrow labels (Actions / Sites / Materials / …). Entity-group rows carry a tinted icon tile (`accent-teal-100` background, `accent-teal-700` icon — the existing "info/navigation" tint); Action-group rows carry a **solid** `accent-teal-700` tile with a white icon — same hue, filled instead of tinted, so "this does something" reads distinctly from "this opens a record" without introducing a new color. Never gold here — gold stays reserved for money figures even though these are "primary" actions.
+- **Quick-entry modal** (e.g. Record Advance) — same modal chrome as the Search palette (`shadow-3`, `rounded.lg`), sized narrower (~420px) for a short form. Cancel/primary-submit pair bottom-right, same as every other form footer in the product.
+- **Owner mobile quick-bar** — fixed bottom bar, same chrome as the existing Supervisor bottom quick-bar (icon + micro-label per item, active state = color + weight + `aria-current`, never color alone). Its center item is a raised circular FAB (`accent-teal-700` fill, white icon, `shadow-2`, sits ~14px above the bar) rather than a fifth flat tab — visually marks it as the one item that opens an action sheet instead of navigating.
+- **Recently-viewed chip** — a pill (`rounded.full`, `surface-1` background, `shadow-1`, `border-hairline`) in a horizontally-scrolling row: a small tinted icon circle (`accent-teal-100`/`accent-teal-700`, same family as entity search rows) plus a label and a muted `ink-500` type suffix (e.g. "· Site").
 
 ## Do's and Don'ts
 
