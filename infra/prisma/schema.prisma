@@ -106,6 +106,7 @@ model Site {
   vehiclesCurrentlyHere  Vehicle[]
   dailyReports         DailyReport[]
   wasteDisposals       WasteDisposal[]
+  siteContracts        SiteContract[]
 }
 
 // ---------- Material catalog (FR-4..FR-7) ----------
@@ -849,4 +850,120 @@ model ReportSchedule {
   lastRunAt        DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+}
+
+// ---------- Subcontractor Management (CAP-17, FR-55..FR-63, Epic 18) ----------
+//
+// "Subcontractor" is deliberately NOT called "Contractor" — that word is
+// already reserved (see Contractor/Company in the glossary) for the tenant
+// itself. A Subcontractor is an external party engaged for a defined scope
+// of Site work, distinct from a Vendor (supplies Material/RMC/services, not
+// labour/work) and from a Team Member (internal labour pool, no commercial
+// contract).
+
+// Master data — mirrors Vendor field-for-field (external party, soft
+// delete, no createdAt/updatedAt, edited in place via normal PATCH, never
+// AD-9 append-only).
+model Subcontractor {
+  id             String    @id @default(uuid(7))
+  name           String
+  contactPerson  String?
+  phone          String?
+  email          String?
+  address        String?
+  workCategories String[]  @default([])
+  deletedAt      DateTime?
+
+  siteContracts SiteContract[]
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+// A Subcontractor's engagement on one Site for one scope of work. Master/
+// agreement data (like Site) edited in place via normal PATCH — NOT an AD-9
+// append-only table; its own history isn't ledgered, only the work/payments
+// recorded against it are (SubcontractorWorkEntry, SubcontractorPayment
+// below). `rateType` is a plain String, Zod-enforced vocabulary (same
+// pattern as Purchase.paymentStatus) — FIXED_COST | PER_TRIP | PER_PIPE |
+// PER_UNIT | CUSTOM — not a Prisma enum, since CUSTOM's free-text
+// `rateUnitLabel` needs schema-level flexibility a hard enum doesn't help
+// with. `rate`/`fixedAmount`/`rateUnitLabel`/`workCategory`/`startDate` may
+// all be null while status is DRAFT (terms still being negotiated); the
+// service layer requires them all present before allowing a transition to
+// ACTIVE (see SiteContractsService) — deliberately NOT the D7 atomic
+// one-time-fill mechanism from Purchase, since this table isn't append-only
+// and a normal in-place edit already does the job with less machinery.
+// `quantityCompleted`/`amountPaid` are materialized, write-path-only
+// figures (AD-9 discipline) updated only in the same transaction as the
+// causing WorkEntry/Payment row — never summed on read.
+model SiteContract {
+  id                String         @id @default(uuid(7))
+  subcontractorId   String
+  subcontractor     Subcontractor  @relation(fields: [subcontractorId], references: [id])
+  siteId            String
+  site              Site           @relation(fields: [siteId], references: [id])
+  workCategory      String?
+  description       String?
+  rateType          String?
+  rateUnitLabel     String?
+  rate              Decimal?
+  fixedAmount       Decimal?
+  estimatedQuantity Decimal?
+  status            ContractStatus @default(DRAFT)
+  startDate         DateTime?
+  endDate           DateTime?
+  quantityCompleted Decimal        @default(0)
+  amountPaid        Decimal        @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  workEntries SubcontractorWorkEntry[]
+  payments    SubcontractorPayment[]
+}
+
+// Append-only (AD-9): a recorded quantity of work done against an Active,
+// non-FIXED_COST Site Contract (trips run, pipes laid, units installed).
+// Site Supervisor or Owner/Admin may write here — the one Supervisor-facing
+// write surface in this whole feature area. Materializes
+// SiteContract.quantityCompleted via a floor-checked increment (never below
+// zero on a reducing correction).
+model SubcontractorWorkEntry {
+  id               String       @id @default(uuid(7))
+  siteContractId   String
+  siteContract     SiteContract @relation(fields: [siteContractId], references: [id])
+  quantity         Decimal
+  workDate         DateTime
+  note             String?
+  recordedByUserId String
+  createdAt        DateTime     @default(now())
+  correctsId       String?
+  reason           String?
+}
+
+// Append-only (AD-9): a Payment or Advance made to a Subcontractor against
+// a Site Contract. Owner/Admin only (money movement). `type` (ADVANCE |
+// PAYMENT, Zod-enforced) is a display/reporting label only — both
+// contribute identically to SiteContract.amountPaid; there is no separate
+// Adjustment step netting one against the other (unlike TeamMember's
+// Advance/AdvanceAdjustment/Payment triad — a Subcontractor advance has no
+// recoverable-balance concept in this product's scope). No payable cap: an
+// advance may legitimately exceed the amount currently payable.
+model SubcontractorPayment {
+  id               String       @id @default(uuid(7))
+  siteContractId   String
+  siteContract     SiteContract @relation(fields: [siteContractId], references: [id])
+  type             String
+  amount           Decimal
+  paymentMethod    String?
+  paidAt           DateTime
+  note             String?
+  recordedByUserId String
+  createdAt        DateTime     @default(now())
+  correctsId       String?
+  reason           String?
 }

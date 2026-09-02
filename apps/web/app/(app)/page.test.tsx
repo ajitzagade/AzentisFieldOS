@@ -52,6 +52,7 @@ function mockDashboard(overrides: {
   sitesPreview?: unknown[];
   role?: string;
   pendingPricing?: number;
+  draftPendingTerms?: number;
 }) {
   const today = overrides.today ?? baseToday;
   const overall = overrides.overall ?? baseOverall;
@@ -64,11 +65,13 @@ function mockDashboard(overrides: {
       ? { role }
       : url.includes("/purchases/count/pending-pricing")
         ? (overrides.pendingPricing ?? 0)
-        : url.includes("/dashboard/overall")
-          ? overall
-          : url.includes("/dashboard/sites-preview")
-            ? sitesPreview
-            : today;
+        : url.includes("/site-contracts/count/draft-pending-terms")
+          ? (overrides.draftPendingTerms ?? 0)
+          : url.includes("/dashboard/overall")
+            ? overall
+            : url.includes("/dashboard/sites-preview")
+              ? sitesPreview
+              : today;
     return Promise.resolve({ ok: true, json: async () => body });
   }) as unknown as typeof fetch;
 }
@@ -157,7 +160,7 @@ describe("DashboardPage", () => {
     }
   });
 
-  it("renders the Money row — month expenses, vendor outstanding, and the cash-tied-up total", async () => {
+  it("renders the Money row — month expenses, vendor outstanding, Subcontractor outstanding, and the cash-tied-up total", async () => {
     global.fetch = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
       const body = url.includes("/dashboard/overall")
@@ -170,7 +173,9 @@ describe("DashboardPage", () => {
               ? { totalThisYear: 500000, notFullyPaidTotal: 120000 }
               : url.endsWith("/vendors")
                 ? [{ id: "v1" }, { id: "v2" }]
-                : baseToday;
+                : url.includes("/site-contracts/outstanding-summary")
+                  ? { totalOutstanding: 62500 }
+                  : baseToday;
       return Promise.resolve({ ok: true, json: async () => body });
     }) as unknown as typeof fetch;
 
@@ -185,9 +190,14 @@ describe("DashboardPage", () => {
     expect(screen.getByText("₹2,40,000")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /view vendors/i })).toHaveAttribute("href", "/vendors");
 
-    // Cash Tied Up = vendor outstanding (2,40,000) + advances (3,14,200).
+    // Outstanding to Subcontractors, from the Epic 18 summary endpoint.
+    expect(screen.getByText("Outstanding to Subcontractors")).toBeInTheDocument();
+    expect(screen.getByText("₹62,500")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /view subcontractors/i })).toHaveAttribute("href", "/subcontractors");
+
+    // Cash Tied Up = vendor outstanding (2,40,000) + advances (3,14,200) + Subcontractor outstanding (62,500).
     expect(screen.getByText("Cash Tied Up")).toBeInTheDocument();
-    expect(screen.getByText("₹5,54,200")).toBeInTheDocument();
+    expect(screen.getByText("₹6,16,700")).toBeInTheDocument();
   });
 
   it("degrades the Money row to honest dashes when its reads fail, without touching the rest of the page", async () => {
@@ -209,8 +219,9 @@ describe("DashboardPage", () => {
 
     expect(screen.getByText("Expenses This Month")).toBeInTheDocument();
     expect(screen.getByText("Vendor Outstanding")).toBeInTheDocument();
+    expect(screen.getByText("Outstanding to Subcontractors")).toBeInTheDocument();
     expect(screen.getByText("Cash Tied Up")).toBeInTheDocument();
-    expect(screen.getAllByText("—")).toHaveLength(3);
+    expect(screen.getAllByText("—")).toHaveLength(4);
     // The core dashboard is untouched by the Money row's failure.
     expect(screen.getByText("₹86,400")).toBeInTheDocument();
     expect(screen.getByText("Active Sites")).toBeInTheDocument();
@@ -303,6 +314,21 @@ describe("DashboardPage", () => {
     await renderDashboard();
 
     expect(screen.queryByText(/waiting for pricing/)).not.toBeInTheDocument();
+  });
+
+  it("flags Draft Site Contracts still missing commercial terms with a Review Subcontractors action", async () => {
+    mockDashboard({ draftPendingTerms: 2 });
+    await renderDashboard();
+
+    expect(screen.getByText("2 Site Contracts are still Draft, missing commercial terms.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Review Subcontractors/ })).toHaveAttribute("href", "/subcontractors");
+  });
+
+  it("shows no draft-pending-terms flag when the count is zero", async () => {
+    mockDashboard({ draftPendingTerms: 0 });
+    await renderDashboard();
+
+    expect(screen.queryByText(/missing commercial terms/)).not.toBeInTheDocument();
   });
 
   it("Supervisor Home: one gap-flag per missing Site, each deep-linking that Site's report", async () => {

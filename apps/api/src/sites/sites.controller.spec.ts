@@ -244,6 +244,9 @@ describe('SitesService.findOne', () => {
       machineryMovementLog: { findMany: emptyFindMany() },
       vehicleMovementLog: { findMany: emptyFindMany() },
       wasteDisposal: { findMany: emptyFindMany() },
+      siteContract: { findMany: emptyFindMany() },
+      subcontractorWorkEntry: { findMany: emptyFindMany() },
+      subcontractorPayment: { findMany: emptyFindMany() },
     };
     return new SitesService(
       prisma as unknown as ConstructorParameters<typeof SitesService>[0],

@@ -2,9 +2,8 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { BuildingIcon, Button, Card, MailIcon, MapPinIcon, PhoneIcon, PlusIcon, TextField, UserIcon } from "@azentisfieldos/ui";
+import { BuildingIcon, Button, Card, MailIcon, MapPinIcon, PhoneIcon, PlusIcon, TagsField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
-import { MaterialsSuppliedField } from "../materials-supplied-field";
 import { createVendorAction, type CreateVendorFormState } from "./actions";
 import { parseCreateVendorForm } from "./parse";
 
@@ -76,7 +75,11 @@ export default function NewVendorPage() {
             icon={<MapPinIcon className="size-4" />}
             error={errorFor("address")}
           />
-          <MaterialsSuppliedField name="materialsSupplied" error={errorFor("materialsSupplied")} />
+          <TagsField
+            label="Materials / services supplied"
+            name="materialsSupplied"
+            error={errorFor("materialsSupplied")}
+          />
 
           {state.formError ? (
             <p role="alert" className="mb-4 text-caption text-danger-700">

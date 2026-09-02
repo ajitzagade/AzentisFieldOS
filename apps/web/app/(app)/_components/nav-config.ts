@@ -12,6 +12,7 @@ import {
   MapPinIcon,
   ReceiptIcon,
   TruckIcon,
+  UserIcon,
   UsersIcon,
   WalletIcon,
   ArrowsIcon,
@@ -72,6 +73,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Money",
     items: [
       { href: "/vendors", label: "Vendors", icon: BuildingIcon },
+      { href: "/subcontractors", label: "Subcontractors", icon: UserIcon },
       { href: "/expenses", label: "Expenses", icon: ReceiptIcon },
       { href: "/rmc", label: "RMC", icon: DropletIcon },
     ],

@@ -108,7 +108,16 @@ async function getVendorOutstandingTotal(): Promise<number | null> {
 }
 
 export async function OwnerDashboard() {
-  const [today, overall, sitesPreview, rawExpenseSummary, vendorOutstanding, pendingPricingCount] = await Promise.all([
+  const [
+    today,
+    overall,
+    sitesPreview,
+    rawExpenseSummary,
+    vendorOutstanding,
+    pendingPricingCount,
+    subcontractorOutstandingSummary,
+    draftPendingTermsCount,
+  ] = await Promise.all([
     getJSON<TodayActivity>("/dashboard/today"),
     getJSON<OverallRollup>("/dashboard/overall"),
     getJSON<SitePreview[]>("/dashboard/sites-preview"),
@@ -116,6 +125,10 @@ export async function OwnerDashboard() {
     getVendorOutstandingTotal(),
     // D7: additive context like the Money row — degrades to null silently.
     getJSONSafe<number>("/purchases/count/pending-pricing"),
+    // Epic 18 (Subcontractor Management): same additive-context,
+    // degrades-to-null-silently pattern as the Vendor/D7 reads above.
+    getJSONSafe<{ totalOutstanding: number }>("/site-contracts/outstanding-summary"),
+    getJSONSafe<number>("/site-contracts/count/draft-pending-terms"),
   ]);
   // Same honesty rule as the Vendors list: a malformed/missing summary is
   // "—", never NaN rendered as a rupee figure.
@@ -123,11 +136,20 @@ export async function OwnerDashboard() {
     typeof rawExpenseSummary?.totalThisMonth === "number" && typeof rawExpenseSummary?.totalThisWeek === "number"
       ? rawExpenseSummary
       : null;
+  const subcontractorOutstanding =
+    typeof subcontractorOutstandingSummary?.totalOutstanding === "number"
+      ? subcontractorOutstandingSummary.totalOutstanding
+      : null;
 
-  // "How much money is currently tied up?" — one number: Vendor purchases
-  // not marked Paid plus Labour advances still outstanding. Unknown vendor
-  // side ⇒ unknown total, never a partial figure presented as the answer.
-  const cashTiedUp = vendorOutstanding === null ? null : vendorOutstanding + overall.outstandingAdvances.total;
+  // "How much money is currently tied up?" — Vendor purchases not marked
+  // Paid, Labour advances still outstanding, and now Subcontractor
+  // payables. Any unknown component ⇒ the whole total is unknown, never a
+  // partial figure presented as the answer (same rule extended, not
+  // relaxed, by this addition).
+  const cashTiedUp =
+    vendorOutstanding === null || subcontractorOutstanding === null
+      ? null
+      : vendorOutstanding + overall.outstandingAdvances.total + subcontractorOutstanding;
 
   const heading = new Date().toLocaleDateString("en-IN", {
     weekday: "long",
@@ -274,11 +296,28 @@ export async function OwnerDashboard() {
         </div>
       ) : null}
 
+      {/* Same D7-shaped gap-flag for Site Contracts still Draft with
+          missing commercial terms — never silently forgotten in a list. */}
+      {typeof draftPendingTermsCount === "number" && draftPendingTermsCount > 0 ? (
+        <div className="mt-6">
+          <GapFlag
+            icon={<UsersIcon />}
+            message={`${draftPendingTermsCount} Site ${draftPendingTermsCount === 1 ? "Contract is" : "Contracts are"} still Draft, missing commercial terms.`}
+            action={
+              <Link href="/subcontractors" className={cn(buttonVariants({ variant: "primary", size: "sm" }))}>
+                <UsersIcon className="size-4" />
+                Review Subcontractors
+              </Link>
+            }
+          />
+        </div>
+      ) : null}
+
       {/* Money — month spend, vendor dues, and the one tied-up-cash number,
           all from live reads that already exist (/expenses/summary and the
           Vendors list's per-Vendor purchase summaries). */}
       <h2 className="mt-10 mb-4 text-section-header text-ink-900">Money</h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <OverallCard
           icon={<ReceiptIcon />}
           label="Expenses This Month"
@@ -316,13 +355,30 @@ export async function OwnerDashboard() {
           link={{ href: "/vendors", label: "View Vendors" }}
         />
         <OverallCard
+          icon={<UsersIcon />}
+          label="Outstanding to Subcontractors"
+          value={
+            subcontractorOutstanding === null ? (
+              <span className="text-ink-500">—</span>
+            ) : (
+              `₹${subcontractorOutstanding.toLocaleString("en-IN")}`
+            )
+          }
+          meta={
+            subcontractorOutstanding === null
+              ? "Couldn't load right now"
+              : "Across every Site Contract's payable minus paid"
+          }
+          link={{ href: "/subcontractors", label: "View Subcontractors" }}
+        />
+        <OverallCard
           icon={<WalletIcon />}
           label="Cash Tied Up"
           value={cashTiedUp === null ? <span className="text-ink-500">—</span> : `₹${cashTiedUp.toLocaleString("en-IN")}`}
           meta={
             cashTiedUp === null
               ? "Couldn't load right now"
-              : "Vendor dues + Labour advances still outstanding"
+              : "Vendor dues + Labour advances + Subcontractor payables still outstanding"
           }
         />
       </div>

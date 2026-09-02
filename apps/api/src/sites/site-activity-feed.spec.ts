@@ -55,6 +55,9 @@ describe('getSiteActivityFeed', () => {
       machineryMovementLog: { findMany: emptyFindMany() },
       vehicleMovementLog: { findMany: emptyFindMany() },
       wasteDisposal: { findMany: emptyFindMany() },
+      siteContract: { findMany: emptyFindMany() },
+      subcontractorWorkEntry: { findMany: emptyFindMany() },
+      subcontractorPayment: { findMany: emptyFindMany() },
     } as any as PrismaService;
 
     const feed = await getSiteActivityFeed(prisma, 'site-1');
@@ -90,6 +93,9 @@ describe('getSiteActivityFeed', () => {
       machineryMovementLog: { findMany: emptyFindMany() },
       vehicleMovementLog: { findMany: emptyFindMany() },
       wasteDisposal: { findMany: emptyFindMany() },
+      siteContract: { findMany: emptyFindMany() },
+      subcontractorWorkEntry: { findMany: emptyFindMany() },
+      subcontractorPayment: { findMany: emptyFindMany() },
     } as any as PrismaService;
 
     const feed = await getSiteActivityFeed(prisma, 'site-empty');
@@ -111,6 +117,9 @@ describe('getSiteActivityFeed', () => {
       machineryMovementLog: { findMany: emptyFindMany() },
       vehicleMovementLog: { findMany: emptyFindMany() },
       wasteDisposal: { findMany: emptyFindMany() },
+      siteContract: { findMany: emptyFindMany() },
+      subcontractorWorkEntry: { findMany: emptyFindMany() },
+      subcontractorPayment: { findMany: emptyFindMany() },
     } as any as PrismaService;
 
     await getSiteActivityFeed(prisma, 'site-1');
@@ -122,5 +131,77 @@ describe('getSiteActivityFeed', () => {
         },
       }),
     );
+  });
+
+  it('includes Site Contract, Work Entry, and Subcontractor Payment events (Epic 18), filtered via the SiteContract relation', async () => {
+    const siteContractFindMany = vi.fn().mockResolvedValue([
+      {
+        id: 'sc-1',
+        createdAt: new Date('2026-09-01T09:00:00Z'),
+        workCategory: 'Storm-water pipe laying',
+        status: 'DRAFT',
+        subcontractor: { name: 'Ganesh Pipeline Works' },
+      },
+    ]);
+    const workEntryFindMany = vi.fn().mockResolvedValue([
+      {
+        id: 'we-1',
+        workDate: new Date('2026-09-03T00:00:00Z'),
+        quantity: { toString: () => '260' },
+        siteContract: {
+          workCategory: 'Storm-water pipe laying',
+          subcontractor: { name: 'Ganesh Pipeline Works' },
+        },
+      },
+    ]);
+    const paymentFindMany = vi.fn().mockResolvedValue([
+      {
+        id: 'p-1',
+        paidAt: new Date('2026-09-02T00:00:00Z'),
+        type: 'PAYMENT',
+        amount: decimal(30000),
+        siteContract: {
+          workCategory: 'Storm-water pipe laying',
+          subcontractor: { name: 'Ganesh Pipeline Works' },
+        },
+      },
+    ]);
+    const prisma = {
+      purchase: { findMany: emptyFindMany() },
+      movement: { findMany: emptyFindMany() },
+      consumption: { findMany: emptyFindMany() },
+      returnWastage: { findMany: emptyFindMany() },
+      workRecord: { findMany: emptyFindMany() },
+      expense: { findMany: emptyFindMany() },
+      rmcEntry: { findMany: emptyFindMany() },
+      dailySiteReport: { findMany: emptyFindMany() },
+      machineryMovementLog: { findMany: emptyFindMany() },
+      vehicleMovementLog: { findMany: emptyFindMany() },
+      wasteDisposal: { findMany: emptyFindMany() },
+      siteContract: { findMany: siteContractFindMany },
+      subcontractorWorkEntry: { findMany: workEntryFindMany },
+      subcontractorPayment: { findMany: paymentFindMany },
+    } as any as PrismaService;
+
+    const feed = await getSiteActivityFeed(prisma, 'site-1');
+
+    expect(workEntryFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        where: expect.objectContaining({ siteContract: { siteId: 'site-1' } }),
+      }),
+    );
+    expect(feed).toHaveLength(3);
+    // Newest first: Work Entry (Sep 3) > Payment (Sep 2) > Site Contract (Sep 1).
+    expect(feed.map((item) => item.type)).toEqual([
+      'WORK_ENTRY',
+      'SUBCONTRACTOR_PAYMENT',
+      'SITE_CONTRACT',
+    ]);
+    expect(feed[0]).toMatchObject({ id: 'we-1', amount: null });
+    expect(feed[0]?.summary).toContain('Ganesh Pipeline Works');
+    expect(feed[1]).toMatchObject({ id: 'p-1', amount: 30000 });
+    expect(feed[2]).toMatchObject({ id: 'sc-1', amount: null });
+    expect(feed[2]?.summary).toContain('DRAFT');
   });
 });

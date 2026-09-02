@@ -54,6 +54,22 @@ interface RecentDsrRow {
   _count: { workRecords: number; consumptions: number };
 }
 
+interface SiteContractRow {
+  id: string;
+  workCategory: string | null;
+  status: "DRAFT" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+  subcontractor: { id: string; name: string };
+  amountPayable: number | null;
+  outstandingAmount: number | null;
+}
+
+const CONTRACT_STATUS_BADGE: Record<SiteContractRow["status"], { variant: "neutral" | "success" | "danger"; label: string }> = {
+  DRAFT: { variant: "neutral", label: "Draft" },
+  ACTIVE: { variant: "success", label: "Active" },
+  COMPLETED: { variant: "success", label: "Completed" },
+  CANCELLED: { variant: "danger", label: "Cancelled" },
+};
+
 async function getSiteDetail(id: string): Promise<SiteDetail | null> {
   const res = await authedFetch(`/sites/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
@@ -120,6 +136,20 @@ async function getViewerRole(): Promise<string | null> {
     if (!res.ok) return null;
     const me = (await res.json()) as { role?: string };
     return typeof me.role === "string" ? me.role : null;
+  } catch {
+    return null;
+  }
+}
+
+// Epic 18 (Subcontractor Management): every Site Contract engaged at this
+// Site, same null-safe fault-isolation rule as this page's other sections —
+// a failure here degrades only this section, never the whole page.
+async function getSiteContracts(siteId: string): Promise<SiteContractRow[] | null> {
+  try {
+    const res = await authedFetch(`/site-contracts?siteId=${siteId}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const rows = (await res.json()) as SiteContractRow[];
+    return Array.isArray(rows) ? rows : null;
   } catch {
     return null;
   }
@@ -212,15 +242,50 @@ const recentDsrColumns: DataTableColumn<RecentDsrRow>[] = [
   },
 ];
 
+const siteContractColumns: DataTableColumn<SiteContractRow>[] = [
+  { header: "Subcontractor", cell: (row) => <span className="font-semibold">{row.subcontractor.name}</span> },
+  { header: "Work", cell: (row) => row.workCategory ?? <span className="text-ink-500">—</span> },
+  {
+    header: "Status",
+    cell: (row) => {
+      const badge = CONTRACT_STATUS_BADGE[row.status];
+      return <Badge variant={badge.variant}>{badge.label}</Badge>;
+    },
+  },
+  {
+    header: "Payable",
+    align: "right",
+    cell: (row) =>
+      row.amountPayable === null ? (
+        <span className="italic text-ink-500">Pending terms</span>
+      ) : (
+        <span className="font-semibold text-gold-700 tabular-nums">₹{row.amountPayable.toLocaleString("en-IN")}</span>
+      ),
+  },
+  {
+    header: "Outstanding",
+    align: "right",
+    cell: (row) =>
+      row.outstandingAmount === null ? (
+        <span className="text-ink-500">—</span>
+      ) : (
+        <span className="font-semibold text-gold-700 tabular-nums">
+          ₹{Math.abs(row.outstandingAmount).toLocaleString("en-IN")}
+        </span>
+      ),
+  },
+];
+
 export default async function SiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [site, todaysDsr, stock, recentDsrs, photos, viewerRole] = await Promise.all([
+  const [site, todaysDsr, stock, recentDsrs, photos, viewerRole, siteContracts] = await Promise.all([
     getSiteDetail(id),
     getTodaysDsr(id),
     getSiteStock(id),
     getRecentDsrs(id),
     getSitePhotos(id),
     getViewerRole(),
+    getSiteContracts(id),
   ]);
 
   if (!site) {
@@ -402,6 +467,41 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
         ) : (
           <PhotoGalleryGrid photos={photos.slice(0, RECENT_PHOTOS_LIMIT)} />
         )}
+      </div>
+
+      <div className="mb-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-section-header text-ink-900">Subcontractors</div>
+          <Link
+            href={`/sites/${site.id}/contracts/new`}
+            className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+          >
+            <PlusIcon className="size-4" />
+            Add Contractor
+          </Link>
+        </div>
+        <DataTable
+          columns={siteContractColumns}
+          rowKey={(row) => row.id}
+          rowHref={(row) => `/sites/${site.id}/contracts/${row.id}`}
+          state={
+            siteContracts === null
+              ? { status: "empty", icon: <UsersIcon />, message: "Couldn't load this Site's Subcontractors right now." }
+              : siteContracts.length === 0
+                ? {
+                    status: "empty",
+                    icon: <UsersIcon />,
+                    message: "No Subcontractors engaged at this Site yet.",
+                    action: (
+                      <Link href={`/sites/${site.id}/contracts/new`} className={cn(buttonVariants({ variant: "primary" }))}>
+                        <PlusIcon className="size-4" />
+                        Add Contractor
+                      </Link>
+                    ),
+                  }
+                : { status: "success", rows: siteContracts }
+          }
+        />
       </div>
 
       <div className="mb-4 text-section-header text-ink-900">Activity Feed</div>

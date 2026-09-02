@@ -12,7 +12,10 @@ export type FeedItemType =
   | "RMC"
   | "MACHINERY_MOVEMENT"
   | "VEHICLE_MOVEMENT"
-  | "WASTE_DISPOSAL";
+  | "WASTE_DISPOSAL"
+  | "SITE_CONTRACT"
+  | "WORK_ENTRY"
+  | "SUBCONTRACTOR_PAYMENT";
 
 export interface FeedItem {
   id: string;

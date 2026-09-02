@@ -13,6 +13,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { TeamModule } from './team/team.module';
 import { AssetsModule } from './assets/assets.module';
 import { VendorsModule } from './vendors/vendors.module';
+import { SubcontractorsModule } from './subcontractors/subcontractors.module';
 import { RmcModule } from './rmc/rmc.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { WasteDisposalModule } from './waste-disposal/waste-disposal.module';
@@ -34,6 +35,7 @@ import { SearchModule } from './search/search.module';
     TeamModule,
     AssetsModule,
     VendorsModule,
+    SubcontractorsModule,
     RmcModule,
     ExpensesModule,
     WasteDisposalModule,

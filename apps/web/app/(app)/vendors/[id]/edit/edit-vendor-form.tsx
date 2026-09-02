@@ -2,9 +2,8 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { BuildingIcon, Button, Card, CheckCircleIcon, MailIcon, MapPinIcon, PhoneIcon, TextField, UserIcon } from "@azentisfieldos/ui";
+import { BuildingIcon, Button, Card, CheckCircleIcon, MailIcon, MapPinIcon, PhoneIcon, TagsField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
-import { MaterialsSuppliedField } from "../../materials-supplied-field";
 import { updateVendorAction, type UpdateVendorFormState } from "./actions";
 import { parseUpdateVendorForm } from "./parse";
 import type { Vendor } from "../../page";
@@ -77,7 +76,8 @@ export function EditVendorForm({ vendor }: { vendor: Vendor }) {
           defaultValue={vendor.address ?? ""}
           error={errorFor("address")}
         />
-        <MaterialsSuppliedField
+        <TagsField
+          label="Materials / services supplied"
           name="materialsSupplied"
           defaultValue={vendor.materialsSupplied}
           error={errorFor("materialsSupplied")}

@@ -43,6 +43,9 @@ export async function getSiteActivityFeed(
     machineryMoves,
     vehicleMoves,
     wasteDisposals,
+    siteContracts,
+    subcontractorWorkEntries,
+    subcontractorPayments,
   ] = await Promise.all([
     prisma.purchase.findMany({
       where: { siteId, purchasedAt: bounds },
@@ -94,6 +97,21 @@ export async function getSiteActivityFeed(
     prisma.wasteDisposal.findMany({
       where: { siteId, disposedAt: bounds },
       include: { vendor: true },
+    }),
+    // Epic 18 (Subcontractor Management): Site Contract, Work Entry, and
+    // Subcontractor Payment events, filtered by the parent SiteContract's
+    // siteId (neither WorkEntry nor Payment carries siteId directly).
+    prisma.siteContract.findMany({
+      where: { siteId, createdAt: bounds },
+      include: { subcontractor: true },
+    }),
+    prisma.subcontractorWorkEntry.findMany({
+      where: { siteContract: { siteId }, workDate: bounds },
+      include: { siteContract: { include: { subcontractor: true } } },
+    }),
+    prisma.subcontractorPayment.findMany({
+      where: { siteContract: { siteId }, paidAt: bounds },
+      include: { siteContract: { include: { subcontractor: true } } },
     }),
   ]);
 
@@ -183,6 +201,27 @@ export async function getSiteActivityFeed(
       occurredAt: w.disposedAt.toISOString(),
       summary: `${w.wasteType} disposal — ${w.tripCount} trip${Math.abs(w.tripCount) === 1 ? '' : 's'}${w.vendor ? ` by ${w.vendor.name}` : ' (own vehicle)'}${w.disposalLocation ? ` to ${w.disposalLocation}` : ''}`,
       amount: w.totalAmount.toNumber(),
+    })),
+    ...siteContracts.map((c): FeedItem => ({
+      id: c.id,
+      type: 'SITE_CONTRACT',
+      occurredAt: c.createdAt.toISOString(),
+      summary: `${c.subcontractor.name} engaged${c.workCategory ? ` — ${c.workCategory}` : ''} (${c.status})`,
+      amount: null,
+    })),
+    ...subcontractorWorkEntries.map((e): FeedItem => ({
+      id: e.id,
+      type: 'WORK_ENTRY',
+      occurredAt: e.workDate.toISOString(),
+      summary: `${e.siteContract.subcontractor.name} — ${e.quantity.toString()} ${e.siteContract.workCategory ?? 'work'} logged`,
+      amount: null,
+    })),
+    ...subcontractorPayments.map((p): FeedItem => ({
+      id: p.id,
+      type: 'SUBCONTRACTOR_PAYMENT',
+      occurredAt: p.paidAt.toISOString(),
+      summary: `${p.type === 'ADVANCE' ? 'Advance' : 'Payment'} to ${p.siteContract.subcontractor.name}${p.siteContract.workCategory ? ` — ${p.siteContract.workCategory}` : ''}`,
+      amount: p.amount.toNumber(),
     })),
   ];
 

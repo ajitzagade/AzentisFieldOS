@@ -6,7 +6,9 @@ import {
   GearIcon,
   ReceiptIcon,
   TruckIcon,
+  UserIcon,
   UsersIcon,
+  WalletIcon,
 } from "@azentisfieldos/ui";
 import type { FeedItemType } from "@azentisfieldos/shared";
 import type { ComponentType, SVGProps } from "react";
@@ -34,4 +36,11 @@ export const FEED_TYPE_CONFIG: Record<
   VEHICLE_MOVEMENT: { label: "Vehicle", icon: TruckIcon, badgeVariant: "neutral" },
   // Money-moving (per-trip disposal cost) — gold, same rule as Purchase/RMC.
   WASTE_DISPOSAL: { label: "Waste Disposal", icon: TruckIcon, badgeVariant: "gold" },
+  // Epic 18 (Subcontractor Management): a Site Contract's creation/status
+  // change is an agreement event, not money-moving — neutral, same as DSR/
+  // Movement. Work Entry is a quantity (trips/pipes/units), also neutral.
+  SITE_CONTRACT: { label: "Contract", icon: UserIcon, badgeVariant: "neutral" },
+  WORK_ENTRY: { label: "Work Entry", icon: UserIcon, badgeVariant: "neutral" },
+  // Money-moving — gold, same rule as Purchase/RMC/Expense/WasteDisposal.
+  SUBCONTRACTOR_PAYMENT: { label: "Subcontractor Payment", icon: WalletIcon, badgeVariant: "gold" },
 };

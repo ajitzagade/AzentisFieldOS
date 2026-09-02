@@ -1,19 +1,21 @@
 "use client";
 
 import { useId, useState, type KeyboardEvent } from "react";
-import { cn } from "@azentisfieldos/ui";
+import { cn } from "../lib/cn";
 
-// A small, self-contained tag input — not promoted to packages/ui since
-// this is its only consumer so far (create + edit Vendor forms share this
-// one file). A second consumer outside apps/web/app/(app)/vendors would
-// justify generalizing it into a shared primitive.
-export interface MaterialsSuppliedFieldProps {
+// A small, self-contained tag input (AD-5). Originally built local to the
+// Vendor route for `materialsSupplied`; promoted here once Subcontractor's
+// `workCategories` became a second consumer of the identical pattern — the
+// exact threshold Story 9.1's own dev notes named for generalizing it.
+export interface TagsFieldProps {
+  /** Field label, e.g. "Materials / services supplied" */
+  label: string;
   name: string;
   defaultValue?: string[];
   error?: string;
 }
 
-export function MaterialsSuppliedField({ name, defaultValue = [], error }: MaterialsSuppliedFieldProps) {
+export function TagsField({ label, name, defaultValue = [], error }: TagsFieldProps) {
   const inputId = useId();
   const [tags, setTags] = useState<string[]>(defaultValue);
   const [draft, setDraft] = useState("");
@@ -42,7 +44,7 @@ export function MaterialsSuppliedField({ name, defaultValue = [], error }: Mater
   return (
     <div className="mb-4">
       <label htmlFor={inputId} className="mb-1 block text-caption font-semibold text-ink-700">
-        Materials / services supplied
+        {label}
       </label>
       <div
         className={cn(
