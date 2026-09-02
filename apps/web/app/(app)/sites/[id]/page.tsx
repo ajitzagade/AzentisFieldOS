@@ -23,6 +23,7 @@ import {
 import type { Site } from "../page";
 import { PhotoGalleryGrid } from "../../_components/photo-gallery-grid";
 import { DeleteEntityButton } from "../../_components/delete-entity-button";
+import { RecordRecentlyViewed } from "../../_components/record-recently-viewed";
 import { deleteSiteAction } from "./actions";
 import { FEED_TYPE_CONFIG } from "./feed-type-config";
 
@@ -311,6 +312,8 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <>
+      <RecordRecentlyViewed type="site" id={site.id} name={site.name} />
+
       <div className="mb-2 text-eyebrow text-ink-500">
         <Link href="/sites" className="hover:text-accent-teal-700 hover:underline">
           Sites

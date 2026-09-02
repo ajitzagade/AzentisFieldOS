@@ -18,6 +18,7 @@ import {
   type DataTableColumn,
 } from "@azentisfieldos/ui";
 import type { TeamMemberDetail } from "./edit/page";
+import { RecordRecentlyViewed } from "../../_components/record-recently-viewed";
 
 interface WorkHistoryEntry {
   id: string;
@@ -219,6 +220,8 @@ export default async function TeamMemberDetailPage({ params }: { params: Promise
 
   return (
     <>
+      <RecordRecentlyViewed type="team-member" id={teamMember.id} name={teamMember.name} />
+
       <div className="mb-2 text-eyebrow text-ink-500">
         <Link href="/team" className="hover:text-accent-teal-700 hover:underline">
           Team &amp; Labour

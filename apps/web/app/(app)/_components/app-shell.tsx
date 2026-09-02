@@ -40,6 +40,7 @@ import {
 import { APP_DISPLAY_NAME } from "../../../lib/tenant";
 import { usePwaInstall } from "../../../lib/use-pwa-install";
 import { clearRememberedSite } from "./site-field";
+import { clearRecentlyViewed } from "../../../lib/recently-viewed";
 
 // Every role gets the same sidebar-driven shell (product direction 2026-08-27,
 // superseding EXPERIENCE.md's original Owner/Admin-sidebar vs Supervisor-top-bar
@@ -169,12 +170,17 @@ function SidebarNav({
       {/* Plain POST form, not a client-side handler — works even before any
           client JS has hydrated, and mirrors /api/auth/logout's own plain
           Route Handler (clears the session cookie, redirects to /sign-in). */}
-      {/* Sign-out also clears the device-remembered Site — on a shared phone
-          the next user must not inherit the previous user's default. */}
+      {/* Sign-out also clears the device-remembered Site and the
+          recently-viewed shortcuts list (Story 19.6) — on a shared phone
+          the next user must not inherit the previous user's defaults or
+          browsing history. */}
       <form
         action="/api/auth/logout"
         method="post"
-        onSubmit={clearRememberedSite}
+        onSubmit={() => {
+          clearRememberedSite();
+          clearRecentlyViewed();
+        }}
         className={pwaAvailable ? "pt-4" : "mt-auto pt-4"}
       >
         <button

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Badge, ClipboardIcon, DataTable, PencilIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
 import type { Subcontractor } from "../page";
 import { DeleteEntityButton } from "../../_components/delete-entity-button";
+import { RecordRecentlyViewed } from "../../_components/record-recently-viewed";
 import { deleteSubcontractorAction } from "./actions";
 
 interface SubcontractorSiteContract {
@@ -114,6 +115,8 @@ export default async function SubcontractorDetailPage({ params }: { params: Prom
 
   return (
     <>
+      <RecordRecentlyViewed type="subcontractor" id={subcontractor.id} name={subcontractor.name} />
+
       <div className="mb-2 text-eyebrow text-ink-500">
         <Link href="/subcontractors" className="hover:text-accent-teal-700 hover:underline">
           Subcontractors

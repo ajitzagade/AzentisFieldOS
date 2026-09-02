@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 import Link from "next/link";
 import { AdvanceQuickEntryTrigger } from "./advance-quick-entry-trigger";
 import { DashboardSearchButton } from "./dashboard-search-button";
+import { RecentlyViewedChips } from "./recently-viewed-chips";
 import {
   AlertTriangleIcon,
   Badge,
@@ -250,6 +251,12 @@ export async function OwnerDashboard() {
           <DashboardSearchButton />
         </div>
       </div>
+
+      {/* Story 19.6: device-local "pick up where you left off" shortcuts —
+          reads localStorage client-side, so it's a client island between
+          the header block and Today (renders nothing when the list is
+          empty, per Boundaries: Never an empty-state placeholder here). */}
+      <RecentlyViewedChips />
 
       <h2 className="mb-4 text-section-header text-ink-900">Today</h2>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">

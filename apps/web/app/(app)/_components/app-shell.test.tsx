@@ -399,3 +399,35 @@ describe("AppShell — Owner mobile quick-bar (Story 19.4)", () => {
     expect(screen.getByText("content").closest("main")?.className).toContain("pb-24");
   });
 });
+
+// Story 19.6: sign-out on a shared phone must not leak the previous user's
+// device-remembered Site or "recently viewed" browsing history to whoever
+// signs in next.
+describe("AppShell — sign-out clears device-local state (Story 19.6)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("clears both the remembered Site and the recently-viewed list on Sign out", () => {
+    mockPathname = "/";
+    window.localStorage.setItem("azentisfieldos:last-site-id", "site-1");
+    window.localStorage.setItem(
+      "azentisfieldos:recently-viewed",
+      JSON.stringify([{ type: "site", id: "site-1", name: "NH-48 Highway Widening" }]),
+    );
+
+    render(
+      <AppShell role="OWNER_ADMIN">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    const sidebar = screen.getByRole("complementary");
+    const signOutForm = within(sidebar).getByRole("button", { name: /Sign out/ }).closest("form");
+    expect(signOutForm).not.toBeNull();
+    fireEvent.submit(signOutForm as HTMLFormElement);
+
+    expect(window.localStorage.getItem("azentisfieldos:last-site-id")).toBeNull();
+    expect(window.localStorage.getItem("azentisfieldos:recently-viewed")).toBeNull();
+  });
+});

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Badge, CameraIcon, ClipboardIcon, DataTable, PencilIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
 import { getVendorPurchaseSummary, type Vendor, type VendorPurchaseSummary } from "../page";
 import { DeleteEntityButton } from "../../_components/delete-entity-button";
+import { RecordRecentlyViewed } from "../../_components/record-recently-viewed";
 import { deleteVendorAction } from "./actions";
 
 interface VendorPurchase {
@@ -154,6 +155,8 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
 
   return (
     <>
+      <RecordRecentlyViewed type="vendor" id={vendor.id} name={vendor.name} />
+
       <div className="mb-2 text-eyebrow text-ink-500">
         <Link href="/vendors" className="hover:text-accent-teal-700 hover:underline">
           Vendors
