@@ -7,7 +7,7 @@ const redirectMock = vi.hoisted(() =>
 );
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-import { createAdvanceAction } from "./actions";
+import { createAdvanceAction, createAdvanceQuickAction } from "./actions";
 
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
@@ -160,5 +160,57 @@ describe("createAdvanceAction", () => {
     const result = await createAdvanceAction({}, formData(validFields));
 
     expect(result.formError).toBe("This Advance references a Team Member that does not exist.");
+  });
+});
+
+// Story 19.1: the Dashboard quick-entry modal's Server Action — same
+// submitAdvance write path as createAdvanceAction, but it must never
+// redirect (the modal stays open on the Dashboard, closing itself only via
+// the { success: true } it returns) and instead returns success inline.
+describe("createAdvanceQuickAction", () => {
+  it("posts the validated payload and returns { success: true } without redirecting", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
+
+    const result = await createAdvanceQuickAction({}, formData(validFields));
+
+    expect(result).toEqual({ success: true });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://localhost:3001/advances",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a per-field error for a non-positive amount, without calling the API", async () => {
+    global.fetch = vi.fn();
+
+    const result = await createAdvanceQuickAction({}, formData({ ...validFields, amount: "0" }));
+
+    expect(result.errors?.amount).toBeDefined();
+    expect(result.success).toBeUndefined();
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the API's field errors when the API returns 400, and does not redirect", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { details: { fieldErrors: { teamMemberId: ["This Team Member does not exist"] } } } }),
+    }) as unknown as typeof fetch;
+
+    const result = await createAdvanceQuickAction({}, formData(validFields));
+
+    expect(result.errors?.teamMemberId).toEqual(["This Team Member does not exist"]);
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a generic form error instead of throwing when the fetch itself rejects", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error("network down"));
+
+    const result = await createAdvanceQuickAction({}, formData(validFields));
+
+    expect(result.formError).toBe("Something went wrong recording the Advance. Please try again.");
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 });

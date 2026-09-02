@@ -1,6 +1,7 @@
 import { authedFetch } from "@/lib/api";
 import { type ReactNode } from "react";
 import Link from "next/link";
+import { AdvanceQuickEntryTrigger } from "./advance-quick-entry-trigger";
 import {
   AlertTriangleIcon,
   Badge,
@@ -415,6 +416,7 @@ export async function OwnerDashboard() {
             overall.outstandingAdvances.teamMemberCount === 1 ? "Member" : "Members"
           }`}
           link={{ href: "/payments", label: "View Payments" }}
+          actions={<AdvanceQuickEntryTrigger />}
         />
         <OverallCard
           icon={<ReceiptIcon />}
@@ -466,12 +468,16 @@ function OverallCard({
   value,
   meta,
   link,
+  actions,
 }: {
   icon: ReactNode;
   label: string;
   value: ReactNode;
   meta: string;
   link?: { href: string; label: string };
+  /** Extra client-side action (e.g. Story 19.1's "Record Advance" quick-entry
+   * trigger) rendered alongside the drill-down link. */
+  actions?: ReactNode;
 }) {
   return (
     <Card className="flex h-full flex-col gap-2">
@@ -481,14 +487,16 @@ function OverallCard({
       </div>
       <div className="text-kpi-numeral tabular-nums text-ink-900">{value}</div>
       <p className="text-body-sm text-ink-700">{meta}</p>
-      {link ? (
-        <Link
-          href={link.href}
-          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mt-auto self-start")}
-        >
-          {link.label}
-          <ChevronRightIcon className="size-4" />
-        </Link>
+      {link || actions ? (
+        <div className="mt-auto flex flex-wrap items-center gap-2">
+          {link ? (
+            <Link href={link.href} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "self-start")}>
+              {link.label}
+              <ChevronRightIcon className="size-4" />
+            </Link>
+          ) : null}
+          {actions}
+        </div>
       ) : null}
     </Card>
   );

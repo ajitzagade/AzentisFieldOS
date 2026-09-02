@@ -1,10 +1,19 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@azentisfieldos/ui";
 import DashboardPage from "./page";
+
+// OwnerDashboard's Outstanding Advances card renders
+// AdvanceQuickEntryTrigger (Story 19.1), which calls both useToast() and
+// useRouter() (for the post-success router.refresh()) — in the real app
+// these are satisfied by AppShell's <ToastProvider> ancestor and the
+// Next.js App Router respectively; this test renders the page in
+// isolation, so it needs the same provider plus a router mock.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 async function renderDashboard() {
   const element = await DashboardPage();
-  render(element);
+  render(<ToastProvider>{element}</ToastProvider>);
 }
 
 const originalFetch = global.fetch;
@@ -152,6 +161,10 @@ describe("DashboardPage", () => {
     // both link to /payments.
     expect(screen.getByText("₹3,14,200")).toBeInTheDocument();
     expect(screen.getByText("Across 9 Team Members")).toBeInTheDocument();
+    // Story 19.1: the Outstanding Advances card also carries the
+    // Dashboard's one quick-entry trigger — regression guard for it being
+    // dropped from owner-dashboard.tsx.
+    expect(screen.getByRole("button", { name: /record advance/i })).toBeInTheDocument();
     expect(screen.getByText("Pending Payments")).toBeInTheDocument();
     const paymentLinks = screen.getAllByRole("link", { name: /view payments/i });
     expect(paymentLinks).toHaveLength(2);

@@ -227,3 +227,19 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - DW-CR-7: DsrDesktopForm's mode="new" branch is dead (its only route was deleted) — prune the mode or restore a desktop-entry caller; dead branch still carries pre-rename strings until pruned (strings fixed in review patch, pruning deferred).
 - DW-CR-8: Test-quality follow-ups: assert HELP_CONTENT contextualHelp keys exist (typo = silently missing bubble); several page tests weakened to getAllByText(...).length > 0 (can't catch triplicate rendering); two advance/adjustment test names still describe the old delta UI.
 - DW-CR-9: Consider explicit pricedAt/pricedByUserId columns on Purchase for first-class pricing attribution (currently derivable only from the audit log's PATCH entry).
+
+## Deferred from: e2e test suite build-out (2026-09-02)
+
+- DW-E2E-1: Browser console warning surfaced during real e2e runs of the Purchase-recording flow: "flushSync was called from inside a lifecycle method. React cannot flush when React is already rendering." Fires on the Movements list after a real Purchase submission (`apps/web/app/(app)/movements/movements-list-client.tsx` or a state update it triggers, possibly via the router-refresh/flash-toast path). Did not affect functional correctness — the row still rendered correctly with the right pending badge in every observed run — but it's a real React anti-pattern warning that unit/component tests (mocked routers/fetches) would never surface, only a real browser against a real server catches it. Worth tracking down when next touching that file.
+
+## Deferred from: code review of story-19.1 (2026-09-02)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-19-1-advance-quick-entry-modal.md`
+  summary: Dialogs across the app (the new AdvanceQuickEntryModal, plus the pre-existing ConfirmDialog used by every money form) can be dismissed via Cancel/backdrop/Escape while a submission is still pending, with no guard — a race between the in-flight request resolving and the dialog unmounting.
+  evidence: Blind Hunter and Edge Case Hunter both independently flagged this on story-19.1's new modal; confirmed the identical unguarded pattern already exists in `packages/ui/src/components/confirm-dialog.tsx` and every form that uses it (AdvanceForm, PaymentForm) — not a regression unique to this story, a systemic gap worth fixing once for every dialog rather than per-story.
+- source_spec: `_bmad-output/implementation-artifacts/spec-19-1-advance-quick-entry-modal.md`
+  summary: `todayDate()`'s `new Date().toISOString().slice(0, 10)` reads the UTC calendar date, which shows the previous day's date for IST users in the ~5.5-hour window after UTC midnight (00:00-05:30 IST).
+  evidence: Blind Hunter caught this on the new AdvanceQuickEntryModal; verified the identical implementation already exists verbatim in the pre-existing `apps/web/app/(app)/team/[id]/advances/advance-form.tsx` — a pre-existing bug this story's modal copied, not introduced. Worth a shared, IST-correct date helper.
+- source_spec: `_bmad-output/implementation-artifacts/spec-19-1-advance-quick-entry-modal.md`
+  summary: `ComboboxField` pickers (Team Member, Site, etc.) show the generic "No matching X" message even when the underlying list is genuinely empty (zero records exist yet), rather than a distinct "you have no X yet — add one first" empty state per AD-6.
+  evidence: Blind Hunter caught this on the new modal's Team Member picker; verified the identical `emptyMessage="No matching Team Member"` already ships unchanged in the pre-existing `apps/web/app/(app)/payments/payment-form.tsx` — pre-existing across every Team Member combobox, not unique to this story.
