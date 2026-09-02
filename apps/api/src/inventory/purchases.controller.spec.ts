@@ -18,6 +18,7 @@ describe('PurchasesController', () => {
     findOne: ReturnType<typeof vi.fn>;
     countThisMonth: ReturnType<typeof vi.fn>;
     countPendingPricing: ReturnType<typeof vi.fn>;
+    outstandingAcrossVendors: ReturnType<typeof vi.fn>;
     completePricing: ReturnType<typeof vi.fn>;
   };
 
@@ -28,6 +29,7 @@ describe('PurchasesController', () => {
       findOne: vi.fn(),
       countThisMonth: vi.fn(),
       countPendingPricing: vi.fn(),
+      outstandingAcrossVendors: vi.fn(),
       completePricing: vi.fn(),
     };
 
@@ -101,6 +103,17 @@ describe('PurchasesController', () => {
   it('countPendingPricing delegates to the service', async () => {
     service.countPendingPricing.mockResolvedValue(3);
     await expect(controller.countPendingPricing()).resolves.toBe(3);
+  });
+
+  // Owner Dashboard's "Vendor Outstanding" tile — the batch replacement for
+  // the old per-Vendor purchase-summary fan-out.
+  it('outstandingSummary wraps PurchasesService.outstandingAcrossVendors in a totalOutstanding envelope', async () => {
+    service.outstandingAcrossVendors.mockResolvedValue(15650);
+
+    const result = await controller.outstandingSummary();
+
+    expect(service.outstandingAcrossVendors).toHaveBeenCalled();
+    expect(result).toEqual({ totalOutstanding: 15650 });
   });
 
   it('completePricing delegates id and body to the service', async () => {

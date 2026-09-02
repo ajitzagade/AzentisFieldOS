@@ -191,13 +191,11 @@ describe("DashboardPage", () => {
           ? baseSitesPreview
           : url.includes("/expenses/summary")
             ? { totalThisMonth: 250000, totalThisWeek: 40000, largestCategoryThisMonth: { name: "Diesel", total: 90000 } }
-            : url.includes("/purchase-summary")
-              ? { totalThisYear: 500000, notFullyPaidTotal: 120000 }
-              : url.endsWith("/vendors")
-                ? [{ id: "v1" }, { id: "v2" }]
-                : url.includes("/site-contracts/outstanding-summary")
-                  ? { totalOutstanding: 62500 }
-                  : baseToday;
+            : url.includes("/purchases/outstanding-summary")
+              ? { totalOutstanding: 240000 }
+              : url.includes("/site-contracts/outstanding-summary")
+                ? { totalOutstanding: 62500 }
+                : baseToday;
       return Promise.resolve({ ok: true, json: async () => body });
     }) as unknown as typeof fetch;
 
@@ -207,7 +205,8 @@ describe("DashboardPage", () => {
     expect(screen.getByText("₹2,50,000")).toBeInTheDocument();
     expect(screen.getByText("₹40,000 this week — largest: Diesel")).toBeInTheDocument();
 
-    // Vendor Outstanding = the two Vendors' notFullyPaidTotal summed.
+    // Vendor Outstanding = one DB-side groupBy total from
+    // GET /purchases/outstanding-summary, not a per-Vendor fan-out.
     expect(screen.getByText("Vendor Outstanding")).toBeInTheDocument();
     expect(screen.getByText("₹2,40,000")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /view vendors/i })).toHaveAttribute("href", "/vendors");

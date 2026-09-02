@@ -59,6 +59,17 @@ export class PurchasesController {
     return this.purchasesService.countThisMonth();
   }
 
+  // Owner Dashboard's "Vendor Outstanding" tile — one DB-side aggregate
+  // instead of the Dashboard fetching every Vendor and calling
+  // GET /vendors/:id/purchase-summary once per Vendor. Static path declared
+  // before :id below, same ordering rule as the count/* routes above.
+  @Get('outstanding-summary')
+  outstandingSummary() {
+    return this.purchasesService
+      .outstandingAcrossVendors()
+      .then((totalOutstanding) => ({ totalOutstanding }));
+  }
+
   // D7: how many inward entries are still waiting for the Owner's pricing —
   // drives the Owner Dashboard's gap-flag (the Movements list flags rows
   // individually via their own totalAmount).

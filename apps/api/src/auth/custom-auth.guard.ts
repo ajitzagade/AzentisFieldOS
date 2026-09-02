@@ -64,13 +64,23 @@ export class CustomAuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    // Only id/role are ever read below (request.user is typed as AuthUser =
-    // { id, role } everywhere it's consumed) — selecting the full row here
-    // pulled passwordHash and every other column into memory on 100% of
-    // authenticated traffic for no reason.
+    // id/role are the only fields every other route reads (request.user is
+    // typed as AuthUser everywhere it's consumed downstream) — the
+    // name/email/createdAt/updatedAt below exist solely so GET /users/me
+    // can return the caller's own safe profile without a second DB
+    // round-trip; they're the same single indexed PK lookup either way,
+    // never passwordHash. Unsafe to select * — passwordHash must never be
+    // pulled into memory on every authenticated request.
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, role: true },
+      select: {
+        id: true,
+        role: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
     // Unlike the old Clerk guard, there is no auto-provisioning here: login
     // already requires an existing User row, so a token whose subject no
@@ -79,7 +89,7 @@ export class CustomAuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    request.user = { id: user.id, role: user.role };
+    request.user = user;
     return true;
   }
 }

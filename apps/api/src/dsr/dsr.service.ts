@@ -46,6 +46,13 @@ export class DsrService {
   // lock, if any, before per-crew-member locks; crew member locks always
   // in teamMemberId-sorted order) so two transactions can never deadlock
   // waiting on each other.
+  //
+  // Returns the existing WorkRecord for this person/date (if any), so
+  // create()'s update-vs-create branch can reuse it instead of running a
+  // second, near-identical findFirst right after this one — the two used
+  // to query overlapping data (this one across every Site, the second
+  // re-checking the same person/date narrowed to just this Site) once per
+  // crew member, every DSR submission.
   private async assertNoDoubleBooking(
     tx: Prisma.TransactionClient,
     teamMemberId: string,
@@ -61,6 +68,7 @@ export class DsrService {
         'A crew member is already recorded at another Site on this date',
       );
     }
+    return existing;
   }
 
   // Crew members are processed in a fixed (teamMemberId-sorted) order so
@@ -122,20 +130,18 @@ export class DsrService {
             });
 
         for (const workRecord of this.sortedWorkRecords(input)) {
-          await this.assertNoDoubleBooking(
+          // assertNoDoubleBooking's own findFirst already found this
+          // person's existing row for this date (if any) — if it exists at
+          // all, the check above already confirmed it's at this Site (a
+          // different Site would have thrown), so it's exactly the row
+          // create/update below needs. No second query.
+          const existingWorkRecord = await this.assertNoDoubleBooking(
             tx,
             workRecord.teamMemberId,
             reportDate,
             input.siteId,
           );
 
-          const existingWorkRecord = await tx.workRecord.findFirst({
-            where: {
-              teamMemberId: workRecord.teamMemberId,
-              workDate: reportDate,
-              siteId: input.siteId,
-            },
-          });
           const workRecordData = {
             attended: workRecord.attended,
             hours: workRecord.hours,

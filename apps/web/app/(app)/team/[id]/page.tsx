@@ -75,25 +75,24 @@ async function getWorkHistory(id: string): Promise<WorkHistoryEntry[]> {
   return res.json();
 }
 
-// Epic 7 scope entirely — GET /advances is the same global list a future
-// combined Advances page will also read; there is no per-Team-Member
-// endpoint, so this page filters client-side.
+// GET /advances?teamMemberId= is scoped server-side (AdvancesService.list's
+// LabourReportFilters) — this used to fetch the whole tenant's Advance
+// history (every Team Member, every year) and filter down to one person
+// client-side, on an append-only table with no natural ceiling.
 async function getAdvances(id: string): Promise<AdvanceListItem[]> {
-  const res = await authedFetch(`/advances`, { cache: "no-store" });
+  const res = await authedFetch(`/advances?teamMemberId=${id}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Advances (${res.status})`);
   }
-  const advances: AdvanceListItem[] = await res.json();
-  return advances.filter((a) => a.teamMember.id === id);
+  return res.json();
 }
 
 async function getAdjustments(id: string): Promise<AdjustmentListItem[]> {
-  const res = await authedFetch(`/advance-adjustments`, { cache: "no-store" });
+  const res = await authedFetch(`/advance-adjustments?teamMemberId=${id}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Advance Adjustments (${res.status})`);
   }
-  const adjustments: AdjustmentListItem[] = await res.json();
-  return adjustments.filter((a) => a.advance.teamMember.id === id);
+  return res.json();
 }
 
 function formatDate(iso: string) {

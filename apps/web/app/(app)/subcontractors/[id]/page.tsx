@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, ClipboardIcon, DataTable, PencilIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
@@ -90,19 +91,6 @@ async function getSiteContracts(id: string): Promise<SubcontractorSiteContract[]
   }
 }
 
-// The viewer's role, for gating the Delete affordance (the API enforces
-// OWNER_ADMIN regardless). Least-privilege on failure.
-async function getViewerRole(): Promise<string | null> {
-  try {
-    const res = await authedFetch(`/users/me`, { cache: "no-store" });
-    if (!res.ok) return null;
-    const me = (await res.json()) as { role?: string };
-    return typeof me.role === "string" ? me.role : null;
-  } catch {
-    return null;
-  }
-}
-
 export default async function SubcontractorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const subcontractor = await getSubcontractor(id);
@@ -111,7 +99,7 @@ export default async function SubcontractorDetailPage({ params }: { params: Prom
     notFound();
   }
 
-  const [viewerRole, siteContracts] = await Promise.all([getViewerRole(), getSiteContracts(id)]);
+  const [viewerRole, siteContracts] = await Promise.all([currentRole(), getSiteContracts(id)]);
 
   return (
     <>

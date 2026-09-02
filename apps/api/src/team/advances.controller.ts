@@ -31,11 +31,19 @@ export class AdvancesController {
     return this.advancesService.create(body);
   }
 
-  // `page`/`pageSize` are opt-in (paginationParams) — omitted, this stays
-  // the full, unfiltered list every existing caller relies on.
+  // `teamMemberId` was already supported by AdvancesService.list()'s
+  // LabourReportFilters (the Labour Report threads it through) but never
+  // exposed as a query param here — the Team Member detail page's Advance
+  // Ledger fetched the tenant's entire history and filtered client-side
+  // instead. `page`/`pageSize` are opt-in (paginationParams) — omitted,
+  // this stays the full, unfiltered list every existing caller relies on.
   @Get()
-  list(@Query('page') page?: string, @Query('pageSize') pageSize?: string) {
-    return this.advancesService.list({ page, pageSize });
+  list(
+    @Query('teamMemberId') teamMemberId?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.advancesService.list({ teamMemberId, page, pageSize });
   }
 
   @Get(':id')

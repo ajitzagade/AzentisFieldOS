@@ -37,6 +37,26 @@ export class StockService {
     });
   }
 
+  // The Inventory page's "Site Stock" table used to fetch this one Site at
+  // a time (one HTTP round trip per Site) and flatten the results — this is
+  // the same query, unscoped, in one call. Ordered by Site name first so
+  // rows for the same Site stay grouped together in the flattened list.
+  getAllSiteStock(materialId?: string) {
+    return this.prisma.siteStock.findMany({
+      where: {
+        materialSize: materialId ? { materialId } : undefined,
+      },
+      include: {
+        site: true,
+        materialSize: { include: { material: { include: { unit: true } } } },
+      },
+      orderBy: [
+        { site: { name: 'asc' } },
+        { materialSize: { material: { name: 'asc' } } },
+      ],
+    });
+  }
+
   // Story 16.3 (AC #1): every location — the Godown and every Site — that
   // currently holds a balance of any Size of this Material, in one flat,
   // sorted list. Two plain findMany calls in parallel, never a per-Site

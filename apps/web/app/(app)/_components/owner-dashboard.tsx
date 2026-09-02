@@ -95,21 +95,6 @@ async function getJSONSafe<T>(path: string): Promise<T | null> {
   }
 }
 
-// Vendor money outstanding = the sum of every Vendor's "not marked Paid"
-// purchase total — the exact per-Vendor figure the Vendors list shows
-// (GET /vendors/:id/purchase-summary), summed. If any single summary
-// fails, the total would silently under-report what's owed, so the whole
-// figure degrades to null ("—") instead of a wrong number.
-async function getVendorOutstandingTotal(): Promise<number | null> {
-  const vendors = await getJSONSafe<{ id: string }[]>("/vendors");
-  if (!Array.isArray(vendors)) return null;
-  const summaries = await Promise.all(
-    vendors.map((vendor) => getJSONSafe<{ notFullyPaidTotal: number }>(`/vendors/${vendor.id}/purchase-summary`)),
-  );
-  if (summaries.some((summary) => typeof summary?.notFullyPaidTotal !== "number")) return null;
-  return summaries.reduce((total, summary) => total + (summary?.notFullyPaidTotal ?? 0), 0);
-}
-
 // Story 19.5: only ever called when the count is exactly 1 — fetches that
 // single unpriced-original Purchase's id via the same `pendingPricing`
 // filter countPendingPricing() counts, so the gap-flag can deep-link
@@ -128,7 +113,7 @@ export async function OwnerDashboard() {
     overall,
     sitesPreview,
     rawExpenseSummary,
-    vendorOutstanding,
+    rawVendorOutstanding,
     pendingPricingCount,
     subcontractorOutstandingSummary,
     draftPendingTermsCount,
@@ -137,7 +122,11 @@ export async function OwnerDashboard() {
     getJSON<OverallRollup>("/dashboard/overall"),
     getJSON<SitePreview[]>("/dashboard/sites-preview"),
     getJSONSafe<ExpenseSummary>("/expenses/summary"),
-    getVendorOutstandingTotal(),
+    // Vendor money outstanding — one DB-side groupBy aggregate
+    // (PurchasesService.outstandingAcrossVendors), not one HTTP round trip
+    // per Vendor. Same additive-context, degrades-to-null-silently pattern
+    // as the Subcontractor read below.
+    getJSONSafe<{ totalOutstanding: number }>("/purchases/outstanding-summary"),
     // D7: additive context like the Money row — degrades to null silently.
     getJSONSafe<number>("/purchases/count/pending-pricing"),
     // Epic 18 (Subcontractor Management): same additive-context,
@@ -163,6 +152,10 @@ export async function OwnerDashboard() {
   const subcontractorOutstanding =
     typeof subcontractorOutstandingSummary?.totalOutstanding === "number"
       ? subcontractorOutstandingSummary.totalOutstanding
+      : null;
+  const vendorOutstanding =
+    typeof rawVendorOutstanding?.totalOutstanding === "number"
+      ? rawVendorOutstanding.totalOutstanding
       : null;
 
   // "How much money is currently tied up?" — Vendor purchases not marked

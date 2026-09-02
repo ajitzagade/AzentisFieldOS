@@ -6,7 +6,6 @@ import { UsersService } from './users.service';
 
 function makeService(
   overrides: {
-    findUnique?: ReturnType<typeof vi.fn>;
     findMany?: ReturnType<typeof vi.fn>;
     create?: ReturnType<typeof vi.fn>;
     update?: ReturnType<typeof vi.fn>;
@@ -14,7 +13,6 @@ function makeService(
 ) {
   const prisma = {
     user: {
-      findUnique: overrides.findUnique ?? vi.fn(),
       findMany: overrides.findMany ?? vi.fn().mockResolvedValue([]),
       create: overrides.create ?? vi.fn(),
       update: overrides.update ?? vi.fn(),
@@ -143,37 +141,5 @@ describe('UsersService.updateRole', () => {
     await expect(
       service.updateRole('missing', { role: 'OWNER_ADMIN' }),
     ).rejects.toThrow(NotFoundException);
-  });
-});
-
-describe('UsersService.getMe', () => {
-  it('returns the safe row for the current user, never selecting passwordHash', async () => {
-    const findUnique = vi.fn().mockResolvedValue({
-      id: 'u1',
-      name: 'Suresh Rao',
-      email: 'suresh@azentis.in',
-      role: 'OWNER_ADMIN',
-      createdAt: new Date('2026-01-01'),
-      updatedAt: new Date('2026-01-01'),
-    });
-    const { service } = makeService({ findUnique });
-
-    await expect(service.getMe('u1')).resolves.toMatchObject({
-      id: 'u1',
-      name: 'Suresh Rao',
-      email: 'suresh@azentis.in',
-      role: 'OWNER_ADMIN',
-    });
-    const call = findUnique.mock.calls[0]![0] as {
-      select?: Record<string, boolean>;
-    };
-    expect(call.select).not.toHaveProperty('passwordHash');
-  });
-
-  it('throws NotFoundException when the row vanished mid-request', async () => {
-    const { service } = makeService({
-      findUnique: vi.fn().mockResolvedValue(null),
-    });
-    await expect(service.getMe('gone')).rejects.toThrow(NotFoundException);
   });
 });

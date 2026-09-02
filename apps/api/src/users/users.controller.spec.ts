@@ -7,7 +7,6 @@ import { UsersService } from './users.service';
 describe('UsersController (delegation)', () => {
   let controller: UsersController;
   let service: {
-    getMe: ReturnType<typeof vi.fn>;
     list: ReturnType<typeof vi.fn>;
     createUser: ReturnType<typeof vi.fn>;
     updateRole: ReturnType<typeof vi.fn>;
@@ -15,7 +14,6 @@ describe('UsersController (delegation)', () => {
 
   beforeEach(async () => {
     service = {
-      getMe: vi.fn(),
       list: vi.fn(),
       createUser: vi.fn(),
       updateRole: vi.fn(),
@@ -27,19 +25,29 @@ describe('UsersController (delegation)', () => {
     controller = module.get(UsersController);
   });
 
-  it('me delegates to UsersService.getMe with the current user id', async () => {
-    service.getMe.mockResolvedValue({
+  // CustomAuthGuard already resolves the full safe profile onto
+  // request.user — me() builds its response straight from that, no second
+  // UsersService round-trip.
+  it('me builds its response from request.user (CustomAuthGuard), no service call', () => {
+    const user: AuthUser = {
+      id: 'u1',
+      role: 'OWNER_ADMIN',
+      name: 'A',
+      email: 'a@x.in',
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+    };
+
+    const result = controller.me(user);
+
+    expect(result).toEqual({
       id: 'u1',
       name: 'A',
       email: 'a@x.in',
       role: 'OWNER_ADMIN',
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     });
-    const user: AuthUser = { id: 'u1', role: 'OWNER_ADMIN' };
-
-    const result = await controller.me(user);
-
-    expect(service.getMe).toHaveBeenCalledWith('u1');
-    expect(result).toMatchObject({ id: 'u1', role: 'OWNER_ADMIN' });
   });
 
   it('list delegates to UsersService.list', async () => {

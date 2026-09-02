@@ -67,6 +67,49 @@ describe('CustomAuthGuard', () => {
     expect(request.user).toEqual({ id: 'user-1', role: 'SITE_SUPERVISOR' });
   });
 
+  // The select carries name/email/createdAt/updatedAt too — purely so
+  // GET /users/me can build its response from request.user without a
+  // second DB round-trip — but must never select passwordHash.
+  it('selects the safe profile fields (never passwordHash) and attaches them all to req.user', async () => {
+    const verifyAsync = vi.fn().mockResolvedValue({ sub: 'user-1' });
+    const findUnique = vi.fn().mockResolvedValue({
+      id: 'user-1',
+      role: 'OWNER_ADMIN',
+      name: 'Suresh Rao',
+      email: 'suresh@azentis.in',
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+    });
+    const { prisma } = makePrisma(findUnique);
+    const guard = new CustomAuthGuard(
+      makeReflector(false),
+      makeJwtService(verifyAsync),
+      prisma,
+    );
+    const { context, request } = makeContext({ authorization: 'Bearer good' });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+
+    const call = findUnique.mock.calls[0]![0] as {
+      select?: Record<string, boolean>;
+    };
+    expect(call.select).toEqual({
+      id: true,
+      role: true,
+      name: true,
+      email: true,
+      createdAt: true,
+      updatedAt: true,
+    });
+    expect(call.select).not.toHaveProperty('passwordHash');
+    expect(request.user).toMatchObject({
+      id: 'user-1',
+      role: 'OWNER_ADMIN',
+      name: 'Suresh Rao',
+      email: 'suresh@azentis.in',
+    });
+  });
+
   it('rejects a request with no Authorization header (401), without verifying', async () => {
     const verifyAsync = vi.fn();
     const { prisma } = makePrisma();

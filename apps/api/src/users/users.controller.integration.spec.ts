@@ -33,7 +33,17 @@ class FakeAuthGuard implements CanActivate {
       .getRequest<{ headers: Record<string, string>; user?: AuthUser }>();
     const role = req.headers['x-test-role'] as Role | undefined;
     if (!role) throw new UnauthorizedException();
-    req.user = { id: 'user-1', role };
+    // The real CustomAuthGuard now resolves the full safe profile (not just
+    // id/role) so GET /users/me can build its response without a second
+    // UsersService round-trip — mirror that shape here.
+    req.user = {
+      id: 'user-1',
+      role,
+      name: 'A',
+      email: 'a@x.in',
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+    };
     return true;
   }
 }
@@ -41,12 +51,6 @@ class FakeAuthGuard implements CanActivate {
 describe('Users admin authZ over real HTTP', () => {
   let app: INestApplication;
   const service = {
-    getMe: vi.fn().mockResolvedValue({
-      id: 'user-1',
-      name: 'A',
-      email: 'a@x.in',
-      role: 'OWNER_ADMIN',
-    }),
     list: vi.fn().mockResolvedValue([]),
     createUser: vi.fn().mockResolvedValue({ id: 'u2' }),
     updateRole: vi
@@ -126,12 +130,17 @@ describe('Users admin authZ over real HTTP', () => {
     expect(service.createUser).toHaveBeenCalled();
   });
 
-  it('lets ANY authenticated role read GET /users/me (no @Roles restriction)', async () => {
+  it('lets ANY authenticated role read GET /users/me (no @Roles restriction), built from request.user', async () => {
     const res = await request(app.getHttpServer())
       .get('/users/me')
       .set('x-test-role', 'SITE_SUPERVISOR');
     expect(res.status).toBe(200);
-    expect(service.getMe).toHaveBeenCalledWith('user-1');
+    expect(res.body).toMatchObject({
+      id: 'user-1',
+      role: 'SITE_SUPERVISOR',
+      name: 'A',
+      email: 'a@x.in',
+    });
   });
 
   it('401s an unauthenticated caller on /users/me (global guard runs first)', async () => {

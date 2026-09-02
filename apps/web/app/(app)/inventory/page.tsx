@@ -37,11 +37,6 @@ interface LowStockMaterial {
   godownQuantity: string;
 }
 
-interface SiteOption {
-  id: string;
-  name: string;
-}
-
 async function getGodownStock(): Promise<GodownStockRow[]> {
   const res = await authedFetch(`/stock/godown`, { cache: "no-store" });
   if (!res.ok) {
@@ -50,28 +45,12 @@ async function getGodownStock(): Promise<GodownStockRow[]> {
   return res.json();
 }
 
-async function getSites(): Promise<SiteOption[]> {
-  const res = await authedFetch(`/sites`, { cache: "no-store" });
+async function getAllSiteStock(): Promise<SiteStockRow[]> {
+  const res = await authedFetch(`/stock/site`, { cache: "no-store" });
   if (!res.ok) {
-    throw new Error(`Failed to load Sites (${res.status})`);
+    throw new Error(`Failed to load Site Stock (${res.status})`);
   }
   return res.json();
-}
-
-// No combined "all Sites" stock endpoint exists (Task 2 scopes GET
-// /stock/site/:siteId to one Site at a time) — fetch each Site's stock in
-// parallel and flatten, reusing only the specified endpoints.
-async function getAllSiteStock(sites: SiteOption[]): Promise<SiteStockRow[]> {
-  const perSite = await Promise.all(
-    sites.map(async (site) => {
-      const res = await authedFetch(`/stock/site/${site.id}`, { cache: "no-store" });
-      if (!res.ok) {
-        throw new Error(`Failed to load Site Stock for ${site.name} (${res.status})`);
-      }
-      return res.json() as Promise<SiteStockRow[]>;
-    }),
-  );
-  return perSite.flat();
 }
 
 async function getLowStockMaterials(): Promise<LowStockMaterial[]> {
@@ -126,10 +105,9 @@ const siteMobileCard: DataTableMobileCard<SiteStockRow> = {
 };
 
 export default async function InventoryPage() {
-  const sites = await getSites();
   const [godownStock, siteStock, lowStockMaterials, purchasesThisMonth] = await Promise.all([
     getGodownStock(),
-    getAllSiteStock(sites),
+    getAllSiteStock(),
     getLowStockMaterials(),
     getPurchasesThisMonthCount(),
   ]);

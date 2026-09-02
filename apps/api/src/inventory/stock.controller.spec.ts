@@ -7,6 +7,7 @@ describe('StockController', () => {
   let controller: StockController;
   let service: {
     getGodownStock: ReturnType<typeof vi.fn>;
+    getAllSiteStock: ReturnType<typeof vi.fn>;
     getSiteStock: ReturnType<typeof vi.fn>;
     getLowStockMaterials: ReturnType<typeof vi.fn>;
     getStockByMaterial: ReturnType<typeof vi.fn>;
@@ -15,6 +16,7 @@ describe('StockController', () => {
   beforeEach(async () => {
     service = {
       getGodownStock: vi.fn(),
+      getAllSiteStock: vi.fn(),
       getSiteStock: vi.fn(),
       getLowStockMaterials: vi.fn(),
       getStockByMaterial: vi.fn(),
@@ -34,6 +36,17 @@ describe('StockController', () => {
     const result = await controller.getGodownStock();
 
     expect(service.getGodownStock).toHaveBeenCalled();
+    expect(result).toEqual([{ materialSizeId: 'ms1' }]);
+  });
+
+  // The Inventory page's batch replacement for looping GET /stock/site/:id
+  // once per Site.
+  it('getAllSiteStock delegates to StockService.getAllSiteStock', async () => {
+    service.getAllSiteStock.mockResolvedValue([{ materialSizeId: 'ms1' }]);
+
+    const result = await controller.getAllSiteStock();
+
+    expect(service.getAllSiteStock).toHaveBeenCalled();
     expect(result).toEqual([{ materialSizeId: 'ms1' }]);
   });
 

@@ -10,6 +10,14 @@ export class StockController {
     return this.stockService.getGodownStock();
   }
 
+  // All-Sites stock in one query — the Inventory page's batch replacement
+  // for looping GET /stock/site/:siteId once per Site. A distinct route
+  // (one fewer path segment) from the one below, not a collision.
+  @Get('site')
+  getAllSiteStock() {
+    return this.stockService.getAllSiteStock();
+  }
+
   @Get('site/:siteId')
   getSiteStock(@Param('siteId') siteId: string) {
     return this.stockService.getSiteStock(siteId);

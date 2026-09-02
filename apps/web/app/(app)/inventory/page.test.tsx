@@ -21,9 +21,8 @@ afterEach(() => {
 });
 
 function mockFetchRouter(handlers: {
-  sites?: unknown;
   godownStock?: unknown;
-  siteStockBySite?: Record<string, unknown>;
+  siteStock?: unknown;
   lowStock?: unknown;
   purchasesThisMonth?: number;
 }) {
@@ -32,18 +31,16 @@ function mockFetchRouter(handlers: {
     if (urlStr.includes("/stock/godown")) {
       return Promise.resolve({ ok: true, json: async () => handlers.godownStock ?? [] });
     }
-    if (urlStr.includes("/stock/site/")) {
-      const siteId = urlStr.split("/stock/site/")[1];
-      return Promise.resolve({ ok: true, json: async () => handlers.siteStockBySite?.[siteId!] ?? [] });
+    // The batch all-Sites endpoint (GET /stock/site, no trailing /:id) —
+    // replaces the old per-Site GET /stock/site/:id loop.
+    if (urlStr.includes("/stock/site")) {
+      return Promise.resolve({ ok: true, json: async () => handlers.siteStock ?? [] });
     }
     if (urlStr.includes("/stock/low-stock")) {
       return Promise.resolve({ ok: true, json: async () => handlers.lowStock ?? [] });
     }
     if (urlStr.includes("/purchases/count/this-month")) {
       return Promise.resolve({ ok: true, json: async () => handlers.purchasesThisMonth ?? 0 });
-    }
-    if (urlStr.includes("/sites")) {
-      return Promise.resolve({ ok: true, json: async () => handlers.sites ?? [] });
     }
     return Promise.resolve({ ok: true, json: async () => [] });
   }) as unknown as typeof fetch;
@@ -119,30 +116,22 @@ describe("InventoryPage", () => {
     expect(table.getByText("300mm")).toBeInTheDocument();
   });
 
-  it("renders Site Stock rows fetched per-Site and flattened into one table", async () => {
+  it("renders Site Stock rows from the batched all-Sites endpoint in one table", async () => {
     mockFetchRouter({
-      sites: [
-        { id: "site1", name: "NH-48 Highway Widening" },
-        { id: "site2", name: "Sector 12 Metro Depot" },
+      siteStock: [
+        {
+          materialSizeId: "ms1",
+          quantity: "64",
+          site: { id: "site1", name: "NH-48 Highway Widening" },
+          materialSize: { label: "OPC 53 Grade", material: { name: "Cement", unit: { name: "Bags" } } },
+        },
+        {
+          materialSizeId: "ms2",
+          quantity: "22",
+          site: { id: "site2", name: "Sector 12 Metro Depot" },
+          materialSize: { label: "600mm", material: { name: "RCC Pipe", unit: { name: "Pcs" } } },
+        },
       ],
-      siteStockBySite: {
-        site1: [
-          {
-            materialSizeId: "ms1",
-            quantity: "64",
-            site: { id: "site1", name: "NH-48 Highway Widening" },
-            materialSize: { label: "OPC 53 Grade", material: { name: "Cement", unit: { name: "Bags" } } },
-          },
-        ],
-        site2: [
-          {
-            materialSizeId: "ms2",
-            quantity: "22",
-            site: { id: "site2", name: "Sector 12 Metro Depot" },
-            materialSize: { label: "600mm", material: { name: "RCC Pipe", unit: { name: "Pcs" } } },
-          },
-        ],
-      },
     });
 
     await renderInventoryPage();
@@ -174,17 +163,14 @@ describe("InventoryPage", () => {
           materialSize: { label: "", material: { name: "Cement", unit: { name: "Bags" } } },
         },
       ],
-      sites: [{ id: "site1", name: "NH-48 Highway Widening" }],
-      siteStockBySite: {
-        site1: [
-          {
-            materialSizeId: "ms2",
-            quantity: "64",
-            site: { id: "site1", name: "NH-48 Highway Widening" },
-            materialSize: { label: "", material: { name: "Cement", unit: { name: "Bags" } } },
-          },
-        ],
-      },
+      siteStock: [
+        {
+          materialSizeId: "ms2",
+          quantity: "64",
+          site: { id: "site1", name: "NH-48 Highway Widening" },
+          materialSize: { label: "", material: { name: "Cement", unit: { name: "Bags" } } },
+        },
+      ],
     });
 
     await renderInventoryPage();

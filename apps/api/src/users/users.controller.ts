@@ -30,9 +30,19 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  // Built straight from request.user (CustomAuthGuard already resolved the
+  // full safe profile to attach it there) — no second DB round-trip on the
+  // app's single highest-frequency authenticated endpoint.
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
-    return this.usersService.getMe(user.id);
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 
   @Get()

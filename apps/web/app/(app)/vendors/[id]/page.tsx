@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, CameraIcon, ClipboardIcon, DataTable, PencilIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
@@ -45,19 +46,6 @@ async function getVendorPurchaseSummarySafe(id: string): Promise<VendorPurchaseS
     return typeof summary?.totalThisYear === "number" && typeof summary?.notFullyPaidTotal === "number"
       ? summary
       : null;
-  } catch {
-    return null;
-  }
-}
-
-// The viewer's role, for gating the Delete affordance (the API enforces
-// OWNER_ADMIN regardless). Least-privilege on failure.
-async function getViewerRole(): Promise<string | null> {
-  try {
-    const res = await authedFetch(`/users/me`, { cache: "no-store" });
-    if (!res.ok) return null;
-    const me = (await res.json()) as { role?: string };
-    return typeof me.role === "string" ? me.role : null;
   } catch {
     return null;
   }
@@ -143,7 +131,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
   const [purchases, summary, viewerRole] = await Promise.all([
     getVendorPurchases(id),
     getVendorPurchaseSummarySafe(id),
-    getViewerRole(),
+    currentRole(),
   ]);
 
   // The confirmation must surface live consequences: unpaid purchases

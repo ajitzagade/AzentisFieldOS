@@ -97,6 +97,31 @@ describe('StockService.getLowStockMaterials', () => {
   });
 });
 
+describe('StockService.getAllSiteStock', () => {
+  it('queries siteStock unscoped by siteId — one call for every Site, not one call per Site', async () => {
+    const { service, siteStockFindMany } = makeService({});
+
+    await service.getAllSiteStock();
+
+    expect(siteStockFindMany).toHaveBeenCalledTimes(1);
+    expect(siteStockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { materialSize: undefined } }),
+    );
+  });
+
+  it('narrows to one Material when materialId is given, still in a single query', async () => {
+    const { service, siteStockFindMany } = makeService({});
+
+    await service.getAllSiteStock('mat-1');
+
+    expect(siteStockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { materialSize: { materialId: 'mat-1' } },
+      }),
+    );
+  });
+});
+
 describe('StockService.getStockByMaterial', () => {
   it('queries both Godown and Site balances for the Material, excluding zero-quantity rows', async () => {
     const { service, godownStockFindMany, siteStockFindMany } = makeService({});

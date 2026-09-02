@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -79,17 +80,6 @@ export async function getSiteContract(id: string): Promise<SiteContractDetail | 
     throw new Error(`Failed to load Site Contract (${res.status})`);
   }
   return res.json();
-}
-
-async function getViewerRole(): Promise<string | null> {
-  try {
-    const res = await authedFetch(`/users/me`, { cache: "no-store" });
-    if (!res.ok) return null;
-    const me = (await res.json()) as { role?: string };
-    return typeof me.role === "string" ? me.role : null;
-  } catch {
-    return null;
-  }
 }
 
 // Same null-safe fault-isolation rule as the Site page's getSiteContracts —
@@ -191,7 +181,7 @@ export default async function SiteContractDetailPage({
   }
 
   const [viewerRole, workEntries, payments] = await Promise.all([
-    getViewerRole(),
+    currentRole(),
     getWorkEntries(contractId),
     getPayments(contractId),
   ]);

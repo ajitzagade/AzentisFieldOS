@@ -32,11 +32,22 @@ export class AdvanceAdjustmentsController {
     return this.advanceAdjustmentsService.create(body);
   }
 
-  // `page`/`pageSize` are opt-in (paginationParams) — omitted, this stays
-  // the full, unfiltered list every existing caller relies on.
+  // `teamMemberId` was already supported by AdvanceAdjustmentsService.list()
+  // (via the parent Advance's teamMemberId) but never exposed as a query
+  // param here — same gap as AdvancesController.list(). `page`/`pageSize`
+  // are opt-in (paginationParams) — omitted, this stays the full,
+  // unfiltered list every existing caller relies on.
   @Get()
-  list(@Query('page') page?: string, @Query('pageSize') pageSize?: string) {
-    return this.advanceAdjustmentsService.list({ page, pageSize });
+  list(
+    @Query('teamMemberId') teamMemberId?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.advanceAdjustmentsService.list({
+      teamMemberId,
+      page,
+      pageSize,
+    });
   }
 
   @Get(':id')

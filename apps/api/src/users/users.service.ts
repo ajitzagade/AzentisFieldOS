@@ -38,20 +38,6 @@ export interface SafeUser {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // GET /users/me — the safe row for the authenticated caller.
-  async getMe(userId: string): Promise<SafeUser> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: SAFE_USER_SELECT,
-    });
-    if (!user) {
-      // The guard resolved this id from a verified token moments ago; a miss
-      // here means the row was deleted mid-request — a clean 404, not a 500.
-      throw new NotFoundException('Current user not found');
-    }
-    return user;
-  }
-
   // GET /users — every local User. No "Pending" state since account
   // creation no longer round-trips through a third-party invitation flow.
   async list(): Promise<SafeUser[]> {

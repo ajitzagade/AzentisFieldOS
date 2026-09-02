@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { FeedItem, PhotoGalleryItem } from "@azentisfieldos/shared";
@@ -127,20 +128,6 @@ async function getSitePhotos(siteId: string): Promise<PhotoGalleryItem[] | null>
   }
 }
 
-// The viewer's role, for gating the Delete affordance (the API enforces
-// OWNER_ADMIN regardless — this only avoids showing Supervisors a button
-// that can only end in a 403). Least-privilege on failure, same rule as
-// the AppShell's role resolution.
-async function getViewerRole(): Promise<string | null> {
-  try {
-    const res = await authedFetch(`/users/me`, { cache: "no-store" });
-    if (!res.ok) return null;
-    const me = (await res.json()) as { role?: string };
-    return typeof me.role === "string" ? me.role : null;
-  } catch {
-    return null;
-  }
-}
 
 // Epic 18 (Subcontractor Management): every Site Contract engaged at this
 // Site, same null-safe fault-isolation rule as this page's other sections —
@@ -289,7 +276,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
     getSiteStock(id),
     getRecentDsrs(id),
     getSitePhotos(id),
-    getViewerRole(),
+    currentRole(),
     getSiteContracts(id),
   ]);
 

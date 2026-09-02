@@ -273,6 +273,23 @@ export class PurchasesService {
     };
   }
 
+  // Dashboard's "Vendor Outstanding" tile — the tenant-wide total of
+  // summaryForVendor()'s `notFullyPaidTotal`, computed with one DB-side
+  // groupBy instead of the Dashboard fetching every Vendor and firing one
+  // HTTP round trip per Vendor at summaryForVendor(). Same UNPAID/PARTIAL
+  // definition, same D7 "unpriced Purchases aren't owed money yet" rule.
+  async outstandingAcrossVendors(): Promise<number> {
+    const rows = await this.prisma.purchase.groupBy({
+      by: ['vendorId'],
+      where: { paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
+      _sum: { totalAmount: true },
+    });
+    return rows.reduce(
+      (total, row) => total + (row._sum.totalAmount?.toNumber() ?? 0),
+      0,
+    );
+  }
+
   // Story 19.2: the global Search palette's Purchase coverage — Purchase
   // has no name of its own, so this matches the linked Vendor/Material name
   // plus the invoice/challan number.

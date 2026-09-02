@@ -7,10 +7,17 @@ const originalFetch = global.fetch;
 afterEach(() => {
   global.fetch = originalFetch;
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function fakeFile(): File {
   return new File(["fake-bytes"], "site.jpg", { type: "image/jpeg" });
+}
+
+// Big enough to clear compressPhoto's SKIP_COMPRESSION_BELOW_BYTES (300KB)
+// threshold — a real phone photo, unlike fakeFile()'s 10 bytes above.
+function largeFile(name: string, type: string): File {
+  return new File([new Uint8Array(400 * 1024)], name, { type });
 }
 
 const signed = {
@@ -97,5 +104,66 @@ describe("uploadPhoto", () => {
     global.fetch = vi.fn(() => Promise.resolve({ ok: false } as Response)) as unknown as typeof fetch;
 
     await expect(uploadPhoto(authedFetch, "dsr-1", fakeFile())).rejects.toThrow();
+  });
+
+  it("compresses a large photo to JPEG before uploading it", async () => {
+    const authedFetch = vi.fn(async (path: string) => {
+      if (path === "/photos/presign") return { ok: true, json: async () => signed } as Response;
+      return { ok: true, json: async () => ({ id: "photo-1" }) } as Response;
+    }) as unknown as AuthedFetch;
+    let uploadedForm: FormData | undefined;
+    global.fetch = vi.fn((_url: string, init?: RequestInit) => {
+      uploadedForm = init?.body as FormData;
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ public_id: "dsr/dsr-1/abc", secure_url: "https://x" }),
+      } as Response);
+    }) as unknown as typeof fetch;
+
+    const compressedBlob = new Blob([new Uint8Array(50 * 1024)], { type: "image/jpeg" });
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn().mockResolvedValue({ width: 4000, height: 3000, close: vi.fn() }),
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((cb) =>
+      (cb as BlobCallback)(compressedBlob),
+    );
+
+    await uploadPhoto(authedFetch, "dsr-1", largeFile("site.png", "image/png"));
+
+    const uploaded = uploadedForm!.get("file") as File;
+    expect(uploaded.type).toBe("image/jpeg");
+    expect(uploaded.name).toBe("site.jpg");
+    expect(uploaded.size).toBe(compressedBlob.size);
+  });
+
+  it("falls back to the original file when compression fails (e.g. an undecodable format)", async () => {
+    const authedFetch = vi.fn(async (path: string) => {
+      if (path === "/photos/presign") return { ok: true, json: async () => signed } as Response;
+      return { ok: true, json: async () => ({ id: "photo-1" }) } as Response;
+    }) as unknown as AuthedFetch;
+    let uploadedForm: FormData | undefined;
+    global.fetch = vi.fn((_url: string, init?: RequestInit) => {
+      uploadedForm = init?.body as FormData;
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ public_id: "dsr/dsr-1/abc", secure_url: "https://x" }),
+      } as Response);
+    }) as unknown as typeof fetch;
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn().mockRejectedValue(new Error("unsupported image type")),
+    );
+
+    const original = largeFile("site.heic", "image/heic");
+    const result = await uploadPhoto(authedFetch, "dsr-1", original);
+
+    expect(result).toEqual({ storageKey: "dsr/dsr-1/abc" });
+    const uploaded = uploadedForm!.get("file") as File;
+    expect(uploaded.name).toBe("site.heic");
+    expect(uploaded.size).toBe(original.size);
   });
 });
