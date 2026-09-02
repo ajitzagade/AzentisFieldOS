@@ -25,7 +25,8 @@ function makeService(overrides: {
     siteStock: { upsert: siteStockUpsert },
   };
 
-  const purchaseUpdateMany = overrides.purchaseUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
+  const purchaseUpdateMany =
+    overrides.purchaseUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
   const purchaseCount = overrides.purchaseCount ?? vi.fn().mockResolvedValue(0);
 
   const prisma = {
@@ -291,7 +292,11 @@ describe('PurchasesService.countThisMonth', () => {
 // the write itself is a conditional updateMany so two concurrent PATCHes
 // can never both succeed.
 describe('PurchasesService.completePricing', () => {
-  const pricing = { rate: 390, totalAmount: 19500, paymentStatus: 'UNPAID' as const };
+  const pricing = {
+    rate: 390,
+    totalAmount: 19500,
+    paymentStatus: 'UNPAID' as const,
+  };
 
   it('fills rate/totalAmount/paymentStatus via a totalAmount:null-conditional write', async () => {
     const purchaseFindUnique = vi
@@ -312,9 +317,11 @@ describe('PurchasesService.completePricing', () => {
   });
 
   it('rejects an already-priced Purchase — changes must be corrections', async () => {
-    const purchaseFindUnique = vi
-      .fn()
-      .mockResolvedValue({ id: 'p1', totalAmount: new Prisma.Decimal(5000), correctsId: null });
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'p1',
+      totalAmount: new Prisma.Decimal(5000),
+      correctsId: null,
+    });
     const purchaseUpdateMany = vi.fn();
     const { service } = makeService({ purchaseFindUnique, purchaseUpdateMany });
 
