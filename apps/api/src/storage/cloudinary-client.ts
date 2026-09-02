@@ -33,3 +33,22 @@ export function cloudinaryUrl(publicId: string): string {
     'cloud';
   return `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`;
 }
+
+// A downsized, format-negotiated delivery URL for thumbnail/grid contexts
+// (DSR/Site photo galleries) — NOT for any URL that gets stored as a
+// record's own field (Purchase/RmcEntry.challanPhotoUrl,
+// BrandingConfig.logoUrl): those must stay the untransformed, full-resolution
+// cloudinaryUrl() so a "view/download original" link and any future
+// full-size use keep working. `c_limit` only ever shrinks, never upscales,
+// and preserves aspect ratio; `q_auto,f_auto` lets Cloudinary pick the
+// smallest acceptable quality and a browser-safe format per requester —
+// this is also what fixes iPhone HEIC photos (allowed on upload,
+// apps/web/src/storage/storage.service.ts's presignUpload) failing to
+// render as a plain <img> in Chrome/Firefox, which don't support HEIC.
+export function cloudinaryThumbnailUrl(publicId: string, width = 480): string {
+  const cloudName =
+    cloudinary.config().cloud_name ??
+    process.env.CLOUDINARY_CLOUD_NAME ??
+    'cloud';
+  return `https://res.cloudinary.com/${cloudName}/image/upload/w_${width},c_limit,q_auto,f_auto/${publicId}`;
+}

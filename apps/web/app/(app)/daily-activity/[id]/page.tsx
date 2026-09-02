@@ -256,9 +256,14 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
               {dsr.photos.map((photo) => (
                 <div key={photo.id} className="aspect-square overflow-hidden rounded-md border border-border-hairline bg-surface-2">
                   {/* eslint-disable-next-line @next/next/no-img-element -- a
-                      presigned R2 URL with a dynamic per-request signature,
-                      same reasoning as story 3.3's gallery page. */}
-                  <img src={photo.url} alt="" className="size-full object-cover" />
+                      durable Cloudinary CDN URL, same reasoning as story
+                      3.3's gallery page. */}
+                  <img
+                    src={photo.url}
+                    alt=""
+                    loading="lazy"
+                    className="size-full object-cover"
+                  />
                 </div>
               ))}
             </div>

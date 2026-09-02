@@ -607,10 +607,13 @@ export class DsrService {
       throw new NotFoundException(`Daily Site Report ${id} not found`);
     }
 
+    // The Daily Report detail page only ever renders these into a small
+    // thumbnail grid (no lightbox/full-size viewer) — same reasoning as
+    // getSitePhotoGallery.
     const photos = await Promise.all(
       dsr.photos.map(async (photo) => ({
         ...photo,
-        url: await this.storage.getReadUrl(photo.storageKey),
+        url: await this.storage.getThumbnailUrl(photo.storageKey),
       })),
     );
 

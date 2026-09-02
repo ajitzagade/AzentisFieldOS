@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UsePipes,
 } from '@nestjs/common';
 import {
@@ -35,9 +36,11 @@ export class MovementsController {
     return this.movementsService.confirmReceipt(id, body);
   }
 
+  // `page`/`pageSize` are opt-in (paginationParams) — omitted, this stays
+  // the full, unfiltered list every existing caller relies on.
   @Get()
-  list() {
-    return this.movementsService.list();
+  list(@Query('page') page?: string, @Query('pageSize') pageSize?: string) {
+    return this.movementsService.list({ page, pageSize });
   }
 
   @Get(':id')

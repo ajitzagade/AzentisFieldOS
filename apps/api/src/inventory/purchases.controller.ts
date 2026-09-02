@@ -39,10 +39,18 @@ export class PurchasesController {
   // gap-flag can deep-link straight to the one pending Purchase's id when
   // exactly one is outstanding. Omitted (the existing default), this is
   // still the full, unfiltered list every other caller relies on.
+  // `page`/`pageSize` are opt-in (see paginationParams) — omitted, the
+  // response shape is unchanged.
   @Get()
-  list(@Query('pendingPricing') pendingPricing?: string) {
+  list(
+    @Query('pendingPricing') pendingPricing?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
     return this.purchasesService.list({
       pendingPricing: pendingPricing === 'true',
+      page,
+      pageSize,
     });
   }
 

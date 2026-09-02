@@ -6,10 +6,12 @@ import {
 import type {
   CreateAdvanceInput,
   LabourReportFilters,
+  PaginatedResult,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
+import { paginationParams } from '../common/pagination';
 import { decrementOutstandingBalanceWithFloorCheck } from './outstanding-balance';
 
 // FR-22, NFR-3: recorded immediately, no approval gate or intermediate
@@ -74,15 +76,40 @@ export class AdvancesService {
   // `givenAt`, the Advance's business date). Unfiltered (the default `{}`)
   // the query is unchanged, so the Team Member detail page's Advance Ledger
   // is byte-identical.
-  list(filters: LabourReportFilters = {}) {
+  // Pagination is opt-in via filters.page/pageSize — omitted, the existing
+  // full-array behavior (and the Team Member detail page's Advance Ledger)
+  // is unchanged.
+  list(
+    filters: LabourReportFilters = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
     const where: Prisma.AdvanceWhereInput = {};
     if (filters.teamMemberId) where.teamMemberId = filters.teamMemberId;
     where.givenAt = dateRangeBounds(filters.from, filters.to);
-    return this.prisma.advance.findMany({
-      where,
-      include: { teamMember: true },
-      orderBy: { givenAt: 'desc' },
-    });
+    const include = { teamMember: true };
+    const orderBy: Prisma.AdvanceOrderByWithRelationInput = {
+      givenAt: 'desc',
+    };
+
+    const pagination = paginationParams(filters.page, filters.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.advance.findMany({ where, include, orderBy });
+    }
+
+    return Promise.all([
+      this.prisma.advance.findMany({
+        where,
+        include,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.advance.count({ where }),
+    ]).then(([rows, total]) => ({
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }));
   }
 
   // The correction form (apps/web) needs the original Advance's fields to

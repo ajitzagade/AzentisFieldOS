@@ -4,8 +4,9 @@ import type { PhotoGalleryItem } from "@azentisfieldos/shared";
 // Site Reports view needed the same grid the Site Photos page (Story 3.3)
 // already renders — one gallery layout, reused, rather than a second one.
 // Each thumbnail is decorative (alt="") since the caption already conveys the
-// date/uploader; the image is a presigned R2 URL with a per-request signature,
-// not a static/remote asset next/image can cache.
+// date/uploader; the image is a durable Cloudinary CDN URL (already
+// downsized/format-negotiated server-side by getThumbnailUrl), not a
+// build-time static asset next/image's optimizer is set up for here.
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-IN", {
     day: "numeric",
@@ -24,9 +25,14 @@ export function PhotoGalleryGrid({ photos }: { photos: PhotoGalleryItem[] }) {
         >
           <div className="aspect-square bg-surface-2">
             {/* eslint-disable-next-line @next/next/no-img-element -- a
-                presigned R2 URL with a dynamic per-request signature, not a
-                static/remote asset next/image can cache. */}
-            <img src={photo.url} alt="" className="size-full object-cover" />
+                durable Cloudinary CDN URL, not a build-time static asset
+                next/image's optimizer is set up for here. */}
+            <img
+              src={photo.url}
+              alt=""
+              loading="lazy"
+              className="size-full object-cover"
+            />
           </div>
           <figcaption className="p-2 text-caption text-ink-500">
             {formatDate(photo.reportDate)} · {photo.uploaderName}

@@ -55,7 +55,9 @@ describeIfDb('DsrService (integration)', () => {
     prisma = new PrismaService();
     await prisma.onModuleInit();
     const storage = {
-      getReadUrl: vi.fn().mockResolvedValue('https://r2.example/signed'),
+      getThumbnailUrl: vi
+        .fn()
+        .mockResolvedValue('https://cloudinary.example/thumb'),
     } as unknown as StorageService;
     service = new DsrService(prisma, storage);
 
@@ -400,7 +402,7 @@ describeIfDb('DsrService (integration)', () => {
     const detail = await service.findOne(created.id);
 
     expect(detail.photos).toHaveLength(1);
-    expect(detail.photos[0]?.url).toBe('https://r2.example/signed');
+    expect(detail.photos[0]?.url).toBe('https://cloudinary.example/thumb');
     await prisma.photo.deleteMany({ where: { dailySiteReportId: created.id } });
   });
 

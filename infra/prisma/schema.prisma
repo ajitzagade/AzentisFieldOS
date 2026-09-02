@@ -85,9 +85,14 @@ model AuditLog {
 
   // The read path is "latest 200, optionally filtered by site/user/date"
   // over a table that grows forever — index the sort key and both filters.
+  // The single-column indexes below only serve an unfiltered "recent
+  // history" scan; a siteId= or userId= filter combined with the
+  // occurredAt-desc order needs its own compound to avoid a scan+filesort.
   @@index([occurredAt])
   @@index([siteId])
   @@index([userId])
+  @@index([siteId, occurredAt])
+  @@index([userId, occurredAt])
 }
 
 // ---------- Sites ----------
@@ -247,6 +252,12 @@ model Purchase {
   reason               String?             // required when correctsId is set
 
   expenses Expense[]
+
+  // list()/reportWhere() filters by siteId or vendorId and always orders
+  // by purchasedAt desc; countPendingPricing() filters totalAmount+correctsId.
+  @@index([siteId, purchasedAt])
+  @@index([vendorId, purchasedAt])
+  @@index([totalAmount, correctsId])
 }
 
 enum MovementKind {
@@ -274,7 +285,12 @@ model Movement {
   correctsId             String?
   reason                 String?
 
+  // reportWhere() filters via OR(sourceSiteId, destinationSiteId) and always
+  // orders by movedAt desc — a compound per leg lets Postgres satisfy each
+  // side of the OR from an index instead of a sequential scan.
   @@index([materialSizeId])
+  @@index([sourceSiteId, movedAt])
+  @@index([destinationSiteId, movedAt])
 }
 
 // Append-only (AD-9).
@@ -299,6 +315,10 @@ model Consumption {
   // model has no other natural key (a Site can legitimately have two
   // separate Consumption entries for the same Material on the same day).
   clientGeneratedId    String?  @unique
+
+  // list()/reportWhere() filters by siteId, always orders by consumedAt
+  // desc — the highest-write-volume table in the schema had no index at all.
+  @@index([siteId, consumedAt])
 }
 
 enum ReturnWastageKind {
@@ -320,6 +340,9 @@ model ReturnWastage {
   createdAt           DateTime @default(now())
   correctsId         String?
   reason             String?
+
+  // reportWhere() filters by siteId, always orders by recordedAt desc.
+  @@index([siteId, recordedAt])
 }
 
 // ---------- Machinery & Vehicles (FR-15..FR-18) ----------
@@ -506,6 +529,9 @@ model WorkRecord {
   createdAt              DateTime @default(now())
 
   @@index([teamMemberId, workDate])
+  // list()/getDefaultCrew() also filter by siteId and order by workDate
+  // desc, a shape the compound above (keyed on teamMemberId first) can't serve.
+  @@index([siteId, workDate])
 }
 
 // Append-only (AD-9). `reason` is the business reason the Advance was
@@ -526,6 +552,9 @@ model Advance {
   correctionReason  String? // required when correctsId is set
 
   adjustments AdvanceAdjustment[]
+
+  // list() filters by teamMemberId, always orders by givenAt desc.
+  @@index([teamMemberId, givenAt])
 }
 
 // Append-only (AD-9). FR-23: amount must never exceed the Advance's
@@ -545,6 +574,9 @@ model AdvanceAdjustment {
   createdAt         DateTime @default(now())
   correctsId        String?
   correctionReason  String? // required when correctsId is set
+
+  // list() always orders by adjustedAt desc.
+  @@index([advanceId, adjustedAt])
 }
 
 // Append-only (AD-9). No pre-existing reason/note field to collide with,
@@ -569,6 +601,11 @@ model Payment {
   reason            String? // required when correctsId is set
 
   advanceAdjustments AdvanceAdjustment[]
+
+  // reportWhere() filters by teamMemberId + createdAt; countPending()
+  // filters by status alone.
+  @@index([teamMemberId, createdAt])
+  @@index([status])
 }
 
 // ---------- RMC (FR-26..FR-27) ----------
@@ -595,6 +632,10 @@ model RmcEntry {
   // Story 3.2 offline-sync idempotency key — same reasoning as
   // Consumption.clientGeneratedId.
   clientGeneratedId String? @unique
+
+  // list() filters by siteId or vendorId, always orders by deliveredAt desc.
+  @@index([siteId, deliveredAt])
+  @@index([vendorId, deliveredAt])
 }
 
 // ---------- Daily Site Report (FR-28..FR-31) ----------
@@ -635,6 +676,9 @@ model DailySiteReport {
   reason     String? // required when correctsId is set
 
   @@index([siteId, reportDate])
+  // supersededDsrIds() (apps/api/src/common/superseded-dsrs.ts) scans this
+  // column on nearly every read path across the system.
+  @@index([correctsId])
 }
 
 model Photo {
@@ -702,6 +746,11 @@ model Expense {
   // Story 3.2 offline-sync idempotency key — same reasoning as
   // Consumption.clientGeneratedId.
   clientGeneratedId String? @unique
+
+  // list() filters by siteId and/or categoryId, always has an incurredAt
+  // date bound.
+  @@index([siteId, incurredAt])
+  @@index([categoryId, incurredAt])
 }
 
 // Waste & Disposal (debris/excavated-material removal from a Site). A
@@ -745,6 +794,10 @@ model WasteDisposal {
   createdAt        DateTime   @default(now())
   correctsId       String?
   reason           String? // required when correctsId is set
+
+  // whereFor() filters by siteId and/or vendorId, always orders by
+  // disposedAt desc.
+  @@index([siteId, disposedAt])
 }
 
 // ---------- Branding & Automated Report Delivery (FR-32, FR-33) ----------
@@ -947,6 +1000,11 @@ model SiteContract {
 
   workEntries SubcontractorWorkEntry[]
   payments    SubcontractorPayment[]
+
+  // site-contracts.service.ts list() filters by siteId; subcontractorId
+  // has no dedicated list query today but is a natural FK lookup.
+  @@index([siteId])
+  @@index([subcontractorId])
 }
 
 // Append-only (AD-9): a recorded quantity of work done against an Active,
@@ -966,6 +1024,9 @@ model SubcontractorWorkEntry {
   createdAt        DateTime     @default(now())
   correctsId       String?
   reason           String?
+
+  // list() filters by siteContractId, always orders by workDate desc.
+  @@index([siteContractId, workDate])
 }
 
 // Append-only (AD-9): a Payment or Advance made to a Subcontractor against
@@ -989,4 +1050,7 @@ model SubcontractorPayment {
   createdAt        DateTime     @default(now())
   correctsId       String?
   reason           String?
+
+  // list() filters by siteContractId, always orders by paidAt desc.
+  @@index([siteContractId, paidAt])
 }

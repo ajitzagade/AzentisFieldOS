@@ -29,8 +29,10 @@ describe('getSitePhotoGallery', () => {
     } as unknown as PrismaService;
 
     const storage = {
-      getReadUrl: vi.fn((storageKey: string) =>
-        Promise.resolve(`https://r2.example/${storageKey}?sig=abc`),
+      getThumbnailUrl: vi.fn((storageKey: string) =>
+        Promise.resolve(
+          `https://res.cloudinary.com/demo/image/upload/w_480,c_limit,q_auto,f_auto/${storageKey}`,
+        ),
       ),
     } as unknown as StorageService;
 
@@ -39,7 +41,7 @@ describe('getSitePhotoGallery', () => {
     expect(gallery).toEqual([
       {
         id: 'photo-2',
-        url: 'https://r2.example/dsr/dsr-2/b.jpg?sig=abc',
+        url: 'https://res.cloudinary.com/demo/image/upload/w_480,c_limit,q_auto,f_auto/dsr/dsr-2/b.jpg',
         reportDate: '2026-08-12',
         dailySiteReportId: 'dsr-2',
         uploaderName: 'Ramesh Yadav',
@@ -47,7 +49,7 @@ describe('getSitePhotoGallery', () => {
       },
       {
         id: 'photo-1',
-        url: 'https://r2.example/dsr/dsr-1/a.jpg?sig=abc',
+        url: 'https://res.cloudinary.com/demo/image/upload/w_480,c_limit,q_auto,f_auto/dsr/dsr-1/a.jpg',
         reportDate: '2026-08-11',
         dailySiteReportId: 'dsr-1',
         uploaderName: 'Suresh Patil',
@@ -60,12 +62,12 @@ describe('getSitePhotoGallery', () => {
     const prisma = {
       photo: { findMany: vi.fn().mockResolvedValue([]) },
     } as unknown as PrismaService;
-    const getReadUrl = vi.fn();
-    const storage = { getReadUrl } as unknown as StorageService;
+    const getThumbnailUrl = vi.fn();
+    const storage = { getThumbnailUrl } as unknown as StorageService;
 
     const gallery = await getSitePhotoGallery(prisma, storage, 'site-1');
 
     expect(gallery).toEqual([]);
-    expect(getReadUrl).not.toHaveBeenCalled();
+    expect(getThumbnailUrl).not.toHaveBeenCalled();
   });
 });

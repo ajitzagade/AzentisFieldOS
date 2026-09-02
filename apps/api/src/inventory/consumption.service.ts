@@ -6,10 +6,12 @@ import {
 import type {
   CreateConsumptionInput,
   InventoryReportFilters,
+  PaginatedResult,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
+import { paginationParams } from '../common/pagination';
 import {
   currentDsrRowsWhere,
   supersededDsrIds,
@@ -80,19 +82,44 @@ export class ConsumptionService {
   // Site / Material / date window. Rows belonging to a superseded (since
   // corrected) DSR are excluded — the correction's restated rows already
   // represent that report, so including both would double-count.
-  async list(filters: InventoryReportFilters = {}) {
+  // Pagination is opt-in via filters.page/pageSize — omitted, the existing
+  // full-array behavior is unchanged.
+  async list(
+    filters: InventoryReportFilters = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
     const superseded = await supersededDsrIds(this.prisma);
-    return this.prisma.consumption.findMany({
-      where: {
-        ...this.reportWhere(filters),
-        ...currentDsrRowsWhere(superseded),
-      },
-      include: {
-        site: true,
-        materialSize: { include: { material: { include: { unit: true } } } },
-      },
-      orderBy: { consumedAt: 'desc' },
-    });
+    const where: Prisma.ConsumptionWhereInput = {
+      ...this.reportWhere(filters),
+      ...currentDsrRowsWhere(superseded),
+    };
+    const include = {
+      site: true,
+      materialSize: { include: { material: { include: { unit: true } } } },
+    };
+    const orderBy: Prisma.ConsumptionOrderByWithRelationInput = {
+      consumedAt: 'desc',
+    };
+
+    const pagination = paginationParams(filters.page, filters.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.consumption.findMany({ where, include, orderBy });
+    }
+
+    return Promise.all([
+      this.prisma.consumption.findMany({
+        where,
+        include,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.consumption.count({ where }),
+    ]).then(([rows, total]) => ({
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }));
   }
 
   private reportWhere(

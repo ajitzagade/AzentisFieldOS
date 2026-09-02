@@ -6,10 +6,12 @@ import {
 import type {
   CreateAdvanceAdjustmentInput,
   LabourReportFilters,
+  PaginatedResult,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
+import { paginationParams } from '../common/pagination';
 import { decrementOutstandingBalanceWithFloorCheck } from './outstanding-balance';
 
 // FR-23: reduces a Team Member's pooled Outstanding Balance, capped at the
@@ -65,17 +67,48 @@ export class AdvanceAdjustmentsService {
   // history, optionally narrowed by Team Member (via the parent Advance) and a
   // date window (on `adjustedAt`). Unfiltered (the default `{}`) the query is
   // unchanged, so the Advance Ledger is byte-identical.
-  list(filters: LabourReportFilters = {}) {
+  // Pagination is opt-in via filters.page/pageSize — omitted, the existing
+  // full-array behavior (and the Advance Ledger) is unchanged.
+  list(
+    filters: LabourReportFilters = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
     const where: Prisma.AdvanceAdjustmentWhereInput = {};
     if (filters.teamMemberId) {
       where.advance = { teamMemberId: filters.teamMemberId };
     }
     where.adjustedAt = dateRangeBounds(filters.from, filters.to);
-    return this.prisma.advanceAdjustment.findMany({
-      where,
-      include: { advance: { include: { teamMember: true } }, payment: true },
-      orderBy: { adjustedAt: 'desc' },
-    });
+    const include = {
+      advance: { include: { teamMember: true } },
+      payment: true,
+    };
+    const orderBy: Prisma.AdvanceAdjustmentOrderByWithRelationInput = {
+      adjustedAt: 'desc',
+    };
+
+    const pagination = paginationParams(filters.page, filters.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.advanceAdjustment.findMany({
+        where,
+        include,
+        orderBy,
+      });
+    }
+
+    return Promise.all([
+      this.prisma.advanceAdjustment.findMany({
+        where,
+        include,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.advanceAdjustment.count({ where }),
+    ]).then(([rows, total]) => ({
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }));
   }
 
   // The correction form (apps/web) needs the original AdvanceAdjustment's

@@ -4,7 +4,11 @@ import type {
   PresignPhotoUploadInput,
 } from '@azentisfieldos/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { cloudinary, cloudinaryUrl } from './cloudinary-client';
+import {
+  cloudinary,
+  cloudinaryUrl,
+  cloudinaryThumbnailUrl,
+} from './cloudinary-client';
 
 // FR-30 (AD-3): apps/api never sits in the data path for photo bytes — it
 // only issues a short-lived, scoped signature (api_key + timestamp +
@@ -116,8 +120,20 @@ export class StorageService {
   }
 
   // Read access: Cloudinary delivery URLs are public CDN URLs — durable, no
-  // presign/expiry needed. `storageKey` is the stored public_id.
-  async getReadUrl(storageKey: string): Promise<string> {
-    return cloudinaryUrl(storageKey);
+  // presign/expiry needed. `storageKey` is the stored public_id. No actual
+  // I/O happens here (cloudinaryUrl is pure string-building), so this isn't
+  // `async` — the Promise-returning signature is kept because every caller
+  // already `await`s it and because a future delivery provider swap could
+  // reasonably need to be async.
+  getReadUrl(storageKey: string): Promise<string> {
+    return Promise.resolve(cloudinaryUrl(storageKey));
+  }
+
+  // Same durability contract as getReadUrl, downsized + format-negotiated
+  // for grid/thumbnail contexts (DSR/Site photo galleries) — see
+  // cloudinaryThumbnailUrl's comment for why this is a distinct method
+  // rather than a parameter on getReadUrl.
+  getThumbnailUrl(storageKey: string): Promise<string> {
+    return Promise.resolve(cloudinaryThumbnailUrl(storageKey));
   }
 }

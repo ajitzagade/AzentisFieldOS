@@ -31,14 +31,25 @@ export class WasteDisposalController {
     return this.wasteDisposalService.create(body, user.id);
   }
 
+  // `page`/`pageSize` are opt-in (paginationParams) — omitted, this stays
+  // the full, unfiltered list every existing caller relies on.
   @Get()
   list(
     @Query('siteId') siteId?: string,
     @Query('vendorId') vendorId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
   ) {
-    return this.wasteDisposalService.list({ siteId, vendorId, from, to });
+    return this.wasteDisposalService.list({
+      siteId,
+      vendorId,
+      from,
+      to,
+      page,
+      pageSize,
+    });
   }
 
   // Static path declared before the `:id` wildcard below — Nest matches

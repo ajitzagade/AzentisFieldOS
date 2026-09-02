@@ -7,11 +7,13 @@ import type {
   CreateWorkRecordBatchInput,
   CreateWorkRecordInput,
   LabourReportFilters,
+  PaginatedResult,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { lockOnKey } from '../common/advisory-lock';
 import { dateRangeBounds } from '../common/date-range';
+import { paginationParams } from '../common/pagination';
 import {
   currentDsrRowsWhere,
   supersededDsrIds,
@@ -83,7 +85,13 @@ export class WorkRecordsService {
   // excluded — the correction filed its own restated attendance rows, and
   // counting both would double-count that crew's day (same rule as
   // ConsumptionService.list).
-  async list(siteId?: string, filters: LabourReportFilters = {}) {
+  // Pagination is opt-in via filters.page/pageSize — omitted, the existing
+  // full-array behavior (byte-identical for every existing caller/test) is
+  // unchanged.
+  async list(
+    siteId?: string,
+    filters: LabourReportFilters = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
     const where: Prisma.WorkRecordWhereInput = {
       ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
     };
@@ -91,11 +99,31 @@ export class WorkRecordsService {
     if (filters.teamMemberId) where.teamMemberId = filters.teamMemberId;
     const bounds = dateRangeBounds(filters.from, filters.to);
     if (bounds) where.workDate = bounds;
-    return this.prisma.workRecord.findMany({
-      where,
-      include: { teamMember: true, site: true },
-      orderBy: { workDate: 'desc' },
-    });
+    const include = { teamMember: true, site: true };
+    const orderBy: Prisma.WorkRecordOrderByWithRelationInput = {
+      workDate: 'desc',
+    };
+
+    const pagination = paginationParams(filters.page, filters.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.workRecord.findMany({ where, include, orderBy });
+    }
+
+    return Promise.all([
+      this.prisma.workRecord.findMany({
+        where,
+        include,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.workRecord.count({ where }),
+    ]).then(([rows, total]) => ({
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }));
   }
 
   // AC #2: "previous day" means the most recent prior date with data for

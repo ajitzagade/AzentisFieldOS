@@ -64,8 +64,13 @@ export class CustomAuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
+    // Only id/role are ever read below (request.user is typed as AuthUser =
+    // { id, role } everywhere it's consumed) — selecting the full row here
+    // pulled passwordHash and every other column into memory on 100% of
+    // authenticated traffic for no reason.
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
+      select: { id: true, role: true },
     });
     // Unlike the old Clerk guard, there is no auto-provisioning here: login
     // already requires an existing User row, so a token whose subject no

@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UsePipes,
+} from '@nestjs/common';
 import {
   createConsumptionSchema,
   type CreateConsumptionInput,
@@ -19,9 +27,11 @@ export class ConsumptionController {
     return this.consumptionService.create(body, user.id);
   }
 
+  // `page`/`pageSize` are opt-in (paginationParams) — omitted, this stays
+  // the full, unfiltered list every existing caller relies on.
   @Get()
-  list() {
-    return this.consumptionService.list();
+  list(@Query('page') page?: string, @Query('pageSize') pageSize?: string) {
+    return this.consumptionService.list({ page, pageSize });
   }
 
   @Get(':id')

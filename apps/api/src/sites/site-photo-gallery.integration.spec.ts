@@ -76,7 +76,9 @@ describeIfDb('getSitePhotoGallery (integration)', () => {
     });
 
     const storage = {
-      getReadUrl: vi.fn().mockResolvedValue('https://r2.example/signed'),
+      getThumbnailUrl: vi
+        .fn()
+        .mockResolvedValue('https://cloudinary.example/thumb'),
     } as unknown as StorageService;
     const gallery = await getSitePhotoGallery(prisma, storage, siteId);
 
@@ -85,12 +87,12 @@ describeIfDb('getSitePhotoGallery (integration)', () => {
       uploaderName: 'Ramesh Yadav',
       dailySiteReportId: dsrId,
       reportDate: '2026-08-12',
-      url: 'https://r2.example/signed',
+      url: 'https://cloudinary.example/thumb',
     });
   });
 
   it('returns an empty array for a Site with no photos', async () => {
-    const storage = { getReadUrl: vi.fn() } as unknown as StorageService;
+    const storage = { getThumbnailUrl: vi.fn() } as unknown as StorageService;
     const gallery = await getSitePhotoGallery(prisma, storage, siteId);
     expect(gallery).toEqual([]);
   });

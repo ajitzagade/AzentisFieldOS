@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
@@ -31,9 +32,11 @@ export class AdvanceAdjustmentsController {
     return this.advanceAdjustmentsService.create(body);
   }
 
+  // `page`/`pageSize` are opt-in (paginationParams) — omitted, this stays
+  // the full, unfiltered list every existing caller relies on.
   @Get()
-  list() {
-    return this.advanceAdjustmentsService.list();
+  list(@Query('page') page?: string, @Query('pageSize') pageSize?: string) {
+    return this.advanceAdjustmentsService.list({ page, pageSize });
   }
 
   @Get(':id')

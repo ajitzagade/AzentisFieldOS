@@ -71,7 +71,10 @@ describe('WorkRecordsController', () => {
 
     const result = await controller.list();
 
-    expect(service.list).toHaveBeenCalledWith(undefined);
+    expect(service.list).toHaveBeenCalledWith(undefined, {
+      page: undefined,
+      pageSize: undefined,
+    });
     expect(result).toEqual([{ id: '1' }]);
   });
 
@@ -80,8 +83,27 @@ describe('WorkRecordsController', () => {
 
     const result = await controller.list('site1');
 
-    expect(service.list).toHaveBeenCalledWith('site1');
+    expect(service.list).toHaveBeenCalledWith('site1', {
+      page: undefined,
+      pageSize: undefined,
+    });
     expect(result).toEqual([{ id: '1' }]);
+  });
+
+  it('list forwards page/pageSize query params to WorkRecordsService.list for opt-in pagination', async () => {
+    service.list.mockResolvedValue({
+      rows: [],
+      total: 0,
+      page: 2,
+      pageSize: 25,
+    });
+
+    await controller.list('site1', '2', '25');
+
+    expect(service.list).toHaveBeenCalledWith('site1', {
+      page: '2',
+      pageSize: '25',
+    });
   });
 
   it('getDefaultCrew delegates to WorkRecordsService.getDefaultCrew with the query params', async () => {

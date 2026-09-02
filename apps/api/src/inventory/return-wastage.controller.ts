@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UsePipes,
+} from '@nestjs/common';
 import {
   createReturnWastageSchema,
   type CreateReturnWastageInput,
@@ -16,9 +24,11 @@ export class ReturnWastageController {
     return this.returnWastageService.create(body);
   }
 
+  // `page`/`pageSize` are opt-in (paginationParams) — omitted, this stays
+  // the full, unfiltered list every existing caller relies on.
   @Get()
-  list() {
-    return this.returnWastageService.list();
+  list(@Query('page') page?: string, @Query('pageSize') pageSize?: string) {
+    return this.returnWastageService.list({ page, pageSize });
   }
 
   @Get(':id')

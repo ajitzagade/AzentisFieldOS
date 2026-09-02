@@ -6,10 +6,12 @@ import {
 import type {
   CreateReturnWastageInput,
   InventoryReportFilters,
+  PaginatedResult,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
+import { paginationParams } from '../common/pagination';
 import { decrementStockWithFloorCheck } from './stock-delta';
 
 // FR-13: Owner/Admin or Site Supervisor records a Wastage or Return as its
@@ -71,15 +73,40 @@ export class ReturnWastageService {
 
   // Story 13.2 (FR-43): the same Return/Wastage list, optionally narrowed by
   // Site / Material / date window. Unfiltered it is unchanged.
-  list(filters: InventoryReportFilters = {}) {
-    return this.prisma.returnWastage.findMany({
-      where: this.reportWhere(filters),
-      include: {
-        site: true,
-        materialSize: { include: { material: { include: { unit: true } } } },
-      },
-      orderBy: { recordedAt: 'desc' },
-    });
+  // Pagination is opt-in via filters.page/pageSize — omitted, the existing
+  // full-array behavior is unchanged.
+  list(
+    filters: InventoryReportFilters = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
+    const where = this.reportWhere(filters);
+    const include = {
+      site: true,
+      materialSize: { include: { material: { include: { unit: true } } } },
+    };
+    const orderBy: Prisma.ReturnWastageOrderByWithRelationInput = {
+      recordedAt: 'desc',
+    };
+
+    const pagination = paginationParams(filters.page, filters.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.returnWastage.findMany({ where, include, orderBy });
+    }
+
+    return Promise.all([
+      this.prisma.returnWastage.findMany({
+        where,
+        include,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.returnWastage.count({ where }),
+    ]).then(([rows, total]) => ({
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }));
   }
 
   private reportWhere(

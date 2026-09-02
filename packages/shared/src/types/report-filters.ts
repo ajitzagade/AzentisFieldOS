@@ -28,6 +28,11 @@ export interface InventoryReportFilters extends ReportDateRange {
   // always agree on the same universe of rows. Movements/Consumption/
   // ReturnWastage ignore this field.
   pendingPricing?: boolean;
+  // Opt-in pagination (same contract as ListQuery/paginationParams): absent
+  // on every existing Reports-tab caller, which must keep getting the full,
+  // unbounded result exactly as before.
+  page?: string;
+  pageSize?: string;
 }
 
 // Story 13.3 (FR-44): Labour reports. `teamMemberId` optional — omitted means
@@ -36,6 +41,9 @@ export interface InventoryReportFilters extends ReportDateRange {
 // above applies: no tenantId here, ever.
 export interface LabourReportFilters extends ReportDateRange {
   teamMemberId?: string;
+  // Opt-in pagination — see InventoryReportFilters.page/pageSize.
+  page?: string;
+  pageSize?: string;
 }
 
 // Story 13.3 (FR-45): Machinery/Vehicle reports. `assetType`+`assetId` together

@@ -3,16 +3,25 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreateWasteDisposalInput } from '@azentisfieldos/shared';
+import type {
+  CreateWasteDisposalInput,
+  PaginatedResult,
+} from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
+import { paginationParams } from '../common/pagination';
 
 export interface WasteDisposalListFilters {
   siteId?: string;
   vendorId?: string;
   from?: string;
   to?: string;
+  // Opt-in pagination — see paginationParams. Absent on every existing
+  // caller (list/summary share this type), which must keep getting the
+  // full, unbounded result exactly as before.
+  page?: string;
+  pageSize?: string;
 }
 
 export interface WasteDisposalSummary {
@@ -93,12 +102,40 @@ export class WasteDisposalService {
     }
   }
 
-  async list(filters: WasteDisposalListFilters = {}) {
-    return this.prisma.wasteDisposal.findMany({
-      where: this.whereFor(filters),
-      include: DISPOSAL_INCLUDE,
-      orderBy: { disposedAt: 'desc' },
-    });
+  // Pagination is opt-in via filters.page/pageSize — omitted, the existing
+  // full-array behavior is unchanged.
+  async list(
+    filters: WasteDisposalListFilters = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
+    const where = this.whereFor(filters);
+    const orderBy: Prisma.WasteDisposalOrderByWithRelationInput = {
+      disposedAt: 'desc',
+    };
+
+    const pagination = paginationParams(filters.page, filters.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.wasteDisposal.findMany({
+        where,
+        include: DISPOSAL_INCLUDE,
+        orderBy,
+      });
+    }
+
+    return Promise.all([
+      this.prisma.wasteDisposal.findMany({
+        where,
+        include: DISPOSAL_INCLUDE,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.wasteDisposal.count({ where }),
+    ]).then(([rows, total]) => ({
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }));
   }
 
   // The Owner view: total disposal cost, trips, own-vs-hired split, and

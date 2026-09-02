@@ -7,10 +7,12 @@ import type {
   ConfirmMovementReceiptInput,
   CreateMovementInput,
   InventoryReportFilters,
+  PaginatedResult,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
+import { paginationParams } from '../common/pagination';
 import { decrementStockWithFloorCheck } from './stock-delta';
 
 // FR-9: Owner/Admin records a Godown-to-Site (and, from Story 5.4,
@@ -132,16 +134,41 @@ export class MovementsService {
   // Material / date window. A Site filter matches a Movement touching that
   // Site on either end (as source or destination), mirroring the Site
   // activity feed's OR. Unfiltered it is unchanged.
-  list(filters: InventoryReportFilters = {}) {
-    return this.prisma.movement.findMany({
-      where: this.reportWhere(filters),
-      include: {
-        sourceSite: true,
-        destinationSite: true,
-        materialSize: { include: { material: { include: { unit: true } } } },
-      },
-      orderBy: { movedAt: 'desc' },
-    });
+  // Pagination is opt-in via filters.page/pageSize — omitted, the existing
+  // full-array behavior is unchanged.
+  list(
+    filters: InventoryReportFilters = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
+    const where = this.reportWhere(filters);
+    const include = {
+      sourceSite: true,
+      destinationSite: true,
+      materialSize: { include: { material: { include: { unit: true } } } },
+    };
+    const orderBy: Prisma.MovementOrderByWithRelationInput = {
+      movedAt: 'desc',
+    };
+
+    const pagination = paginationParams(filters.page, filters.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.movement.findMany({ where, include, orderBy });
+    }
+
+    return Promise.all([
+      this.prisma.movement.findMany({
+        where,
+        include,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.movement.count({ where }),
+    ]).then(([rows, total]) => ({
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }));
   }
 
   private reportWhere(

@@ -18,6 +18,8 @@ vi.mock('./cloudinary-client', () => ({
   },
   cloudinaryUrl: (publicId: string) =>
     `https://res.cloudinary.com/test-cloud/image/upload/${publicId}`,
+  cloudinaryThumbnailUrl: (publicId: string, width = 480) =>
+    `https://res.cloudinary.com/test-cloud/image/upload/w_${width},c_limit,q_auto,f_auto/${publicId}`,
 }));
 
 function makeService(overrides: {
@@ -158,13 +160,25 @@ describe('StorageService.confirmUpload', () => {
 });
 
 describe('StorageService.getReadUrl', () => {
-  it('returns the public Cloudinary delivery URL for the given storageKey', async () => {
+  it('returns the public, full-resolution Cloudinary delivery URL for the given storageKey', async () => {
     const service = makeService({});
 
     const url = await service.getReadUrl('dsr/dsr-1/x');
 
     expect(url).toBe(
       'https://res.cloudinary.com/test-cloud/image/upload/dsr/dsr-1/x',
+    );
+  });
+});
+
+describe('StorageService.getThumbnailUrl', () => {
+  it('returns a downsized, format-negotiated Cloudinary delivery URL for the given storageKey', async () => {
+    const service = makeService({});
+
+    const url = await service.getThumbnailUrl('dsr/dsr-1/x');
+
+    expect(url).toBe(
+      'https://res.cloudinary.com/test-cloud/image/upload/w_480,c_limit,q_auto,f_auto/dsr/dsr-1/x',
     );
   });
 });

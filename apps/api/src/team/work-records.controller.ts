@@ -24,9 +24,15 @@ export class WorkRecordsController {
     return this.workRecordsService.createBatch(body);
   }
 
+  // `page`/`pageSize` are opt-in (paginationParams) — omitted, this stays
+  // the full, unfiltered list every existing caller relies on.
   @Get()
-  list(@Query('siteId') siteId?: string) {
-    return this.workRecordsService.list(siteId);
+  list(
+    @Query('siteId') siteId?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.workRecordsService.list(siteId, { page, pageSize });
   }
 
   @Get('default-crew')

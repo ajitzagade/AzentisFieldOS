@@ -7,10 +7,12 @@ import type {
   CompletePurchasePricingInput,
   CreatePurchaseInput,
   InventoryReportFilters,
+  PaginatedResult,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
+import { paginationParams } from '../common/pagination';
 
 // FR-8: Owner/Admin records a Purchase into Godown or a Site directly.
 @Injectable()
@@ -86,16 +88,42 @@ export class PurchasesService {
   // optionally narrowed by Site / Material / date window for the Inventory
   // Reports view. Unfiltered (the default `{}`) it returns exactly what it
   // did before, so the live Inventory Transactions list is unchanged.
-  list(filters: InventoryReportFilters = {}) {
-    return this.prisma.purchase.findMany({
-      where: this.reportWhere(filters),
-      include: {
-        vendor: true,
-        site: true,
-        materialSize: { include: { material: { include: { unit: true } } } },
-      },
-      orderBy: { purchasedAt: 'desc' },
-    });
+  // Pagination is opt-in via filters.page/pageSize (paginationParams) — no
+  // existing caller (the Inventory Reports view, Vendor purchase history's
+  // sibling queries) passes those, so they keep getting the full array.
+  list(
+    filters: InventoryReportFilters = {},
+  ): Promise<unknown[] | PaginatedResult<unknown>> {
+    const where = this.reportWhere(filters);
+    const include = {
+      vendor: true,
+      site: true,
+      materialSize: { include: { material: { include: { unit: true } } } },
+    };
+    const orderBy: Prisma.PurchaseOrderByWithRelationInput = {
+      purchasedAt: 'desc',
+    };
+
+    const pagination = paginationParams(filters.page, filters.pageSize);
+    if (!pagination.paginated) {
+      return this.prisma.purchase.findMany({ where, include, orderBy });
+    }
+
+    return Promise.all([
+      this.prisma.purchase.findMany({
+        where,
+        include,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.purchase.count({ where }),
+    ]).then(([rows, total]) => ({
+      rows,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }));
   }
 
   private reportWhere(
