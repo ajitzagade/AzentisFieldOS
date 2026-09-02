@@ -1242,28 +1242,35 @@ var init_subcontractor = __esm({
 });
 
 // ../../packages/shared/src/schemas/site-contract.ts
-function checkRateTypeFields(data, ctx) {
-  if (!data.rateType) return;
+function collectRateTypeIssues(data) {
+  if (!data.rateType) return [];
+  const issues = [];
   if (data.rateType === "FIXED_COST") {
     if (data.fixedAmount === void 0 || data.fixedAmount === null) {
-      ctx.addIssue({ code: "custom", path: ["fixedAmount"], message: "Fixed Cost requires a total contract amount" });
+      issues.push({ path: "fixedAmount", message: "Fixed Cost requires a total contract amount" });
     }
     if (data.rate !== void 0 && data.rate !== null) {
-      ctx.addIssue({ code: "custom", path: ["rate"], message: "Fixed Cost does not use a per-unit rate" });
+      issues.push({ path: "rate", message: "Fixed Cost does not use a per-unit rate" });
     }
     if (data.rateUnitLabel) {
-      ctx.addIssue({ code: "custom", path: ["rateUnitLabel"], message: "Fixed Cost does not use a unit label" });
+      issues.push({ path: "rateUnitLabel", message: "Fixed Cost does not use a unit label" });
     }
-    return;
+    return issues;
   }
   if (data.rate === void 0 || data.rate === null) {
-    ctx.addIssue({ code: "custom", path: ["rate"], message: `${data.rateType} requires a rate` });
+    issues.push({ path: "rate", message: `${data.rateType} requires a rate` });
   }
   if (data.fixedAmount !== void 0 && data.fixedAmount !== null) {
-    ctx.addIssue({ code: "custom", path: ["fixedAmount"], message: `${data.rateType} does not use a fixed amount` });
+    issues.push({ path: "fixedAmount", message: `${data.rateType} does not use a fixed amount` });
   }
   if ((data.rateType === "PER_UNIT" || data.rateType === "CUSTOM") && !data.rateUnitLabel) {
-    ctx.addIssue({ code: "custom", path: ["rateUnitLabel"], message: `${data.rateType} requires a unit label` });
+    issues.push({ path: "rateUnitLabel", message: `${data.rateType} requires a unit label` });
+  }
+  return issues;
+}
+function checkRateTypeFields(data, ctx) {
+  for (const issue of collectRateTypeIssues(data)) {
+    ctx.addIssue({ code: "custom", path: [issue.path], message: issue.message });
   }
 }
 function collectActiveRequiredIssues(data) {
@@ -1311,8 +1318,8 @@ var init_site_contract = __esm({
       description: import_zod34.z.string().max(1e3).optional(),
       rateType: rateTypeSchema.optional(),
       rateUnitLabel: import_zod34.z.string().max(100).optional(),
-      rate: import_zod34.z.number().positive().optional(),
-      fixedAmount: import_zod34.z.number().positive().optional(),
+      rate: import_zod34.z.number().positive().finite().optional(),
+      fixedAmount: import_zod34.z.number().positive().finite().optional(),
       estimatedQuantity: import_zod34.z.number().positive().optional(),
       status: contractStatusSchema.default("DRAFT"),
       startDate: import_zod34.z.coerce.date().optional(),
@@ -1331,8 +1338,8 @@ var init_site_contract = __esm({
       description: import_zod34.z.string().max(1e3).nullable(),
       rateType: rateTypeSchema.nullable(),
       rateUnitLabel: import_zod34.z.string().max(100).nullable(),
-      rate: import_zod34.z.number().positive().nullable(),
-      fixedAmount: import_zod34.z.number().positive().nullable(),
+      rate: import_zod34.z.number().positive().finite().nullable(),
+      fixedAmount: import_zod34.z.number().positive().finite().nullable(),
       estimatedQuantity: import_zod34.z.number().positive().nullable(),
       status: contractStatusSchema,
       startDate: import_zod34.z.coerce.date().nullable(),
@@ -1354,7 +1361,7 @@ var init_subcontractor_work_entry = __esm({
     import_zod35 = require("zod");
     createSubcontractorWorkEntrySchema = import_zod35.z.object({
       siteContractId: import_zod35.z.uuid(),
-      quantity: import_zod35.z.number(),
+      quantity: import_zod35.z.number().finite(),
       workDate: import_zod35.z.coerce.date(),
       note: import_zod35.z.string().max(500).optional(),
       correctsId: import_zod35.z.uuid().optional(),
@@ -1384,7 +1391,7 @@ var init_subcontractor_payment = __esm({
     createSubcontractorPaymentSchema = import_zod36.z.object({
       siteContractId: import_zod36.z.uuid(),
       type: subcontractorPaymentTypeSchema,
-      amount: import_zod36.z.number(),
+      amount: import_zod36.z.number().finite(),
       paymentMethod: import_zod36.z.string().max(100).optional(),
       paidAt: import_zod36.z.coerce.date(),
       note: import_zod36.z.string().max(500).optional(),
@@ -1992,6 +1999,7 @@ __export(src_exports, {
   assetLocationStatusSchema: () => assetLocationStatusSchema,
   assetTypeSchema: () => assetTypeSchema,
   collectActiveRequiredIssues: () => collectActiveRequiredIssues,
+  collectRateTypeIssues: () => collectRateTypeIssues,
   completePurchasePricingSchema: () => completePurchasePricingSchema,
   confirmMovementReceiptSchema: () => confirmMovementReceiptSchema,
   confirmPhotoUploadSchema: () => confirmPhotoUploadSchema,
@@ -3630,6 +3638,13 @@ var require_site_activity_feed = __commonJS({
     exports2.getSiteActivityFeed = getSiteActivityFeed;
     var date_range_1 = require_date_range();
     var superseded_dsrs_1 = require_superseded_dsrs();
+    function workEntryUnitLabel(contract) {
+      if (contract.rateType === "PER_TRIP")
+        return "trips";
+      if (contract.rateType === "PER_PIPE")
+        return "pipes";
+      return contract.rateUnitLabel ?? "units";
+    }
     async function getSiteActivityFeed(prisma, siteId, range = {}) {
       const bounds = (0, date_range_1.dateRangeBounds)(range.from, range.to);
       const currentRows = (0, superseded_dsrs_1.currentDsrRowsWhere)(await (0, superseded_dsrs_1.supersededDsrIds)(prisma));
@@ -3686,7 +3701,10 @@ var require_site_activity_feed = __commonJS({
           include: { vendor: true }
         }),
         prisma.siteContract.findMany({
-          where: { siteId, createdAt: bounds },
+          where: {
+            siteId,
+            OR: [{ createdAt: bounds }, { updatedAt: bounds }]
+          },
           include: { subcontractor: true }
         }),
         prisma.subcontractorWorkEntry.findMany({
@@ -3779,15 +3797,15 @@ var require_site_activity_feed = __commonJS({
         ...siteContracts.map((c) => ({
           id: c.id,
           type: "SITE_CONTRACT",
-          occurredAt: c.createdAt.toISOString(),
-          summary: `${c.subcontractor.name} engaged${c.workCategory ? ` \u2014 ${c.workCategory}` : ""} (${c.status})`,
+          occurredAt: c.updatedAt.toISOString(),
+          summary: `${c.subcontractor.name} engaged${c.workCategory ? ` \u2014 ${c.workCategory}` : ""} (${c.status.replace("_", " ").toLowerCase()})`,
           amount: null
         })),
         ...subcontractorWorkEntries.map((e) => ({
           id: e.id,
           type: "WORK_ENTRY",
           occurredAt: e.workDate.toISOString(),
-          summary: `${e.siteContract.subcontractor.name} \u2014 ${e.quantity.toString()} ${e.siteContract.workCategory ?? "work"} logged`,
+          summary: `${e.siteContract.subcontractor.name} \u2014 ${e.quantity.toString()} ${workEntryUnitLabel(e.siteContract)}${e.siteContract.workCategory ? ` (${e.siteContract.workCategory})` : ""} logged`,
           amount: null
         })),
         ...subcontractorPayments.map((p) => ({
@@ -9373,14 +9391,30 @@ var require_site_contracts_service = __commonJS({
         return { ...contract, ...(0, site_contracts_computed_1.computeSiteContractAmounts)(contract) };
       }
       async create(input) {
+        const subcontractor = await this.prisma.subcontractor.findUnique({
+          where: { id: input.subcontractorId }
+        });
+        if (!subcontractor || subcontractor.deletedAt) {
+          throw new common_1.BadRequestException("This Subcontractor does not exist");
+        }
+        const site = await this.prisma.site.findUnique({
+          where: { id: input.siteId }
+        });
+        if (!site || site.deletedAt) {
+          throw new common_1.BadRequestException("This Site does not exist");
+        }
         const contract = await this.prisma.siteContract.create({ data: input });
         return this.withComputed(contract);
       }
       async list(query = {}) {
+        const parsedStatus = query.status ? shared_1.contractStatusSchema.safeParse(query.status) : void 0;
+        if (parsedStatus && !parsedStatus.success) {
+          throw new common_1.BadRequestException(`Invalid status filter: ${query.status}`);
+        }
         const where = {
           ...query.siteId ? { siteId: query.siteId } : {},
           ...query.subcontractorId ? { subcontractorId: query.subcontractorId } : {},
-          ...query.status ? { status: query.status } : {}
+          ...parsedStatus?.success ? { status: parsedStatus.data } : {}
         };
         const contracts = await this.prisma.siteContract.findMany({
           where,
@@ -9394,7 +9428,7 @@ var require_site_contracts_service = __commonJS({
           where: { id },
           include: { subcontractor: true, site: true }
         });
-        if (!contract || contract.subcontractor.deletedAt) {
+        if (!contract || contract.subcontractor.deletedAt || contract.site.deletedAt) {
           throw new common_1.NotFoundException(`Site Contract ${id} not found`);
         }
         return this.withComputed(contract);
@@ -9406,10 +9440,14 @@ var require_site_contracts_service = __commonJS({
           rateType: input.rateType !== void 0 ? input.rateType : existing.rateType,
           rate: input.rate !== void 0 ? input.rate : existing.rate?.toNumber(),
           fixedAmount: input.fixedAmount !== void 0 ? input.fixedAmount : existing.fixedAmount?.toNumber(),
+          rateUnitLabel: input.rateUnitLabel !== void 0 ? input.rateUnitLabel : existing.rateUnitLabel,
           startDate: input.startDate !== void 0 ? input.startDate : existing.startDate,
           status: input.status !== void 0 ? input.status : existing.status
         };
-        const issues = (0, shared_1.collectActiveRequiredIssues)(merged);
+        const issues = [
+          ...(0, shared_1.collectRateTypeIssues)(merged),
+          ...(0, shared_1.collectActiveRequiredIssues)(merged)
+        ];
         if (issues.length > 0) {
           const fieldErrors = {};
           for (const issue of issues) {
@@ -9654,6 +9692,7 @@ var require_subcontractors_controller = __commonJS({
     exports2.SubcontractorsController = SubcontractorsController;
     __decorate([
       (0, common_1.Post)(),
+      (0, roles_decorator_1.Roles)("OWNER_ADMIN"),
       (0, common_1.UsePipes)(new zod_validation_pipe_1.ZodValidationPipe(shared_1.createSubcontractorSchema)),
       __param(0, (0, common_1.Body)()),
       __metadata("design:type", Function),
@@ -9673,6 +9712,7 @@ var require_subcontractors_controller = __commonJS({
     ], SubcontractorsController.prototype, "list", null);
     __decorate([
       (0, common_1.Patch)(":id"),
+      (0, roles_decorator_1.Roles)("OWNER_ADMIN"),
       __param(0, (0, common_1.Param)("id")),
       __param(1, (0, common_1.Body)(new zod_validation_pipe_1.ZodValidationPipe(shared_1.updateSubcontractorSchema))),
       __metadata("design:type", Function),
@@ -9869,9 +9909,10 @@ var require_work_entries_service = __commonJS({
       }
       async create(input, recordedByUserId) {
         const contract = await this.prisma.siteContract.findUnique({
-          where: { id: input.siteContractId }
+          where: { id: input.siteContractId },
+          include: { subcontractor: true }
         });
-        if (!contract) {
+        if (!contract || contract.subcontractor.deletedAt) {
           throw new common_1.BadRequestException("This Site Contract does not exist");
         }
         if (contract.status !== "ACTIVE") {
@@ -9889,6 +9930,14 @@ var require_work_entries_service = __commonJS({
               message: "Fixed Cost contracts don't track work quantity \u2014 update the contract's status directly"
             }
           });
+        }
+        if (input.correctsId) {
+          const original = await this.prisma.subcontractorWorkEntry.findUnique({
+            where: { id: input.correctsId }
+          });
+          if (!original || original.siteContractId !== input.siteContractId) {
+            throw new common_1.BadRequestException("The Work Entry being corrected does not exist on this Site Contract");
+          }
         }
         return this.prisma.$transaction(async (tx) => {
           const entry = await tx.subcontractorWorkEntry.create({
@@ -10020,10 +10069,19 @@ var require_subcontractor_payments_service = __commonJS({
       }
       async create(input, recordedByUserId) {
         const contract = await this.prisma.siteContract.findUnique({
-          where: { id: input.siteContractId }
+          where: { id: input.siteContractId },
+          include: { subcontractor: true }
         });
-        if (!contract) {
+        if (!contract || contract.subcontractor.deletedAt) {
           throw new common_1.BadRequestException("This Site Contract does not exist");
+        }
+        if (input.correctsId) {
+          const original = await this.prisma.subcontractorPayment.findUnique({
+            where: { id: input.correctsId }
+          });
+          if (!original || original.siteContractId !== input.siteContractId) {
+            throw new common_1.BadRequestException("The Payment being corrected does not exist on this Site Contract");
+          }
         }
         return this.prisma.$transaction(async (tx) => {
           const payment = await tx.subcontractorPayment.create({

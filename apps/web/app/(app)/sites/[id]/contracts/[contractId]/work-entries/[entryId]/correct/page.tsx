@@ -28,15 +28,42 @@ export default async function CorrectWorkEntryPage({
   params: Promise<{ id: string; contractId: string; entryId: string }>;
 }) {
   const { id: siteId, contractId, entryId } = await params;
-  const [contract, entries] = await Promise.all([getSiteContract(contractId), getWorkEntries(contractId)]);
+  const contract = await getSiteContract(contractId);
 
   if (!contract || contract.siteId !== siteId) {
     notFound();
   }
 
+  // Same rule as log-work/page.tsx, and applies to a correction too — see
+  // WorkEntriesService.create()'s comment: it targets the same
+  // (still-current) contract, so the Active/non-Fixed-Cost check applies
+  // to corrections exactly like fresh entries.
+  if (contract.status !== "ACTIVE" || contract.rateType === "FIXED_COST" || !contract.rateType) {
+    return (
+      <div className="max-w-160">
+        <h1 className="mb-4 text-page-title text-ink-900">Correct Work Entry</h1>
+        <p className="text-body-sm text-ink-700">
+          {contract.rateType === "FIXED_COST"
+            ? "Fixed Cost contracts don't track billable quantity — this contract's completion is tracked by its status (Draft → Active → Completed) instead."
+            : "Work Entries can only be corrected against an Active contract."}{" "}
+          <Link href={`/sites/${siteId}/contracts/${contractId}`} className="font-semibold text-accent-teal-700 hover:underline">
+            Back to the Site Contract
+          </Link>
+          .
+        </p>
+      </div>
+    );
+  }
+
+  const entries = await getWorkEntries(contractId);
   const entry = entries.find((e) => e.id === entryId);
   if (!entry) {
     notFound();
+  }
+
+  const quantity = Number(entry.quantity);
+  if (Number.isNaN(quantity)) {
+    throw new Error(`Work Entry ${entry.id} has a non-numeric quantity`);
   }
 
   return (
@@ -55,8 +82,8 @@ export default async function CorrectWorkEntryPage({
         correctsId={entry.id}
         quantityUnitLabel={quantityUnitLabel(contract)}
         initial={{
-          quantity: Number(entry.quantity),
-          workDate: entry.workDate.slice(0, 10),
+          quantity,
+          workDate: (entry.workDate ?? "").slice(0, 10),
           note: entry.note ?? undefined,
         }}
       />

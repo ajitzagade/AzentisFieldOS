@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, PlusIcon, SelectField, TextField, TextareaField } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, PlusIcon, SelectField, TextField, TextareaField, cn } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
 
 export interface SubcontractorOption {
@@ -40,7 +40,10 @@ interface SiteContractFormProps {
 }
 
 function todayDate() {
-  return new Date().toISOString().slice(0, 10);
+  // Local date, not UTC — toISOString() would show yesterday for IST users
+  // near midnight UTC.
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 const RATE_TYPE_OPTIONS = [
@@ -79,7 +82,9 @@ export function SiteContractForm({ mode, siteId, subcontractors, initial, action
         <SelectField
           label="Subcontractor"
           name="subcontractorId"
-          required
+          required={mode === "new"}
+          disabled={mode === "edit"}
+          hint={mode === "edit" ? "The engaged Subcontractor can't be changed after the contract is created." : undefined}
           defaultValue={initial?.subcontractorId ?? ""}
           options={[
             { value: "", label: "Select a Subcontractor" },
@@ -114,53 +119,73 @@ export function SiteContractForm({ mode, siteId, subcontractors, initial, action
           error={errorFor("rateType")}
         />
 
-        {rateType === "FIXED_COST" ? (
-          <TextField
-            label="Total contract amount (₹)"
-            name="fixedAmount"
-            type="number"
-            step="any"
-            min={0}
-            inputMode="decimal"
-            defaultValue={initial?.fixedAmount ?? ""}
-            error={errorFor("fixedAmount")}
-          />
-        ) : null}
+        {(() => {
+          const isFixedCost = rateType === "FIXED_COST";
+          const isPerUnitRate = rateType === "PER_TRIP" || rateType === "PER_PIPE" || rateType === "PER_UNIT" || rateType === "CUSTOM";
+          const needsUnitLabel = rateType === "PER_UNIT" || rateType === "CUSTOM";
+          // Every rate-type-specific field stays mounted (never conditionally
+          // removed) so a value typed under one rate type survives toggling
+          // to another and back — only visibility + FormData participation
+          // (via `disabled`, which browsers exclude from submission) track
+          // the current selection.
+          return (
+            <>
+              <div className={cn(!isFixedCost && "hidden")}>
+                <TextField
+                  label="Total contract amount (₹)"
+                  name="fixedAmount"
+                  type="number"
+                  step="any"
+                  min={0}
+                  inputMode="decimal"
+                  disabled={!isFixedCost}
+                  defaultValue={initial?.fixedAmount ?? ""}
+                  error={errorFor("fixedAmount")}
+                />
+              </div>
 
-        {rateType === "PER_TRIP" || rateType === "PER_PIPE" || rateType === "PER_UNIT" || rateType === "CUSTOM" ? (
-          <>
-            {rateType === "PER_UNIT" || rateType === "CUSTOM" ? (
-              <TextField
-                label="Unit label"
-                name="rateUnitLabel"
-                maxLength={100}
-                placeholder="e.g. bag, sq ft, truck-day"
-                defaultValue={initial?.rateUnitLabel ?? ""}
-                error={errorFor("rateUnitLabel")}
-              />
-            ) : null}
-            <TextField
-              label={`Rate per ${rateType === "PER_TRIP" ? "trip" : rateType === "PER_PIPE" ? "pipe" : "unit"} (₹)`}
-              name="rate"
-              type="number"
-              step="any"
-              min={0}
-              inputMode="decimal"
-              defaultValue={initial?.rate ?? ""}
-              error={errorFor("rate")}
-            />
-            <TextField
-              label="Estimated quantity"
-              name="estimatedQuantity"
-              type="number"
-              step="any"
-              min={0}
-              hint="Optional"
-              defaultValue={initial?.estimatedQuantity ?? ""}
-              error={errorFor("estimatedQuantity")}
-            />
-          </>
-        ) : null}
+              <div className={cn(!needsUnitLabel && "hidden")}>
+                <TextField
+                  label="Unit label"
+                  name="rateUnitLabel"
+                  maxLength={100}
+                  placeholder="e.g. bag, sq ft, truck-day"
+                  disabled={!needsUnitLabel}
+                  defaultValue={initial?.rateUnitLabel ?? ""}
+                  error={errorFor("rateUnitLabel")}
+                />
+              </div>
+
+              <div className={cn(!isPerUnitRate && "hidden")}>
+                <TextField
+                  label={`Rate per ${rateType === "PER_TRIP" ? "trip" : rateType === "PER_PIPE" ? "pipe" : "unit"} (₹)`}
+                  name="rate"
+                  type="number"
+                  step="any"
+                  min={0}
+                  inputMode="decimal"
+                  disabled={!isPerUnitRate}
+                  defaultValue={initial?.rate ?? ""}
+                  error={errorFor("rate")}
+                />
+              </div>
+
+              <div className={cn(!isPerUnitRate && "hidden")}>
+                <TextField
+                  label="Estimated quantity"
+                  name="estimatedQuantity"
+                  type="number"
+                  step="any"
+                  min={0}
+                  hint="Optional"
+                  disabled={!isPerUnitRate}
+                  defaultValue={initial?.estimatedQuantity ?? ""}
+                  error={errorFor("estimatedQuantity")}
+                />
+              </div>
+            </>
+          );
+        })()}
 
         <TextField
           label="Start date"

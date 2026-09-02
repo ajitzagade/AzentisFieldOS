@@ -38,13 +38,19 @@ export async function createWorkEntryAction(
 
   if (res.status === 400) {
     const body = (await res.json().catch(() => undefined)) as
-      | { error?: { details?: { fieldErrors?: Record<string, string[]> }; message?: string }; message?: string }
+      | { error?: { code?: string; details?: { fieldErrors?: Record<string, string[]> }; message?: string }; message?: string }
       | undefined;
     if (body?.error?.details?.fieldErrors) {
       return { errors: body.error.details.fieldErrors };
     }
-    // Non-schema 400s: contract isn't Active, is Fixed Cost, or a
-    // correction would drive quantityCompleted below zero.
+    // A floor-check rejection is about the quantity field specifically —
+    // show it inline next to that field (same discipline as Advance
+    // Adjustment's balance-floor check, FR-23's pattern), not buried in a
+    // generic banner.
+    if (body?.error?.code === "QUANTITY_BELOW_ZERO") {
+      return { errors: { quantity: [body.error.message ?? "This correction would reduce completed quantity below zero."] } };
+    }
+    // Any other non-schema 400 (contract isn't Active, or is Fixed Cost).
     return {
       formError: body?.error?.message ?? body?.message ?? "This Work Entry could not be recorded.",
     };

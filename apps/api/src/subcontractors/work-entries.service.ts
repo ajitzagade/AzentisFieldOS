@@ -29,8 +29,9 @@ export class WorkEntriesService {
   ) {
     const contract = await this.prisma.siteContract.findUnique({
       where: { id: input.siteContractId },
+      include: { subcontractor: true },
     });
-    if (!contract) {
+    if (!contract || contract.subcontractor.deletedAt) {
       throw new BadRequestException('This Site Contract does not exist');
     }
     // AC #3: only an Active contract accepts Work Entries — applies to a
@@ -55,6 +56,17 @@ export class WorkEntriesService {
             "Fixed Cost contracts don't track work quantity — update the contract's status directly",
         },
       });
+    }
+
+    if (input.correctsId) {
+      const original = await this.prisma.subcontractorWorkEntry.findUnique({
+        where: { id: input.correctsId },
+      });
+      if (!original || original.siteContractId !== input.siteContractId) {
+        throw new BadRequestException(
+          'The Work Entry being corrected does not exist on this Site Contract',
+        );
+      }
     }
 
     return this.prisma.$transaction(async (tx) => {

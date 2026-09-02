@@ -21,14 +21,18 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { SubcontractorsService } from './subcontractors.service';
 
-// RolesGuard is a no-op on handlers without @Roles() metadata, so adding it
-// at controller level restricts ONLY the delete below.
+// RolesGuard is a no-op on handlers without @Roles() metadata. FR-55:
+// Owner/Admin creates and maintains Subcontractor records — create/update
+// are gated; list/findOne/contracts stay open (both roles pick a
+// Subcontractor from these on entry forms), matching SiteContractsController's
+// read-open pattern.
 @UseGuards(RolesGuard)
 @Controller('subcontractors')
 export class SubcontractorsController {
   constructor(private readonly subcontractorsService: SubcontractorsService) {}
 
   @Post()
+  @Roles('OWNER_ADMIN')
   @UsePipes(new ZodValidationPipe(createSubcontractorSchema))
   create(@Body() body: CreateSubcontractorInput) {
     return this.subcontractorsService.create(body);
@@ -46,6 +50,7 @@ export class SubcontractorsController {
   }
 
   @Patch(':id')
+  @Roles('OWNER_ADMIN')
   update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(updateSubcontractorSchema))

@@ -21,18 +21,26 @@ export async function updateSiteContractAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await authedFetch(`/site-contracts/${contractId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(parsed.data),
-  });
+  let res: Response;
+  try {
+    res = await authedFetch(`/site-contracts/${contractId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed.data),
+    });
+  } catch {
+    return { formError: "Something went wrong updating the Site Contract. Please try again." };
+  }
 
-  // The merged ACTIVE-requires-terms check (SiteContractsService.update)
-  // returns the same { error: { details: { fieldErrors } } } shape as a
-  // Zod validation failure, so this branch handles both uniformly.
+  // The merged ACTIVE-requires-terms / rate-type-consistency check
+  // (SiteContractsService.update) returns the same
+  // { error: { details: { fieldErrors } } } shape as a Zod validation
+  // failure, so this branch handles both uniformly.
   if (res.status === 400) {
-    const body = (await res.json()) as { error?: { details?: { fieldErrors?: Record<string, string[]> } } };
-    return { errors: body.error?.details?.fieldErrors ?? {} };
+    const body = (await res.json().catch(() => undefined)) as
+      | { error?: { details?: { fieldErrors?: Record<string, string[]> } } }
+      | undefined;
+    return { errors: body?.error?.details?.fieldErrors ?? {} };
   }
 
   if (res.status === 403) {

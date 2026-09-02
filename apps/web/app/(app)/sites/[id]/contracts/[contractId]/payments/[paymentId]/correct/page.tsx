@@ -40,6 +40,11 @@ export default async function CorrectSubcontractorPaymentPage({
     notFound();
   }
 
+  const amount = Number(payment.amount);
+  if (Number.isNaN(amount)) {
+    throw new Error(`Payment ${payment.id} has a non-numeric amount`);
+  }
+
   return (
     <div className="max-w-160">
       <div className="mb-2 text-eyebrow text-ink-500">
@@ -56,9 +61,9 @@ export default async function CorrectSubcontractorPaymentPage({
         correctsId={payment.id}
         initial={{
           type: payment.type,
-          amount: Number(payment.amount),
+          amount,
           paymentMethod: payment.paymentMethod ?? undefined,
-          paidAt: payment.paidAt.slice(0, 10),
+          paidAt: (payment.paidAt ?? "").slice(0, 10),
           note: payment.note ?? undefined,
         }}
       />

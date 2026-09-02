@@ -7,12 +7,14 @@ function makeService(overrides: {
   create?: ReturnType<typeof vi.fn>;
   updateMany?: ReturnType<typeof vi.fn>;
   findMany?: ReturnType<typeof vi.fn>;
+  findUniqueEntry?: ReturnType<typeof vi.fn>;
 }) {
   const findUnique = overrides.findUnique ?? vi.fn();
   const create = overrides.create ?? vi.fn();
   const updateMany =
     overrides.updateMany ?? vi.fn().mockResolvedValue({ count: 1 });
   const findMany = overrides.findMany ?? vi.fn();
+  const findUniqueEntry = overrides.findUniqueEntry ?? vi.fn();
 
   const tx: {
     subcontractorWorkEntry: { create: typeof create };
@@ -23,7 +25,7 @@ function makeService(overrides: {
   };
   const prisma = {
     siteContract: { findUnique },
-    subcontractorWorkEntry: { findMany },
+    subcontractorWorkEntry: { findMany, findUnique: findUniqueEntry },
     $transaction: vi.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
   };
 
@@ -37,6 +39,7 @@ const ACTIVE_PER_PIPE_CONTRACT = {
   id: 'c1',
   status: 'ACTIVE',
   rateType: 'PER_PIPE',
+  subcontractor: { id: 'sc1', deletedAt: null },
 };
 
 describe('WorkEntriesService.create', () => {
@@ -123,6 +126,9 @@ describe('WorkEntriesService.create', () => {
     const { service } = makeService({
       findUnique: vi.fn().mockResolvedValue(ACTIVE_PER_PIPE_CONTRACT),
       updateMany,
+      findUniqueEntry: vi
+        .fn()
+        .mockResolvedValue({ id: 'we1', siteContractId: 'c1' }),
     });
 
     await expect(
@@ -133,6 +139,94 @@ describe('WorkEntriesService.create', () => {
           workDate: new Date(),
           correctsId: 'we1',
           reason: 'over-counted',
+        },
+        'u1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('accepts a same-magnitude negative correction that stays at/above zero', async () => {
+    const create = vi.fn().mockResolvedValue({ id: 'we2', quantity: -10 });
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const { service } = makeService({
+      findUnique: vi.fn().mockResolvedValue(ACTIVE_PER_PIPE_CONTRACT),
+      create,
+      updateMany,
+      findUniqueEntry: vi
+        .fn()
+        .mockResolvedValue({ id: 'we1', siteContractId: 'c1' }),
+    });
+
+    const result = await service.create(
+      {
+        siteContractId: 'c1',
+        quantity: -10,
+        workDate: new Date(),
+        correctsId: 'we1',
+        reason: 'over-counted',
+      },
+      'u1',
+    );
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'c1', quantityCompleted: { gte: 10 } },
+      data: { quantityCompleted: { increment: -10 } },
+    });
+    expect(result).toEqual({ id: 'we2', quantity: -10 });
+  });
+
+  it("rejects when the target Site Contract's parent Subcontractor is soft-deleted", async () => {
+    const { service } = makeService({
+      findUnique: vi.fn().mockResolvedValue({
+        ...ACTIVE_PER_PIPE_CONTRACT,
+        subcontractor: { id: 'sc1', deletedAt: new Date() },
+      }),
+    });
+
+    await expect(
+      service.create(
+        { siteContractId: 'c1', quantity: 10, workDate: new Date() },
+        'u1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects a correctsId that does not reference an existing Work Entry', async () => {
+    const { service } = makeService({
+      findUnique: vi.fn().mockResolvedValue(ACTIVE_PER_PIPE_CONTRACT),
+      findUniqueEntry: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(
+      service.create(
+        {
+          siteContractId: 'c1',
+          quantity: -5,
+          workDate: new Date(),
+          correctsId: 'missing-entry',
+          reason: 'typo',
+        },
+        'u1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects a correctsId that belongs to a different Site Contract', async () => {
+    const { service } = makeService({
+      findUnique: vi.fn().mockResolvedValue(ACTIVE_PER_PIPE_CONTRACT),
+      findUniqueEntry: vi
+        .fn()
+        .mockResolvedValue({ id: 'we1', siteContractId: 'other-contract' }),
+    });
+
+    await expect(
+      service.create(
+        {
+          siteContractId: 'c1',
+          quantity: -5,
+          workDate: new Date(),
+          correctsId: 'we1',
+          reason: 'typo',
         },
         'u1',
       ),

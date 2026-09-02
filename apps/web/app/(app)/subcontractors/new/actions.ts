@@ -23,15 +23,26 @@ export async function createSubcontractorAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const res = await authedFetch(`/subcontractors`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(parsed.data),
-  });
+  let res: Response;
+  try {
+    res = await authedFetch(`/subcontractors`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed.data),
+    });
+  } catch {
+    return { formError: "Something went wrong creating the Subcontractor. Please try again." };
+  }
 
   if (res.status === 400) {
-    const body = (await res.json()) as { error?: { details?: { fieldErrors?: Record<string, string[]> } } };
-    return { errors: body.error?.details?.fieldErrors ?? {} };
+    const body = (await res.json().catch(() => undefined)) as
+      | { error?: { details?: { fieldErrors?: Record<string, string[]> } } }
+      | undefined;
+    return { errors: body?.error?.details?.fieldErrors ?? {} };
+  }
+
+  if (res.status === 403) {
+    return { formError: "Only an Owner/Admin can add a Subcontractor." };
   }
 
   if (!res.ok) {

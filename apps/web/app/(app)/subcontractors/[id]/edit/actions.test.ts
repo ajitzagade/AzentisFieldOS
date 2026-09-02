@@ -76,4 +76,20 @@ describe("updateSubcontractorAction", () => {
 
     expect(result.errors).toEqual({ name: ["Too long"] });
   });
+
+  it("maps a 403 to the Owner-only message", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 403 }) as unknown as typeof fetch;
+
+    const result = await updateSubcontractorAction("s1", {}, formData({ name: "X" }));
+
+    expect(result.formError).toBe("Only an Owner/Admin can edit a Subcontractor.");
+  });
+
+  it("returns a form error instead of throwing on a network failure", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error("network down"));
+
+    const result = await updateSubcontractorAction("s1", {}, formData({ name: "X" }));
+
+    expect(result.formError).toBe("Something went wrong updating the Subcontractor. Please try again.");
+  });
 });

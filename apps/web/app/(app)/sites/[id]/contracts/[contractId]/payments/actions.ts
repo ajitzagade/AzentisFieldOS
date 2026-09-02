@@ -42,10 +42,16 @@ export async function createSubcontractorPaymentAction(
 
   if (res.status === 400) {
     const body = (await res.json().catch(() => undefined)) as
-      | { error?: { details?: { fieldErrors?: Record<string, string[]> }; message?: string }; message?: string }
+      | { error?: { code?: string; details?: { fieldErrors?: Record<string, string[]> }; message?: string }; message?: string }
       | undefined;
     if (body?.error?.details?.fieldErrors) {
       return { errors: body.error.details.fieldErrors };
+    }
+    // A floor-check rejection is about the amount field specifically —
+    // show it inline next to that field, same discipline as the
+    // quantity floor-check on Work Entries.
+    if (body?.error?.code === "AMOUNT_PAID_BELOW_ZERO") {
+      return { errors: { amount: [body.error.message ?? "This correction would reduce amount paid below zero."] } };
     }
     return { formError: body?.error?.message ?? body?.message ?? "This Payment could not be recorded." };
   }

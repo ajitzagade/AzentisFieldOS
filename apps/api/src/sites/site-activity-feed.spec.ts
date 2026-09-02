@@ -138,6 +138,7 @@ describe('getSiteActivityFeed', () => {
       {
         id: 'sc-1',
         createdAt: new Date('2026-09-01T09:00:00Z'),
+        updatedAt: new Date('2026-09-01T09:00:00Z'),
         workCategory: 'Storm-water pipe laying',
         status: 'DRAFT',
         subcontractor: { name: 'Ganesh Pipeline Works' },
@@ -150,6 +151,8 @@ describe('getSiteActivityFeed', () => {
         quantity: { toString: () => '260' },
         siteContract: {
           workCategory: 'Storm-water pipe laying',
+          rateType: 'PER_PIPE',
+          rateUnitLabel: null,
           subcontractor: { name: 'Ganesh Pipeline Works' },
         },
       },
@@ -191,6 +194,18 @@ describe('getSiteActivityFeed', () => {
         where: expect.objectContaining({ siteContract: { siteId: 'site-1' } }),
       }),
     );
+    expect(paymentFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        where: expect.objectContaining({ siteContract: { siteId: 'site-1' } }),
+      }),
+    );
+    expect(siteContractFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        where: expect.objectContaining({ siteId: 'site-1' }),
+      }),
+    );
     expect(feed).toHaveLength(3);
     // Newest first: Work Entry (Sep 3) > Payment (Sep 2) > Site Contract (Sep 1).
     expect(feed.map((item) => item.type)).toEqual([
@@ -200,8 +215,11 @@ describe('getSiteActivityFeed', () => {
     ]);
     expect(feed[0]).toMatchObject({ id: 'we-1', amount: null });
     expect(feed[0]?.summary).toContain('Ganesh Pipeline Works');
+    expect(feed[0]?.summary).toContain('260 pipes');
     expect(feed[1]).toMatchObject({ id: 'p-1', amount: 30000 });
     expect(feed[2]).toMatchObject({ id: 'sc-1', amount: null });
-    expect(feed[2]?.summary).toContain('DRAFT');
+    // Enum is humanized, never rendered raw/uppercase to the user.
+    expect(feed[2]?.summary).toContain('draft');
+    expect(feed[2]?.summary).not.toContain('DRAFT');
   });
 });

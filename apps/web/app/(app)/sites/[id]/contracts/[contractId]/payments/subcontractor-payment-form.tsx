@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   AmountField,
@@ -53,12 +53,17 @@ export function SubcontractorPaymentForm({
   contractId,
   correctsId,
   initial,
+  amountPayable,
 }: {
   mode: "new" | "correct";
   siteId: string;
   contractId: string;
   correctsId?: string;
   initial?: SubcontractorPaymentFormInitialValues;
+  // FR-59 AC #2: no payable cap — an amount that exceeds this is legitimate
+  // (an advance ahead of completed work). Only present for a fresh Payment;
+  // undefined suppresses the informational note below.
+  amountPayable?: number | null;
 }) {
   const action = createSubcontractorPaymentAction.bind(null, siteId, contractId);
   const [state, formAction] = useActionState(action, initialState);
@@ -66,6 +71,13 @@ export function SubcontractorPaymentForm({
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   const confirmation = useSubmitConfirmation();
+  const [amountEntered, setAmountEntered] = useState<number | null>(initial?.amount ?? null);
+  const exceedsPayable =
+    mode === "new" &&
+    amountPayable !== undefined &&
+    amountPayable !== null &&
+    amountEntered !== null &&
+    amountEntered > amountPayable;
 
   return (
     <form
@@ -120,7 +132,24 @@ export function SubcontractorPaymentForm({
             error={errorFor("amount")}
           />
         ) : (
-          <AmountField label="Amount" name="amount" required error={errorFor("amount")} />
+          <>
+            <AmountField
+              label="Amount"
+              name="amount"
+              required
+              defaultValue={initial?.amount ?? ""}
+              onChange={(e) => {
+                const value = Number(e.target.value);
+                setAmountEntered(e.target.value === "" || Number.isNaN(value) ? null : value);
+              }}
+              error={errorFor("amount")}
+            />
+            {exceedsPayable ? (
+              <p className="mb-4 text-body-sm text-ink-700">
+                This exceeds the current amount payable — recorded as an advance against future work.
+              </p>
+            ) : null}
+          </>
         )}
 
         <TextField

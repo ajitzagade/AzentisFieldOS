@@ -38,9 +38,11 @@ export const FEED_TYPE_CONFIG: Record<
   WASTE_DISPOSAL: { label: "Waste Disposal", icon: TruckIcon, badgeVariant: "gold" },
   // Epic 18 (Subcontractor Management): a Site Contract's creation/status
   // change is an agreement event, not money-moving — neutral, same as DSR/
-  // Movement. Work Entry is a quantity (trips/pipes/units), also neutral.
+  // Movement. Work Entry is a quantity (trips/pipes/units), also neutral —
+  // ArrowsIcon (same as Movement/Return-Wastage) to distinguish it at a
+  // glance from the agreement-event icon above.
   SITE_CONTRACT: { label: "Contract", icon: UserIcon, badgeVariant: "neutral" },
-  WORK_ENTRY: { label: "Work Entry", icon: UserIcon, badgeVariant: "neutral" },
+  WORK_ENTRY: { label: "Work Entry", icon: ArrowsIcon, badgeVariant: "neutral" },
   // Money-moving — gold, same rule as Purchase/RMC/Expense/WasteDisposal.
   SUBCONTRACTOR_PAYMENT: { label: "Subcontractor Payment", icon: WalletIcon, badgeVariant: "gold" },
 };

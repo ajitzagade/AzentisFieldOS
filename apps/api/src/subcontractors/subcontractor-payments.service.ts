@@ -29,14 +29,26 @@ export class SubcontractorPaymentsService {
   ) {
     const contract = await this.prisma.siteContract.findUnique({
       where: { id: input.siteContractId },
+      include: { subcontractor: true },
     });
-    if (!contract) {
+    if (!contract || contract.subcontractor.deletedAt) {
       throw new BadRequestException('This Site Contract does not exist');
     }
     // AC #2: no payable cap — a Payment/Advance may legitimately exceed the
     // amount currently payable. No status/rateType restriction either
     // (unlike Work Entries): paying an advance before a contract is even
     // Active, or against a Fixed Cost contract, is realistic.
+
+    if (input.correctsId) {
+      const original = await this.prisma.subcontractorPayment.findUnique({
+        where: { id: input.correctsId },
+      });
+      if (!original || original.siteContractId !== input.siteContractId) {
+        throw new BadRequestException(
+          'The Payment being corrected does not exist on this Site Contract',
+        );
+      }
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const payment = await tx.subcontractorPayment.create({

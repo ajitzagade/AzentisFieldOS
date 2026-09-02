@@ -95,4 +95,20 @@ describe("createSubcontractorAction", () => {
 
     expect(result.formError).toBe("Something went wrong creating the Subcontractor. Please try again.");
   });
+
+  it("maps a 403 to the Owner-only message", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 403 }) as unknown as typeof fetch;
+
+    const result = await createSubcontractorAction({}, formData({ name: "Ganesh Pipeline Works" }));
+
+    expect(result.formError).toBe("Only an Owner/Admin can add a Subcontractor.");
+  });
+
+  it("returns a form error instead of throwing on a network failure", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error("network down"));
+
+    const result = await createSubcontractorAction({}, formData({ name: "Ganesh Pipeline Works" }));
+
+    expect(result.formError).toBe("Something went wrong creating the Subcontractor. Please try again.");
+  });
 });

@@ -235,7 +235,7 @@ Failure: he tries to submit a second DSR for the same Site/date before the first
 ### Flow 6 — Suresh engages a subcontractor for a stretch of pipe laying (Owner/Admin, desktop, new engagement)
 
 1. Suresh opens Riverside Residency — Phase 2's Site detail page and scrolls to the new "Subcontractors" section — empty so far for this Site.
-2. He clicks **Add Contractor**, picks Ganesh Pipeline Works from the Subcontractor picker (already in his list from a prior job), and describes the work: storm-water pipe laying, 300mm RCC pipe, north boundary drain.
+2. He clicks **Add Subcontractor**, picks Ganesh Pipeline Works from the Subcontractor picker (already in his list from a prior job), and describes the work: storm-water pipe laying, 300mm RCC pipe, north boundary drain.
 3. He doesn't yet know the exact per-pipe rate — negotiation is still underway — so he picks **Per Pipe** as the rate type, leaves the rate blank, and saves. The form doesn't fight him on this: Status defaults to **Draft**, and Draft explicitly allows incomplete terms.
 4. Two days later, rate agreed at ₹250/pipe, he opens the Site Contract and fills it in, then tries to switch Status to **Active**.
 5. **Climax:** the save succeeds without drama — every field Active requires (work category, rate, start date) is already there — and the contract is now live. If he'd tried to activate it while the rate was still blank, the form would have told him exactly which field was missing, inline, before he could get confused later wondering why Ganesh's crew wasn't showing up as billable.

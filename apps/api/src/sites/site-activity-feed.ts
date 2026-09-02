@@ -6,6 +6,18 @@ import {
 } from '../common/superseded-dsrs';
 import type { PrismaService } from '../prisma/prisma.service';
 
+// Same restatement as apps/web's quantityUnitLabel (kept local — this is
+// the only apps/api consumer, and the web version is scoped to that page's
+// own SiteContractDetail type).
+function workEntryUnitLabel(contract: {
+  rateType: string | null;
+  rateUnitLabel: string | null;
+}): string {
+  if (contract.rateType === 'PER_TRIP') return 'trips';
+  if (contract.rateType === 'PER_PIPE') return 'pipes';
+  return contract.rateUnitLabel ?? 'units';
+}
+
 // Ten separate findMany calls per page load, merged and sorted in
 // application code — Prisma has no single query that unions across these
 // distinct models, and a raw-SQL UNION isn't worth it at the data volumes
@@ -100,9 +112,15 @@ export async function getSiteActivityFeed(
     }),
     // Epic 18 (Subcontractor Management): Site Contract, Work Entry, and
     // Subcontractor Payment events, filtered by the parent SiteContract's
-    // siteId (neither WorkEntry nor Payment carries siteId directly).
+    // siteId (neither WorkEntry nor Payment carries siteId directly). A
+    // Site Contract is an agreement event on either creation or a later
+    // status change (e.g. Draft -> Active) — bounds checks createdAt OR
+    // updatedAt so a status transition days after creation still surfaces.
     prisma.siteContract.findMany({
-      where: { siteId, createdAt: bounds },
+      where: {
+        siteId,
+        OR: [{ createdAt: bounds }, { updatedAt: bounds }],
+      },
       include: { subcontractor: true },
     }),
     prisma.subcontractorWorkEntry.findMany({
@@ -205,15 +223,18 @@ export async function getSiteActivityFeed(
     ...siteContracts.map((c): FeedItem => ({
       id: c.id,
       type: 'SITE_CONTRACT',
-      occurredAt: c.createdAt.toISOString(),
-      summary: `${c.subcontractor.name} engaged${c.workCategory ? ` — ${c.workCategory}` : ''} (${c.status})`,
+      // Prisma sets updatedAt equal to createdAt on insert, then bumps it
+      // on every later PATCH — a safe single timestamp for both a fresh
+      // engagement and a later status change.
+      occurredAt: c.updatedAt.toISOString(),
+      summary: `${c.subcontractor.name} engaged${c.workCategory ? ` — ${c.workCategory}` : ''} (${c.status.replace('_', ' ').toLowerCase()})`,
       amount: null,
     })),
     ...subcontractorWorkEntries.map((e): FeedItem => ({
       id: e.id,
       type: 'WORK_ENTRY',
       occurredAt: e.workDate.toISOString(),
-      summary: `${e.siteContract.subcontractor.name} — ${e.quantity.toString()} ${e.siteContract.workCategory ?? 'work'} logged`,
+      summary: `${e.siteContract.subcontractor.name} — ${e.quantity.toString()} ${workEntryUnitLabel(e.siteContract)}${e.siteContract.workCategory ? ` (${e.siteContract.workCategory})` : ''} logged`,
       amount: null,
     })),
     ...subcontractorPayments.map((p): FeedItem => ({

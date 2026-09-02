@@ -40,7 +40,7 @@ describe("createSubcontractorPaymentAction", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it("posts an Advance that exceeds no cap and redirects to the Site Contract detail page", async () => {
+  it("posts an Advance amount as-is — no client-side cap check — and redirects to the Site Contract detail page", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
 
     await createSubcontractorPaymentAction(
@@ -68,6 +68,50 @@ describe("createSubcontractorPaymentAction", () => {
     );
 
     expect(result.formError).toBe("Only an Owner/Admin can record a Subcontractor Payment.");
+  });
+
+  it("surfaces a non-schema 400 (e.g. contract not eligible) as a form error", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { code: "SITE_CONTRACT_NOT_FOUND", message: "This Site Contract does not exist" } }),
+    }) as unknown as typeof fetch;
+
+    const result = await createSubcontractorPaymentAction(
+      "s1",
+      "c1",
+      {},
+      formData({ siteContractId: CONTRACT_ID, type: "PAYMENT", amount: "5000", paidAt: "2026-09-03" }),
+    );
+
+    expect(result.formError).toBe("This Site Contract does not exist");
+  });
+
+  it("surfaces an AMOUNT_PAID_BELOW_ZERO floor-check rejection as an inline amount error, not a generic banner", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { code: "AMOUNT_PAID_BELOW_ZERO", message: "This correction would reduce amount paid below zero." } }),
+    }) as unknown as typeof fetch;
+
+    const result = await createSubcontractorPaymentAction(
+      "s1",
+      "c1",
+      {},
+      formData({
+        siteContractId: CONTRACT_ID,
+        type: "ADVANCE",
+        amount: "-100000",
+        paidAt: "2026-09-03",
+        correctsId: CONTRACT_ID,
+        reason: "over-recorded",
+      }),
+    );
+
+    expect(result.errors).toEqual({
+      amount: ["This correction would reduce amount paid below zero."],
+    });
+    expect(result.formError).toBeUndefined();
   });
 
   it("uses a distinct flash message for a correction", async () => {

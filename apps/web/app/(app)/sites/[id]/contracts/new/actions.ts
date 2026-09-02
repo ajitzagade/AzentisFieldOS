@@ -21,15 +21,28 @@ export async function createSiteContractAction(
 
   const siteId = String(formData.get("siteId"));
 
-  const res = await authedFetch(`/site-contracts`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(parsed.data),
-  });
+  let res: Response;
+  try {
+    res = await authedFetch(`/site-contracts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed.data),
+    });
+  } catch {
+    return { formError: "Something went wrong creating the Site Contract. Please try again." };
+  }
 
   if (res.status === 400) {
-    const body = (await res.json()) as { error?: { details?: { fieldErrors?: Record<string, string[]> } } };
-    return { errors: body.error?.details?.fieldErrors ?? {} };
+    const body = (await res.json().catch(() => undefined)) as
+      | { error?: { details?: { fieldErrors?: Record<string, string[]> }; message?: string }; message?: string }
+      | undefined;
+    if (body?.error?.details?.fieldErrors) {
+      return { errors: body.error.details.fieldErrors };
+    }
+    // The Subcontractor/Site existence check throws a plain
+    // BadRequestException(message) — Nest wraps that as top-level
+    // `{ message }`, not `{ error: { message } }`.
+    return { formError: body?.error?.message ?? body?.message ?? "This Site or Subcontractor no longer exists." };
   }
 
   if (res.status === 403) {

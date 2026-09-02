@@ -8,7 +8,7 @@ import { z } from "zod";
 export const createSubcontractorWorkEntrySchema = z
   .object({
     siteContractId: z.uuid(),
-    quantity: z.number(),
+    quantity: z.number().finite(),
     workDate: z.coerce.date(),
     note: z.string().max(500).optional(),
     correctsId: z.uuid().optional(),

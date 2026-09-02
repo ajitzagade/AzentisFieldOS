@@ -24,7 +24,7 @@ export default async function RecordPaymentPage({
         / Record Payment
       </div>
       <h1 className="mb-6 text-page-title text-ink-900">Record Payment</h1>
-      <SubcontractorPaymentForm mode="new" siteId={siteId} contractId={contractId} />
+      <SubcontractorPaymentForm mode="new" siteId={siteId} contractId={contractId} amountPayable={contract.amountPayable} />
     </div>
   );
 }

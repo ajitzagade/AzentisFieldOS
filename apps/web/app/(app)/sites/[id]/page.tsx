@@ -268,9 +268,13 @@ const siteContractColumns: DataTableColumn<SiteContractRow>[] = [
     cell: (row) =>
       row.outstandingAmount === null ? (
         <span className="text-ink-500">—</span>
+      ) : row.outstandingAmount < 0 ? (
+        <span className="font-semibold text-success-700 tabular-nums">
+          Advance ₹{Math.abs(row.outstandingAmount).toLocaleString("en-IN")}
+        </span>
       ) : (
         <span className="font-semibold text-gold-700 tabular-nums">
-          ₹{Math.abs(row.outstandingAmount).toLocaleString("en-IN")}
+          ₹{row.outstandingAmount.toLocaleString("en-IN")}
         </span>
       ),
   },
@@ -477,7 +481,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
           >
             <PlusIcon className="size-4" />
-            Add Contractor
+            Add Subcontractor
           </Link>
         </div>
         <DataTable
@@ -495,7 +499,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
                     action: (
                       <Link href={`/sites/${site.id}/contracts/new`} className={cn(buttonVariants({ variant: "primary" }))}>
                         <PlusIcon className="size-4" />
-                        Add Contractor
+                        Add Subcontractor
                       </Link>
                     ),
                   }

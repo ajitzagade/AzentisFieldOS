@@ -7,12 +7,14 @@ function makeService(overrides: {
   create?: ReturnType<typeof vi.fn>;
   updateMany?: ReturnType<typeof vi.fn>;
   findMany?: ReturnType<typeof vi.fn>;
+  findUniquePayment?: ReturnType<typeof vi.fn>;
 }) {
   const findUnique = overrides.findUnique ?? vi.fn();
   const create = overrides.create ?? vi.fn();
   const updateMany =
     overrides.updateMany ?? vi.fn().mockResolvedValue({ count: 1 });
   const findMany = overrides.findMany ?? vi.fn();
+  const findUniquePayment = overrides.findUniquePayment ?? vi.fn();
 
   const tx: {
     subcontractorPayment: { create: typeof create };
@@ -23,7 +25,7 @@ function makeService(overrides: {
   };
   const prisma = {
     siteContract: { findUnique },
-    subcontractorPayment: { findMany },
+    subcontractorPayment: { findMany, findUnique: findUniquePayment },
     $transaction: vi.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
   };
 
@@ -35,7 +37,12 @@ function makeService(overrides: {
   return { service, prisma, tx };
 }
 
-const DRAFT_CONTRACT = { id: 'c1', status: 'DRAFT', rateType: null };
+const DRAFT_CONTRACT = {
+  id: 'c1',
+  status: 'DRAFT',
+  rateType: null,
+  subcontractor: { id: 'sc1', deletedAt: null },
+};
 
 describe('SubcontractorPaymentsService.create', () => {
   it('rejects when the target Site Contract does not exist', async () => {
@@ -50,6 +57,71 @@ describe('SubcontractorPaymentsService.create', () => {
           type: 'ADVANCE',
           amount: 5000,
           paidAt: new Date(),
+        } as never,
+        'u1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects when the target Site Contract's parent Subcontractor is soft-deleted", async () => {
+    const { service } = makeService({
+      findUnique: vi.fn().mockResolvedValue({
+        ...DRAFT_CONTRACT,
+        subcontractor: { id: 'sc1', deletedAt: new Date() },
+      }),
+    });
+
+    await expect(
+      service.create(
+        {
+          siteContractId: 'c1',
+          type: 'ADVANCE',
+          amount: 5000,
+          paidAt: new Date(),
+        } as never,
+        'u1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects a correctsId that does not reference an existing Payment', async () => {
+    const { service } = makeService({
+      findUnique: vi.fn().mockResolvedValue(DRAFT_CONTRACT),
+      findUniquePayment: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(
+      service.create(
+        {
+          siteContractId: 'c1',
+          type: 'ADVANCE',
+          amount: -1000,
+          paidAt: new Date(),
+          correctsId: 'missing-payment',
+          reason: 'typo',
+        } as never,
+        'u1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects a correctsId that belongs to a different Site Contract', async () => {
+    const { service } = makeService({
+      findUnique: vi.fn().mockResolvedValue(DRAFT_CONTRACT),
+      findUniquePayment: vi
+        .fn()
+        .mockResolvedValue({ id: 'p1', siteContractId: 'other-contract' }),
+    });
+
+    await expect(
+      service.create(
+        {
+          siteContractId: 'c1',
+          type: 'ADVANCE',
+          amount: -1000,
+          paidAt: new Date(),
+          correctsId: 'p1',
+          reason: 'typo',
         } as never,
         'u1',
       ),
@@ -116,6 +188,9 @@ describe('SubcontractorPaymentsService.create', () => {
     const { service } = makeService({
       findUnique: vi.fn().mockResolvedValue(DRAFT_CONTRACT),
       updateMany,
+      findUniquePayment: vi
+        .fn()
+        .mockResolvedValue({ id: 'p1', siteContractId: 'c1' }),
     });
 
     await expect(

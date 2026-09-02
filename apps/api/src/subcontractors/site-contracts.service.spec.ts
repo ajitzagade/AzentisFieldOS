@@ -9,15 +9,25 @@ function makeService(overrides: {
   findMany?: ReturnType<typeof vi.fn>;
   create?: ReturnType<typeof vi.fn>;
   count?: ReturnType<typeof vi.fn>;
+  findUniqueSubcontractor?: ReturnType<typeof vi.fn>;
+  findUniqueSite?: ReturnType<typeof vi.fn>;
 }) {
   const findUnique = overrides.findUnique ?? vi.fn();
   const update = overrides.update ?? vi.fn();
   const findMany = overrides.findMany ?? vi.fn();
   const create = overrides.create ?? vi.fn();
   const count = overrides.count ?? vi.fn();
+  const findUniqueSubcontractor =
+    overrides.findUniqueSubcontractor ??
+    vi.fn().mockResolvedValue({ id: 'sc1', deletedAt: null });
+  const findUniqueSite =
+    overrides.findUniqueSite ??
+    vi.fn().mockResolvedValue({ id: 's1', deletedAt: null });
 
   const prisma = {
     siteContract: { findUnique, update, findMany, create, count },
+    subcontractor: { findUnique: findUniqueSubcontractor },
+    site: { findUnique: findUniqueSite },
   };
   const service = new SiteContractsService(
     prisma as unknown as ConstructorParameters<typeof SiteContractsService>[0],
@@ -49,6 +59,76 @@ const LIVE_DRAFT_COMPLETE_TERMS = {
   status: 'DRAFT',
   startDate: new Date('2026-09-08'),
 };
+
+describe('SiteContractsService.create', () => {
+  it('rejects when the Subcontractor does not exist', async () => {
+    const { service } = makeService({
+      findUniqueSubcontractor: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(
+      service.create({ subcontractorId: 'missing', siteId: 's1' } as never),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects when the Subcontractor is soft-deleted', async () => {
+    const { service } = makeService({
+      findUniqueSubcontractor: vi
+        .fn()
+        .mockResolvedValue({ id: 'sc1', deletedAt: new Date() }),
+    });
+
+    await expect(
+      service.create({ subcontractorId: 'sc1', siteId: 's1' } as never),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects when the Site does not exist', async () => {
+    const { service } = makeService({
+      findUniqueSite: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(
+      service.create({ subcontractorId: 'sc1', siteId: 'missing' } as never),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects when the Site is soft-deleted', async () => {
+    const { service } = makeService({
+      findUniqueSite: vi
+        .fn()
+        .mockResolvedValue({ id: 's1', deletedAt: new Date() }),
+    });
+
+    await expect(
+      service.create({ subcontractorId: 'sc1', siteId: 's1' } as never),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('creates the contract once both parents exist and are active', async () => {
+    const create = vi.fn().mockResolvedValue({
+      id: 'c1',
+      subcontractorId: 'sc1',
+      siteId: 's1',
+      rateType: null,
+      rate: null,
+      fixedAmount: null,
+      quantityCompleted: new Prisma.Decimal(0),
+      amountPaid: new Prisma.Decimal(0),
+    });
+    const { service } = makeService({ create });
+
+    const result = await service.create({
+      subcontractorId: 'sc1',
+      siteId: 's1',
+    } as never);
+
+    expect(create).toHaveBeenCalledWith({
+      data: { subcontractorId: 'sc1', siteId: 's1' },
+    });
+    expect(result).toMatchObject({ id: 'c1' });
+  });
+});
 
 describe('SiteContractsService.list', () => {
   it('filters by siteId, subcontractorId, and status together', async () => {
@@ -96,6 +176,18 @@ describe('SiteContractsService.findOne', () => {
       findUnique: vi.fn().mockResolvedValue({
         id: 'c1',
         subcontractor: { id: 'sc1', deletedAt: new Date() },
+      }),
+    });
+
+    await expect(service.findOne('c1')).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws NotFoundException when the parent Site is soft-deleted', async () => {
+    const { service } = makeService({
+      findUnique: vi.fn().mockResolvedValue({
+        id: 'c1',
+        subcontractor: { id: 'sc1', deletedAt: null },
+        site: { id: 's1', deletedAt: new Date() },
       }),
     });
 
@@ -202,6 +294,42 @@ describe('SiteContractsService.update — ACTIVE-requires-terms merged check', (
     await service.update('c1', { description: 'updated' });
 
     expect(update).toHaveBeenCalled();
+  });
+
+  it('rejects switching rateType to FIXED_COST via PATCH without a fixedAmount, even with a stale rate left on the stored row', async () => {
+    const findUnique = vi.fn().mockResolvedValue({
+      ...LIVE_DRAFT_COMPLETE_TERMS,
+      status: 'DRAFT',
+    });
+    const { service } = makeService({ findUnique });
+
+    await expect(
+      service.update('c1', { rateType: 'FIXED_COST' } as never),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects a stale per-unit rate left over from a prior term once switched to FIXED_COST with an amount', async () => {
+    const findUnique = vi.fn().mockResolvedValue({
+      ...LIVE_DRAFT_COMPLETE_TERMS,
+      status: 'DRAFT',
+    });
+    const { service } = makeService({ findUnique });
+
+    try {
+      await service.update('c1', {
+        rateType: 'FIXED_COST',
+        fixedAmount: 50000,
+      } as never);
+      expect.unreachable();
+    } catch (error) {
+      const body = (error as BadRequestException).getResponse() as {
+        error: { details: { fieldErrors: Record<string, string[]> } };
+      };
+      // The PATCH only sends rateType/fixedAmount; the stored `rate` from
+      // the prior PER_PIPE term is still present on the merged record and
+      // is now inconsistent with FIXED_COST.
+      expect(body.error.details.fieldErrors).toHaveProperty('rate');
+    }
   });
 
   it('throws NotFoundException, not a raw 500, when Prisma reports P2025', async () => {

@@ -23,9 +23,48 @@ export const contractStatusSchema = z.enum([
 
 export type ContractStatusInput = z.infer<typeof contractStatusSchema>;
 
-// Shared field-combination rules for both create and update — applied by
-// the exported superRefine helper below, not duplicated between the two
-// schemas.
+// Shared field-combination rules for both create and update, and for
+// SiteContractsService.update's merged-record re-check — returns plain
+// issues (same pattern as collectActiveRequiredIssues below) so one
+// implementation serves both a zod superRefine and a non-zod merged-record
+// check without a fake RefinementCtx at either call site.
+function collectRateTypeIssues(data: {
+  rateType?: RateType | null;
+  rate?: number | null;
+  fixedAmount?: number | null;
+  rateUnitLabel?: string | null;
+}): FieldIssue[] {
+  if (!data.rateType) return [];
+
+  const issues: FieldIssue[] = [];
+
+  if (data.rateType === "FIXED_COST") {
+    if (data.fixedAmount === undefined || data.fixedAmount === null) {
+      issues.push({ path: "fixedAmount", message: "Fixed Cost requires a total contract amount" });
+    }
+    if (data.rate !== undefined && data.rate !== null) {
+      issues.push({ path: "rate", message: "Fixed Cost does not use a per-unit rate" });
+    }
+    if (data.rateUnitLabel) {
+      issues.push({ path: "rateUnitLabel", message: "Fixed Cost does not use a unit label" });
+    }
+    return issues;
+  }
+
+  // PER_TRIP | PER_PIPE | PER_UNIT | CUSTOM all require a rate; only
+  // PER_UNIT and CUSTOM additionally require a unit label.
+  if (data.rate === undefined || data.rate === null) {
+    issues.push({ path: "rate", message: `${data.rateType} requires a rate` });
+  }
+  if (data.fixedAmount !== undefined && data.fixedAmount !== null) {
+    issues.push({ path: "fixedAmount", message: `${data.rateType} does not use a fixed amount` });
+  }
+  if ((data.rateType === "PER_UNIT" || data.rateType === "CUSTOM") && !data.rateUnitLabel) {
+    issues.push({ path: "rateUnitLabel", message: `${data.rateType} requires a unit label` });
+  }
+  return issues;
+}
+
 function checkRateTypeFields(
   data: {
     rateType?: RateType | null;
@@ -35,31 +74,8 @@ function checkRateTypeFields(
   },
   ctx: z.RefinementCtx,
 ) {
-  if (!data.rateType) return;
-
-  if (data.rateType === "FIXED_COST") {
-    if (data.fixedAmount === undefined || data.fixedAmount === null) {
-      ctx.addIssue({ code: "custom", path: ["fixedAmount"], message: "Fixed Cost requires a total contract amount" });
-    }
-    if (data.rate !== undefined && data.rate !== null) {
-      ctx.addIssue({ code: "custom", path: ["rate"], message: "Fixed Cost does not use a per-unit rate" });
-    }
-    if (data.rateUnitLabel) {
-      ctx.addIssue({ code: "custom", path: ["rateUnitLabel"], message: "Fixed Cost does not use a unit label" });
-    }
-    return;
-  }
-
-  // PER_TRIP | PER_PIPE | PER_UNIT | CUSTOM all require a rate; only
-  // PER_UNIT and CUSTOM additionally require a unit label.
-  if (data.rate === undefined || data.rate === null) {
-    ctx.addIssue({ code: "custom", path: ["rate"], message: `${data.rateType} requires a rate` });
-  }
-  if (data.fixedAmount !== undefined && data.fixedAmount !== null) {
-    ctx.addIssue({ code: "custom", path: ["fixedAmount"], message: `${data.rateType} does not use a fixed amount` });
-  }
-  if ((data.rateType === "PER_UNIT" || data.rateType === "CUSTOM") && !data.rateUnitLabel) {
-    ctx.addIssue({ code: "custom", path: ["rateUnitLabel"], message: `${data.rateType} requires a unit label` });
+  for (const issue of collectRateTypeIssues(data)) {
+    ctx.addIssue({ code: "custom", path: [issue.path], message: issue.message });
   }
 }
 
@@ -118,8 +134,8 @@ export const createSiteContractSchema = z
     description: z.string().max(1000).optional(),
     rateType: rateTypeSchema.optional(),
     rateUnitLabel: z.string().max(100).optional(),
-    rate: z.number().positive().optional(),
-    fixedAmount: z.number().positive().optional(),
+    rate: z.number().positive().finite().optional(),
+    fixedAmount: z.number().positive().finite().optional(),
     estimatedQuantity: z.number().positive().optional(),
     status: contractStatusSchema.default("DRAFT"),
     startDate: z.coerce.date().optional(),
@@ -149,8 +165,8 @@ export const updateSiteContractSchema = z
     description: z.string().max(1000).nullable(),
     rateType: rateTypeSchema.nullable(),
     rateUnitLabel: z.string().max(100).nullable(),
-    rate: z.number().positive().nullable(),
-    fixedAmount: z.number().positive().nullable(),
+    rate: z.number().positive().finite().nullable(),
+    fixedAmount: z.number().positive().finite().nullable(),
     estimatedQuantity: z.number().positive().nullable(),
     status: contractStatusSchema,
     startDate: z.coerce.date().nullable(),
@@ -166,7 +182,7 @@ export const updateSiteContractSchema = z
 
 export type UpdateSiteContractInput = z.infer<typeof updateSiteContractSchema>;
 
-// Exported so SiteContractsService can re-run the ACTIVE-requires-terms
-// check against a full merged record (existing row + this PATCH's fields)
-// without duplicating the rule.
-export { collectActiveRequiredIssues };
+// Exported so SiteContractsService can re-run the ACTIVE-requires-terms and
+// rate-type-consistency checks against a full merged record (existing row +
+// this PATCH's fields) without duplicating either rule.
+export { collectActiveRequiredIssues, collectRateTypeIssues };

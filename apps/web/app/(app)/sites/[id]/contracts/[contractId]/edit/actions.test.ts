@@ -69,6 +69,20 @@ describe("updateSiteContractAction", () => {
     expect(result.formError).toBe("This Site Contract no longer exists.");
   });
 
+  it("never sends subcontractorId — the engaged Subcontractor is not reassignable via this form, even if a value was submitted", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+
+    await updateSiteContractAction(
+      "s1",
+      "c1",
+      {},
+      formData({ status: "DRAFT", subcontractorId: "a-different-subcontractor" }),
+    );
+
+    const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]![1].body as string) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("subcontractorId");
+  });
+
   it("maps a 403 to the Owner-only message", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 403 }) as unknown as typeof fetch;
 

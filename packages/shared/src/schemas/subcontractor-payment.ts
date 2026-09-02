@@ -15,7 +15,7 @@ export const createSubcontractorPaymentSchema = z
   .object({
     siteContractId: z.uuid(),
     type: subcontractorPaymentTypeSchema,
-    amount: z.number(),
+    amount: z.number().finite(),
     paymentMethod: z.string().max(100).optional(),
     paidAt: z.coerce.date(),
     note: z.string().max(500).optional(),

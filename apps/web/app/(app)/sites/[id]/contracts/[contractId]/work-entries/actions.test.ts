@@ -94,4 +94,30 @@ describe("createWorkEntryAction", () => {
 
     expect(result.formError).toBe("Work Entries can only be recorded against an Active Site Contract");
   });
+
+  it("surfaces a QUANTITY_BELOW_ZERO floor-check rejection as an inline quantity error, not a generic banner", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { code: "QUANTITY_BELOW_ZERO", message: "This correction would reduce completed quantity below zero." } }),
+    }) as unknown as typeof fetch;
+
+    const result = await createWorkEntryAction(
+      "s1",
+      "c1",
+      {},
+      formData({
+        siteContractId: CONTRACT_ID,
+        quantity: "-500",
+        workDate: "2026-09-08",
+        correctsId: CONTRACT_ID,
+        reason: "over-counted",
+      }),
+    );
+
+    expect(result.errors).toEqual({
+      quantity: ["This correction would reduce completed quantity below zero."],
+    });
+    expect(result.formError).toBeUndefined();
+  });
 });

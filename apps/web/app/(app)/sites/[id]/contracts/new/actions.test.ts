@@ -110,4 +110,41 @@ describe("createSiteContractAction", () => {
 
     expect(result.errors).toEqual({ workCategory: ["Too long"] });
   });
+
+  it("maps a 403 to the Owner-only message", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 403 }) as unknown as typeof fetch;
+
+    const result = await createSiteContractAction(
+      {},
+      formData({ siteId: "11111111-1111-4111-8111-111111111111", subcontractorId: "22222222-2222-4222-8222-222222222222", status: "DRAFT" }),
+    );
+
+    expect(result.formError).toBe("Only an Owner/Admin can engage a Subcontractor.");
+  });
+
+  it("surfaces a plain-message 400 (e.g. Subcontractor/Site no longer exists) as a form error", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ message: "This Subcontractor does not exist" }),
+    }) as unknown as typeof fetch;
+
+    const result = await createSiteContractAction(
+      {},
+      formData({ siteId: "11111111-1111-4111-8111-111111111111", subcontractorId: "22222222-2222-4222-8222-222222222222", status: "DRAFT" }),
+    );
+
+    expect(result.formError).toBe("This Subcontractor does not exist");
+  });
+
+  it("returns a form error instead of throwing on a network failure", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error("network down"));
+
+    const result = await createSiteContractAction(
+      {},
+      formData({ siteId: "11111111-1111-4111-8111-111111111111", subcontractorId: "22222222-2222-4222-8222-222222222222", status: "DRAFT" }),
+    );
+
+    expect(result.formError).toBe("Something went wrong creating the Site Contract. Please try again.");
+  });
 });

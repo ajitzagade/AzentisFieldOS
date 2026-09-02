@@ -1,11 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Reflector } from '@nestjs/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createSubcontractorSchema,
   updateSubcontractorSchema,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
+import { ROLES_KEY } from '../auth/roles.decorator';
 import { SubcontractorsController } from './subcontractors.controller';
 import { SubcontractorsService } from './subcontractors.service';
 
@@ -91,6 +93,41 @@ describe('SubcontractorsController', () => {
 
     expect(service.contracts).toHaveBeenCalledWith('1');
     expect(result).toEqual([{ id: 'c1' }]);
+  });
+});
+
+// Reading decorator metadata off a method reference (never invoking it) is
+// safe — see the established pattern for these authorization-wiring tests
+// in subcontractors-soft-delete.spec.ts / site-contracts.controller.spec.ts.
+/* eslint-disable @typescript-eslint/unbound-method */
+describe('SubcontractorsController authorization wiring', () => {
+  const reflector = new Reflector();
+
+  it('create/update carry their own OWNER_ADMIN restriction — FR-55', () => {
+    expect(
+      reflector.get(ROLES_KEY, SubcontractorsController.prototype.create),
+    ).toEqual(['OWNER_ADMIN']);
+    expect(
+      reflector.get(ROLES_KEY, SubcontractorsController.prototype.update),
+    ).toEqual(['OWNER_ADMIN']);
+  });
+
+  it('list/findOne/contracts carry no @Roles() metadata — open to both roles for entry-form pickers', () => {
+    expect(
+      reflector.get(ROLES_KEY, SubcontractorsController.prototype.list),
+    ).toBeUndefined();
+    expect(
+      reflector.get(ROLES_KEY, SubcontractorsController.prototype.findOne),
+    ).toBeUndefined();
+    expect(
+      reflector.get(ROLES_KEY, SubcontractorsController.prototype.contracts),
+    ).toBeUndefined();
+  });
+
+  it('remove keeps its existing OWNER_ADMIN restriction (soft delete)', () => {
+    expect(
+      reflector.get(ROLES_KEY, SubcontractorsController.prototype.remove),
+    ).toEqual(['OWNER_ADMIN']);
   });
 });
 

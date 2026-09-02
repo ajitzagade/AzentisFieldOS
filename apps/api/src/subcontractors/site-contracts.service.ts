@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import {
   collectActiveRequiredIssues,
+  collectRateTypeIssues,
+  contractStatusSchema,
   type CreateSiteContractInput,
   type UpdateSiteContractInput,
 } from '@azentisfieldos/shared';
@@ -35,19 +37,36 @@ export class SiteContractsService {
   }
 
   async create(input: CreateSiteContractInput) {
+    const subcontractor = await this.prisma.subcontractor.findUnique({
+      where: { id: input.subcontractorId },
+    });
+    if (!subcontractor || subcontractor.deletedAt) {
+      throw new BadRequestException('This Subcontractor does not exist');
+    }
+    const site = await this.prisma.site.findUnique({
+      where: { id: input.siteId },
+    });
+    if (!site || site.deletedAt) {
+      throw new BadRequestException('This Site does not exist');
+    }
+
     const contract = await this.prisma.siteContract.create({ data: input });
     return this.withComputed(contract);
   }
 
   async list(query: SiteContractsListQuery = {}) {
+    const parsedStatus = query.status
+      ? contractStatusSchema.safeParse(query.status)
+      : undefined;
+    if (parsedStatus && !parsedStatus.success) {
+      throw new BadRequestException(`Invalid status filter: ${query.status}`);
+    }
     const where: Prisma.SiteContractWhereInput = {
       ...(query.siteId ? { siteId: query.siteId } : {}),
       ...(query.subcontractorId
         ? { subcontractorId: query.subcontractorId }
         : {}),
-      ...(query.status
-        ? { status: query.status as SiteContract['status'] }
-        : {}),
+      ...(parsedStatus?.success ? { status: parsedStatus.data } : {}),
     };
     const contracts = await this.prisma.siteContract.findMany({
       where,
@@ -62,7 +81,11 @@ export class SiteContractsService {
       where: { id },
       include: { subcontractor: true, site: true },
     });
-    if (!contract || contract.subcontractor.deletedAt) {
+    if (
+      !contract ||
+      contract.subcontractor.deletedAt ||
+      contract.site.deletedAt
+    ) {
       throw new NotFoundException(`Site Contract ${id} not found`);
     }
     return this.withComputed(contract);
@@ -94,6 +117,10 @@ export class SiteContractsService {
         input.fixedAmount !== undefined
           ? input.fixedAmount
           : existing.fixedAmount?.toNumber(),
+      rateUnitLabel:
+        input.rateUnitLabel !== undefined
+          ? input.rateUnitLabel
+          : existing.rateUnitLabel,
       startDate:
         input.startDate !== undefined ? input.startDate : existing.startDate,
       status: (input.status !== undefined
@@ -101,7 +128,10 @@ export class SiteContractsService {
         : existing.status) as UpdateSiteContractInput['status'],
     };
 
-    const issues = collectActiveRequiredIssues(merged);
+    const issues = [
+      ...collectRateTypeIssues(merged),
+      ...collectActiveRequiredIssues(merged),
+    ];
     if (issues.length > 0) {
       const fieldErrors: Record<string, string[]> = {};
       for (const issue of issues) {
