@@ -24,14 +24,21 @@ async function bootstrap() {
   // means ANY website can make authenticated cross-origin requests on a
   // visitor's behalf. Fail loud instead of silently allowing that — the
   // fallback stays permissive only outside production, for local dev.
-  const corsOrigin = process.env.CORS_ORIGIN?.split(',');
-  if (!corsOrigin && process.env.NODE_ENV === 'production') {
+  // Trim + drop empty entries: an env var set to "" (present but blank —
+  // easy to do by accident in a dashboard UI) must be treated the same as
+  // unset, not as "one allowed origin equal to the empty string" (which
+  // `"".split(',')` would otherwise produce, silently rejecting every real
+  // origin instead of failing loudly).
+  const corsOrigin = process.env.CORS_ORIGIN?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  if ((!corsOrigin || corsOrigin.length === 0) && process.env.NODE_ENV === 'production') {
     throw new Error(
       'CORS_ORIGIN must be set in production (comma-separated allowed origins) — refusing to start with an allow-any-origin fallback.',
     );
   }
   app.enableCors({
-    origin: corsOrigin ?? true,
+    origin: corsOrigin && corsOrigin.length > 0 ? corsOrigin : true,
     credentials: true,
   });
   await app.listen(process.env.PORT ?? 3001);
