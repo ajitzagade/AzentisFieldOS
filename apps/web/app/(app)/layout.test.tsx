@@ -55,7 +55,10 @@ describe("AppLayout role resolution", () => {
     mockMe("OWNER_ADMIN");
     await renderLayout();
 
-    expect(screen.getByRole("link", { name: /Dashboard/ })).toBeInTheDocument();
+    // "Dashboard" now appears twice for OWNER_ADMIN — once in the full
+    // sidebar, once in Story 19.4's Owner mobile quick-bar — matching the
+    // existing Supervisor "Home" assertion's getAllByRole precedent above.
+    expect(screen.getAllByRole("link", { name: /Dashboard/ }).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /Settings/ })).toBeInTheDocument();
   });
 

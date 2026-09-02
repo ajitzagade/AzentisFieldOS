@@ -24,7 +24,7 @@ const vendor: VendorRow = {
   id: "v1",
   name: "Anand RMC Suppliers",
   contactPerson: null,
-  phone: null,
+  phone: "9876543210",
   email: null,
   address: null,
   materialsSupplied: [],
@@ -44,9 +44,21 @@ function renderClient(overrides: Partial<Parameters<typeof VendorsListClient>[0]
 }
 
 describe("VendorsListClient", () => {
-  it("renders every row", () => {
+  it("renders every row in the desktop table and as a mobile card", () => {
     renderClient();
-    expect(screen.getByText("Anand RMC Suppliers")).toBeInTheDocument();
+    // Once in the md+ table row, once as the below-md card's primary line.
+    expect(screen.getAllByText("Anand RMC Suppliers")).toHaveLength(2);
+  });
+
+  it("renders the previously-clipping Phone column as a card label/value row below md, unchanged in the desktop table", () => {
+    renderClient();
+    expect(screen.getAllByText("9876543210")).toHaveLength(2);
+    const list = screen.getByRole("list");
+    expect(within(list).getByText("Phone")).toBeInTheDocument();
+    expect(within(list).getByText("9876543210")).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Phone")).toBeInTheDocument();
+    expect(within(table).getByText("9876543210")).toBeInTheDocument();
   });
 
   it("debounces the search box before writing to the URL", () => {
@@ -69,14 +81,14 @@ describe("VendorsListClient", () => {
 
   it("shows the zero-Vendors-ever empty state with no active search", () => {
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Vendors yet.")).toBeInTheDocument();
+    expect(screen.getAllByText("No Vendors yet.")).toHaveLength(2);
   });
 
   it("shows the no-matches empty state with Clear filters when a search is active", () => {
     hookState = { q: "nonexistent" };
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Vendors match your search.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getAllByText("No Vendors match your search.")).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]!);
     expect(clearAll).toHaveBeenCalledOnce();
   });
 

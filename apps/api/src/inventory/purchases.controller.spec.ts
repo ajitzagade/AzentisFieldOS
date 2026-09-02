@@ -58,13 +58,25 @@ describe('PurchasesController', () => {
     expect(result).toEqual({ id: '1', ...input });
   });
 
-  it('list delegates to PurchasesService.list', async () => {
+  it('list delegates to PurchasesService.list with pendingPricing false when the query param is absent', async () => {
     service.list.mockResolvedValue([{ id: '1' }]);
 
     const result = await controller.list();
 
-    expect(service.list).toHaveBeenCalled();
+    expect(service.list).toHaveBeenCalledWith({ pendingPricing: false });
     expect(result).toEqual([{ id: '1' }]);
+  });
+
+  // Story 19.5: `?pendingPricing=true` is the only recognized truthy value —
+  // this is the deep-link fetch the Owner Dashboard makes when exactly one
+  // Purchase is pending.
+  it("list passes pendingPricing: true through when the query param is the string 'true'", async () => {
+    service.list.mockResolvedValue([{ id: 'p1' }]);
+
+    const result = await controller.list('true');
+
+    expect(service.list).toHaveBeenCalledWith({ pendingPricing: true });
+    expect(result).toEqual([{ id: 'p1' }]);
   });
 
   it('findOne delegates to PurchasesService.findOne', async () => {

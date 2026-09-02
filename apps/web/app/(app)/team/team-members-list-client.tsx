@@ -1,7 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { Badge, Button, DataTable, Pagination, TextField, UsersIcon, buttonVariants, cn, PlusIcon, type DataTableColumn } from "@azentisfieldos/ui";
+import {
+  Badge,
+  Button,
+  DataTable,
+  Pagination,
+  TextField,
+  UsersIcon,
+  buttonVariants,
+  cn,
+  PlusIcon,
+  type DataTableColumn,
+  type DataTableMobileCard,
+} from "@azentisfieldos/ui";
 import { useListQueryState } from "../../../lib/use-list-query-state";
 import { useDebouncedSearch } from "../../../lib/use-debounced-search";
 import type { TeamMemberListItem } from "./page";
@@ -41,6 +53,11 @@ const columns: DataTableColumn<TeamMemberListItem>[] = [
   { header: "Current / Last Site", cell: (t) => t.currentOrLastSite ?? <span className="text-ink-500">—</span> },
 ];
 
+const mobileCard: DataTableMobileCard<TeamMemberListItem> = {
+  primary: (t) => t.name,
+  omitHeaders: ["Name"],
+};
+
 export function TeamMembersListClient({
   rows,
   total,
@@ -71,6 +88,7 @@ export function TeamMembersListClient({
 
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(t) => t.id}
         rowHref={(t) => `/team/${t.id}`}
         sort={query.sort ? { key: query.sort, order: query.order ?? "asc" } : undefined}

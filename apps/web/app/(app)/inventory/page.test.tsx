@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import InventoryPage from "./page";
 
@@ -114,8 +114,9 @@ describe("InventoryPage", () => {
     await renderInventoryPage();
 
     expect(screen.queryByText("Low")).not.toBeInTheDocument();
-    expect(screen.getByText("RCC Pipe")).toBeInTheDocument();
-    expect(screen.getByText("300mm")).toBeInTheDocument();
+    const table = within(screen.getAllByRole("table")[0]!);
+    expect(table.getByText("RCC Pipe")).toBeInTheDocument();
+    expect(table.getByText("300mm")).toBeInTheDocument();
   });
 
   it("renders Site Stock rows fetched per-Site and flattened into one table", async () => {
@@ -146,11 +147,12 @@ describe("InventoryPage", () => {
 
     await renderInventoryPage();
 
-    expect(screen.getByText("NH-48 Highway Widening")).toBeInTheDocument();
-    expect(screen.getByText("Cement (OPC 53 Grade)")).toBeInTheDocument();
-    expect(screen.getByText("64 Bags")).toBeInTheDocument();
-    expect(screen.getByText("Sector 12 Metro Depot")).toBeInTheDocument();
-    expect(screen.getByText("22 Pcs")).toBeInTheDocument();
+    const siteTable = within(screen.getAllByRole("table")[1]!);
+    expect(siteTable.getByText("NH-48 Highway Widening")).toBeInTheDocument();
+    expect(siteTable.getByText("Cement (OPC 53 Grade)")).toBeInTheDocument();
+    expect(siteTable.getByText("64 Bags")).toBeInTheDocument();
+    expect(siteTable.getByText("Sector 12 Metro Depot")).toBeInTheDocument();
+    expect(siteTable.getByText("22 Pcs")).toBeInTheDocument();
   });
 
   it("renders empty states for both Stock Levels tables when there is no data", async () => {
@@ -158,8 +160,61 @@ describe("InventoryPage", () => {
 
     await renderInventoryPage();
 
-    expect(screen.getByText("No Godown Stock recorded yet.")).toBeInTheDocument();
-    expect(screen.getByText("No Site Stock recorded yet.")).toBeInTheDocument();
+    // Rendered as both the desktop table panel and the mobile card panel.
+    expect(screen.getAllByText("No Godown Stock recorded yet.")).toHaveLength(2);
+    expect(screen.getAllByText("No Site Stock recorded yet.")).toHaveLength(2);
+  });
+
+  it("renders the previously-clipping Qty columns as card label/value rows below md, unchanged in the desktop tables (Story 19.8)", async () => {
+    mockFetchRouter({
+      godownStock: [
+        {
+          materialSizeId: "ms1",
+          quantity: "120",
+          materialSize: { label: "", material: { name: "Cement", unit: { name: "Bags" } } },
+        },
+      ],
+      sites: [{ id: "site1", name: "NH-48 Highway Widening" }],
+      siteStockBySite: {
+        site1: [
+          {
+            materialSizeId: "ms2",
+            quantity: "64",
+            site: { id: "site1", name: "NH-48 Highway Widening" },
+            materialSize: { label: "", material: { name: "Cement", unit: { name: "Bags" } } },
+          },
+        ],
+      },
+    });
+
+    await renderInventoryPage();
+
+    // Desktop tables (unchanged) plus one mobile card list per DataTable.
+    const tables = screen.getAllByRole("table");
+    const lists = screen.getAllByRole("list");
+    expect(tables).toHaveLength(2);
+    expect(lists).toHaveLength(2);
+
+    const [godownTable, siteTable] = tables;
+    const [godownList, siteList] = lists;
+
+    expect(within(godownTable!).getByText("Qty on Hand")).toBeInTheDocument();
+    expect(within(godownTable!).getByText("120")).toBeInTheDocument();
+    expect(within(godownList!).getByText("Qty on Hand")).toBeInTheDocument();
+    expect(within(godownList!).getByText("120")).toBeInTheDocument();
+
+    expect(within(siteTable!).getByText("Qty")).toBeInTheDocument();
+    expect(within(siteTable!).getByText("64 Bags")).toBeInTheDocument();
+    expect(within(siteList!).getByText("Qty")).toBeInTheDocument();
+    expect(within(siteList!).getByText("64 Bags")).toBeInTheDocument();
+
+    // Site Stock's mobile card primary line folds Material and Site
+    // together ("Cement · NH-48 Highway Widening"); both headers are
+    // omitted from the card's detail rows, but the table still shows them.
+    expect(within(siteList!).queryByText("Material")).not.toBeInTheDocument();
+    expect(within(siteList!).queryByText("Site")).not.toBeInTheDocument();
+    expect(within(siteTable!).getByText("Material")).toBeInTheDocument();
+    expect(within(siteTable!).getByText("Site")).toBeInTheDocument();
   });
 
   it("links the header action to the Movement entry form", async () => {

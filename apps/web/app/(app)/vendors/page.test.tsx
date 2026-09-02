@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import VendorsPage from "./page";
 
@@ -62,11 +62,12 @@ describe("VendorsPage", () => {
 
     await renderVendorsPage();
 
-    expect(screen.getByText("Shree Balaji Traders")).toBeInTheDocument();
-    expect(screen.getByText("Vikram Shah")).toBeInTheDocument();
-    expect(screen.getByText("Cement")).toBeInTheDocument();
-    expect(screen.getByText("Steel")).toBeInTheDocument();
-    expect(screen.getByText("₹18,42,300")).toBeInTheDocument();
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Shree Balaji Traders")).toBeInTheDocument();
+    expect(table.getByText("Vikram Shah")).toBeInTheDocument();
+    expect(table.getByText("Cement")).toBeInTheDocument();
+    expect(table.getByText("Steel")).toBeInTheDocument();
+    expect(table.getByText("₹18,42,300")).toBeInTheDocument();
   });
 
   it("links each row to its Vendor detail route", async () => {
@@ -77,7 +78,8 @@ describe("VendorsPage", () => {
 
     await renderVendorsPage();
 
-    expect(screen.getByText("Om Steel Corporation").closest("a")).toHaveAttribute("href", "/vendors/abc");
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Om Steel Corporation").closest("a")).toHaveAttribute("href", "/vendors/abc");
   });
 
   it("shows Fully Paid when nothing is outstanding, and the honest 'not marked Paid' figure otherwise", async () => {
@@ -94,8 +96,9 @@ describe("VendorsPage", () => {
 
     await renderVendorsPage();
 
-    expect(screen.getByText("Fully Paid")).toBeInTheDocument();
-    expect(screen.getByText("₹1,24,500 not marked Paid")).toBeInTheDocument();
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Fully Paid")).toBeInTheDocument();
+    expect(table.getByText("₹1,24,500 not marked Paid")).toBeInTheDocument();
   });
 
   it("renders the empty state with an add-first-Vendor action when there are zero Vendors", async () => {
@@ -103,8 +106,9 @@ describe("VendorsPage", () => {
 
     await renderVendorsPage();
 
-    expect(screen.getByText("No Vendors yet.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Add your first Vendor/ })).toHaveAttribute("href", "/vendors/new");
+    // Rendered as both the desktop table panel and the mobile card panel.
+    expect(screen.getAllByText("No Vendors yet.")).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Add your first Vendor/ })[0]).toHaveAttribute("href", "/vendors/new");
   });
 
   it("renders the Add Vendor link in the page header", async () => {

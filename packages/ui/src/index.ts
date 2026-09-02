@@ -19,6 +19,7 @@ export * from "./components/tags-field";
 export * from "./components/details-disclosure";
 export * from "./components/search-palette";
 export * from "./components/advance-quick-entry-modal";
+export * from "./components/quick-add-sheet";
 export * from "./components/toast";
 export * from "./lib/amount-in-words";
 export * from "./icons";

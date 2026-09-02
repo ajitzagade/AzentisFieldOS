@@ -107,6 +107,13 @@ export class PurchasesService {
       where.materialSize = { materialId: filters.materialId };
     }
     where.purchasedAt = dateRangeBounds(filters.from, filters.to);
+    // Story 19.5: reuses the exact clause countPendingPricing() uses below,
+    // so GET /purchases?pendingPricing=true and the Dashboard's pending
+    // count always describe the same set of rows.
+    if (filters.pendingPricing) {
+      where.totalAmount = null;
+      where.correctsId = null;
+    }
     return where;
   }
 

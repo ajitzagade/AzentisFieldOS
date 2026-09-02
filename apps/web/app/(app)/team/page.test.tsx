@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TeamPage from "./page";
 
@@ -71,10 +71,11 @@ describe("TeamPage", () => {
 
     await renderTeamPage();
 
-    expect(screen.getByText("Ravi Kumar")).toBeInTheDocument();
-    expect(screen.getByText("Bar Bender")).toBeInTheDocument();
-    expect(screen.getByText("Weekly")).toBeInTheDocument();
-    expect(screen.getAllByText("—")).toHaveLength(2);
+    const table = within(screen.getAllByRole("table")[0]!);
+    expect(table.getByText("Ravi Kumar")).toBeInTheDocument();
+    expect(table.getByText("Bar Bender")).toBeInTheDocument();
+    expect(table.getByText("Weekly")).toBeInTheDocument();
+    expect(table.getAllByText("—")).toHaveLength(2);
   });
 
   it("renders the real Today's Attendance badge and Current/Last Site from the derived list() response", async () => {
@@ -92,8 +93,9 @@ describe("TeamPage", () => {
 
     await renderTeamPage();
 
-    expect(screen.getByText("Present")).toBeInTheDocument();
-    expect(screen.getByText("NH-48 Highway Widening")).toBeInTheDocument();
+    const table = within(screen.getAllByRole("table")[0]!);
+    expect(table.getByText("Present")).toBeInTheDocument();
+    expect(table.getByText("NH-48 Highway Widening")).toBeInTheDocument();
   });
 
   it("shows a Disabled badge for an inactive Team Member without hiding it from the list", async () => {
@@ -111,8 +113,9 @@ describe("TeamPage", () => {
 
     await renderTeamPage();
 
-    expect(screen.getByText("Old Member")).toBeInTheDocument();
-    expect(screen.getByText("Disabled")).toBeInTheDocument();
+    const table = within(screen.getAllByRole("table")[0]!);
+    expect(table.getByText("Old Member")).toBeInTheDocument();
+    expect(table.getByText("Disabled")).toBeInTheDocument();
   });
 
   it("renders the real stat tiles from the team-summary endpoint, not the raw list length", async () => {
@@ -189,8 +192,12 @@ describe("TeamPage", () => {
 
     await renderTeamPage();
 
-    expect(screen.getByText("No Team Members yet.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Add your first Team Member/ })).toHaveAttribute("href", "/team/new");
+    // Rendered as both the desktop table panel and the mobile card panel.
+    expect(screen.getAllByText("No Team Members yet.")).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Add your first Team Member/ })[0]).toHaveAttribute(
+      "href",
+      "/team/new",
+    );
   });
 
   it("links each row to the Team Member detail route", async () => {
@@ -208,7 +215,8 @@ describe("TeamPage", () => {
 
     await renderTeamPage();
 
-    expect(screen.getByRole("link", { name: /Ravi Kumar/ })).toHaveAttribute("href", "/team/abc");
+    const table = within(screen.getAllByRole("table")[0]!);
+    expect(table.getByRole("link", { name: /Ravi Kumar/ })).toHaveAttribute("href", "/team/abc");
   });
 
   it("links the header actions to Add Team Member and Employment Types", async () => {

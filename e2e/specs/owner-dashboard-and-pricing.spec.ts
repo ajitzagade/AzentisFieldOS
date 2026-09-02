@@ -35,14 +35,23 @@ test.describe("Owner Dashboard & D7 pricing queue", () => {
     // produces, without depending on that click.
     await page.context().clearCookies();
 
-    // 2. Owner sees the pending-pricing flag on the Dashboard.
+    // 2. Owner sees the pending-pricing flag on the Dashboard. Story 19.5:
+    // when this is the only pending Purchase, the action deep-links
+    // straight to its pricing page in one click; if another unpriced
+    // Purchase is already sitting in the DB (e.g. a CI retry left an
+    // earlier attempt's behind), it instead lands on the Movements list
+    // pre-filtered to pending-pricing entries, one click short of the same
+    // destination — either way the Owner reaches the pricing page within
+    // two clicks, never scanning the full unfiltered log.
     await loginAsOwner(page);
     await expect(page.getByText(/inward .* waiting for pricing/)).toBeVisible();
     await page.getByRole("link", { name: "Add Pricing" }).first().click();
-    await expect(page).toHaveURL(/\/movements\?type=PURCHASE/);
+    if (!/\/movements\/purchases\/.+\/pricing/.test(page.url())) {
+      await expect(page).toHaveURL(/\/movements\?type=PURCHASE_PENDING_PRICING/);
+      await page.getByRole("link", { name: "Add Pricing" }).first().click();
+    }
 
-    // 3. Owner opens the pending row and completes pricing.
-    await page.getByRole("link", { name: "Add Pricing" }).first().click();
+    // 3. Owner completes pricing on the record it landed on.
     await expect(page).toHaveURL(/\/movements\/purchases\/.+\/pricing/);
     await expect(page.getByText(/80 Bags/)).toBeVisible();
 

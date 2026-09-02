@@ -61,6 +61,7 @@ function mockDashboard(overrides: {
   sitesPreview?: unknown[];
   role?: string;
   pendingPricing?: number;
+  pendingPricingPurchases?: { id: string }[];
   draftPendingTerms?: number;
 }) {
   const today = overrides.today ?? baseToday;
@@ -74,13 +75,15 @@ function mockDashboard(overrides: {
       ? { role }
       : url.includes("/purchases/count/pending-pricing")
         ? (overrides.pendingPricing ?? 0)
-        : url.includes("/site-contracts/count/draft-pending-terms")
-          ? (overrides.draftPendingTerms ?? 0)
-          : url.includes("/dashboard/overall")
-            ? overall
-            : url.includes("/dashboard/sites-preview")
-              ? sitesPreview
-              : today;
+        : url.includes("/purchases?pendingPricing=true")
+          ? (overrides.pendingPricingPurchases ?? [])
+          : url.includes("/site-contracts/count/draft-pending-terms")
+            ? (overrides.draftPendingTerms ?? 0)
+            : url.includes("/dashboard/overall")
+              ? overall
+              : url.includes("/dashboard/sites-preview")
+                ? sitesPreview
+                : today;
     return Promise.resolve({ ok: true, json: async () => body });
   }) as unknown as typeof fetch;
 }
@@ -314,12 +317,39 @@ describe("DashboardPage", () => {
   });
   // D7: the Owner's only dashboard-level signal that gate entries await
   // pricing — the endpoint returns a bare number; pin both branches.
-  it("flags pending-pricing inward entries with an Add Pricing action", async () => {
+  // Story 19.5: >1 pending Purchase deep-links to the filtered Movements
+  // view, never the old unfiltered `?type=PURCHASE`.
+  it("flags pending-pricing inward entries with an Add Pricing action linking to the filtered Movements view when more than one is pending", async () => {
     mockDashboard({ pendingPricing: 3 });
     await renderDashboard();
 
     expect(screen.getByText("3 inward entries are waiting for pricing.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Add Pricing/ })).toHaveAttribute("href", "/movements?type=PURCHASE");
+    expect(screen.getByRole("link", { name: /Add Pricing/ })).toHaveAttribute(
+      "href",
+      "/movements?type=PURCHASE_PENDING_PRICING",
+    );
+  });
+
+  // Story 19.5: exactly one pending Purchase skips the list entirely.
+  it("links Add Pricing straight to the single pending Purchase's pricing page when exactly one is pending", async () => {
+    mockDashboard({ pendingPricing: 1, pendingPricingPurchases: [{ id: "p1" }] });
+    await renderDashboard();
+
+    expect(screen.getByText("1 inward entry is waiting for pricing.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Add Pricing/ })).toHaveAttribute(
+      "href",
+      "/movements/purchases/p1/pricing",
+    );
+  });
+
+  it("falls back to the filtered Movements view if the single-pending-Purchase read fails or comes back empty", async () => {
+    mockDashboard({ pendingPricing: 1, pendingPricingPurchases: [] });
+    await renderDashboard();
+
+    expect(screen.getByRole("link", { name: /Add Pricing/ })).toHaveAttribute(
+      "href",
+      "/movements?type=PURCHASE_PENDING_PRICING",
+    );
   });
 
   it("shows no pending-pricing flag when the count is zero", async () => {

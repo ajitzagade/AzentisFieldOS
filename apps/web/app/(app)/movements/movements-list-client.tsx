@@ -261,6 +261,10 @@ const TYPE_OPTIONS = [
   { value: "MOVEMENT", label: "Movement" },
   { value: "CONSUMPTION", label: "Consumption" },
   { value: "RETURN_WASTAGE", label: "Wastage / Return" },
+  // Story 19.5: Dashboard gap-flag deep link for >1 pending Purchase —
+  // unpriced originals only (apps/api's movements-log.service.ts folds in
+  // { totalAmount: null, correctsId: null }, mirroring countPendingPricing()).
+  { value: "PURCHASE_PENDING_PRICING", label: "Pricing pending" },
 ];
 
 export function MovementsListClient({

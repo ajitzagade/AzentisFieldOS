@@ -108,6 +108,18 @@ async function getVendorOutstandingTotal(): Promise<number | null> {
   return summaries.reduce((total, summary) => total + (summary?.notFullyPaidTotal ?? 0), 0);
 }
 
+// Story 19.5: only ever called when the count is exactly 1 — fetches that
+// single unpriced-original Purchase's id via the same `pendingPricing`
+// filter countPendingPricing() counts, so the gap-flag can deep-link
+// straight to its pricing page instead of the filtered Movements list.
+// Same additive-context, degrades-to-null-silently pattern as the Vendor/D7
+// reads above: a failed/malformed read just falls back to the filtered
+// Movements view rather than breaking the page.
+async function getPendingPricingPurchaseId(): Promise<string | null> {
+  const purchases = await getJSONSafe<{ id: string }[]>("/purchases?pendingPricing=true");
+  return Array.isArray(purchases) && purchases.length > 0 ? purchases[0]!.id : null;
+}
+
 export async function OwnerDashboard() {
   const [
     today,
@@ -131,6 +143,15 @@ export async function OwnerDashboard() {
     getJSONSafe<{ totalOutstanding: number }>("/site-contracts/outstanding-summary"),
     getJSONSafe<number>("/site-contracts/count/draft-pending-terms"),
   ]);
+  // Story 19.5: only fire the extra read when it can actually be used —
+  // exactly one pending Purchase. >1 or 0 skip it entirely and the gap-flag
+  // (which doesn't render at all for 0) falls back to the filtered list.
+  const pendingPricingPurchaseId =
+    pendingPricingCount === 1 ? await getPendingPricingPurchaseId() : null;
+  const pendingPricingHref =
+    pendingPricingCount === 1 && pendingPricingPurchaseId
+      ? `/movements/purchases/${pendingPricingPurchaseId}/pricing`
+      : "/movements?type=PURCHASE_PENDING_PRICING";
   // Same honesty rule as the Vendors list: a malformed/missing summary is
   // "—", never NaN rendered as a rupee figure.
   const expenseSummary =
@@ -288,7 +309,7 @@ export async function OwnerDashboard() {
             icon={<WalletIcon />}
             message={`${pendingPricingCount} inward ${pendingPricingCount === 1 ? "entry is" : "entries are"} waiting for pricing.`}
             action={
-              <Link href="/movements?type=PURCHASE" className={cn(buttonVariants({ variant: "primary", size: "sm" }))}>
+              <Link href={pendingPricingHref} className={cn(buttonVariants({ variant: "primary", size: "sm" }))}>
                 <WalletIcon className="size-4" />
                 Add Pricing
               </Link>

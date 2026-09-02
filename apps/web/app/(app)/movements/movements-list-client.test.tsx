@@ -184,7 +184,10 @@ describe("MovementsListClient — D7 pricing pending", () => {
 
   it("never flags a correction row — deltas carry no pricing of their own", () => {
     renderClient({ rows: [unpricedCorrection], total: 1, canPrice: true });
-    expect(screen.queryByText("Pricing pending")).not.toBeInTheDocument();
+    // Scoped to the table: the "Type" filter's "Pricing pending" dropdown
+    // option (Story 19.5) renders unconditionally and shares this row
+    // badge's exact text, so an unscoped queryByText would false-positive.
+    expect(within(screen.getByRole("table")).queryByText("Pricing pending")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Add Pricing/ })).not.toBeInTheDocument();
   });
 });

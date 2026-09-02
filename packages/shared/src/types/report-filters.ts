@@ -21,6 +21,13 @@ export interface SiteReportFilters extends ReportDateRange {
 export interface InventoryReportFilters extends ReportDateRange {
   siteId?: string;
   materialId?: string;
+  // Story 19.5 (Pending-Pricing Deep Link): Purchase-only filter — when set,
+  // PurchasesService.list()'s reportWhere() folds in the exact
+  // { totalAmount: null, correctsId: null } clause countPendingPricing()
+  // already uses, so the Dashboard gap-flag's count and this filtered list
+  // always agree on the same universe of rows. Movements/Consumption/
+  // ReturnWastage ignore this field.
+  pendingPricing?: boolean;
 }
 
 // Story 13.3 (FR-44): Labour reports. `teamMemberId` optional — omitted means

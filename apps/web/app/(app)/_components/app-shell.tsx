@@ -2,21 +2,25 @@
 
 import { Suspense, type ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   cn,
   ConfirmDialog,
   DownloadIcon,
   LogoutIcon,
   MenuIcon,
+  PlusIcon,
+  QuickAddSheet,
+  SearchIcon,
   Toaster,
   ToastProvider,
   XIcon,
 } from "@azentisfieldos/ui";
-import type { Role } from "@azentisfieldos/shared";
+import { SEARCH_ACTIONS, type Role } from "@azentisfieldos/shared";
 import {
   HELP_NAV_ITEM,
   NAV_GROUPS,
+  OWNER_QUICK_BAR_LINKS,
   SETTINGS_NAV_ITEM,
   SUPERVISOR_NAV_GROUPS,
   SUPERVISOR_QUICK_BAR_ITEMS,
@@ -25,7 +29,13 @@ import {
   type NavItem,
 } from "./nav-config";
 import { FlashToast } from "./flash-toast";
-import { GlobalSearchButton, GlobalSearchDialog, useGlobalSearchController } from "./global-search";
+import {
+  ACTION_ICONS,
+  AdvanceQuickEntryPanel,
+  GlobalSearchButton,
+  GlobalSearchDialog,
+  useGlobalSearchController,
+} from "./global-search";
 import { APP_DISPLAY_NAME } from "../../../lib/tenant";
 import { usePwaInstall } from "../../../lib/use-pwa-install";
 import { clearRememberedSite } from "./site-field";
@@ -212,6 +222,103 @@ function SupervisorQuickBar({ pathname }: { pathname: string }) {
   );
 }
 
+// The Owner's persistent mobile bottom bar (Story 19.4) — mirrors
+// SupervisorQuickBar's shell (fixed inset-x-0 bottom-0, safe-area padding,
+// isActive/aria-current active-state convention) but is entity-spanning
+// rather than single-task: 2 of its 5 slots are plain links
+// (OWNER_QUICK_BAR_LINKS: Dashboard, Sites), the other 3 are actions
+// against state SidebarShell already owns — no new global-search
+// controller instance, no new full-sidebar drawer (Design Notes: not worth
+// generalizing NavItem for a five-slot, non-reused widget).
+function OwnerQuickBar({
+  pathname,
+  onOpenSearch,
+  onOpenNav,
+}: {
+  pathname: string;
+  onOpenSearch: () => void;
+  onOpenNav: () => void;
+}) {
+  const router = useRouter();
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [advanceOpen, setAdvanceOpen] = useState(false);
+
+  // Same curated list Story 19.2's Search/Action palette shows
+  // (packages/shared's SEARCH_ACTIONS) — no second curated-actions list.
+  const quickAddItems = SEARCH_ACTIONS.map((action) => ({
+    id: action.id,
+    title: action.title,
+    description: action.description,
+    icon: ACTION_ICONS[action.id],
+  }));
+
+  function handleQuickAddSelect(id: string) {
+    const action = SEARCH_ACTIONS.find((item) => item.id === id);
+    setQuickAddOpen(false);
+    if (!action) return;
+    if (action.href === null) {
+      // Record Advance — opens 19.1's shared modal in place, no navigation.
+      setAdvanceOpen(true);
+    } else {
+      router.push(action.href);
+    }
+  }
+
+  const itemClassName =
+    "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-caption font-medium text-ink-500 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:text-ink-700 focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none";
+
+  return (
+    <>
+      <nav
+        aria-label="Quick actions"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border-hairline bg-surface-1 pb-[env(safe-area-inset-bottom)] lg:hidden"
+      >
+        <div className="flex">
+          {OWNER_QUICK_BAR_LINKS.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(pathname, item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(itemClassName, active && "font-semibold text-accent-teal-700 hover:text-accent-teal-700")}
+              >
+                <Icon className="size-5" />
+                {item.label}
+              </Link>
+            );
+          })}
+
+          <button type="button" onClick={() => setQuickAddOpen(true)} aria-label="Quick Add" className={itemClassName}>
+            <span className="-mt-6 flex size-10 items-center justify-center rounded-full bg-accent-teal-700 text-white shadow-2">
+              <PlusIcon className="size-5" />
+            </span>
+          </button>
+
+          <button type="button" onClick={onOpenSearch} className={itemClassName}>
+            <SearchIcon className="size-5" />
+            Search
+          </button>
+
+          <button type="button" onClick={onOpenNav} className={itemClassName}>
+            <MenuIcon className="size-5" />
+            More
+          </button>
+        </div>
+      </nav>
+
+      <QuickAddSheet
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        items={quickAddItems}
+        onSelect={handleQuickAddSelect}
+      />
+      <AdvanceQuickEntryPanel open={advanceOpen} onOpenChange={setAdvanceOpen} />
+    </>
+  );
+}
+
 function SidebarShell({ pathname, role, children }: { pathname: string; role: Role; children: ReactNode }) {
   const [navOpen, setNavOpen] = useState(false);
   const [lastPathname, setLastPathname] = useState(pathname);
@@ -320,18 +427,26 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
         </div>
       ) : null}
 
-      {/* Supervisor content gets extra bottom padding below lg so the fixed
-          quick-bar never covers the last row / submit button of a page. */}
+      {/* Content gets extra bottom padding below lg for both roles so their
+          respective fixed quick-bar never covers the last row / submit
+          button of a page. */}
       <main
         className={cn(
           "flex-1 px-4 py-6 lg:overflow-y-auto lg:px-10 lg:py-8",
-          role === "SITE_SUPERVISOR" && "pb-24 lg:pb-8",
+          (role === "SITE_SUPERVISOR" || role === "OWNER_ADMIN") && "pb-24 lg:pb-8",
         )}
       >
         <div className="max-w-310">{children}</div>
       </main>
 
       {role === "SITE_SUPERVISOR" ? <SupervisorQuickBar pathname={pathname} /> : null}
+      {role === "OWNER_ADMIN" ? (
+        <OwnerQuickBar
+          pathname={pathname}
+          onOpenSearch={() => search.setOpen(true)}
+          onOpenNav={() => setNavOpen(true)}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={installDialogOpen}

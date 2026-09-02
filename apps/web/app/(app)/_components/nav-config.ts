@@ -129,6 +129,17 @@ export const SUPERVISOR_QUICK_BAR_ITEMS: NavItem[] = [
   { href: "/help", label: "Help", icon: HelpCircleIcon },
 ];
 
+// The Owner mobile quick-bar's two plain-link slots (Story 19.4) — Dashboard
+// and Sites, the only two of its five slots that are plain navigations. The
+// remaining three ("+", Search, More) are actions against existing
+// app-shell state, not routes, so they're rendered inline in OwnerQuickBar
+// rather than folded into this array (Design Notes: not worth generalizing
+// NavItem for a five-slot, non-reused widget).
+export const OWNER_QUICK_BAR_LINKS: NavItem[] = [
+  { href: "/", label: "Dashboard", icon: HomeIcon },
+  { href: "/sites", label: "Sites", icon: MapPinIcon },
+];
+
 // Pinned above Settings, same reasoning as Settings itself (EXPERIENCE.md's
 // Help & Guides addition): a utility surface reached when needed, not part
 // of daily work. Unlike Settings, Help is visible to BOTH roles — the

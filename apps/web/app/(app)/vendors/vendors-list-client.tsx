@@ -12,6 +12,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { useListQueryState } from "../../../lib/use-list-query-state";
 import { useDebouncedSearch } from "../../../lib/use-debounced-search";
@@ -77,6 +78,11 @@ const columns: DataTableColumn<VendorRow>[] = [
   },
 ];
 
+const mobileCard: DataTableMobileCard<VendorRow> = {
+  primary: (vendor) => vendor.name,
+  omitHeaders: ["Vendor"],
+};
+
 export function VendorsListClient({
   rows,
   total,
@@ -107,6 +113,7 @@ export function VendorsListClient({
 
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(vendor) => vendor.id}
         rowHref={(vendor) => `/vendors/${vendor.id}`}
         sort={query.sort ? { key: query.sort, order: query.order ?? "asc" } : undefined}

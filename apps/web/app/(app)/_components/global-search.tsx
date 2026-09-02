@@ -33,8 +33,11 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 // Story 19.2: which icon renders in a curated Action's solid tile — keyed by
 // SearchAction.id (packages/shared/src/content/help-content.ts), not
-// re-derived from the title text.
-const ACTION_ICONS: Record<string, ReactNode> = {
+// re-derived from the title text. Exported so Story 19.4's OwnerQuickBar
+// (apps/web's app-shell.tsx) can build its Quick Add sheet's item list from
+// the same SEARCH_ACTIONS array with the same icons, instead of a second
+// hand-maintained icon map.
+export const ACTION_ICONS: Record<string, ReactNode> = {
   "new-daily-report": <ClipboardIcon />,
   "record-payment": <WalletIcon />,
   "record-advance": <WalletIcon />,
@@ -364,9 +367,12 @@ interface TeamMemberOption {
 // non-redirecting Server Action, client validation (AD-7), and success
 // toast as the Dashboard's AdvanceQuickEntryTrigger (apps/web/app/(app)/
 // _components/advance-quick-entry-trigger.tsx), just without that
-// component's own trigger button since `open` is driven by the palette's
-// controller instead of a local click handler.
-function GlobalSearchAdvanceModal({
+// component's own trigger button since `open` is driven by the caller's
+// own controller instead of a local click handler. Exported (and named
+// generically, not "GlobalSearch...") because Story 19.4's OwnerQuickBar
+// reuses this exact wiring for its Quick Add sheet's "Record Advance" row —
+// the modal itself must be reused, never forked a third time.
+export function AdvanceQuickEntryPanel({
   open,
   onOpenChange,
 }: {
@@ -449,7 +455,7 @@ export function GlobalSearchDialog({ controller }: { controller: GlobalSearchCon
         onSelect={controller.handleSelect}
         onSeeAll={controller.handleSeeAll}
       />
-      <GlobalSearchAdvanceModal open={controller.advanceModalOpen} onOpenChange={controller.setAdvanceModalOpen} />
+      <AdvanceQuickEntryPanel open={controller.advanceModalOpen} onOpenChange={controller.setAdvanceModalOpen} />
     </>
   );
 }

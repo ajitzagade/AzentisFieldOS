@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
@@ -33,9 +34,16 @@ export class PurchasesController {
     return this.purchasesService.create(body);
   }
 
+  // Story 19.5: `?pendingPricing=true` narrows to unpriced originals only —
+  // the same universe countPendingPricing() counts — so the Dashboard's
+  // gap-flag can deep-link straight to the one pending Purchase's id when
+  // exactly one is outstanding. Omitted (the existing default), this is
+  // still the full, unfiltered list every other caller relies on.
   @Get()
-  list() {
-    return this.purchasesService.list();
+  list(@Query('pendingPricing') pendingPricing?: string) {
+    return this.purchasesService.list({
+      pendingPricing: pendingPricing === 'true',
+    });
   }
 
   @Get('count/this-month')

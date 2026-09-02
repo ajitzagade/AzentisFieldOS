@@ -1,19 +1,40 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "./app-shell";
 
 let mockPathname = "/";
+const pushMock = vi.fn();
+const refreshMock = vi.fn();
 vi.mock("next/navigation", () => ({
   usePathname: () => mockPathname,
   useSearchParams: () => new URLSearchParams(),
-  useRouter: () => ({ push: () => {}, replace: () => {} }),
+  useRouter: () => ({ push: pushMock, replace: () => {}, refresh: refreshMock }),
 }));
 vi.mock("next/link", () => ({
-  default: ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => (
-    <a href={href} className={className}>
+  // Forwards every prop (not just href/children/className) — OwnerQuickBar's
+  // aria-current and NavLink's onClick both rely on next/link passing
+  // through to the underlying <a>, same as the real component does.
+  default: ({
+    href,
+    children,
+    ...rest
+  }: { href: string; children: React.ReactNode } & Record<string, unknown>) => (
+    <a href={href} {...rest}>
       {children}
     </a>
   ),
+}));
+
+// The Owner quick-bar's Quick Add sheet can open the shared Advance
+// quick-entry modal (Story 19.4) — same mocks advance-quick-entry-trigger.test.tsx
+// and global-search.test.tsx use, so that path never hits a real network call.
+const teamMembersFetchMock = vi.fn();
+vi.mock("@/lib/use-authed-fetch", () => ({
+  useAuthedFetch: () => teamMembersFetchMock,
+}));
+const createAdvanceQuickActionMock = vi.fn();
+vi.mock("@/app/(app)/team/[id]/advances/actions", () => ({
+  createAdvanceQuickAction: (...args: unknown[]) => createAdvanceQuickActionMock(...args),
 }));
 
 describe("AppShell", () => {
@@ -25,10 +46,16 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
+    // Scoped to the desktop rail (the <aside> landmark, role="complementary")
+    // since Story 19.4's Owner quick-bar also renders "Dashboard"/"Sites"
+    // links below `lg` — jsdom doesn't apply the `lg:flex` breakpoint, so
+    // both are simultaneously present in the tree.
+    const sidebar = screen.getByRole("complementary");
+
     // Ungrouped items
-    expect(screen.getByRole("link", { name: /Dashboard/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Sites/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Daily Report/ })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("link", { name: /Dashboard/ })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("link", { name: /Sites/ })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("link", { name: /Daily Report/ })).toBeInTheDocument();
 
     // Group labels (Story 16.4 regroup) — "Machinery & Vehicles" and
     // "Reports" each appear twice (the promoted single-item group's own
@@ -43,13 +70,13 @@ describe("AppShell", () => {
     expect(screen.getAllByText("Reports")).toHaveLength(2);
 
     // Grouped items
-    expect(screen.getByRole("link", { name: /Inventory/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Machinery & Vehicles/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Reports/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Waste & Disposal/ })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("link", { name: /Inventory/ })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("link", { name: /Machinery & Vehicles/ })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("link", { name: /Reports/ })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("link", { name: /Waste & Disposal/ })).toBeInTheDocument();
 
     // Settings pinned
-    expect(screen.getByRole("link", { name: /Settings/ })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("link", { name: /Settings/ })).toBeInTheDocument();
 
     expect(screen.getByText("content")).toBeInTheDocument();
   });
@@ -79,8 +106,10 @@ describe("AppShell", () => {
         <div>content</div>
       </AppShell>,
     );
-    const inventoryLink = screen.getByRole("link", { name: /Inventory/ });
-    const dashboardLink = screen.getByRole("link", { name: /Dashboard/ });
+    // Scoped to the desktop rail — see the note in the previous test.
+    const sidebar = screen.getByRole("complementary");
+    const inventoryLink = within(sidebar).getByRole("link", { name: /Inventory/ });
+    const dashboardLink = within(sidebar).getByRole("link", { name: /Dashboard/ });
     expect(inventoryLink.className).toContain("bg-accent-teal-700");
     expect(dashboardLink.className).not.toContain("bg-accent-teal-700");
   });
@@ -92,8 +121,9 @@ describe("AppShell", () => {
         <div>content</div>
       </AppShell>,
     );
-    expect(screen.getByRole("link", { name: /Dashboard/ }).className).not.toContain("bg-accent-teal-700");
-    expect(screen.getByRole("link", { name: /Sites/ }).className).toContain("bg-accent-teal-700");
+    const sidebar = screen.getByRole("complementary");
+    expect(within(sidebar).getByRole("link", { name: /Dashboard/ }).className).not.toContain("bg-accent-teal-700");
+    expect(within(sidebar).getByRole("link", { name: /Sites/ }).className).toContain("bg-accent-teal-700");
   });
 
   it("exposes an accessible mobile nav toggle for OWNER_ADMIN that opens the drawer", () => {
@@ -247,7 +277,10 @@ describe("AppShell — PWA install", () => {
     expect(within(bar).getByRole("link", { name: /Report/ })).toHaveAttribute("href", "/dsr/new");
   });
 
-  it("renders no quick-bar for OWNER_ADMIN", () => {
+  // Story 19.4: OWNER_ADMIN now gets its own "Quick actions" bar (a
+  // different bar from the Supervisor's) rather than none at all — the two
+  // roles are mutually exclusive, so exactly one bar ever renders.
+  it("renders the Owner quick-bar, not the Supervisor's, for OWNER_ADMIN", () => {
     mockPathname = "/";
     render(
       <AppShell role="OWNER_ADMIN">
@@ -255,6 +288,113 @@ describe("AppShell — PWA install", () => {
       </AppShell>,
     );
 
-    expect(screen.queryByRole("navigation", { name: "Quick actions" })).not.toBeInTheDocument();
+    const bars = screen.getAllByRole("navigation", { name: "Quick actions" });
+    expect(bars).toHaveLength(1);
+    // The Supervisor's four fixed hrefs must not appear on the Owner's bar.
+    expect(within(bars[0]!).queryByRole("link", { name: /^Report/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("AppShell — Owner mobile quick-bar (Story 19.4)", () => {
+  beforeEach(() => {
+    pushMock.mockClear();
+    refreshMock.mockClear();
+    teamMembersFetchMock.mockReset();
+    createAdvanceQuickActionMock.mockReset();
+  });
+
+  function renderOwner() {
+    mockPathname = "/";
+    return render(
+      <AppShell role="OWNER_ADMIN">
+        <div>content</div>
+      </AppShell>,
+    );
+  }
+
+  it("shows Dashboard, Sites, Quick Add, Search, and More as the 5 slots, Dashboard active by aria-current + weight (not color alone)", () => {
+    renderOwner();
+
+    const bar = screen.getByRole("navigation", { name: "Quick actions" });
+    const dashboardLink = within(bar).getByRole("link", { name: "Dashboard" });
+    const sitesLink = within(bar).getByRole("link", { name: "Sites" });
+
+    expect(dashboardLink).toHaveAttribute("href", "/");
+    expect(dashboardLink).toHaveAttribute("aria-current", "page");
+    expect(dashboardLink.className).toContain("font-semibold");
+    expect(dashboardLink.className).toContain("text-accent-teal-700");
+
+    expect(sitesLink).toHaveAttribute("href", "/sites");
+    expect(sitesLink).not.toHaveAttribute("aria-current");
+    expect(sitesLink.className).not.toContain("text-accent-teal-700");
+
+    expect(within(bar).getByRole("button", { name: "Quick Add" })).toBeInTheDocument();
+    expect(within(bar).getByRole("button", { name: "Search" })).toBeInTheDocument();
+    expect(within(bar).getByRole("button", { name: "More" })).toBeInTheDocument();
+  });
+
+  it('tapping "+" opens the Quick Add sheet with the same curated action list as the Search palette', async () => {
+    renderOwner();
+
+    fireEvent.click(screen.getByRole("button", { name: "Quick Add" }));
+
+    expect(await screen.findByText("New Daily Report")).toBeInTheDocument();
+    expect(screen.getByText("Record Payment")).toBeInTheDocument();
+    expect(screen.getByText("Record Advance")).toBeInTheDocument();
+    expect(screen.getByText("Add Purchase")).toBeInTheDocument();
+  });
+
+  it("navigating from the Quick Add sheet routes to the action's href and closes the sheet", async () => {
+    renderOwner();
+
+    fireEvent.click(screen.getByRole("button", { name: "Quick Add" }));
+    fireEvent.click(await screen.findByText("Add Purchase"));
+
+    expect(pushMock).toHaveBeenCalledWith("/movements/purchases/new");
+    await waitFor(() => expect(screen.queryByText("Add Purchase")).not.toBeInTheDocument());
+  });
+
+  it('selecting "Record Advance" from the Quick Add sheet opens the shared Advance quick-entry modal in place, no navigation', async () => {
+    teamMembersFetchMock.mockResolvedValue({ ok: true, json: async () => [] });
+    renderOwner();
+
+    fireEvent.click(screen.getByRole("button", { name: "Quick Add" }));
+    fireEvent.click(await screen.findByText("Record Advance"));
+
+    expect(await screen.findByRole("dialog", { name: "Record Advance" })).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it('tapping "Search" opens the same global search palette as ⌘K (no second controller instance)', async () => {
+    renderOwner();
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    const bar = screen.getByRole("navigation", { name: "Quick actions" });
+    fireEvent.click(within(bar).getByRole("button", { name: "Search" }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
+  it('tapping "More" opens the full sidebar drawer — the exact one the hamburger opens', () => {
+    renderOwner();
+
+    const toggle = screen.getByRole("button", { name: /Open navigation menu/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    const bar = screen.getByRole("navigation", { name: "Quick actions" });
+    fireEvent.click(within(bar).getByRole("button", { name: "More" }));
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    // Scoped to the drawer itself — the desktop rail also has a "Vendors"
+    // link simultaneously present in jsdom (no `lg:flex` breakpoint applied).
+    const drawer = document.getElementById("app-mobile-nav");
+    expect(drawer).not.toBeNull();
+    expect(within(drawer as HTMLElement).getByRole("link", { name: /Vendors/ })).toBeInTheDocument();
+  });
+
+  it("gives OWNER_ADMIN's main content the same bottom padding class as the Supervisor's, so the bar never covers a submit button", () => {
+    renderOwner();
+    expect(screen.getByText("content").closest("main")?.className).toContain("pb-24");
   });
 });

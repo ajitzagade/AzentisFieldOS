@@ -44,9 +44,21 @@ function renderClient(overrides: Partial<Parameters<typeof TeamMembersListClient
 }
 
 describe("TeamMembersListClient", () => {
-  it("renders every row", () => {
+  it("renders every row in the desktop table and as a mobile card", () => {
     renderClient();
-    expect(screen.getByText("Ravi Kumar")).toBeInTheDocument();
+    // Once in the md+ table row, once as the below-md card's primary line.
+    expect(screen.getAllByText("Ravi Kumar")).toHaveLength(2);
+  });
+
+  it("renders the previously-clipping Employment Type column as a card label/value row below md, unchanged in the desktop table", () => {
+    renderClient();
+    expect(screen.getAllByText("Weekly")).toHaveLength(2);
+    const list = screen.getByRole("list");
+    expect(within(list).getByText("Employment Type")).toBeInTheDocument();
+    expect(within(list).getByText("Weekly")).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Employment Type")).toBeInTheDocument();
+    expect(within(table).getByText("Weekly")).toBeInTheDocument();
   });
 
   it("debounces the search box before writing to the URL", () => {
@@ -69,14 +81,14 @@ describe("TeamMembersListClient", () => {
 
   it("shows the zero-Team-Members-ever empty state with no active search", () => {
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Team Members yet.")).toBeInTheDocument();
+    expect(screen.getAllByText("No Team Members yet.")).toHaveLength(2);
   });
 
   it("shows the no-matches empty state with Clear filters when a search is active", async () => {
     hookState = { q: "nonexistent" };
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Team Members match your search.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getAllByText("No Team Members match your search.")).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]!);
     expect(clearAll).toHaveBeenCalledOnce();
   });
 

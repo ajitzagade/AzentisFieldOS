@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SitesListClient } from "./sites-list-client";
@@ -53,10 +53,22 @@ function renderClient(overrides: Partial<Parameters<typeof SitesListClient>[0]> 
 }
 
 describe("SitesListClient", () => {
-  it("renders every row", () => {
+  it("renders every row in the desktop table and as a mobile card", () => {
     renderClient();
-    expect(screen.getByText("NH-48 Highway Widening")).toBeInTheDocument();
-    expect(screen.getByText("Riverside Bridge")).toBeInTheDocument();
+    // Once in the md+ table row, once as the below-md card's primary line.
+    expect(screen.getAllByText("NH-48 Highway Widening")).toHaveLength(2);
+    expect(screen.getAllByText("Riverside Bridge")).toHaveLength(2);
+  });
+
+  it("renders the previously-clipping Location column as a card label/value row below md, unchanged in the desktop table", () => {
+    renderClient();
+    // Once in the md+ table's Location cell, once in the mobile card's dl.
+    expect(screen.getAllByText("Nashik")).toHaveLength(2);
+    const list = screen.getByRole("list");
+    // One "Location" label per card (one per row) plus the value for the
+    // Nashik row.
+    expect(within(list).getAllByText("Location")).toHaveLength(2);
+    expect(within(list).getByText("Nashik")).toBeInTheDocument();
   });
 
   it("debounces the search box before writing to the URL", () => {
@@ -112,8 +124,9 @@ describe("SitesListClient", () => {
 
   it("shows the zero-Sites-ever empty state when there is no active search or filter", () => {
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Sites yet.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Create your first Site/ })).toBeInTheDocument();
+    // Rendered as both the desktop table panel and the mobile card panel.
+    expect(screen.getAllByText("No Sites yet.")).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Create your first Site/ })).toHaveLength(2);
   });
 
   it("shows the no-matches empty state (with Clear filters) when a search is active and nothing matches", async () => {
@@ -121,8 +134,15 @@ describe("SitesListClient", () => {
     const user = userEvent.setup();
     renderClient({ rows: [], total: 0 });
 
-    expect(screen.getByText("No Sites match your search or filters.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getAllByText("No Sites match your search or filters.")).toHaveLength(2);
+    await user.click(screen.getAllByRole("button", { name: "Clear filters" })[0]!);
     expect(clearAll).toHaveBeenCalledOnce();
+  });
+
+  it("renders the full table unchanged at md+ regardless of mobileCard", () => {
+    renderClient();
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Location")).toBeInTheDocument();
+    expect(within(table).getByText("Nashik")).toBeInTheDocument();
   });
 });

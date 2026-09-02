@@ -13,6 +13,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 
 interface GodownStockRow {
@@ -110,6 +111,20 @@ const siteColumns: DataTableColumn<SiteStockRow>[] = [
   { header: "Qty", align: "right", cell: (r) => `${r.quantity} ${r.materialSize.material.unit.name}` },
 ];
 
+const godownMobileCard: DataTableMobileCard<GodownStockRow> = {
+  primary: (r) => r.materialSize.material.name,
+  omitHeaders: ["Material"],
+};
+
+const siteMobileCard: DataTableMobileCard<SiteStockRow> = {
+  primary: (r) => (
+    <>
+      {r.materialSize.material.name} <span className="text-ink-500">· {r.site.name}</span>
+    </>
+  ),
+  omitHeaders: ["Site", "Material"],
+};
+
 export default async function InventoryPage() {
   const sites = await getSites();
   const [godownStock, siteStock, lowStockMaterials, purchasesThisMonth] = await Promise.all([
@@ -185,6 +200,7 @@ export default async function InventoryPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <DataTable
           columns={godownColumns}
+          mobileCard={godownMobileCard}
           rowKey={(r) => r.materialSizeId}
           state={
             godownStock.length === 0
@@ -194,6 +210,7 @@ export default async function InventoryPage() {
         />
         <DataTable
           columns={siteColumns}
+          mobileCard={siteMobileCard}
           rowKey={(r) => `${r.site.id}-${r.materialSizeId}`}
           state={
             siteStock.length === 0

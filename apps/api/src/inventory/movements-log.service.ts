@@ -28,6 +28,14 @@ function isMovementLogType(
   );
 }
 
+// Story 19.5: a query-only `type` value — never a row's own `type` in
+// MovementLogRow output (those stay the four MovementLogType values above).
+// Selecting it narrows to unpriced-original Purchases only, the same
+// universe PurchasesService.countPendingPricing()/list({ pendingPricing })
+// use, and forces every other source off (mirrors the plain `type=PURCHASE`
+// branch below).
+const PENDING_PRICING_QUERY_TYPE = 'PURCHASE_PENDING_PRICING';
+
 export interface MovementsLogQuery {
   q?: string;
   page?: string;
@@ -35,7 +43,8 @@ export interface MovementsLogQuery {
   // Raw, unvalidated query-string value — an unrecognized value is
   // treated as "no filter" (every source queried) via `isMovementLogType`,
   // never silently zeroing every `want*` flag the way a strict-but-unchecked
-  // union type invites.
+  // union type invites. `PURCHASE_PENDING_PRICING` (Story 19.5) is the one
+  // recognized non-MovementLogType value — see PENDING_PRICING_QUERY_TYPE.
   type?: string;
   siteId?: string;
   from?: string;
@@ -85,10 +94,18 @@ export class MovementsLogService {
       query.sort === 'date' && isSortOrder(query.order) ? query.order : 'desc';
 
     const knownType = isMovementLogType(type) ? type : undefined;
-    const wantPurchase = !knownType || knownType === 'PURCHASE';
-    const wantMovement = !knownType || knownType === 'MOVEMENT';
-    const wantConsumption = !knownType || knownType === 'CONSUMPTION';
-    const wantReturnWastage = !knownType || knownType === 'RETURN_WASTAGE';
+    // Story 19.5: `PURCHASE_PENDING_PRICING` is Purchase-only, same as a
+    // plain `type=PURCHASE` — it just additionally narrows purchaseWhere
+    // below to unpriced originals.
+    const pendingPricingOnly = type === PENDING_PRICING_QUERY_TYPE;
+    const wantPurchase =
+      pendingPricingOnly || !knownType || knownType === 'PURCHASE';
+    const wantMovement =
+      !pendingPricingOnly && (!knownType || knownType === 'MOVEMENT');
+    const wantConsumption =
+      !pendingPricingOnly && (!knownType || knownType === 'CONSUMPTION');
+    const wantReturnWastage =
+      !pendingPricingOnly && (!knownType || knownType === 'RETURN_WASTAGE');
 
     const purchaseSearch = q
       ? {
@@ -133,6 +150,10 @@ export class MovementsLogService {
       ...(siteId ? { siteId } : {}),
       ...(dateRange ? { purchasedAt: dateRange } : {}),
       ...purchaseSearch,
+      // Story 19.5: the exact clause countPendingPricing()/
+      // PurchasesService.list({ pendingPricing }) use — never mixes priced
+      // and unpriced Purchases under this filter value.
+      ...(pendingPricingOnly ? { totalAmount: null, correctsId: null } : {}),
     };
 
     const movementWhere: Prisma.MovementWhereInput = {

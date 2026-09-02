@@ -366,6 +366,62 @@ describe('PurchasesService.completePricing', () => {
   });
 });
 
+// Story 19.5: GET /purchases?pendingPricing=true reuses the exact clause
+// countPendingPricing() counts, so the Dashboard's single-pending-Purchase
+// deep link and the count badge always agree on the same universe of rows.
+describe('PurchasesService.list', () => {
+  function makeListService(findMany: ReturnType<typeof vi.fn>) {
+    const prisma = { purchase: { findMany } };
+    return new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+    );
+  }
+
+  it('folds in { totalAmount: null, correctsId: null } when pendingPricing is set', async () => {
+    const findMany = vi.fn().mockResolvedValue([{ id: 'p1' }]);
+    const service = makeListService(findMany);
+
+    await service.list({ pendingPricing: true });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          totalAmount: null,
+          correctsId: null,
+        }),
+      }),
+    );
+  });
+
+  it('omits the pending-pricing clause when the filter is not set — the default, unfiltered list', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const service = makeListService(findMany);
+
+    await service.list();
+
+    const where = findMany.mock.calls[0]![0].where;
+    expect(where).not.toHaveProperty('totalAmount');
+    expect(where).not.toHaveProperty('correctsId');
+  });
+
+  it('combines pendingPricing with an existing siteId/materialId filter rather than replacing it', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const service = makeListService(findMany);
+
+    await service.list({ pendingPricing: true, siteId: 'site1' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          siteId: 'site1',
+          totalAmount: null,
+          correctsId: null,
+        }),
+      }),
+    );
+  });
+});
+
 // The pending count is the Dashboard gap-flag's number — its where clause is
 // the definition of "pending" (unpriced originals only, never corrections).
 describe('PurchasesService.countPendingPricing', () => {

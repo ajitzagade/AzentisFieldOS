@@ -61,7 +61,8 @@ describe("SitesPage", () => {
 
     await renderSitesPage();
 
-    expect(screen.getByText("NH-48").closest("a")).toHaveAttribute("href", "/sites/abc");
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("NH-48").closest("a")).toHaveAttribute("href", "/sites/abc");
   });
 
   it("renders the empty state with a create-first-Site action when there are zero Sites and no filters are active", async () => {
@@ -69,8 +70,9 @@ describe("SitesPage", () => {
 
     await renderSitesPage();
 
-    expect(screen.getByText("No Sites yet.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Create your first Site/ })).toHaveAttribute("href", "/sites/new");
+    // Rendered as both the desktop table panel and the mobile card panel.
+    expect(screen.getAllByText("No Sites yet.")).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Create your first Site/ })[0]).toHaveAttribute("href", "/sites/new");
   });
 
   it("renders the Add Site link in the page header", async () => {

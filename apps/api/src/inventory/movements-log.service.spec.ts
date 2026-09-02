@@ -149,6 +149,62 @@ describe('MovementsLogService.list', () => {
     expect(result.rows.length).toBeGreaterThan(0);
   });
 
+  // Story 19.5: the Dashboard gap-flag's >1-pending deep link. Same
+  // Purchase-only query shape as `type=PURCHASE`, plus the pending-pricing
+  // narrowing — never mixes priced and unpriced Purchases.
+  it('type=PURCHASE_PENDING_PRICING queries Purchase only, with the pending-pricing clause folded in', async () => {
+    const prisma = makePrisma({
+      purchase: [purchaseRow('p1', '2026-08-10')],
+      purchaseCount: 1,
+    });
+    const service = makeService(prisma);
+
+    const result = await service.list({
+      page: '1',
+      pageSize: '25',
+      type: 'PURCHASE_PENDING_PRICING',
+    });
+
+    expect(prisma.movement.findMany).not.toHaveBeenCalled();
+    expect(prisma.consumption.findMany).not.toHaveBeenCalled();
+    expect(prisma.returnWastage.findMany).not.toHaveBeenCalled();
+    expect(prisma.purchase.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        where: expect.objectContaining({
+          totalAmount: null,
+          correctsId: null,
+        }),
+      }),
+    );
+    expect(prisma.purchase.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        where: expect.objectContaining({
+          totalAmount: null,
+          correctsId: null,
+        }),
+      }),
+    );
+    expect(result.rows.every((r) => r.type === 'PURCHASE')).toBe(true);
+  });
+
+  it('a plain type=PURCHASE never folds in the pending-pricing clause — priced and unpriced Purchases both appear', async () => {
+    const prisma = makePrisma({
+      purchase: [purchaseRow('p1', '2026-08-10')],
+      purchaseCount: 1,
+    });
+    const service = makeService(prisma);
+
+    await service.list({ page: '1', pageSize: '25', type: 'PURCHASE' });
+
+    expect(prisma.purchase.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({ totalAmount: null }),
+      }),
+    );
+  });
+
   it('only queries the requested table when a type filter is set', async () => {
     const prisma = makePrisma({
       purchase: [purchaseRow('p1', '2026-08-10')],

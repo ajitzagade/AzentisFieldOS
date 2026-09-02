@@ -14,6 +14,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { useListQueryState } from "../../../lib/use-list-query-state";
 import { useDebouncedSearch } from "../../../lib/use-debounced-search";
@@ -84,6 +85,11 @@ export function SitesListClient({
     },
   ];
 
+  const mobileCard: DataTableMobileCard<SiteRow> = {
+    primary: (site) => site.name,
+    omitHeaders: ["Site"],
+  };
+
   return (
     <>
       <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -105,6 +111,7 @@ export function SitesListClient({
 
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(site) => site.id}
         rowHref={(site) => `/sites/${site.id}`}
         sort={query.sort ? { key: query.sort, order: query.order ?? "asc" } : undefined}
