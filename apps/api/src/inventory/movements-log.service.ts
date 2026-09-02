@@ -77,6 +77,24 @@ const materialSizeInclude = {
 // query a plain Prisma `findMany`, at the cost of re-fetching more rows
 // from each source as the page number grows (an accepted, documented
 // tradeoff — deep pagination gets more expensive, never incorrect).
+//
+// A true cursor/keyset rework was evaluated (2026-09) and deliberately not
+// done: a heterogeneous 4-table merge needs a cursor PER source table (an
+// opaque 4-tuple), a fundamentally different pagination contract than the
+// {rows,total,page,pageSize} shape every other paginated endpoint in this
+// app shares — a correctness-sensitive rewrite of the most complex read
+// path in the codebase, for a cost profile that's a documented, bounded
+// tradeoff today, not an active problem. MOVEMENTS_LOG_MAX_PAGE below is
+// the smaller, safer mitigation: the shared paginationParams() MAX_PAGE
+// (10000) is sized for ordinary skip/take endpoints, where cost is
+// roughly constant per page even deep in — that bound is far too loose
+// for THIS endpoint's cost (linear in page number, times 4 source
+// tables), so it gets its own, tighter cap. The UI's Pagination component
+// is Previous/Next-only (no jump-to-page), so reaching this cap requires
+// clicking Next 200+ times — not a real usage pattern, only a closed
+// worst-case.
+const MOVEMENTS_LOG_MAX_PAGE = 200;
+
 @Injectable()
 export class MovementsLogService {
   constructor(private readonly prisma: PrismaService) {}
@@ -89,6 +107,10 @@ export class MovementsLogService {
     const page = pagination.paginated ? pagination.page : 1;
     const pageSize = pagination.paginated ? pagination.pageSize : 25;
     const limit = page * pageSize;
+    // Beyond the cap, skip the expensive per-source overfetch entirely —
+    // `total` (from the four indexed count()s below) still reports the
+    // truth, only `rows` comes back empty for a page this deep.
+    const withinPageCap = page <= MOVEMENTS_LOG_MAX_PAGE;
     const dateRange = dateRangeBounds(from, to);
     const dateDirection: 'asc' | 'desc' =
       query.sort === 'date' && isSortOrder(query.order) ? query.order : 'desc';
@@ -211,57 +233,75 @@ export class MovementsLogService {
       ...siteSearch('site'),
     };
 
-    const [purchases, purchaseTotal] = wantPurchase
-      ? await Promise.all([
-          this.prisma.purchase.findMany({
-            where: purchaseWhere,
-            include: { ...materialSizeInclude, site: true },
-            orderBy: { purchasedAt: dateDirection },
-            take: limit,
-          }),
-          this.prisma.purchase.count({ where: purchaseWhere }),
-        ])
-      : [[], 0];
-
-    const [movements, movementTotal] = wantMovement
-      ? await Promise.all([
-          this.prisma.movement.findMany({
-            where: movementWhere,
-            include: {
-              ...materialSizeInclude,
-              sourceSite: true,
-              destinationSite: true,
-            },
-            orderBy: { movedAt: dateDirection },
-            take: limit,
-          }),
-          this.prisma.movement.count({ where: movementWhere }),
-        ])
-      : [[], 0];
-
-    const [consumptions, consumptionTotal] = wantConsumption
-      ? await Promise.all([
-          this.prisma.consumption.findMany({
-            where: consumptionWhere,
-            include: { ...materialSizeInclude, site: true },
-            orderBy: { consumedAt: dateDirection },
-            take: limit,
-          }),
-          this.prisma.consumption.count({ where: consumptionWhere }),
-        ])
-      : [[], 0];
-
-    const [returnWastages, returnWastageTotal] = wantReturnWastage
-      ? await Promise.all([
-          this.prisma.returnWastage.findMany({
-            where: returnWastageWhere,
-            include: { ...materialSizeInclude, site: true },
-            orderBy: { recordedAt: dateDirection },
-            take: limit,
-          }),
-          this.prisma.returnWastage.count({ where: returnWastageWhere }),
-        ])
-      : [[], 0];
+    // Each source's own [findMany, count] pair, and — new here — all four
+    // sources now run concurrently against each other too (previously each
+    // `await`-ed block ran to completion before the next source's fetch
+    // even started, serializing 4 independent reads for no reason).
+    // `findMany` is additionally gated on withinPageCap; `count` never is,
+    // so `total` stays honest even on a page this deep.
+    const [
+      [purchases, purchaseTotal],
+      [movements, movementTotal],
+      [consumptions, consumptionTotal],
+      [returnWastages, returnWastageTotal],
+    ] = await Promise.all([
+      wantPurchase
+        ? Promise.all([
+            withinPageCap
+              ? this.prisma.purchase.findMany({
+                  where: purchaseWhere,
+                  include: { ...materialSizeInclude, site: true },
+                  orderBy: { purchasedAt: dateDirection },
+                  take: limit,
+                })
+              : Promise.resolve([]),
+            this.prisma.purchase.count({ where: purchaseWhere }),
+          ])
+        : Promise.resolve([[], 0] as const),
+      wantMovement
+        ? Promise.all([
+            withinPageCap
+              ? this.prisma.movement.findMany({
+                  where: movementWhere,
+                  include: {
+                    ...materialSizeInclude,
+                    sourceSite: true,
+                    destinationSite: true,
+                  },
+                  orderBy: { movedAt: dateDirection },
+                  take: limit,
+                })
+              : Promise.resolve([]),
+            this.prisma.movement.count({ where: movementWhere }),
+          ])
+        : Promise.resolve([[], 0] as const),
+      wantConsumption
+        ? Promise.all([
+            withinPageCap
+              ? this.prisma.consumption.findMany({
+                  where: consumptionWhere,
+                  include: { ...materialSizeInclude, site: true },
+                  orderBy: { consumedAt: dateDirection },
+                  take: limit,
+                })
+              : Promise.resolve([]),
+            this.prisma.consumption.count({ where: consumptionWhere }),
+          ])
+        : Promise.resolve([[], 0] as const),
+      wantReturnWastage
+        ? Promise.all([
+            withinPageCap
+              ? this.prisma.returnWastage.findMany({
+                  where: returnWastageWhere,
+                  include: { ...materialSizeInclude, site: true },
+                  orderBy: { recordedAt: dateDirection },
+                  take: limit,
+                })
+              : Promise.resolve([]),
+            this.prisma.returnWastage.count({ where: returnWastageWhere }),
+          ])
+        : Promise.resolve([[], 0] as const),
+    ]);
 
     const merged: MovementLogRow[] = [
       ...purchases.map((item: Prisma.PurchaseGetPayload<object>) => ({

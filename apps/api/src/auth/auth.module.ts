@@ -19,11 +19,28 @@ import { AuthService } from './auth.service';
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '1h' },
     }),
-    // POST /auth/login only — bounds brute-force login attempts. Scoped to
-    // this module (not a global APP_GUARD) since no other route needs it.
-    ThrottlerModule.forRoot([{ name: 'login', ttl: 60_000, limit: 5 }]),
+    // A single named throttler: @nestjs/throttler applies every profile
+    // configured here to EVERY route by default (confirmed against a real
+    // boot — a second, separately-named `login` profile leaked its own
+    // strict limit onto routes with no @Throttle() at all, not just
+    // /auth/login), so a second name is the wrong tool for "one route
+    // needs a stricter limit." `default` is the generous global backstop
+    // AppModule wires up via APP_GUARD — every route had no rate limit at
+    // all before this; it doesn't protect against a determined attacker
+    // (an authenticated caller could still do real damage within the
+    // limit), it only bounds a misbehaving client (a buggy frontend retry
+    // loop, a leaked token scripted in a tight loop). AuthController's own
+    // @Throttle({ default: {...} }) overrides this same profile's limit
+    // to something much stricter for just POST /auth/login.
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 300 }]),
   ],
   controllers: [AuthController],
   providers: [AuthService],
+  // AppModule registers ThrottlerGuard as a global APP_GUARD (so every
+  // route gets the `default` backstop by construction, matching
+  // CustomAuthGuard's own global-by-default pattern) — it needs
+  // ThrottlerModule's providers (ThrottlerStorage etc.) visible outside
+  // this module to resolve.
+  exports: [ThrottlerModule],
 })
 export class AuthModule {}

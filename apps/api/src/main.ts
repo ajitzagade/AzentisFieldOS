@@ -6,13 +6,31 @@
 // no way to inject that CLI flag, so the hook has to install itself here.
 import 'tsx/cjs';
 import 'dotenv/config';
+import compression from 'compression';
 import helmet from 'helmet';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Vercel terminates the connection and forwards to this Function as a
+  // single reverse-proxy hop, setting X-Forwarded-For to the real client
+  // IP — without `trust proxy`, Express's req.ip (what ThrottlerGuard's
+  // default IP-based tracking below keys on) sees only the proxy's own
+  // address, which would silently rate-limit every caller together
+  // instead of per-client. `1` trusts exactly that one hop, not an
+  // arbitrary spoofable chain.
+  app.set('trust proxy', 1);
   app.use(helmet());
+  // List/report/dashboard responses are repetitive JSON (nested relation
+  // includes) — highly compressible. Unverified whether Vercel's platform
+  // layer already compresses Function responses in front of this, but
+  // compressing here is correct regardless: a double-compression attempt
+  // is a no-op (gzip'd bytes don't shrink further and most fronting layers
+  // detect an already-encoded body and pass it through), while skipping it
+  // here would leave payloads uncompressed if the platform doesn't.
+  app.use(compression());
   // apps/web calls apps/api directly from client-side JS for several flows
   // (the mobile/desktop DSR forms' Site/Vendor pickers, story 3.2's offline
   // queue) — without this, every one of those browser-origin fetches fails

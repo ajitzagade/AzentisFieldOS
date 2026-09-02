@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -48,6 +49,14 @@ import { SearchModule } from './search/search.module';
   controllers: [AppController],
   providers: [
     AppService,
+    // Ordered before CustomAuthGuard: reject a caller that's already over
+    // the generous `default` rate limit (AuthModule's ThrottlerModule
+    // config) before paying for a DB-hitting auth check — global guards
+    // run in provider-registration order, all must pass. Every route gets
+    // this backstop by construction, matching CustomAuthGuard's own
+    // global-by-default pattern; @Throttle()/@SkipThrottle() can still
+    // override per-route (e.g. AuthController's own tighter `login` limit).
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     // Request-level auth for EVERY apps/api route by construction.
     // Registered globally so a new controller is protected by default — a
     // route only opts out via an explicit @Public().

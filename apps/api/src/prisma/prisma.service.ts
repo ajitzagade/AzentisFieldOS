@@ -7,12 +7,25 @@ import { PrismaClient } from '../generated/prisma/client';
 // talks to apps/api over HTTP instead.
 //
 // Uses @prisma/adapter-pg (the plain `pg` driver) rather than
-// @prisma/adapter-neon: apps/api runs as a normal long-lived Node process,
-// not an edge/serverless function, so Neon's serverless-specific adapter
-// buys nothing here — and `pg` works identically against local/CI Postgres
-// and production Neon, since Neon speaks the standard Postgres wire
-// protocol either way.
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+// @prisma/adapter-neon: `pg` works identically against local/CI Postgres and
+// production Neon, since Neon speaks the standard Postgres wire protocol
+// either way, with no need for @prisma/adapter-neon's WebSocket-based
+// serverless-specific transport.
+//
+// apps/api IS deployed as a Vercel Function (apps/api/vercel.json), not a
+// long-lived process — each concurrent/cold-started Function instance
+// creates its own PrismaService, and therefore its own `pg.Pool` here.
+// `pg`'s own default (`max: 10`) is sized for one long-lived server owning
+// the DB's whole connection budget, not N short-lived instances each
+// opening their own pool concurrently — left at the default, a burst of
+// concurrent invocations can exhaust Postgres's connection limit well
+// before any single instance's traffic alone would justify it. A small,
+// explicit, env-overridable cap keeps each instance's footprint
+// predictable regardless of how many instances Vercel runs at once.
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
+  max: Number(process.env.DATABASE_POOL_MAX) || 5,
+});
 
 @Injectable()
 export class PrismaService

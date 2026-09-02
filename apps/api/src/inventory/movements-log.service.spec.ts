@@ -447,4 +447,120 @@ describe('MovementsLogService.list', () => {
       expect.objectContaining({ orderBy: { purchasedAt: 'desc' } }),
     );
   });
+
+  // MOVEMENTS_LOG_MAX_PAGE safety valve: beyond it, the expensive
+  // per-source overfetch (take: page*pageSize, times 4 tables) never
+  // runs, but `total` must still tell the truth via the four counts.
+  it('skips every source findMany beyond the page cap, but still returns the true total from count()', async () => {
+    const prisma = makePrisma({
+      purchaseCount: 40,
+      movementCount: 10,
+      consumptionCount: 5,
+      returnWastageCount: 3,
+    });
+    const service = makeService(prisma);
+
+    const result = await service.list({ page: '201', pageSize: '25' });
+
+    expect(prisma.purchase.findMany).not.toHaveBeenCalled();
+    expect(prisma.movement.findMany).not.toHaveBeenCalled();
+    expect(prisma.consumption.findMany).not.toHaveBeenCalled();
+    expect(prisma.returnWastage.findMany).not.toHaveBeenCalled();
+    expect(prisma.purchase.count).toHaveBeenCalled();
+    expect(prisma.movement.count).toHaveBeenCalled();
+    expect(prisma.consumption.count).toHaveBeenCalled();
+    expect(prisma.returnWastage.count).toHaveBeenCalled();
+    expect(result).toEqual({ rows: [], total: 58, page: 201, pageSize: 25 });
+  });
+
+  it('still runs every source findMany at exactly the page cap boundary', async () => {
+    const prisma = makePrisma({
+      purchase: [purchaseRow('p1', '2026-08-10')],
+      purchaseCount: 1,
+    });
+    const service = makeService(prisma);
+
+    await service.list({ page: '200', pageSize: '25' });
+
+    // Page 200 with only 1 real row has nothing to show at that offset —
+    // this only asserts the fetch itself still ran (unlike page 201),
+    // not what ends up in `rows` (the merge/slice tests above already
+    // cover that math).
+    expect(prisma.purchase.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 200 * 25 }),
+    );
+  });
+
+  it('dispatches all four sources concurrently, not one after another', async () => {
+    // Every mock returns a promise that only resolves once this test
+    // explicitly triggers it — if the service awaited each source's pair
+    // in sequence (the old shape), movement/consumption/returnWastage's
+    // findMany would never even be CALLED until purchase's pair resolved
+    // first. Asserting all four are already called while every promise is
+    // still pending proves they were dispatched together.
+    type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void };
+    function deferred<T>(): Deferred<T> {
+      let resolve!: (value: T) => void;
+      const promise = new Promise<T>((res) => {
+        resolve = res;
+      });
+      return { promise, resolve };
+    }
+
+    const pending = {
+      purchaseFind: deferred<unknown[]>(),
+      purchaseCount: deferred<number>(),
+      movementFind: deferred<unknown[]>(),
+      movementCount: deferred<number>(),
+      consumptionFind: deferred<unknown[]>(),
+      consumptionCount: deferred<number>(),
+      returnWastageFind: deferred<unknown[]>(),
+      returnWastageCount: deferred<number>(),
+    };
+    const prisma = {
+      purchase: {
+        findMany: vi.fn(() => pending.purchaseFind.promise),
+        count: vi.fn(() => pending.purchaseCount.promise),
+      },
+      movement: {
+        findMany: vi.fn(() => pending.movementFind.promise),
+        count: vi.fn(() => pending.movementCount.promise),
+      },
+      consumption: {
+        findMany: vi.fn(() => pending.consumptionFind.promise),
+        count: vi.fn(() => pending.consumptionCount.promise),
+      },
+      returnWastage: {
+        findMany: vi.fn(() => pending.returnWastageFind.promise),
+        count: vi.fn(() => pending.returnWastageCount.promise),
+      },
+      dailySiteReport: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    const service = makeService(prisma);
+
+    const resultPromise = service.list({ page: '1', pageSize: '25' });
+    // Let list() run up to (but not past) the four still-pending source
+    // fetches — it awaits supersededDsrIds() first (its own await on the
+    // auto-resolving dailySiteReport.findMany mock), so this needs a few
+    // microtask ticks, not just one, before every source's findMany has
+    // actually been dispatched.
+    for (let i = 0; i < 5; i++) {
+      await Promise.resolve();
+    }
+
+    expect(prisma.purchase.findMany).toHaveBeenCalled();
+    expect(prisma.movement.findMany).toHaveBeenCalled();
+    expect(prisma.consumption.findMany).toHaveBeenCalled();
+    expect(prisma.returnWastage.findMany).toHaveBeenCalled();
+
+    pending.purchaseFind.resolve([]);
+    pending.purchaseCount.resolve(0);
+    pending.movementFind.resolve([]);
+    pending.movementCount.resolve(0);
+    pending.consumptionFind.resolve([]);
+    pending.consumptionCount.resolve(0);
+    pending.returnWastageFind.resolve([]);
+    pending.returnWastageCount.resolve(0);
+    await resultPromise;
+  });
 });
