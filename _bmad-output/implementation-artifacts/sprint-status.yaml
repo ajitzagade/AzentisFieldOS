@@ -155,13 +155,13 @@ development_status:
   17-6-inward-entries-without-pricing: done
   epic-17-retrospective: optional
 
-  epic-18: in-progress
-  18-1-manage-subcontractor-records: review
-  18-2-create-and-manage-site-contracts: review
-  18-3-record-subcontractor-work-progress: review
-  18-4-record-subcontractor-payments: review
-  18-5-subcontractor-visibility-on-site-and-detail-pages: review
-  18-6-cross-site-subcontractor-payable-rollup: review
+  epic-18: done
+  18-1-manage-subcontractor-records: done
+  18-2-create-and-manage-site-contracts: done
+  18-3-record-subcontractor-work-progress: done
+  18-4-record-subcontractor-payments: done
+  18-5-subcontractor-visibility-on-site-and-detail-pages: done
+  18-6-cross-site-subcontractor-payable-rollup: done
   epic-18-retrospective: optional
 
   epic-19: backlog

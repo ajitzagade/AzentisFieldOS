@@ -1,6 +1,6 @@
 # Story 18.6: Cross-Site Subcontractor Payable Rollup
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

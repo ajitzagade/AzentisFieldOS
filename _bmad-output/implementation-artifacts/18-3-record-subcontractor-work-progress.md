@@ -1,6 +1,6 @@
 # Story 18.3: Record Subcontractor Work Progress
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

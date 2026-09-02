@@ -1,6 +1,6 @@
 # Story 18.5: Subcontractor Visibility on Site & Subcontractor Detail Pages
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
