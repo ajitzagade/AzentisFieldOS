@@ -333,4 +333,88 @@ describe('SearchService.search', () => {
     const pricedResult = await pricedService.search('cement');
     expect(pricedResult.purchases.results[0]!.totalAmount).toBe(50000);
   });
+
+  it('maps a Team Member candidate to its search result shape', async () => {
+    const searchTeamMembers = vi.fn().mockResolvedValue({
+      candidates: [{ id: 'tm1', name: 'Ravi Kumar', designation: 'Bar Bender' }],
+      total: 1,
+    });
+    const { service } = makeService({ searchTeamMembers });
+
+    const result = await service.search('ravi');
+
+    expect(result.teamMembers.results).toEqual([{ id: 'tm1', name: 'Ravi Kumar', designation: 'Bar Bender' }]);
+    expect(result.teamMembers.total).toBe(1);
+  });
+
+  it('maps a Payment candidate to its search result shape', async () => {
+    const toNumber = (n: number) => ({ toNumber: () => n });
+    const searchPayments = vi.fn().mockResolvedValue({
+      candidates: [
+        {
+          id: 'pay1',
+          teamMember: { name: 'Ravi Kumar' },
+          payPeriod: 'Aug 2026',
+          netPayable: toNumber(8000),
+        },
+      ],
+      total: 1,
+    });
+    const { service } = makeService({ searchPayments });
+
+    const result = await service.search('ravi');
+
+    expect(result.payments.results).toEqual([
+      { id: 'pay1', teamMemberName: 'Ravi Kumar', payPeriod: 'Aug 2026', netPayable: 8000 },
+    ]);
+    expect(result.payments.total).toBe(1);
+  });
+
+  it('maps a Subcontractor candidate to its search result shape', async () => {
+    const searchSubcontractors = vi.fn().mockResolvedValue({
+      candidates: [{ id: 'sc1', name: 'Universal Waterproofing', contactPerson: 'Suresh', phone: '9988776655' }],
+      total: 1,
+    });
+    const { service } = makeService({ searchSubcontractors });
+
+    const result = await service.search('universal');
+
+    expect(result.subcontractors.results).toEqual([
+      { id: 'sc1', name: 'Universal Waterproofing', contactPerson: 'Suresh', phone: '9988776655' },
+    ]);
+    expect(result.subcontractors.total).toBe(1);
+  });
+
+  it('maps an RMC candidate to its search result shape', async () => {
+    const searchRmc = vi.fn().mockResolvedValue({
+      candidates: [{ id: 'rmc1', grade: 'M25', site: { name: 'NH-48 Widening' }, vendor: { name: 'Balaji RMC' } }],
+      total: 1,
+    });
+    const { service } = makeService({ searchRmc });
+
+    const result = await service.search('m25');
+
+    expect(result.rmc.results).toEqual([
+      { id: 'rmc1', grade: 'M25', siteName: 'NH-48 Widening', vendorName: 'Balaji RMC' },
+    ]);
+    expect(result.rmc.total).toBe(1);
+  });
+
+  it('maps an Expense candidate to its search result shape', async () => {
+    const toNumber = (n: number) => ({ toNumber: () => n });
+    const searchExpenses = vi.fn().mockResolvedValue({
+      candidates: [
+        { id: 'exp1', description: 'Site fuel', site: { name: 'NH-48 Widening' }, amount: toNumber(2000) },
+      ],
+      total: 1,
+    });
+    const { service } = makeService({ searchExpenses });
+
+    const result = await service.search('fuel');
+
+    expect(result.expenses.results).toEqual([
+      { id: 'exp1', description: 'Site fuel', siteName: 'NH-48 Widening', amount: 2000 },
+    ]);
+    expect(result.expenses.total).toBe(1);
+  });
 });

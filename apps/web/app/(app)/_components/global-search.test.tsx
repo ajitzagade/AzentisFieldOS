@@ -13,8 +13,8 @@ vi.mock("@/app/(app)/team/[id]/advances/actions", () => ({
 
 import { GlobalSearchButton, GlobalSearchDialog, useGlobalSearchController } from "./global-search";
 
-function Harness() {
-  const search = useGlobalSearchController();
+function Harness({ role = "OWNER_ADMIN" }: { role?: "OWNER_ADMIN" | "SITE_SUPERVISOR" } = {}) {
+  const search = useGlobalSearchController(role);
   return (
     <ToastProvider>
       <GlobalSearchButton onClick={() => search.setOpen(true)} />
@@ -345,7 +345,7 @@ describe("GlobalSearch", () => {
     expect(createAdvanceQuickActionMock).not.toHaveBeenCalled();
   });
 
-  it('matches "pricing" to the Review & Price action, routing to the Movements Purchases tab', async () => {
+  it('matches "pricing" to the Review & Price action, routing to the Movements pending-pricing tab (Story 19.5)', async () => {
     mockFetch(ALL_EMPTY);
     render(<Harness />);
 
@@ -353,7 +353,26 @@ describe("GlobalSearch", () => {
 
     fireEvent.click(await screen.findByText("Review & Price", {}, { timeout: 1000 }));
 
-    expect(pushMock).toHaveBeenCalledWith("/movements?type=PURCHASE");
+    expect(pushMock).toHaveBeenCalledWith("/movements?type=PURCHASE_PENDING_PRICING");
+  });
+
+  it("hides owner-only curated Actions (Record Payment/Advance, Review & Price, Add Subcontractor, Open Settings) for SITE_SUPERVISOR", async () => {
+    mockFetch(ALL_EMPTY);
+    render(<Harness role="SITE_SUPERVISOR" />);
+
+    await openAndSearch("record");
+
+    expect(screen.queryByText("Record Payment")).not.toBeInTheDocument();
+    expect(screen.queryByText("Record Advance")).not.toBeInTheDocument();
+  });
+
+  it("still shows Supervisor-legitimate curated Actions (Add Purchase) for SITE_SUPERVISOR", async () => {
+    mockFetch(ALL_EMPTY);
+    render(<Harness role="SITE_SUPERVISOR" />);
+
+    await openAndSearch("add purchase");
+
+    expect(await screen.findByText("Add Purchase")).toBeInTheDocument();
   });
 
   it('selecting "Record Advance" opens the quick-entry modal in place — no navigation', async () => {

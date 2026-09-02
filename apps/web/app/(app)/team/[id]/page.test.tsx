@@ -163,6 +163,44 @@ describe("TeamMemberDetailPage", () => {
     expect(screen.queryByRole("link", { name: "Record Advance" })).not.toBeInTheDocument();
   });
 
+  it("hides per-row Adjust/Correct links for SITE_SUPERVISOR even when the ledger has rows", async () => {
+    mockFetchRouter({
+      teamMember: baseTeamMember,
+      workHistory: [],
+      advances: [
+        {
+          id: "adv1",
+          amount: "5000",
+          reason: "Medical",
+          givenAt: "2026-08-05T00:00:00.000Z",
+          teamMember: { id: "tm1" },
+        },
+      ],
+      adjustments: [
+        {
+          id: "adj1",
+          delta: "-1000",
+          note: "Adjusted against July payment",
+          adjustedAt: "2026-08-10T00:00:00.000Z",
+          advance: { id: "adv1", teamMember: { id: "tm1" } },
+        },
+      ],
+      role: "SITE_SUPERVISOR",
+    });
+
+    await renderDetailPage("tm1");
+
+    // Regression guard for the canManage flag threading through
+    // advanceToLedgerRow/adjustmentToLedgerRow (page.tsx): a bug there would
+    // let a Supervisor see Adjust/Correct links that 403 server-side, but
+    // every existing test with a non-empty ledger used the default
+    // OWNER_ADMIN role, so it would never have caught it.
+    expect(screen.getByText("Medical")).toBeInTheDocument();
+    expect(screen.getByText("Adjusted against July payment")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Correct" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Adjust/ })).not.toBeInTheDocument();
+  });
+
   it("merges Advance and Adjustment rows into a single ledger, sorted most-recent-first, with Adjustment amounts shown as a negative delta", async () => {
     mockFetchRouter({
       teamMember: baseTeamMember,

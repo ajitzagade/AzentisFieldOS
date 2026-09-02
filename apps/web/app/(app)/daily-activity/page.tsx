@@ -147,7 +147,7 @@ export default async function DailyActivityPage({
         </Link>
       </div>
 
-      <div className="mb-4 action-button-row items-center">
+      <div className="mb-4 action-button-row sm:items-center">
         <Link
           href={`/daily-activity?date=${shiftDate(date, -1)}`}
           className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}

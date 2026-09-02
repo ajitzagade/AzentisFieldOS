@@ -332,7 +332,7 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const pwaInstall = usePwaInstall();
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
-  const search = useGlobalSearchController();
+  const search = useGlobalSearchController(role);
 
   async function handleConfirmInstall() {
     setInstallDialogOpen(false);

@@ -2,7 +2,7 @@
 title: 'Action-Button Group Mobile Alignment Fix (Story 19.7)'
 type: 'bugfix'
 created: '2026-09-02'
-status: 'in-review'
+status: 'done'
 baseline_commit: '8d103cd5f1f8dc58d9d5c174acc1c17fea18c5e8'
 review_loop_iteration: 0
 context: ['{project-root}/_bmad-output/implementation-artifacts/epic-19-context.md', '{project-root}/_bmad-output/planning-artifacts/stories/phase-8-post-launch/epic-19-owner-quick-access-and-mobile-alignment/story-19.7-action-button-group-mobile-alignment-fix.md']

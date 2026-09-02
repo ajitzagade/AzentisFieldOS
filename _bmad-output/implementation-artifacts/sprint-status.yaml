@@ -167,10 +167,10 @@ development_status:
   epic-19: in-progress
   19-1-advance-quick-entry-modal: review
   19-2-global-search-and-action-palette: done
-  19-3-dashboard-quick-actions-bar: review
-  19-4-owner-mobile-quick-bar: review
-  19-5-pending-pricing-deep-link: review
-  19-6-recently-viewed-shortcuts: review
-  19-7-action-button-group-mobile-alignment-fix: review
-  19-8-mobile-card-lists-for-remaining-tables: review
+  19-3-dashboard-quick-actions-bar: done
+  19-4-owner-mobile-quick-bar: done
+  19-5-pending-pricing-deep-link: done
+  19-6-recently-viewed-shortcuts: done
+  19-7-action-button-group-mobile-alignment-fix: done
+  19-8-mobile-card-lists-for-remaining-tables: done
   epic-19-retrospective: optional

@@ -63,12 +63,14 @@ function safeGetItem(): string | null {
 }
 
 // A malformed/corrupted value must degrade to an empty list rather than
-// crash the Dashboard.
+// crash the Dashboard. Re-applies MAX_ENTRIES on read too, not just on
+// write — an older app version, a manually-edited value, or a future
+// migration could leave more than MAX_ENTRIES entries on disk.
 function parseList(raw: string): RecentlyViewedEntry[] {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return EMPTY_LIST;
-    return parsed.filter(isRecentlyViewedEntry);
+    return parsed.filter(isRecentlyViewedEntry).slice(0, MAX_ENTRIES);
   } catch {
     return EMPTY_LIST;
   }

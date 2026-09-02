@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { matchSearchActions } from "@azentisfieldos/shared";
+import { matchSearchActions, type Role } from "@azentisfieldos/shared";
 import {
   AdvanceQuickEntryModal,
   BarChartIcon,
@@ -92,8 +92,11 @@ export function useOpenGlobalSearch(): { open: () => void } {
 // The one global-search controller — mounted ONCE per app-shell (in
 // SidebarShell) so its `Cmd/Ctrl+K` listener and dialog state aren't
 // duplicated across the sidebar's desktop/drawer/mobile-header trigger
-// buttons, which all share this single instance via props.
-export function useGlobalSearchController(): GlobalSearchController {
+// buttons, which all share this single instance via props. `role` filters
+// the curated Actions group down to what a Site Supervisor can actually do
+// server-side — the palette must not surface an action that only 404s or
+// 403s for them (SEARCH_ACTIONS' `ownerOnly` flag).
+export function useGlobalSearchController(role: Role): GlobalSearchController {
   const router = useRouter();
   const [open, setOpenState] = useState(false);
   const [query, setQuery] = useState("");
@@ -144,7 +147,9 @@ export function useGlobalSearchController(): GlobalSearchController {
   // first in `groups` below so it appears above entity groups when both
   // match (AC #2); SearchPalette only shows a group once it has items, so
   // this is a no-op entry when nothing matches.
-  const matchedActions = matchSearchActions(query);
+  const matchedActions = matchSearchActions(query).filter(
+    (action) => !action.ownerOnly || role === "OWNER_ADMIN",
+  );
 
   const groups: SearchResultGroup[] = [
     {

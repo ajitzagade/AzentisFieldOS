@@ -25,7 +25,10 @@ interface TeamMemberOption {
 // also calls router.refresh() — the Outstanding Advances figure this
 // trigger sits on is a server-fetched value, so without it the Dashboard
 // would keep showing the pre-entry total until an unrelated navigation.
-export function AdvanceQuickEntryTrigger() {
+// `size` defaults to "sm" (the Outstanding Advances card's compact action
+// slot); Story 19.3's header quick-actions row passes "md" to match its
+// sibling default-size buttons instead of looking visibly smaller.
+export function AdvanceQuickEntryTrigger({ size = "sm" }: { size?: "sm" | "md" } = {}) {
   const [open, setOpen] = useState(false);
   // Bumped every time the modal is freshly opened so AdvanceQuickEntryModal
   // remounts (key={formKey}) — its internal useActionState/selection state
@@ -86,7 +89,7 @@ export function AdvanceQuickEntryTrigger() {
 
   return (
     <>
-      <Button type="button" variant="secondary" size="sm" onClick={handleOpen}>
+      <Button type="button" variant="secondary" size={size} onClick={handleOpen}>
         <WalletIcon className="size-4" />
         Record Advance
       </Button>

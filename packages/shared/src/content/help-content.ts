@@ -624,6 +624,14 @@ export interface SearchAction {
    * a quick-entry flow in place (currently only Record Advance, via Story
    * 19.1's modal) — apps/web's global-search.tsx branches on this. */
   href: string | null;
+  /** True for actions whose write path is `@Roles('OWNER_ADMIN')`-gated
+   * server-side (Record Payment, Record Advance, Add Subcontractor,
+   * Review & Price's pricing PATCH) or whose page is Owner-only (Open
+   * Settings) — apps/web's global-search.tsx filters these out of the
+   * palette for a Site Supervisor. Actions Supervisors can legitimately use
+   * (New Daily Report, Add Purchase, Add Vendor, Add Team Member, Open
+   * Reports) are left `undefined`/falsy. */
+  ownerOnly?: boolean;
 }
 
 export const SEARCH_ACTIONS: SearchAction[] = [
@@ -640,6 +648,7 @@ export const SEARCH_ACTIONS: SearchAction[] = [
     description: "Pay a Team Member",
     keywords: ["record payment", "pay", "salary", "wage payment"],
     href: "/payments/new",
+    ownerOnly: true,
   },
   {
     id: "record-advance",
@@ -647,6 +656,7 @@ export const SEARCH_ACTIONS: SearchAction[] = [
     description: "Give a Team Member an advance",
     keywords: ["record advance", "add advance", "give advance", "loan"],
     href: null,
+    ownerOnly: true,
   },
   {
     id: "add-purchase",
@@ -675,13 +685,17 @@ export const SEARCH_ACTIONS: SearchAction[] = [
     description: "Create a new Subcontractor",
     keywords: ["add subcontractor", "new subcontractor"],
     href: "/subcontractors/new",
+    ownerOnly: true,
   },
   {
     id: "review-and-price",
     title: "Review & Price",
     description: "Complete pricing on a pending Purchase",
     keywords: ["review and price", "pricing", "price", "pending pricing"],
-    href: "/movements?type=PURCHASE",
+    // Story 19.5 shipped a dedicated pending-pricing filter — link straight
+    // to it instead of the unfiltered Purchases view this predates.
+    href: "/movements?type=PURCHASE_PENDING_PRICING",
+    ownerOnly: true,
   },
   {
     id: "open-reports",
@@ -696,6 +710,7 @@ export const SEARCH_ACTIONS: SearchAction[] = [
     description: "App Settings",
     keywords: ["settings", "open settings", "preferences"],
     href: "/settings",
+    ownerOnly: true,
   },
 ];
 

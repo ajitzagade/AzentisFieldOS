@@ -243,3 +243,18 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: `_bmad-output/implementation-artifacts/spec-19-1-advance-quick-entry-modal.md`
   summary: `ComboboxField` pickers (Team Member, Site, etc.) show the generic "No matching X" message even when the underlying list is genuinely empty (zero records exist yet), rather than a distinct "you have no X yet — add one first" empty state per AD-6.
   evidence: Blind Hunter caught this on the new modal's Team Member picker; verified the identical `emptyMessage="No matching Team Member"` already ships unchanged in the pre-existing `apps/web/app/(app)/payments/payment-form.tsx` — pre-existing across every Team Member combobox, not unique to this story.
+
+## Deferred from: code review of epic-19 stories 19.2-19.8 (2026-09-02)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-19-2-global-search-and-action-palette.md`
+  summary: `PaymentSearchResult.netPayable` and `ExpenseSearchResult.amount` are fetched and piped through `search.service.ts` and the shared types, but `global-search.tsx`'s row mapping for those two groups never renders either field — the amount that would help disambiguate two similarly-named entries is silently dropped in the UI.
+  evidence: Confirmed via `apps/api/src/search/search.service.ts`'s Payment/Expense mapping (both compute the numeric field) vs. `global-search.tsx`'s `groups` array (neither group's `description` includes it). Cosmetic/incomplete, not a correctness bug.
+- source_spec: `_bmad-output/implementation-artifacts/spec-19-5-pending-pricing-deep-link.md`
+  summary: TOCTOU gap between `owner-dashboard.tsx` reading `pendingPricingCount` and the follow-up `GET /purchases?pendingPricing=true` fetch when the count is exactly 1 — `purchases[0]` is trusted without re-verifying the set is still exactly one row at the moment of the second read.
+  evidence: Edge Case Hunter flagged this; the window between the two server-side reads within one request is milliseconds, and the fallback (empty/failed fetch → generic filtered list) already degrades safely, so the practical exposure is a rare stale link, not data corruption.
+- source_spec: `_bmad-output/implementation-artifacts/spec-19-6-recently-viewed-shortcuts.md`
+  summary: `recently-viewed-chips.tsx` renders chips without checking the target record still exists — a chip for a since-soft-deleted Site/Vendor/Team Member/Subcontractor links to a 404.
+  evidence: Edge Case Hunter confirmed via `recently-viewed-chips.tsx`'s render path (no existence check) and the app's established soft-delete pattern (deleted rows are hidden from pickers/lists but not purged). A full fix needs either a batch existence-check fetch on every Dashboard render (extra API cost) or a soft-delete-aware search endpoint; deferred as a real but low-severity UX edge case (a "recent items" list showing a stale entry is a common, accepted pattern elsewhere).
+- source_spec: `_bmad-output/implementation-artifacts/spec-19-2-global-search-and-action-palette.md`
+  summary: Documentation drift — `EXPERIENCE.md`/`DESIGN.md` (cited as authoritative references by every Epic 19 story spec) were not updated to reflect the as-shipped search coverage, curated Actions list, or the `action-button-row`/mobile-card implementation details.
+  evidence: Blind Hunter noted this; no functional impact, but future stories citing these docs as ground truth should have their assumptions re-verified against code rather than the docs.

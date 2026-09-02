@@ -243,7 +243,7 @@ export async function OwnerDashboard() {
             <WalletIcon className="size-4" />
             Record Payment
           </Link>
-          <AdvanceQuickEntryTrigger />
+          <AdvanceQuickEntryTrigger size="md" />
           <Link href="/movements/purchases/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <BoxIcon className="size-4" />
             Add Purchase
