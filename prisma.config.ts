@@ -21,6 +21,6 @@ export default defineConfig({
     path: path.join(__dirname, "infra/prisma/migrations"),
   },
   datasource: {
-    url: process.env.DATABASE_URL ?? "postgresql://missing-database-url:5432/missing",
+    url: process.env.DATABASE_URL || "postgresql://missing-database-url:5432/missing",
   },
 });

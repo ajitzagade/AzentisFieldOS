@@ -53,7 +53,8 @@ describe("MoveVehiclePage", () => {
     await renderMovePage("v1");
 
     expect(screen.getByRole("heading", { name: /MH-12-AB-1234/ })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Sector 12 Metro Depot" })).toBeInTheDocument();
+    // SiteField is a searchable combobox — options render on demand.
+    expect(screen.getByLabelText("Site")).toHaveAttribute("role", "combobox");
     expect(screen.getByRole("button", { name: "Record Movement" })).toBeInTheDocument();
   });
 

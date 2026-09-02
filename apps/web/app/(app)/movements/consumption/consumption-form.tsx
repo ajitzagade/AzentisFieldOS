@@ -24,6 +24,7 @@ import {
 } from "@azentisfieldos/ui";
 import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { useClientValidation } from "../../../../lib/use-client-validation";
+import { requireOriginal } from "../../../../lib/require-original";
 import { SiteField } from "../../_components/site-field";
 import { createConsumptionAction, type CreateConsumptionFormState } from "./actions";
 import { parseConsumptionForm } from "./parse";
@@ -196,7 +197,7 @@ export function ConsumptionForm({
           <CorrectedValueField
             label={`Corrected quantity${unitSuffix}`}
             name="quantity"
-            originalValue={initial?.quantity ?? 0}
+            originalValue={requireOriginal(initial?.quantity, "quantity")}
             unit={selectedMaterial?.description}
             required
             error={fieldError("quantity")}

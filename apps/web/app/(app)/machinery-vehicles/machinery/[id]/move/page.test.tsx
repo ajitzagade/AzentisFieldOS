@@ -53,7 +53,8 @@ describe("MoveMachineryPage", () => {
     await renderMovePage("m1");
 
     expect(screen.getByRole("heading", { name: /JCB 3DX/ })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "NH-48 Highway Widening" })).toBeInTheDocument();
+    // SiteField is a searchable combobox — options render on demand.
+    expect(screen.getByLabelText("Site")).toHaveAttribute("role", "combobox");
     expect(screen.getByRole("button", { name: "Record Movement" })).toBeInTheDocument();
   });
 

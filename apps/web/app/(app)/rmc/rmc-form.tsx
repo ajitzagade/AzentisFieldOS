@@ -24,6 +24,7 @@ import {
   TextField,
 } from "@azentisfieldos/ui";
 import { useClientValidation } from "../../../lib/use-client-validation";
+import { requireOriginal } from "../../../lib/require-original";
 import { ChallanPhotoField } from "../_components/challan-photo-field";
 import { SiteField } from "../_components/site-field";
 import { createRmcEntryAction, type CreateRmcEntryFormState } from "./actions";
@@ -114,6 +115,10 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
     const rate = Number(nextRate);
     if (nextQuantity.trim() !== "" && nextRate.trim() !== "" && Number.isFinite(quantity) && Number.isFinite(rate)) {
       setTotalAmount((quantity * rate).toFixed(2));
+    } else {
+      // Blanked input: clear the total too — a stale figure silently
+      // contradicting quantity × rate must never ride into the submit.
+      setTotalAmount("");
     }
   }
 
@@ -209,7 +214,7 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
           <CorrectedValueField
             label="Corrected quantity (m³)"
             name="quantityM3"
-            originalValue={Number(initial?.quantityM3 ?? 0)}
+            originalValue={requireOriginal(initial?.quantityM3, "quantity")}
             unit="m³"
             required
             error={fieldError("quantityM3")}
@@ -246,7 +251,7 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
           <CorrectedValueField
             label="Corrected total amount"
             name="totalAmount"
-            originalValue={Number(initial?.totalAmount ?? 0)}
+            originalValue={requireOriginal(initial?.totalAmount, "total amount")}
             unit="₹"
             required
             error={fieldError("totalAmount")}

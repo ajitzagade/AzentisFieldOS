@@ -105,24 +105,34 @@ export async function SupervisorHome() {
           the task grid below. */}
       {today !== null ? (
         missing.length > 0 ? (
-          <div className="mb-6">
-            <GapFlag
-              icon={<AlertTriangleIcon />}
-              message={`Daily Report still due today for ${missing.map((site) => site.name).join(", ")}.`}
-              action={
-                <Link href="/dsr/new" className={cn(buttonVariants({ variant: "primary", size: "sm" }))}>
-                  <ClipboardIcon className="size-4" />
-                  Start Daily Report
-                </Link>
-              }
-            />
+          // One flag per Site, each deep-linking the form to that Site —
+          // never a single banner naming all of them at once (FR-35).
+          <div className="mb-6 flex flex-col gap-3">
+            {missing.map((site) => (
+              <GapFlag
+                key={site.siteId}
+                icon={<AlertTriangleIcon />}
+                message={`Daily Report still due today for ${site.name}.`}
+                action={
+                  <Link
+                    href={`/dsr/new?siteId=${site.siteId}`}
+                    className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+                  >
+                    <ClipboardIcon className="size-4" />
+                    Start Daily Report
+                  </Link>
+                }
+              />
+            ))}
           </div>
-        ) : (
+        ) : today.sitesReportingToday > 0 ? (
+          // Success only when at least one Site actually reported — a tenant
+          // with zero Sites must not read a false "everything's done".
           <p className="mb-6 flex items-center gap-2 text-body-sm font-medium text-ink-700">
             <CheckCircleIcon className="size-4 shrink-0 text-accent-teal-700" />
             Every site has submitted today&apos;s Daily Report.
           </p>
-        )
+        ) : null
       ) : null}
 
       {/* Approved layout 1A: Daily Report as a full-width filled hero card,
@@ -132,7 +142,7 @@ export async function SupervisorHome() {
           interactive
           className="flex items-center gap-3 border-accent-teal-700 bg-accent-teal-700 py-4 text-white"
         >
-          <ClipboardIcon className="size-6 shrink-0" />
+          <HERO_TASK.icon className="size-6 shrink-0" />
           <div>
             <div className="text-body font-semibold">{HERO_TASK.label}</div>
             <p className="mt-0.5 text-caption text-white/75">{HERO_TASK.hint}</p>

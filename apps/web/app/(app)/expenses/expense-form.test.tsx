@@ -58,7 +58,7 @@ describe("ExpenseForm", () => {
     );
 
     // D4: the user types the corrected amount; the delta is derived underneath.
-    expect(screen.getByLabelText("Correct amount")).toBeInTheDocument();
+    expect(screen.getByLabelText("Corrected amount")).toBeInTheDocument();
     expect(screen.getByText(/Currently recorded: ₹5,000/)).toBeInTheDocument();
   });
 });

@@ -109,3 +109,27 @@ describe("VendorDetailPage", () => {
     expect(notFoundMock).toHaveBeenCalled();
   });
 });
+
+// D7 (review 2026-09-02): a Supervisor's unpriced inward entry reaches this
+// Khata via listByVendor — it must read as pending, never as a ₹0 amount
+// with a blank payment badge.
+describe("VendorDetailPage — unpriced (Pricing pending) purchase rows", () => {
+  it("renders an unpriced row with a pending badge and an amount dash, never ₹0", async () => {
+    mockFetch([
+      {
+        id: "p-unpriced",
+        purchasedAt: "2026-09-01T00:00:00.000Z",
+        quantity: "50",
+        totalAmount: null,
+        paymentStatus: null,
+        invoiceOrChallanNo: null,
+        materialSize: { label: "OPC 53 Grade", material: { name: "Cement", unit: { name: "Bags" } } },
+      },
+    ]);
+
+    await renderDetailPage("v1");
+
+    expect(screen.getByText("Pricing pending")).toBeInTheDocument();
+    expect(screen.queryByText("₹0")).not.toBeInTheDocument();
+  });
+});

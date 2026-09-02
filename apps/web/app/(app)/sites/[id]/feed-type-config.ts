@@ -22,7 +22,7 @@ export const FEED_TYPE_CONFIG: Record<
   FeedItemType,
   { label: string; icon: ComponentType<SVGProps<SVGSVGElement>>; badgeVariant: "gold" | "neutral" }
 > = {
-  DSR: { label: "DSR", icon: ClipboardIcon, badgeVariant: "neutral" },
+  DSR: { label: "Report", icon: ClipboardIcon, badgeVariant: "neutral" },
   MOVEMENT: { label: "Movement", icon: ArrowsIcon, badgeVariant: "neutral" },
   PURCHASE: { label: "Purchase", icon: BoxIcon, badgeVariant: "gold" },
   CONSUMPTION: { label: "Consumption", icon: BoxIcon, badgeVariant: "neutral" },

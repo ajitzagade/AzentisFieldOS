@@ -41,7 +41,7 @@ describe("AdjustmentForm", () => {
         originalAmount={5000} teamMemberId="tm1" advanceId="adv1" correctsId="aa1" outstandingBalance="8000" />);
 
     // D4: the user types the corrected amount; the delta is derived underneath.
-    expect(screen.getByLabelText("Correct adjustment amount")).toBeInTheDocument();
+    expect(screen.getByLabelText("Corrected adjustment amount")).toBeInTheDocument();
     expect(screen.getByText(/Currently recorded: ₹5,000/)).toBeInTheDocument();
   });
 });

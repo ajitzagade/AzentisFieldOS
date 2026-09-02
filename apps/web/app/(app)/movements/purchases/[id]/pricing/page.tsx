@@ -9,6 +9,7 @@ interface PurchaseForPricing {
   id: string;
   quantity: string;
   totalAmount: string | null;
+  correctsId: string | null;
   purchasedAt: string;
   receiverName: string | null;
   vendor: { name: string };
@@ -38,6 +39,10 @@ export default async function PurchasePricingPage({ params }: { params: Promise<
   // Already priced: nothing to complete — changes go through Correct.
   if (purchase.totalAmount !== null) {
     redirect(`/movements?flash=${encodeURIComponent("This Purchase is already priced")}`);
+  }
+  // A correction row is a signed delta and never carries its own pricing.
+  if (purchase.correctsId !== null) {
+    redirect(`/movements?flash=${encodeURIComponent("A correction entry is never priced separately")}`);
   }
 
   const quantity = Number(purchase.quantity);

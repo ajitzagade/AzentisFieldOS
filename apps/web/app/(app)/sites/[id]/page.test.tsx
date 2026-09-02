@@ -91,7 +91,7 @@ describe("SiteDetailPage", () => {
     expect(screen.getByText("Expense")).toBeInTheDocument();
     expect(screen.getByText("₹4,200")).toBeInTheDocument();
     expect(screen.getByText("Daily Site Report submitted")).toBeInTheDocument();
-    expect(screen.getByText("DSR")).toBeInTheDocument();
+    expect(screen.getByText("Report")).toBeInTheDocument();
   });
 
   it("renders an Edit Site link pointing to the edit route", async () => {

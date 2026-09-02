@@ -287,7 +287,7 @@ export function PurchaseForm({
           // D4: the user types the corrected quantity — the signed delta the
           // ledger needs is derived and submitted underneath.
           <CorrectedValueField
-            label={`Correct quantity${unitSuffix}`}
+            label={`Corrected quantity${unitSuffix}`}
             name="quantity"
             originalValue={original.quantity}
             unit={selectedUnit}

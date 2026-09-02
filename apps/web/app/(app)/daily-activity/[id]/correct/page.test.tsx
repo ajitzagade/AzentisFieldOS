@@ -52,6 +52,11 @@ function mockFetchRouter(handlers: {
     if (urlStr.endsWith("/dsr/dsr-1")) {
       return Promise.resolve({ ok: true, json: async () => handlers.dsr ?? originalDsr() });
     }
+    // useDsrReferenceData's list endpoints (materials/team/expense-categories/
+    // machinery/vehicles) — must be arrays or the reference hook errors out.
+    if (/\/(materials|team-members|expense-categories|machinery|vehicles)(\?|$)/.test(urlStr)) {
+      return Promise.resolve({ ok: true, json: async () => [] });
+    }
     return Promise.resolve({ ok: true, json: async () => ({}) });
   }) as unknown as typeof fetch;
 }
@@ -143,5 +148,36 @@ describe("CorrectDsrPage", () => {
 
     await expect(renderCorrectPage("missing-id")).rejects.toThrow("NEXT_NOT_FOUND");
     expect(notFoundMock).toHaveBeenCalled();
+  });
+
+  // Ported from the deleted /daily-activity/new test (review 2026-09-02):
+  // Story 9.1's rule — an RMC row's Vendor is the searchable picker bound to
+  // the Vendor list, never free text, and the raw vendor id never renders.
+  it("sources an RMC row's Vendor field from the Vendor list via a searchable picker (Story 9.1)", async () => {
+    mockFetchRouter({
+      dsr: {
+        ...originalDsr(),
+        rmcEntries: [
+          {
+            vendorId: "vendor-77",
+            vendor: { id: "vendor-77", name: "Anand RMC Suppliers" },
+            quantityM3: "12",
+            grade: "M25",
+            ratePerM3: "6200",
+            totalAmount: "74400",
+          },
+        ],
+      },
+      vendors: [{ id: "vendor-77", name: "Anand RMC Suppliers" }],
+    });
+
+    await renderCorrectPage("dsr-1");
+
+    const vendorPicker = await screen.findByLabelText("Vendor");
+    expect(vendorPicker).toHaveAttribute("role", "combobox");
+    // The picker displays the vendor's NAME once its options resolve — and
+    // the raw id never appears anywhere in the rendered page.
+    await waitFor(() => expect(vendorPicker).toHaveValue("Anand RMC Suppliers"));
+    expect(document.body.textContent).not.toContain("vendor-77");
   });
 });

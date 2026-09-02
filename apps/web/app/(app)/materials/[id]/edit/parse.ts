@@ -2,9 +2,9 @@ import { createMaterialSizeSchema, updateMaterialSchema } from "@azentisfieldos/
 
 // The single FormData→schema coercion for the Material edit form, run by BOTH
 // the Server Action (source of truth) and the client's useClientValidation
-// hook (AD-7). The action additionally guards unreadable customFields JSON
-// with its own formError before calling this — here, unparseable JSON is left
-// as the raw string so the schema rejects it the same way both run sites.
+// hook (AD-7). Unparseable customFields JSON is left as the raw string so the
+// schema rejects it with the same field error in both run sites — this parse
+// is the only validation path (the action has no separate pre-guard).
 export function parseUpdateMaterialForm(formData: FormData) {
   // FR-7: Custom Fields are staged client-side (edit-material-form.tsx)
   // and submitted as one JSON-encoded hidden field alongside the rest of

@@ -306,7 +306,7 @@ export function DsrDesktopForm({
         await uploadAllPhotos(dsr.id, photos);
       }
       router.push(
-        `/daily-activity/${dsr.id}?flash=${encodeURIComponent(mode === "correct" ? "Correction submitted" : "Daily Site Report submitted")}`,
+        `/daily-activity/${dsr.id}?flash=${encodeURIComponent(mode === "correct" ? "Correction submitted" : "Daily Report submitted")}`,
       );
     } finally {
       setIsSubmitting(false);
@@ -686,7 +686,7 @@ export function DsrDesktopForm({
 
       <Button type="submit" isLoading={isSubmitting} disabled={!siteId || (mode === "correct" && !reason)} className="w-full justify-center">
         {mode === "correct" ? <RotateCcwIcon className="size-4" /> : <CheckCircleIcon className="size-4" />}
-        {mode === "correct" ? "Submit Correction" : "Submit Daily Activity"}
+        {mode === "correct" ? "Submit Correction" : "Submit Daily Report"}
       </Button>
 
       <ConfirmDialog

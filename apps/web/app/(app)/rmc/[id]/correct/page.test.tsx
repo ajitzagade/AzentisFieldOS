@@ -52,6 +52,7 @@ async function renderCorrectPage(id: string) {
 }
 
 const entry = {
+  quantityM3: "42",
   id: "rmc1",
   siteId: "site1",
   vendorId: "vendor1",

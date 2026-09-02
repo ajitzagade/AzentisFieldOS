@@ -12,6 +12,13 @@ if (process.env.VERCEL_ENV !== "production") {
   process.exit(0);
 }
 
+// Fail fast and by name — without this, a missing URL surfaces later as an
+// obscure connect error against prisma.config.ts's placeholder host.
+if (!process.env.DATABASE_URL) {
+  console.error("DATABASE_URL is not set for a production build — refusing to skip migrations.");
+  process.exit(1);
+}
+
 // `migrate deploy` needs the datasource URL, which Prisma 7 only resolves
 // from prisma.config.ts (schema.prisma deliberately has no datasource.url —
 // AD-2). `prisma generate --schema ...` above works fine without it, but

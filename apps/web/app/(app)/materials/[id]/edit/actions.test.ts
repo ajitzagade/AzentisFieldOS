@@ -77,7 +77,7 @@ describe("updateMaterialAction", () => {
 
     const result = await updateMaterialAction("mat-1", {}, formData({ isActive: "true", customFields: "{not valid json" }));
 
-    expect(result.formError).toBeDefined();
+    expect(result.errors?.customFields?.[0]).toBeDefined();
     expect(global.fetch).not.toHaveBeenCalled();
   });
 

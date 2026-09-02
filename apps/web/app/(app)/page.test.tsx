@@ -51,6 +51,7 @@ function mockDashboard(overrides: {
   overall?: Record<string, unknown>;
   sitesPreview?: unknown[];
   role?: string;
+  pendingPricing?: number;
 }) {
   const today = overrides.today ?? baseToday;
   const overall = overrides.overall ?? baseOverall;
@@ -61,11 +62,13 @@ function mockDashboard(overrides: {
     const url = String(input);
     const body = url.includes("/users/me")
       ? { role }
-      : url.includes("/dashboard/overall")
-        ? overall
-        : url.includes("/dashboard/sites-preview")
-          ? sitesPreview
-          : today;
+      : url.includes("/purchases/count/pending-pricing")
+        ? (overrides.pendingPricing ?? 0)
+        : url.includes("/dashboard/overall")
+          ? overall
+          : url.includes("/dashboard/sites-preview")
+            ? sitesPreview
+            : today;
     return Promise.resolve({ ok: true, json: async () => body });
   }) as unknown as typeof fetch;
 }
@@ -269,10 +272,13 @@ describe("DashboardPage", () => {
     mockDashboard({ role: "SITE_SUPERVISOR", today: { ...baseToday, sitesMissingDsrToday: [{ siteId: "s1", name: "NH-48 Widening" }] } });
     await renderDashboard();
 
-    // The hero card and the gap-flag action both start the Daily Report.
+    // The hero card and the gap-flag action both start the Daily Report —
+    // the gap-flag deep-links its Site, the hero goes to the bare form.
     const startLinks = screen.getAllByRole("link", { name: /Start Daily Report/ });
     expect(startLinks.length).toBeGreaterThan(0);
-    for (const link of startLinks) expect(link).toHaveAttribute("href", "/dsr/new");
+    for (const link of startLinks) {
+      expect(link.getAttribute("href")).toMatch(/^\/dsr\/new/);
+    }
     expect(screen.getByText("Material Received")).toBeInTheDocument();
     expect(screen.getByText("Material Used")).toBeInTheDocument();
     expect(screen.getByText("Attendance")).toBeInTheDocument();
@@ -281,5 +287,57 @@ describe("DashboardPage", () => {
     // None of the Owner's financial rollup appears.
     expect(screen.queryByText("Vendor Outstanding")).not.toBeInTheDocument();
     expect(screen.queryByText("Cash Tied Up")).not.toBeInTheDocument();
+  });
+  // D7: the Owner's only dashboard-level signal that gate entries await
+  // pricing — the endpoint returns a bare number; pin both branches.
+  it("flags pending-pricing inward entries with an Add Pricing action", async () => {
+    mockDashboard({ pendingPricing: 3 });
+    await renderDashboard();
+
+    expect(screen.getByText("3 inward entries are waiting for pricing.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Add Pricing/ })).toHaveAttribute("href", "/movements?type=PURCHASE");
+  });
+
+  it("shows no pending-pricing flag when the count is zero", async () => {
+    mockDashboard({ pendingPricing: 0 });
+    await renderDashboard();
+
+    expect(screen.queryByText(/waiting for pricing/)).not.toBeInTheDocument();
+  });
+
+  it("Supervisor Home: one gap-flag per missing Site, each deep-linking that Site's report", async () => {
+    mockDashboard({
+      role: "SITE_SUPERVISOR",
+      today: {
+        ...baseToday,
+        sitesMissingDsrToday: [
+          { siteId: "s1", name: "NH-48 Widening" },
+          { siteId: "s2", name: "Metro Depot" },
+        ],
+      },
+    });
+    await renderDashboard();
+
+    expect(screen.getByText("Daily Report still due today for NH-48 Widening.")).toBeInTheDocument();
+    expect(screen.getByText("Daily Report still due today for Metro Depot.")).toBeInTheDocument();
+    const starts = screen.getAllByRole("link", { name: /Start Daily Report/ });
+    // hero + one per flag; the flags carry ?siteId= deep links
+    expect(starts.some((link) => link.getAttribute("href") === "/dsr/new?siteId=s1")).toBe(true);
+    expect(starts.some((link) => link.getAttribute("href") === "/dsr/new?siteId=s2")).toBe(true);
+  });
+
+  it("Supervisor Home: all-submitted success line only when something actually reported", async () => {
+    mockDashboard({ role: "SITE_SUPERVISOR", today: { ...baseToday, sitesMissingDsrToday: [] } });
+    await renderDashboard();
+    expect(screen.getByText(/Every site has submitted today/)).toBeInTheDocument();
+  });
+
+  it("Supervisor Home: zero-Sites tenant gets no false success line", async () => {
+    mockDashboard({
+      role: "SITE_SUPERVISOR",
+      today: { ...baseToday, sitesReportingToday: 0, sitesMissingDsrToday: [] },
+    });
+    await renderDashboard();
+    expect(screen.queryByText(/Every site has submitted today/)).not.toBeInTheDocument();
   });
 });

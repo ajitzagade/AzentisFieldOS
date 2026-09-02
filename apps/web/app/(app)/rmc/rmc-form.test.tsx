@@ -108,3 +108,34 @@ describe("RmcForm", () => {
     expect(screen.getByLabelText("Vendor")).toHaveAttribute("role", "combobox");
   });
 });
+
+// Review 2026-09-02: the corrected-total field submits a signed delta; the
+// schema must accept a downward correction (42→36 m³ ⇒ total −37,200) — the
+// flow's most common case — or corrections are unsubmittable.
+describe("RmcForm — downward correction passes the shared parse", () => {
+  it("a lower corrected quantity and total produce a parse-valid delta submission", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <RmcForm mode="correct" correctsId="rmc1" sites={sites} vendors={vendors} initial={correctionInitial} />,
+    );
+
+    await user.type(screen.getByLabelText("Corrected quantity (m³)"), "36");
+    await user.type(screen.getByLabelText("Corrected total amount"), "223200");
+    await user.type(screen.getByLabelText("Reason for this correction"), "Delivery challan showed 36 m³");
+
+    const form = container.querySelector("form")!;
+    const data = new FormData(form);
+    // The fixture's readable ids aren't uuid-shaped — swap in real uuids so
+    // the assertion isolates the delta contract, not id formatting.
+    data.set("siteId", "11111111-1111-4111-8111-111111111111");
+    data.set("vendorId", "22222222-2222-4222-8222-222222222222");
+    data.set("correctsId", "33333333-3333-4333-8333-333333333333");
+    const { parseRmcEntryForm } = await import("./parse");
+    const result = parseRmcEntryForm(data);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.quantityM3).toBe(-6);
+      expect(result.data.totalAmount).toBe(-37200);
+    }
+  });
+});

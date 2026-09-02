@@ -14,14 +14,30 @@ const LAST_SITE_STORAGE_KEY = "azentisfieldos:last-site-id";
 // The remembered Site is read through useSyncExternalStore: the server
 // snapshot is null, so SSR and hydration render the empty picker, and the
 // client's first post-hydration render applies the stored value — no
-// setState-in-effect, no hydration mismatch.
-function subscribeToStorage(onStoreChange: () => void) {
-  window.addEventListener("storage", onStoreChange);
-  return () => window.removeEventListener("storage", onStoreChange);
+// setState-in-effect, no hydration mismatch. The subscribe is deliberately
+// inert: the value is latched at mount, so another tab changing the key can
+// never swap this form's Site mid-entry.
+function subscribeToStorage() {
+  return () => {};
 }
 
+// Storage access can throw outright (blocked storage in private/embedded
+// webviews — exactly the low-end field devices this feature targets); the
+// remembered-Site convenience must degrade to "none", never crash the form.
 function readStoredSite() {
-  return window.localStorage.getItem(LAST_SITE_STORAGE_KEY);
+  try {
+    return window.localStorage.getItem(LAST_SITE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearRememberedSite() {
+  try {
+    window.localStorage.removeItem(LAST_SITE_STORAGE_KEY);
+  } catch {
+    // nothing to clear where storage is unavailable
+  }
 }
 
 export interface SiteOption {
@@ -68,7 +84,14 @@ export function SiteField({
     remember && !initialSiteId && chosen === null && storedSite && sites.some((site) => site.id === storedSite)
       ? storedSite
       : null;
-  const siteId = chosen ?? remembered ?? "";
+  // A deep-linked/prefilled Site is trusted only once the options can vouch
+  // for it: while `sites` is still loading (empty) the candidate is kept, but
+  // against a LOADED list that doesn't contain it, a stale link must not
+  // leave the picker looking empty while the hidden input silently submits
+  // an invalid id.
+  const candidate = chosen ?? remembered ?? "";
+  const known = candidate !== "" && sites.some((site) => site.id === candidate);
+  const siteId = candidate === "" ? "" : known ? candidate : sites.length > 0 ? "" : candidate;
 
   // Tell the parent when the remembered default kicks in (their dependent
   // state — stock hints, crew defaults — must see it like a user pick).
@@ -84,7 +107,13 @@ export function SiteField({
   function handleChange(value: string | null) {
     const next = value ?? "";
     setChosen(next);
-    if (remember && next) window.localStorage.setItem(LAST_SITE_STORAGE_KEY, next);
+    if (remember && next) {
+      try {
+        window.localStorage.setItem(LAST_SITE_STORAGE_KEY, next);
+      } catch {
+        // remembering is a convenience — never let blocked storage break the pick
+      }
+    }
     onSiteChange?.(next);
   }
 

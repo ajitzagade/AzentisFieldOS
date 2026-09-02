@@ -69,7 +69,7 @@ describe("PurchaseForm", () => {
       />,
     );
 
-    const field = screen.getByLabelText("Correct quantity");
+    const field = screen.getByLabelText("Corrected quantity");
     expect(screen.getByText(/Currently recorded: 100/)).toBeInTheDocument();
     await user.type(field, "80");
     expect(screen.getByText(/Was 100 → change of −20 will be recorded/)).toBeInTheDocument();

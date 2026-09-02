@@ -215,3 +215,15 @@ These are real security-hardening items that need config/ops decisions (env, pro
 ## Deferred from: code review of story-16.3 (2026-08-31)
 
 - `GET /stock/material/:materialId` returns `200 []` for both a nonexistent Material and a real Material with zero stock — indistinguishable at the API level. The web availability page already handles the 404 case separately, so no current consumer is affected; revisit only if a future consumer calls this endpoint directly.
+
+## Deferred from: code review of f9c01a3..4ebea08 (2026-09-02)
+
+- DW-CR-1: POST /purchases still accepts rate/totalAmount/paymentStatus from a SITE_SUPERVISOR — D7's pricing split is UI-enforced on the create path (PATCH is role-guarded). Server-side hardening: reject pricing fields for supervisor role in the controller.
+- DW-CR-2: Money-correction sum semantics are ambiguous for Purchase: correction rows carry a positive restated totalAmount while vendor aggregates SUM totalAmount across all rows (double-count). Pre-existing; RMC was fixed to signed deltas — Purchase needs the same decision.
+- DW-CR-3: Pricing an original Purchase that already has quantity-correction rows prices the gate-recorded quantity, not the net corrected quantity — the pricing page shows the original qty read-only. Semantic edge; decide whether Total should derive from net quantity.
+- DW-CR-4: currentRole() folds any /users/me failure (incl. expired-session 401) into SITE_SUPERVISOR instead of redirecting to sign-in — an expired Owner silently sees the Supervisor UI. Pre-existing pattern from layout.tsx.
+- DW-CR-5: OwnerDashboard's vendor-outstanding does one unbounded parallel purchase-summary fetch per Vendor — fine at current scale, needs batching/an aggregate endpoint as vendors grow. Pre-existing.
+- DW-CR-6: useClientValidation only revalidates on submit — a fixed field keeps its stale inline error until resubmit; add per-field revalidation on change/blur. Also: shared schema correction messages still say "quantity delta must not be zero" — delta vocabulary the D4 UI deliberately hides.
+- DW-CR-7: DsrDesktopForm's mode="new" branch is dead (its only route was deleted) — prune the mode or restore a desktop-entry caller; dead branch still carries pre-rename strings until pruned (strings fixed in review patch, pruning deferred).
+- DW-CR-8: Test-quality follow-ups: assert HELP_CONTENT contextualHelp keys exist (typo = silently missing bubble); several page tests weakened to getAllByText(...).length > 0 (can't catch triplicate rendering); two advance/adjustment test names still describe the old delta UI.
+- DW-CR-9: Consider explicit pricedAt/pricedByUserId columns on Purchase for first-class pricing attribution (currently derivable only from the audit log's PATCH entry).

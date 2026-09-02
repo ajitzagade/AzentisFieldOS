@@ -25,6 +25,7 @@ import {
   TruckIcon,
 } from "@azentisfieldos/ui";
 import { useClientValidation } from "../../../lib/use-client-validation";
+import { requireOriginal } from "../../../lib/require-original";
 import { SiteField } from "../_components/site-field";
 import { createWasteDisposalAction, type CreateWasteDisposalFormState } from "./actions";
 import { parseWasteDisposalForm } from "./parse";
@@ -282,7 +283,7 @@ export function WasteDisposalForm({
           <CorrectedValueField
             label="Corrected number of trips"
             name="tripCount"
-            originalValue={initial?.tripCount ?? 0}
+            originalValue={requireOriginal(initial?.tripCount, "trip count")}
             unit="trips"
             required
             error={fieldError("tripCount")}
@@ -293,7 +294,7 @@ export function WasteDisposalForm({
             name="tripCount"
             type="number"
             step="1"
-            inputMode="decimal"
+            inputMode="numeric"
             required
             icon={<HashIcon className="size-4" />}
             value={tripCount}
@@ -315,7 +316,7 @@ export function WasteDisposalForm({
           <CorrectedValueField
             label="Corrected other charges"
             name="otherCharges"
-            originalValue={Number(initial?.otherCharges ?? 0)}
+            originalValue={initial?.otherCharges == null ? 0 : requireOriginal(initial.otherCharges, "other charges")}
             unit="₹"
             error={fieldError("otherCharges")}
           />

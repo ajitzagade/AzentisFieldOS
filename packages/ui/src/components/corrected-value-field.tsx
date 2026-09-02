@@ -33,7 +33,11 @@ export function CorrectedValueField({ label, name, originalValue, unit, required
   const [entered, setEntered] = useState("");
 
   const parsed = entered.trim() === "" ? null : Number(entered);
-  const valid = parsed !== null && Number.isFinite(parsed);
+  // Quantities and ₹ amounts in this domain are never negative — a minus
+  // sign here is always a slip, and deriving a delta from it would drive
+  // the ledger somewhere nonsensical. Refuse it visibly instead.
+  const negative = parsed !== null && Number.isFinite(parsed) && parsed < 0;
+  const valid = parsed !== null && Number.isFinite(parsed) && !negative;
   // Round away float noise (0.1 + 0.2 style) — quantities and ₹ amounts in
   // this product never need more than 4 decimal places.
   const delta = valid ? Math.round((parsed - originalValue) * 10000) / 10000 : null;
@@ -51,13 +55,15 @@ export function CorrectedValueField({ label, name, originalValue, unit, required
         label={label}
         type="number"
         step="any"
+        min={0}
         inputMode="decimal"
         required={required}
         value={entered}
         onChange={handleChange}
         icon={isCurrency ? <span className="text-body-sm font-semibold">₹</span> : undefined}
         error={error}
-        hint={delta === null ? `Currently recorded: ${speak(originalValue)}` : undefined}
+        hint={negative ? "The corrected value can't be negative" : delta === null ? `Currently recorded: ${speak(originalValue)}` : undefined}
+        hintTone={negative ? "danger" : undefined}
       />
       {/* The server only ever sees the signed delta — same contract as before. */}
       <input type="hidden" name={name} value={delta === null ? "" : String(delta)} />

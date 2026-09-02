@@ -25,6 +25,7 @@ import {
 } from "@azentisfieldos/ui";
 import { stockStatus, useStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { useClientValidation } from "../../../../lib/use-client-validation";
+import { requireOriginal } from "../../../../lib/require-original";
 import { SiteField } from "../../_components/site-field";
 import { createMovementAction, type CreateMovementFormState } from "./actions";
 import { parseMovementForm } from "./parse";
@@ -239,7 +240,7 @@ export function MovementForm({
           <CorrectedValueField
             label={`Corrected sent quantity${unitSuffix}`}
             name="sentQuantity"
-            originalValue={initial?.sentQuantity ?? 0}
+            originalValue={requireOriginal(initial?.sentQuantity, "sent quantity")}
             unit={selectedUnit}
             required
             error={fieldError("sentQuantity")}

@@ -2,9 +2,10 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, ArrowsIcon, Button, CalendarIcon, Card, CheckCircleIcon, MapPinIcon, PencilIcon, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
+import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, ArrowsIcon, Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createAssetMovementAction, type CreateAssetMovementFormState } from "./actions";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { SiteField } from "../_components/site-field";
 import { parseCreateAssetMovementForm } from "./parse";
 
 interface SiteOption {
@@ -97,13 +98,13 @@ export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites,
         />
 
         {toStatus === "AT_SITE" ? (
-          <SelectField
-            label="Site"
-            name="siteId"
+          // The shared searchable Site picker (D5) — remembered-default only
+          // for a fresh movement; a correction restates the original's Site.
+          <SiteField
+            sites={sites}
             required
-            icon={<MapPinIcon className="size-4" />}
-            defaultValue={initial?.siteId ?? ""}
-            options={[{ value: "", label: "Select a Site" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
+            remember={mode === "new"}
+            initialSiteId={initial?.siteId}
             error={errorFor("siteId")}
           />
         ) : null}

@@ -8,7 +8,8 @@ function makeService(overrides: {
   purchaseFindUnique?: ReturnType<typeof vi.fn>;
   godownStockUpsert?: ReturnType<typeof vi.fn>;
   siteStockUpsert?: ReturnType<typeof vi.fn>;
-  purchaseUpdate?: ReturnType<typeof vi.fn>;
+  purchaseUpdateMany?: ReturnType<typeof vi.fn>;
+  purchaseCount?: ReturnType<typeof vi.fn>;
 }) {
   const purchaseCreate =
     overrides.purchaseCreate ?? vi.fn().mockResolvedValue({ id: 'p1' });
@@ -24,10 +25,15 @@ function makeService(overrides: {
     siteStock: { upsert: siteStockUpsert },
   };
 
-  const purchaseUpdate = overrides.purchaseUpdate ?? vi.fn().mockResolvedValue({ id: 'p1' });
+  const purchaseUpdateMany = overrides.purchaseUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
+  const purchaseCount = overrides.purchaseCount ?? vi.fn().mockResolvedValue(0);
 
   const prisma = {
-    purchase: { findUnique: purchaseFindUnique, update: purchaseUpdate },
+    purchase: {
+      findUnique: purchaseFindUnique,
+      updateMany: purchaseUpdateMany,
+      count: purchaseCount,
+    },
     $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(tx)),
   };
 
@@ -41,7 +47,8 @@ function makeService(overrides: {
     purchaseCreate,
     godownStockUpsert,
     siteStockUpsert,
-    purchaseUpdate,
+    purchaseUpdateMany,
+    purchaseCount,
   };
 }
 
@@ -280,25 +287,26 @@ describe('PurchasesService.countThisMonth', () => {
 
 // D7: the one-time pricing completion of a Supervisor's unpriced inward
 // entry. The guard is the whole point — it must refuse an already-priced
-// row so AD-9's append-only rule keeps governing every recorded value.
+// row so AD-9's append-only rule keeps governing every recorded value, and
+// the write itself is a conditional updateMany so two concurrent PATCHes
+// can never both succeed.
 describe('PurchasesService.completePricing', () => {
   const pricing = { rate: 390, totalAmount: 19500, paymentStatus: 'UNPAID' as const };
 
-  it('fills rate/totalAmount/paymentStatus on an unpriced Purchase', async () => {
+  it('fills rate/totalAmount/paymentStatus via a totalAmount:null-conditional write', async () => {
     const purchaseFindUnique = vi
       .fn()
-      .mockResolvedValue({ id: 'p1', totalAmount: null });
-    const purchaseUpdate = vi
-      .fn()
-      .mockResolvedValue({ id: 'p1', ...pricing });
-    const { service } = makeService({ purchaseFindUnique, purchaseUpdate });
+      .mockResolvedValueOnce({ id: 'p1', totalAmount: null, correctsId: null })
+      .mockResolvedValueOnce({ id: 'p1', ...pricing });
+    const purchaseUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const { service } = makeService({ purchaseFindUnique, purchaseUpdateMany });
 
     await expect(service.completePricing('p1', pricing)).resolves.toEqual({
       id: 'p1',
       ...pricing,
     });
-    expect(purchaseUpdate).toHaveBeenCalledWith({
-      where: { id: 'p1' },
+    expect(purchaseUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'p1', totalAmount: null },
       data: pricing,
     });
   });
@@ -306,14 +314,39 @@ describe('PurchasesService.completePricing', () => {
   it('rejects an already-priced Purchase — changes must be corrections', async () => {
     const purchaseFindUnique = vi
       .fn()
-      .mockResolvedValue({ id: 'p1', totalAmount: new Prisma.Decimal(5000) });
-    const purchaseUpdate = vi.fn();
-    const { service } = makeService({ purchaseFindUnique, purchaseUpdate });
+      .mockResolvedValue({ id: 'p1', totalAmount: new Prisma.Decimal(5000), correctsId: null });
+    const purchaseUpdateMany = vi.fn();
+    const { service } = makeService({ purchaseFindUnique, purchaseUpdateMany });
 
     await expect(service.completePricing('p1', pricing)).rejects.toThrow(
       BadRequestException,
     );
-    expect(purchaseUpdate).not.toHaveBeenCalled();
+    expect(purchaseUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects a correction row — deltas are never priced separately', async () => {
+    const purchaseFindUnique = vi
+      .fn()
+      .mockResolvedValue({ id: 'c1', totalAmount: null, correctsId: 'p1' });
+    const purchaseUpdateMany = vi.fn();
+    const { service } = makeService({ purchaseFindUnique, purchaseUpdateMany });
+
+    await expect(service.completePricing('c1', pricing)).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(purchaseUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('loses the race gracefully: 0 updated rows surfaces already-priced, never an overwrite', async () => {
+    const purchaseFindUnique = vi
+      .fn()
+      .mockResolvedValue({ id: 'p1', totalAmount: null, correctsId: null });
+    const purchaseUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const { service } = makeService({ purchaseFindUnique, purchaseUpdateMany });
+
+    await expect(service.completePricing('p1', pricing)).rejects.toThrow(
+      /already priced/,
+    );
   });
 
   it('404s for a Purchase that does not exist', async () => {
@@ -323,5 +356,19 @@ describe('PurchasesService.completePricing', () => {
     await expect(service.completePricing('missing', pricing)).rejects.toThrow(
       NotFoundException,
     );
+  });
+});
+
+// The pending count is the Dashboard gap-flag's number — its where clause is
+// the definition of "pending" (unpriced originals only, never corrections).
+describe('PurchasesService.countPendingPricing', () => {
+  it('counts unpriced original rows only', async () => {
+    const purchaseCount = vi.fn().mockResolvedValue(3);
+    const { service } = makeService({ purchaseCount });
+
+    await expect(service.countPendingPricing()).resolves.toBe(3);
+    expect(purchaseCount).toHaveBeenCalledWith({
+      where: { totalAmount: null, correctsId: null },
+    });
   });
 });

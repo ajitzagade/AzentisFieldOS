@@ -33,6 +33,7 @@ const godownPurchase: MovementLogRow = {
     id: "p1",
     destination: "GODOWN",
     totalAmount: "5000",
+    correctsId: null,
     quantity: "200",
     purchasedAt: "2026-08-11T00:00:00.000Z",
     site: null,
@@ -142,5 +143,48 @@ describe("MovementsListClient", () => {
     renderClient();
     fireEvent.click(screen.getByRole("button", { name: /^Date/ }));
     expect(setSort).toHaveBeenCalledWith("date");
+  });
+});
+
+describe("MovementsListClient — D7 pricing pending", () => {
+  const unpricedPurchase: MovementLogRow = {
+    type: "PURCHASE",
+    id: "p9",
+    item: {
+      id: "p9",
+      destination: "GODOWN",
+      totalAmount: null,
+      correctsId: null,
+      quantity: "50",
+      purchasedAt: "2026-09-01T00:00:00.000Z",
+      site: null,
+      materialSize: { label: "OPC 53 Grade", material: { name: "Cement", unit: { name: "Bags" } } },
+    },
+  };
+  const unpricedCorrection: MovementLogRow = {
+    type: "PURCHASE",
+    id: "c9",
+    item: { ...(unpricedPurchase.item as object), id: "c9", correctsId: "p9" } as MovementLogRow["item"],
+  };
+
+  it("flags an unpriced Purchase and offers Add Pricing to an Owner", () => {
+    renderClient({ rows: [unpricedPurchase], total: 1, canPrice: true });
+    expect(screen.getAllByText("Pricing pending").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /Add Pricing/ })[0]).toHaveAttribute(
+      "href",
+      "/movements/purchases/p9/pricing",
+    );
+  });
+
+  it("shows the pending flag but no Add Pricing without canPrice (Supervisor)", () => {
+    renderClient({ rows: [unpricedPurchase], total: 1 });
+    expect(screen.getAllByText("Pricing pending").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: /Add Pricing/ })).not.toBeInTheDocument();
+  });
+
+  it("never flags a correction row — deltas carry no pricing of their own", () => {
+    renderClient({ rows: [unpricedCorrection], total: 1, canPrice: true });
+    expect(screen.queryByText("Pricing pending")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Add Pricing/ })).not.toBeInTheDocument();
   });
 });

@@ -1,7 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPurchaseSchema } from '@azentisfieldos/shared';
+import { completePurchasePricingSchema, createPurchaseSchema } from '@azentisfieldos/shared';
+import { ROLES_KEY } from '../auth/roles.decorator';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { PurchasesController } from './purchases.controller';
 import { PurchasesService } from './purchases.service';
@@ -13,6 +14,8 @@ describe('PurchasesController', () => {
     list: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
     countThisMonth: ReturnType<typeof vi.fn>;
+    countPendingPricing: ReturnType<typeof vi.fn>;
+    completePricing: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -21,6 +24,8 @@ describe('PurchasesController', () => {
       list: vi.fn(),
       findOne: vi.fn(),
       countThisMonth: vi.fn(),
+      countPendingPricing: vi.fn(),
+      completePricing: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -76,6 +81,30 @@ describe('PurchasesController', () => {
     expect(service.countThisMonth).toHaveBeenCalled();
     expect(result).toBe(14);
   });
+
+  // D7 delegation — mirrors the countThisMonth pattern.
+  it('countPendingPricing delegates to the service', async () => {
+    service.countPendingPricing.mockResolvedValue(3);
+    await expect(controller.countPendingPricing()).resolves.toBe(3);
+  });
+
+  it('completePricing delegates id and body to the service', async () => {
+    const pricing = { rate: 390, totalAmount: 19500, paymentStatus: 'UNPAID' as const };
+    service.completePricing.mockResolvedValue({ id: 'p1', ...pricing });
+    await expect(controller.completePricing('p1', pricing)).resolves.toEqual({ id: 'p1', ...pricing });
+    expect(service.completePricing).toHaveBeenCalledWith('p1', pricing);
+  });
+
+  // The role restriction IS the D7 boundary ("Supervisor records physical
+  // facts, Owner completes pricing") — pin the metadata so deleting the
+  // decorator fails a test, same convention as audit.controller.spec.
+  it('completePricing is restricted to OWNER_ADMIN via @Roles metadata', () => {
+    const roles = Reflect.getMetadata(
+      ROLES_KEY,
+      PurchasesController.prototype.completePricing,
+    ) as string[] | undefined;
+    expect(roles).toEqual(['OWNER_ADMIN']);
+  });
 });
 
 describe('ZodValidationPipe(createPurchaseSchema)', () => {
@@ -93,6 +122,19 @@ describe('ZodValidationPipe(createPurchaseSchema)', () => {
 
   it('rejects a body missing required fields', () => {
     expect(() => pipe.transform({})).toThrow(BadRequestException);
+  });
+
+  // D7: a Supervisor's inward entry carries no pricing at all.
+  it('accepts a body with no pricing fields (Pricing pending entry)', () => {
+    const { rate: _r, totalAmount: _t, paymentStatus: _p, ...unpriced } = base;
+    expect(() => pipe.transform({ ...unpriced, destination: 'GODOWN' })).not.toThrow();
+  });
+
+  it('rejects a partial pricing group (rate without totalAmount/paymentStatus)', () => {
+    const { totalAmount: _t, paymentStatus: _p, ...partial } = base;
+    expect(() => pipe.transform({ ...partial, destination: 'GODOWN' })).toThrow(
+      BadRequestException,
+    );
   });
 
   it('accepts a valid GODOWN-destined body with no siteId', () => {
@@ -169,5 +211,32 @@ describe('ZodValidationPipe(createPurchaseSchema)', () => {
         correctsId: '44444444-4444-4444-8444-444444444444',
       }),
     ).toThrow(BadRequestException);
+  });
+});
+
+// D7: the Owner's one-time pricing completion — all three fields required,
+// amounts positive.
+describe('ZodValidationPipe(completePurchasePricingSchema)', () => {
+  const pipe = new ZodValidationPipe(completePurchasePricingSchema);
+
+  it('accepts a complete pricing body', () => {
+    expect(() =>
+      pipe.transform({ rate: 390, totalAmount: 19500, paymentStatus: 'UNPAID' }),
+    ).not.toThrow();
+  });
+
+  it('rejects a non-positive rate or total', () => {
+    expect(() =>
+      pipe.transform({ rate: 0, totalAmount: 19500, paymentStatus: 'UNPAID' }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      pipe.transform({ rate: 390, totalAmount: -1, paymentStatus: 'UNPAID' }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects a missing paymentStatus', () => {
+    expect(() => pipe.transform({ rate: 390, totalAmount: 19500 })).toThrow(
+      BadRequestException,
+    );
   });
 });

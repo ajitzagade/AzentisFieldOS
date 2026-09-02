@@ -80,7 +80,7 @@ export const HELP_CONTENT = {
     "Reports are ready",
   ],
 
-  systemFlow: ["Owner", "Sites", "Work", "Materials", "Labour", "Expenses", "DSR", "Reports", "Owner Visibility"],
+  systemFlow: ["Owner", "Sites", "Work", "Materials", "Labour", "Expenses", "Daily Report", "Reports", "Owner Visibility"],
 
   roles: {
     OWNER_ADMIN: {
@@ -123,7 +123,7 @@ export const HELP_CONTENT = {
         "Enter the site's name, location, and (if there is one) the contract reference.",
         "Save.",
       ],
-      afterSaving: "The new site appears in the list immediately and is ready to use everywhere else in the app — the DSR form, Inventory, Reports.",
+      afterSaving: "The new site appears in the list immediately and is ready to use everywhere else in the app — the Daily Report form, Inventory, Reports.",
       example: "NH-48 Widening — Package 3, in Nashik. Once added, a supervisor can start sending daily reports for it the same day.",
       href: "/sites",
     },
@@ -214,7 +214,7 @@ export const HELP_CONTENT = {
       whyUseIt: "So the stock number always matches what's really left, not just what was delivered.",
       usedBy: ["SITE_SUPERVISOR"],
       howToUse: [
-        "Open Movements → Record Consumption (or record it inside today's DSR).",
+        "Open Movements → Record Consumption (or record it inside today's Daily Report).",
         "Pick the Site and the Material.",
         "Enter how much was used.",
         "Save.",
@@ -309,7 +309,7 @@ export const HELP_CONTENT = {
       whyUseIt: "So concrete deliveries — a major cost — are tracked just as carefully as bagged materials.",
       usedBy: ["OWNER_ADMIN", "SITE_SUPERVISOR"],
       howToUse: [
-        "Open RMC → Record Delivery (or add it inside today's DSR).",
+        "Open RMC → Record Delivery (or add it inside today's Daily Report).",
         "Pick the Site and the Vendor.",
         "Enter the quantity (in m³), the grade, and the rate.",
         "Save.",
@@ -325,7 +325,7 @@ export const HELP_CONTENT = {
       whyUseIt: "So every rupee spent on site is on record, not just the big purchases.",
       usedBy: ["OWNER_ADMIN", "SITE_SUPERVISOR"],
       howToUse: [
-        "Open Expenses → Record Expense (or add it inside today's DSR).",
+        "Open Expenses → Record Expense (or add it inside today's Daily Report).",
         "Pick the Site and a category (fuel, labour welfare, and so on).",
         "Enter the amount.",
         "Save.",
@@ -353,8 +353,8 @@ export const HELP_CONTENT = {
     },
     {
       id: "dsr",
-      name: "Daily Site Report (DSR)",
-      whatIsIt: "The DSR is the site's daily update — one entry that covers everything that happened today.",
+      name: "Daily Report (DSR)",
+      whatIsIt: "The Daily Report (you may also hear it called the DSR) is the site's daily update — one entry that covers everything that happened today.",
       whyUseIt: "So the supervisor tells the system what happened once, instead of typing the same information into five different screens.",
       usedBy: ["SITE_SUPERVISOR"],
       howToUse: [
@@ -369,7 +369,7 @@ export const HELP_CONTENT = {
         "Submit.",
       ],
       afterSaving: "One submission automatically updates attendance, reduces material stock, adds today's expenses, and becomes part of that site's history and reports — all from one form.",
-      example: "Submitting today's DSR at Site A instantly shows up on the Owner's Dashboard, updates the stock for the cement used, and logs the ₹2,000 spent on fuel.",
+      example: "Submitting today's Daily Report at Site A instantly shows up on the Owner's Dashboard, updates the stock for the cement used, and logs the ₹2,000 spent on fuel.",
       href: "/dsr/new",
     },
     {
@@ -458,7 +458,7 @@ export const HELP_CONTENT = {
     { time: "Work happens", title: "50 bags cement consumed", detail: "Recorded as Consumption — stock drops to 50." },
     { time: "Expense occurs", title: "₹2,000 site expense recorded", detail: "Fuel for the day, logged on the spot." },
     { time: "Supervisor takes photos", title: "Photos attached to today's report", detail: "No separate upload screen — same form." },
-    { time: "DSR submitted", title: "One tap, everything above included", detail: "Attendance, stock, expenses, photos — all in one entry." },
+    { time: "Daily Report submitted", title: "One tap, everything above included", detail: "Attendance, stock, expenses, photos — all in one entry." },
     { time: "Owner sees update", title: "Owner can now see the site's latest information", detail: "No phone call needed." },
   ] as TimelineStep[],
 
@@ -497,7 +497,7 @@ export const HELP_CONTENT = {
     "Use Material",
     "Record Labour",
     "Record Expenses",
-    "Submit DSR",
+    "Submit Daily Report",
     "Owner Reviews",
     "Generate Report",
   ],
@@ -564,13 +564,13 @@ export const HELP_CONTENT = {
       moduleId: "dsr",
       title: "How to submit today's report",
       steps: [
-        { title: "Open today's report", detail: "From your phone, open the Daily Site Report." },
+        { title: "Open today's report", detail: "From your phone, open the Daily Report." },
         { title: "Select site", detail: "Today's date is already filled in." },
         { title: "Add labour", detail: "Tick who was present." },
         { title: "Add material", detail: "Add what was used today." },
         { title: "Add expenses", detail: "Add anything spent today." },
         { title: "Add photos", detail: "Tap the camera icon." },
-        { title: "Submit", detail: "Tap Submit Daily Site Report." },
+        { title: "Submit", detail: "Tap Submit Daily Report." },
       ],
       result: "Attendance, stock, expenses and photos are all updated together.",
       tryItHref: "/dsr/new",

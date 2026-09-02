@@ -28,6 +28,7 @@ import { FlashToast } from "./flash-toast";
 import { GlobalSearchButton, GlobalSearchDialog, useGlobalSearchController } from "./global-search";
 import { APP_DISPLAY_NAME } from "../../../lib/tenant";
 import { usePwaInstall } from "../../../lib/use-pwa-install";
+import { clearRememberedSite } from "./site-field";
 
 // Every role gets the same sidebar-driven shell (product direction 2026-08-27,
 // superseding EXPERIENCE.md's original Owner/Admin-sidebar vs Supervisor-top-bar
@@ -157,7 +158,14 @@ function SidebarNav({
       {/* Plain POST form, not a client-side handler — works even before any
           client JS has hydrated, and mirrors /api/auth/logout's own plain
           Route Handler (clears the session cookie, redirects to /sign-in). */}
-      <form action="/api/auth/logout" method="post" className={pwaAvailable ? "pt-4" : "mt-auto pt-4"}>
+      {/* Sign-out also clears the device-remembered Site — on a shared phone
+          the next user must not inherit the previous user's default. */}
+      <form
+        action="/api/auth/logout"
+        method="post"
+        onSubmit={clearRememberedSite}
+        className={pwaAvailable ? "pt-4" : "mt-auto pt-4"}
+      >
         <button
           type="submit"
           className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-body-sm font-medium text-ink-on-accent/80 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-white/10 hover:text-ink-on-accent"

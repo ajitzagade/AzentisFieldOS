@@ -78,7 +78,7 @@ export function AdvanceForm({ mode, teamMemberId, correctsId, originalAmount, in
       <Card className="mb-4">
         {mode === "correct" ? (
           <CorrectedValueField
-            label="Correct amount"
+            label="Corrected amount"
             name="amount"
             originalValue={originalAmount}
             unit="₹"
@@ -139,7 +139,7 @@ export function AdvanceForm({ mode, teamMemberId, correctsId, originalAmount, in
             delta derived from the typed corrected value — label it as the
             change so the replay stays truthful. */}
         <ConfirmDialogRow label={mode === "correct" ? "Amount change" : "Amount"} value={formValue(confirmation.values, "amount")} />
-        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
+        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "correctionReason")} /> : null}
       </ConfirmDialog>
 
     </form>

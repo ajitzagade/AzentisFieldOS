@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState, useRef, useEffect } from "react";
+import { useClientValidation } from "@/lib/use-client-validation";
+import { parseAddMaterialSizeForm } from "./parse";
 import { useFormStatus } from "react-dom";
 import { Button, Card, HashIcon, PlusIcon, TextField } from "@azentisfieldos/ui";
 import { addMaterialSizeAction, type AddSizeFormState } from "./add-size-action";
@@ -23,6 +25,9 @@ const initialState: AddSizeFormState = {};
 // separate endpoint/lifecycle from the Material PATCH).
 export function SizesSection({ materialId, sizes }: { materialId: string; sizes: { id: string; label: string }[] }) {
   const [state, formAction] = useActionState(addMaterialSizeAction.bind(null, materialId), initialState);
+  // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
+  const validation = useClientValidation(parseAddMaterialSizeForm);
+  const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -46,7 +51,7 @@ export function SizesSection({ materialId, sizes }: { materialId: string; sizes:
         </div>
       )}
 
-      <form ref={formRef} action={formAction} noValidate className="flex items-start gap-2">
+      <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate className="flex items-start gap-2">
         <div className="flex-1">
           <TextField
             label="New Size / Specification"
@@ -55,7 +60,7 @@ export function SizesSection({ materialId, sizes }: { materialId: string; sizes:
             maxLength={50}
             icon={<HashIcon className="size-4" />}
             placeholder="e.g. 50kg, 12mm dia"
-            error={state.errors?.label?.[0]}
+            error={errorFor("label")}
           />
         </div>
         <div className="mt-6">

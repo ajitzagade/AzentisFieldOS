@@ -24,6 +24,7 @@ import {
 } from "@azentisfieldos/ui";
 import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { useClientValidation } from "../../../../lib/use-client-validation";
+import { requireOriginal } from "../../../../lib/require-original";
 import { SiteField } from "../../_components/site-field";
 import { createReturnWastageAction, type CreateReturnWastageFormState } from "./actions";
 import { parseReturnWastageForm } from "./parse";
@@ -200,7 +201,7 @@ export function ReturnWastageForm({
           <CorrectedValueField
             label={`Corrected quantity${unitSuffix}`}
             name="quantity"
-            originalValue={initial?.quantity ?? 0}
+            originalValue={requireOriginal(initial?.quantity, "quantity")}
             unit={selectedUnit}
             required
             error={fieldError("quantity")}

@@ -122,26 +122,48 @@ export class PurchasesService {
     if (!purchase) {
       throw new NotFoundException(`Purchase ${id} not found`);
     }
+    // A correction row's quantity is a signed delta — it never carries its
+    // own pricing (the original does); pricing one would compute nonsense.
+    if (purchase.correctsId !== null) {
+      throw new BadRequestException(
+        'A correction entry is never priced separately — price the original Purchase it corrects',
+      );
+    }
     if (purchase.totalAmount !== null) {
       throw new BadRequestException(
         'This Purchase is already priced — changes to a priced Purchase must be filed as a correction',
       );
     }
-    return this.prisma.purchase.update({
-      where: { id },
+    // Conditional write, not update-by-id: the totalAmount:null condition
+    // makes "exactly once" atomic. Two concurrent PATCHes can both pass the
+    // read guard above, but only one matches here — the loser gets 0 rows
+    // and the already-priced error, never an overwrite (AD-9 exception's
+    // contract).
+    const { count } = await this.prisma.purchase.updateMany({
+      where: { id, totalAmount: null },
       data: {
         rate: input.rate,
         totalAmount: input.totalAmount,
         paymentStatus: input.paymentStatus,
       },
     });
+    if (count === 0) {
+      throw new BadRequestException(
+        'This Purchase is already priced — changes to a priced Purchase must be filed as a correction',
+      );
+    }
+    return this.prisma.purchase.findUnique({ where: { id } });
   }
 
   // D7: how many inward entries still await pricing — the Dashboard
   // gap-flag's honest count (unpriced rows are excluded from every money
-  // figure rather than pretending to be ₹0).
+  // figure rather than pretending to be ₹0). Correction rows are excluded:
+  // they are signed deltas that never carry their own pricing, so counting
+  // them would keep the flag lit forever.
   countPendingPricing() {
-    return this.prisma.purchase.count({ where: { totalAmount: null } });
+    return this.prisma.purchase.count({
+      where: { totalAmount: null, correctsId: null },
+    });
   }
 
   // Story 5.7's Inventory page "Purchases This Month" stat tile — a count

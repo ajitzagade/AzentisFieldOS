@@ -19,18 +19,9 @@ export async function updateMaterialAction(
 ): Promise<UpdateMaterialFormState> {
   // FR-7: Custom Fields are staged client-side (edit-material-form.tsx)
   // and submitted as one JSON-encoded hidden field alongside the rest of
-  // this same form — there is no independent Custom Field endpoint. Guard
-  // unreadable JSON with a formError here before delegating to the shared
-  // parse, which handles the rest of the coercion.
-  const rawCustomFields = formData.get("customFields");
-  if (typeof rawCustomFields === "string" && rawCustomFields.length > 0) {
-    try {
-      JSON.parse(rawCustomFields);
-    } catch {
-      return { formError: "Something went wrong reading the Custom Fields. Please try again." };
-    }
-  }
-
+  // this same form — there is no independent Custom Field endpoint. The
+  // shared parse (also run client-side pre-submit) owns decoding and
+  // validating that JSON, so both run sites surface the same field error.
   const parsed = parseUpdateMaterialForm(formData);
 
   if (!parsed.success) {

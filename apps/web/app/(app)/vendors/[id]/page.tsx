@@ -10,10 +10,10 @@ interface VendorPurchase {
   id: string;
   quantity: string;
   rate: string;
-  totalAmount: string;
+  totalAmount: string | null;
   invoiceOrChallanNo: string | null;
   challanPhotoUrl: string | null;
-  paymentStatus: "PAID" | "PARTIAL" | "UNPAID";
+  paymentStatus: "PAID" | "PARTIAL" | "UNPAID" | null;
   purchasedAt: string;
   materialSize: { label: string; material: { name: string; unit: { name: string } } };
 }
@@ -62,7 +62,7 @@ async function getViewerRole(): Promise<string | null> {
   }
 }
 
-const PAYMENT_STATUS_BADGE: Record<VendorPurchase["paymentStatus"], { variant: "success" | "warning" | "danger"; label: string }> = {
+const PAYMENT_STATUS_BADGE: Record<NonNullable<VendorPurchase["paymentStatus"]>, { variant: "success" | "warning" | "danger"; label: string }> = {
   PAID: { variant: "success", label: "Paid" },
   PARTIAL: { variant: "warning", label: "Partial" },
   UNPAID: { variant: "danger", label: "Unpaid" },
@@ -87,7 +87,12 @@ const purchaseColumns: DataTableColumn<VendorPurchase>[] = [
     align: "right",
     cell: (purchase) => (
       <span className="font-semibold text-gold-700 tabular-nums">
-        ₹{Number(purchase.totalAmount).toLocaleString("en-IN")}
+        {/* D7: an unpriced entry has no amount yet — pending, never ₹0. */}
+        {purchase.totalAmount === null ? (
+          <span className="text-ink-500">—</span>
+        ) : (
+          <>₹{Number(purchase.totalAmount).toLocaleString("en-IN")}</>
+        )}
       </span>
     ),
   },
@@ -116,7 +121,10 @@ const purchaseColumns: DataTableColumn<VendorPurchase>[] = [
       // Purchase.paymentStatus is a plain DB column, not a Prisma enum
       // (unlike Site.status) — fall back rather than crash on a value
       // outside PAID/PARTIAL/UNPAID.
-      const badge = PAYMENT_STATUS_BADGE[purchase.paymentStatus] ?? { variant: "neutral" as const, label: purchase.paymentStatus };
+      const badge =
+        purchase.paymentStatus === null
+          ? { variant: "warning" as const, label: "Pricing pending" }
+          : (PAYMENT_STATUS_BADGE[purchase.paymentStatus] ?? { variant: "neutral" as const, label: purchase.paymentStatus });
       return <Badge variant={badge.variant}>{badge.label}</Badge>;
     },
   },

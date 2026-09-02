@@ -47,6 +47,7 @@ async function renderCorrectPage(id: string) {
 }
 
 const entry = {
+  quantity: "40",
   id: "rw1",
   siteId: "site1",
   kind: "WASTAGE" as const,

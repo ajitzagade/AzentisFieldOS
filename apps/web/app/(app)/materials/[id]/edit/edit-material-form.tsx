@@ -165,9 +165,9 @@ export function EditMaterialForm({
               Add
             </Button>
           </div>
-          {state.errors?.customFields?.[0] ? (
+          {errorFor("customFields") ? (
             <p role="alert" className="mt-1 text-caption text-danger-700">
-              {state.errors.customFields[0]}
+              {errorFor("customFields")}
             </p>
           ) : null}
         </div>

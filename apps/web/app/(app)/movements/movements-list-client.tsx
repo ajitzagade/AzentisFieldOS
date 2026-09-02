@@ -43,6 +43,7 @@ interface PurchaseListItem {
   destination: "GODOWN" | "SITE";
   quantity: string;
   totalAmount: string | null;
+  correctsId: string | null;
   purchasedAt: string;
   site: { id: string; name: string } | null;
   materialSize: { label: string; material: { name: string; unit: { name: string } } };
@@ -98,8 +99,11 @@ function purchaseToMovementRow(purchase: PurchaseListItem, canPrice: boolean): M
   const materialLabel = `${purchase.materialSize.material.name} (${purchase.materialSize.label})`;
   const qty = formatQuantity(purchase.quantity, purchase.materialSize.material.unit.name);
   // D7: an inward entry recorded at the gate without the bill waits for the
-  // Owner's pricing — flagged inline, never shown as a silent ₹0.
-  const pricingPending = purchase.totalAmount === null;
+  // Owner's pricing — flagged inline, never shown as a silent ₹0. A
+  // correction row is a signed delta and never carries its own pricing, so
+  // it is neither "pending" nor priceable. (== null also catches a payload
+  // that omits the field, rather than silently rendering it as priced.)
+  const pricingPending = purchase.totalAmount == null && purchase.correctsId == null;
   return {
     id: purchase.id,
     sortKey: new Date(purchase.purchasedAt).getTime(),

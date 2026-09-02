@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppShell } from "./app-shell";
 
@@ -229,5 +229,32 @@ describe("AppShell — PWA install", () => {
 
     fireEvent.click(confirmButton);
     await waitFor(() => expect(event.prompt).toHaveBeenCalledTimes(1));
+  });
+  // The bottom quick-bar is the Supervisor's primary one-tap mobile layer —
+  // pin its presence, its four destinations, and its absence for Owners.
+  it("renders the Supervisor quick-bar with its four fixed destinations", () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="SITE_SUPERVISOR">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    const bar = screen.getByRole("navigation", { name: "Quick actions" });
+    const links = within(bar).getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/", "/dsr/new", "/movements", "/help"]);
+    // "Report" deep-links the entry form, not the log.
+    expect(within(bar).getByRole("link", { name: /Report/ })).toHaveAttribute("href", "/dsr/new");
+  });
+
+  it("renders no quick-bar for OWNER_ADMIN", () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="OWNER_ADMIN">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(screen.queryByRole("navigation", { name: "Quick actions" })).not.toBeInTheDocument();
   });
 });

@@ -90,10 +90,10 @@ export const NAV_GROUPS: NavGroup[] = [
 // The Supervisor's sidebar is a task-first trim of the full rail: the six
 // surfaces their daily work actually lands on, nothing else. Owner surfaces
 // (Vendors, Payments, Expenses, RMC, Reports, Machinery, Materials catalog)
-// are de-emphasized, NOT removed: the API allows the writes a Supervisor
-// legitimately makes (RMC, expenses, wastage), and those entries stay one
-// tap away on the Supervisor Home's "More" list — hiding here only reduces
-// top-level noise for a low-tech field user. Direct URLs keep working;
+// are de-emphasized, NOT removed: the entry forms a Supervisor legitimately
+// uses (RMC delivery, expense, wastage) stay one tap away on the Supervisor
+// Home's "More" list, and every owner surface stays reachable by URL —
+// hiding here only reduces top-level noise for a low-tech field user. Direct URLs keep working;
 // server-side @Roles guards remain the real access boundary (AD-11).
 export const SUPERVISOR_UNGROUPED_NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", icon: HomeIcon },

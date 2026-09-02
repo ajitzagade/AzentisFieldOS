@@ -151,7 +151,7 @@ export function ExpenseForm({ mode, correctsId, originalAmount, sites, categorie
       <Card className="mb-4">
         {mode === "correct" ? (
           <CorrectedValueField
-            label="Correct amount"
+            label="Corrected amount"
             name="amount"
             originalValue={originalAmount}
             unit="₹"

@@ -44,7 +44,8 @@ export class PurchasesController {
   }
 
   // D7: how many inward entries are still waiting for the Owner's pricing —
-  // drives the Dashboard gap-flag and the Movements page banner.
+  // drives the Owner Dashboard's gap-flag (the Movements list flags rows
+  // individually via their own totalAmount).
   @Get('count/pending-pricing')
   countPendingPricing() {
     return this.purchasesService.countPendingPricing();

@@ -50,6 +50,7 @@ async function renderCorrectPage(id: string) {
 }
 
 const movement = {
+  sentQuantity: "500",
   id: "m1",
   destinationSiteId: "site1",
   vehicleDetails: null,

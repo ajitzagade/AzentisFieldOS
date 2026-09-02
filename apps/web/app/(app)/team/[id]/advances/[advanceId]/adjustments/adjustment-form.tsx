@@ -91,7 +91,7 @@ export function AdjustmentForm({
       <Card className="mb-4">
         {mode === "correct" ? (
           <CorrectedValueField
-            label="Correct adjustment amount"
+            label="Corrected adjustment amount"
             name="amount"
             originalValue={originalAmount}
             unit="₹"
@@ -149,7 +149,7 @@ export function AdjustmentForm({
             delta derived from the typed corrected value — label it as the
             change so the replay stays truthful. */}
         <ConfirmDialogRow label={mode === "correct" ? "Amount change" : "Amount"} value={formValue(confirmation.values, "amount")} />
-        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "note")} /> : null}
+        {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "correctionReason")} /> : null}
       </ConfirmDialog>
 
     </form>

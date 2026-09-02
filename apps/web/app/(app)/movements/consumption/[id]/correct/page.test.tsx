@@ -49,6 +49,7 @@ async function renderCorrectPage(id: string) {
 const consumption = {
   id: "c1",
   siteId: "site1",
+  quantity: "120",
   activityReference: null,
   notes: null,
   consumedAt: "2026-08-10T00:00:00.000Z",
