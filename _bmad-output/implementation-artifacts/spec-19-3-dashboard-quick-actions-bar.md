@@ -2,7 +2,7 @@
 title: 'Dashboard Quick-Actions Bar (Story 19.3)'
 type: 'feature'
 created: '2026-09-02'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '8d103cd5f1f8dc58d9d5c174acc1c17fea18c5e8'
 review_loop_iteration: 0
 context: ['{project-root}/_bmad-output/implementation-artifacts/epic-19-context.md', '{project-root}/_bmad-output/planning-artifacts/stories/phase-8-post-launch/epic-19-owner-quick-access-and-mobile-alignment/story-19.3-dashboard-quick-actions-bar.md']

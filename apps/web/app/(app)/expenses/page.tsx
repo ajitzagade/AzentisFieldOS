@@ -59,7 +59,7 @@ export default async function ExpensesPage({
             Site expenses across all Sites — captured as they happen, categorized consistently
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="action-button-row items-center">
           <Link href="/expenses/categories" className={cn(buttonVariants({ variant: "secondary" }))}>
             <LayersIcon className="size-4" />
             Categories

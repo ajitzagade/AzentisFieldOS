@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { matchSearchActions } from "@azentisfieldos/shared";
 import {
@@ -65,6 +65,28 @@ export interface GlobalSearchController {
    * owned here (not inside GlobalSearchDialog) so handleSelect can flip it. */
   advanceModalOpen: boolean;
   setAdvanceModalOpen: (open: boolean) => void;
+}
+
+// Story 19.3: lets a descendant that can't call useGlobalSearchController()
+// itself (e.g. the Dashboard's Server Component tree) open the one
+// singleton palette without prop drilling or spawning a second, unsynced
+// controller instance. app-shell.tsx (already the sole owner of the real
+// controller) provides this around its render tree, wired to that
+// controller's setOpen; default is `null` so any accidental render outside
+// that provider fails loudly via useOpenGlobalSearch() below instead of
+// silently no-oping.
+export const GlobalSearchContext = createContext<{ open: () => void } | null>(null);
+
+// Throws instead of returning a no-op — a Search control that silently did
+// nothing on click would be a worse bug than a dev-time crash, and this
+// should never occur given the fixed app-router layout (app-shell.tsx
+// always wraps every page).
+export function useOpenGlobalSearch(): { open: () => void } {
+  const context = useContext(GlobalSearchContext);
+  if (!context) {
+    throw new Error("useOpenGlobalSearch must be used within app-shell.tsx's GlobalSearchContext.Provider");
+  }
+  return context;
 }
 
 // The one global-search controller — mounted ONCE per app-shell (in

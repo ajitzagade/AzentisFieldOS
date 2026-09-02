@@ -340,7 +340,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             <p className="mt-2 max-w-160 text-body-sm text-ink-700">{site.description}</p>
           ) : null}
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="action-button-row justify-end">
           <Link
             href={todaysDsr ? `/daily-activity/${todaysDsr.id}` : `/dsr/new?siteId=${site.id}`}
             className={cn(buttonVariants({ variant: "primary" }))}
@@ -390,7 +390,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
               <Badge variant="neutral">No report yet today</Badge>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="action-button-row">
             {/* ?siteId= carries this Site into the entry forms pre-selected
                 — the system already knows where the user is standing. */}
             <Link

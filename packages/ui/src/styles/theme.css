@@ -217,3 +217,11 @@
   --default-transition-duration: 150ms;
   --duration-fast: 110ms;
 }
+
+/* Action-button group mobile alignment (story 19.7): stacks buttons
+   full-width in a single column below the mobile breakpoint instead of
+   wrapping unevenly; wraps inline as before at `sm`+. One shared rule
+   applied at every action-button-row call site — never a per-page fix. */
+@utility action-button-row {
+  @apply flex flex-col gap-2 sm:flex-row sm:flex-wrap;
+}

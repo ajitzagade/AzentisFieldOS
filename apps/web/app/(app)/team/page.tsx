@@ -109,7 +109,7 @@ export default async function TeamPage({
           <h1 className="text-page-title text-ink-900">Team &amp; Labour</h1>
           <p className="text-body-sm text-ink-500">Team Members across all active Sites, with today&apos;s attendance and Advance status</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="action-button-row">
           <Link href="/team/employment-types" className={cn(buttonVariants({ variant: "secondary" }))}>
             Employment Types
           </Link>

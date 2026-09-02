@@ -66,7 +66,7 @@ export default async function MaterialsPage({
             Configure Categories and their Materials — used throughout Purchases, Movements, Consumption, and Daily Reports
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="action-button-row">
           <Link href="/materials/units" className={cn(buttonVariants({ variant: "secondary" }))}>
             Units
           </Link>

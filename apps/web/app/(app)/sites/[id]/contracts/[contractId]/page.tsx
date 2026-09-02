@@ -225,7 +225,7 @@ export default async function SiteContractDetailPage({
               {contract.description ? ` · ${contract.description}` : null}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="action-button-row">
             {viewerRole === "OWNER_ADMIN" ? (
               <Link
                 href={`/sites/${siteId}/contracts/${contract.id}/edit`}

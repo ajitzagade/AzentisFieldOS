@@ -2,6 +2,7 @@ import { authedFetch } from "@/lib/api";
 import { type ReactNode } from "react";
 import Link from "next/link";
 import { AdvanceQuickEntryTrigger } from "./advance-quick-entry-trigger";
+import { DashboardSearchButton } from "./dashboard-search-button";
 import {
   AlertTriangleIcon,
   Badge,
@@ -223,12 +224,31 @@ export async function OwnerDashboard() {
           <h1 className="text-page-title text-ink-900">Dashboard</h1>
           <p className="text-body-sm text-ink-500">{heading} — overview across all sites</p>
         </div>
-        {/* The Owner's most common create action, reachable without first
-            navigating into the Daily Report log (simplicity review 2026-09-01). */}
-        <Link href="/dsr/new" className={cn(buttonVariants({ variant: "primary" }))}>
-          <PlusIcon className="size-4" />
-          New Daily Report
-        </Link>
+        {/* Story 19.3: the Owner's most frequent tasks in one row, so none
+            of them require a sidebar detour first — "New Daily Report"
+            stays the hero-primary action (simplicity review 2026-09-01);
+            Record Payment/Add Purchase are plain navigation, Record
+            Advance reuses 19.1's modal trigger unchanged, and the Search
+            chip opens 19.2's singleton palette via app-shell.tsx's
+            GlobalSearchContext (never a second controller instance). Uses
+            the same action-button-row rule (story 19.7) as every other
+            multi-button header on narrow viewports. */}
+        <div className="action-button-row">
+          <Link href="/dsr/new" className={cn(buttonVariants({ variant: "primary" }))}>
+            <PlusIcon className="size-4" />
+            New Daily Report
+          </Link>
+          <Link href="/payments/new" className={cn(buttonVariants({ variant: "secondary" }))}>
+            <WalletIcon className="size-4" />
+            Record Payment
+          </Link>
+          <AdvanceQuickEntryTrigger />
+          <Link href="/movements/purchases/new" className={cn(buttonVariants({ variant: "secondary" }))}>
+            <BoxIcon className="size-4" />
+            Add Purchase
+          </Link>
+          <DashboardSearchButton />
+        </div>
       </div>
 
       <h2 className="mb-4 text-section-header text-ink-900">Today</h2>

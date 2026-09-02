@@ -33,6 +33,7 @@ import {
   ACTION_ICONS,
   AdvanceQuickEntryPanel,
   GlobalSearchButton,
+  GlobalSearchContext,
   GlobalSearchDialog,
   useGlobalSearchController,
 } from "./global-search";
@@ -354,116 +355,122 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
   }, [navOpen]);
 
   return (
-    <div className="flex min-h-screen flex-col lg:h-screen lg:flex-row lg:overflow-hidden">
-      {/* Desktop rail — shown from lg up. The shell pins it to the viewport
-          (lg:h-screen + lg:overflow-hidden on the root) and each pane scrolls
-          on its own: the rail keeps its full nav reachable however long the
-          page content is, and the content scrolls without carrying the rail
-          off-screen. */}
-      <aside className="hidden w-62 shrink-0 flex-col gap-1 overflow-y-auto bg-accent-navy-800 px-4 py-6 text-ink-on-accent lg:flex">
-        <SidebarNav
-          pathname={pathname}
-          role={role}
-          pwaAvailable={pwaInstall.available}
-          onRequestInstall={() => setInstallDialogOpen(true)}
-          onOpenSearch={() => search.setOpen(true)}
-        />
-      </aside>
+    // Story 19.3: exposes the one real controller's setOpen to descendants
+    // that can't call useGlobalSearchController() themselves (the
+    // Dashboard's Server Component tree, via dashboard-search-button.tsx) —
+    // never a second independent controller instance.
+    <GlobalSearchContext.Provider value={{ open: () => search.setOpen(true) }}>
+      <div className="flex min-h-screen flex-col lg:h-screen lg:flex-row lg:overflow-hidden">
+        {/* Desktop rail — shown from lg up. The shell pins it to the viewport
+            (lg:h-screen + lg:overflow-hidden on the root) and each pane scrolls
+            on its own: the rail keeps its full nav reachable however long the
+            page content is, and the content scrolls without carrying the rail
+            off-screen. */}
+        <aside className="hidden w-62 shrink-0 flex-col gap-1 overflow-y-auto bg-accent-navy-800 px-4 py-6 text-ink-on-accent lg:flex">
+          <SidebarNav
+            pathname={pathname}
+            role={role}
+            pwaAvailable={pwaInstall.available}
+            onRequestInstall={() => setInstallDialogOpen(true)}
+            onOpenSearch={() => search.setOpen(true)}
+          />
+        </aside>
 
-      {/* Mobile top bar — below lg only. */}
-      <header className="flex items-center gap-3 border-b border-border-hairline bg-surface-1 px-4 py-3 lg:hidden">
-        <button
-          type="button"
-          onClick={() => setNavOpen(true)}
-          aria-label="Open navigation menu"
-          aria-expanded={navOpen}
-          aria-controls="app-mobile-nav"
-          className="flex size-9 items-center justify-center rounded-md text-ink-700 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-surface-2 focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none"
-        >
-          <MenuIcon className="size-5" />
-        </button>
-        <span className="text-card-title font-semibold text-ink-900">{APP_DISPLAY_NAME}</span>
-        {/* Story 16.2: reachable in one tap on mobile, not gated behind the drawer. */}
-        <GlobalSearchButton
-          iconOnly
-          onClick={() => search.setOpen(true)}
-          className="ml-auto text-ink-700 hover:bg-surface-2 focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none"
-        />
-      </header>
-
-      {/* Mobile drawer + scrim — below lg only, mounted while open. */}
-      {navOpen ? (
-        <div className="lg:hidden">
+        {/* Mobile top bar — below lg only. */}
+        <header className="flex items-center gap-3 border-b border-border-hairline bg-surface-1 px-4 py-3 lg:hidden">
           <button
             type="button"
-            aria-label="Close navigation menu"
-            onClick={() => setNavOpen(false)}
-            className="fixed inset-0 z-40 bg-ink-900/50"
-          />
-          <aside
-            id="app-mobile-nav"
-            className="fixed inset-y-0 left-0 z-50 flex w-62 max-w-[85vw] flex-col gap-1 overflow-y-auto bg-accent-navy-800 px-4 py-6 text-ink-on-accent shadow-3"
+            onClick={() => setNavOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={navOpen}
+            aria-controls="app-mobile-nav"
+            className="flex size-9 items-center justify-center rounded-md text-ink-700 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-surface-2 focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none"
           >
-            <div className="mb-2 flex justify-end">
-              <button
-                ref={closeButtonRef}
-                type="button"
-                onClick={() => setNavOpen(false)}
-                aria-label="Close navigation menu"
-                className="flex size-9 items-center justify-center rounded-md text-ink-on-accent/80 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-white/10 hover:text-ink-on-accent focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none"
-              >
-                <XIcon className="size-5" />
-              </button>
-            </div>
-            <SidebarNav
-              pathname={pathname}
-              role={role}
-              onNavigate={() => setNavOpen(false)}
-              pwaAvailable={pwaInstall.available}
-              onRequestInstall={() => setInstallDialogOpen(true)}
-              onOpenSearch={() => search.setOpen(true)}
+            <MenuIcon className="size-5" />
+          </button>
+          <span className="text-card-title font-semibold text-ink-900">{APP_DISPLAY_NAME}</span>
+          {/* Story 16.2: reachable in one tap on mobile, not gated behind the drawer. */}
+          <GlobalSearchButton
+            iconOnly
+            onClick={() => search.setOpen(true)}
+            className="ml-auto text-ink-700 hover:bg-surface-2 focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none"
+          />
+        </header>
+
+        {/* Mobile drawer + scrim — below lg only, mounted while open. */}
+        {navOpen ? (
+          <div className="lg:hidden">
+            <button
+              type="button"
+              aria-label="Close navigation menu"
+              onClick={() => setNavOpen(false)}
+              className="fixed inset-0 z-40 bg-ink-900/50"
             />
-          </aside>
-        </div>
-      ) : null}
+            <aside
+              id="app-mobile-nav"
+              className="fixed inset-y-0 left-0 z-50 flex w-62 max-w-[85vw] flex-col gap-1 overflow-y-auto bg-accent-navy-800 px-4 py-6 text-ink-on-accent shadow-3"
+            >
+              <div className="mb-2 flex justify-end">
+                <button
+                  ref={closeButtonRef}
+                  type="button"
+                  onClick={() => setNavOpen(false)}
+                  aria-label="Close navigation menu"
+                  className="flex size-9 items-center justify-center rounded-md text-ink-on-accent/80 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-white/10 hover:text-ink-on-accent focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none"
+                >
+                  <XIcon className="size-5" />
+                </button>
+              </div>
+              <SidebarNav
+                pathname={pathname}
+                role={role}
+                onNavigate={() => setNavOpen(false)}
+                pwaAvailable={pwaInstall.available}
+                onRequestInstall={() => setInstallDialogOpen(true)}
+                onOpenSearch={() => search.setOpen(true)}
+              />
+            </aside>
+          </div>
+        ) : null}
 
-      {/* Content gets extra bottom padding below lg for both roles so their
-          respective fixed quick-bar never covers the last row / submit
-          button of a page. */}
-      <main
-        className={cn(
-          "flex-1 px-4 py-6 lg:overflow-y-auto lg:px-10 lg:py-8",
-          (role === "SITE_SUPERVISOR" || role === "OWNER_ADMIN") && "pb-24 lg:pb-8",
-        )}
-      >
-        <div className="max-w-310">{children}</div>
-      </main>
+        {/* Content gets extra bottom padding below lg for both roles so their
+            respective fixed quick-bar never covers the last row / submit
+            button of a page. */}
+        <main
+          className={cn(
+            "flex-1 px-4 py-6 lg:overflow-y-auto lg:px-10 lg:py-8",
+            (role === "SITE_SUPERVISOR" || role === "OWNER_ADMIN") && "pb-24 lg:pb-8",
+          )}
+        >
+          <div className="max-w-310">{children}</div>
+        </main>
 
-      {role === "SITE_SUPERVISOR" ? <SupervisorQuickBar pathname={pathname} /> : null}
-      {role === "OWNER_ADMIN" ? (
-        <OwnerQuickBar
-          pathname={pathname}
-          onOpenSearch={() => search.setOpen(true)}
-          onOpenNav={() => setNavOpen(true)}
+        {role === "SITE_SUPERVISOR" ? <SupervisorQuickBar pathname={pathname} /> : null}
+        {role === "OWNER_ADMIN" ? (
+          <OwnerQuickBar
+            pathname={pathname}
+            onOpenSearch={() => search.setOpen(true)}
+            onOpenNav={() => setNavOpen(true)}
+          />
+        ) : null}
+
+        <ConfirmDialog
+          open={installDialogOpen}
+          onOpenChange={setInstallDialogOpen}
+          title={pwaInstall.isIos ? "Install this app" : "Install this app?"}
+          description={
+            pwaInstall.isIos
+              ? "iOS doesn't allow installing directly — tap Share, then Add to Home Screen."
+              : "Get faster, full-screen access from your home screen."
+          }
+          confirmLabel={pwaInstall.isIos ? "Got it" : "Install"}
+          cancelLabel={pwaInstall.isIos ? "Close" : "Not now"}
+          onConfirm={pwaInstall.isIos ? () => setInstallDialogOpen(false) : handleConfirmInstall}
         />
-      ) : null}
 
-      <ConfirmDialog
-        open={installDialogOpen}
-        onOpenChange={setInstallDialogOpen}
-        title={pwaInstall.isIos ? "Install this app" : "Install this app?"}
-        description={
-          pwaInstall.isIos
-            ? "iOS doesn't allow installing directly — tap Share, then Add to Home Screen."
-            : "Get faster, full-screen access from your home screen."
-        }
-        confirmLabel={pwaInstall.isIos ? "Got it" : "Install"}
-        cancelLabel={pwaInstall.isIos ? "Close" : "Not now"}
-        onConfirm={pwaInstall.isIos ? () => setInstallDialogOpen(false) : handleConfirmInstall}
-      />
-
-      <GlobalSearchDialog controller={search} />
-    </div>
+        <GlobalSearchDialog controller={search} />
+      </div>
+    </GlobalSearchContext.Provider>
   );
 }
 

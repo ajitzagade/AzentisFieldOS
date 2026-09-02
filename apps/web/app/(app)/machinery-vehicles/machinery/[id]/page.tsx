@@ -94,7 +94,7 @@ export default async function MachineryDetailPage({ params }: { params: Promise<
             </span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="action-button-row">
           <Link href={`/machinery-vehicles/machinery/${machinery.id}/move`} className={cn(buttonVariants({ variant: "primary" }))}>
             <ArrowsIcon className="size-4" />
             Record Movement

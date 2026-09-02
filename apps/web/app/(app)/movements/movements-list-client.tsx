@@ -303,7 +303,7 @@ export function MovementsListClient({
             Purchases, Godown &amp; Site transfers, Consumption and Wastage / Returns — every entry is permanent history
           </p>
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="action-button-row justify-end">
           <Link href="/movements/vendor-to-site/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <PlusIcon className="size-4" />
             Direct Vendor → Site

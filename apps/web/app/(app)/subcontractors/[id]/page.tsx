@@ -124,7 +124,7 @@ export default async function SubcontractorDetailPage({ params }: { params: Prom
       <div className="mb-8 rounded-lg border border-border-hairline bg-surface-1 p-6 shadow-2">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <h1 className="text-page-title text-ink-900">{subcontractor.name}</h1>
-          <div className="flex flex-wrap gap-2">
+          <div className="action-button-row">
             <Link href={`/subcontractors/${subcontractor.id}/edit`} className={cn(buttonVariants({ variant: "secondary" }))}>
               <PencilIcon className="size-4" />
               Edit

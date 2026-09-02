@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "./app-shell";
+import { useOpenGlobalSearch } from "./global-search";
 
 let mockPathname = "/";
 const pushMock = vi.fn();

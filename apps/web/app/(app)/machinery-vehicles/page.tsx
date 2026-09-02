@@ -57,7 +57,7 @@ export default async function MachineryVehiclesPage({
           <h1 className="text-page-title text-ink-900">Machinery &amp; Vehicles</h1>
           <p className="text-body-sm text-ink-500">Current location is manually recorded at each Movement — not live GPS tracking.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="action-button-row">
           <Link href="/machinery-vehicles/machinery/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <PlusIcon className="size-4" />
             Add Machine

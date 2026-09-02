@@ -86,7 +86,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
             </span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="action-button-row">
           <Link href={`/machinery-vehicles/vehicles/${vehicle.id}/move`} className={cn(buttonVariants({ variant: "primary" }))}>
             <ArrowsIcon className="size-4" />
             Record Movement
