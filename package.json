@@ -19,18 +19,23 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx infra/prisma/seed.ts",
     "db:seed:catalog": "tsx infra/prisma/seed-catalog.ts",
-    "presentation:build": "tsx scripts/generate-presentation.mjs"
+    "presentation:build": "tsx scripts/generate-presentation.mjs",
+    "test:e2e": "playwright test --config=e2e/playwright.config.ts",
+    "test:e2e:ui": "playwright test --config=e2e/playwright.config.ts --ui",
+    "test:e2e:report": "playwright show-report e2e/report"
   },
   "prisma": {
     "seed": "tsx infra/prisma/seed.ts"
   },
   "devDependencies": {
-    "turbo": "2.10.9",
-    "prettier": "^3.4.2",
-    "typescript": "^5.9.0",
-    "tsx": "^4.19.2",
-    "prisma": "7.9.1",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.4.0",
+    "bcryptjs": "^3.0.2",
     "dotenv": "^16.4.7",
-    "bcryptjs": "^3.0.2"
+    "prettier": "^3.4.2",
+    "prisma": "7.9.1",
+    "tsx": "^4.19.2",
+    "turbo": "2.10.9",
+    "typescript": "^5.9.0"
   }
 }
