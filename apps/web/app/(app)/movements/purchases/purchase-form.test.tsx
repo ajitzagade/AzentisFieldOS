@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -6,7 +6,13 @@ vi.mock("./actions", () => ({
   createPurchaseAction: Object.assign(vi.fn(async () => ({})), { bind: vi.fn(() => vi.fn(async () => ({}))) }),
 }));
 
+const createVendorQuickActionMock = vi.fn();
+vi.mock("../../vendors/new/actions", () => ({
+  createVendorQuickAction: (...args: unknown[]) => createVendorQuickActionMock(...args),
+}));
+
 import { PurchaseForm } from "./purchase-form";
+import { createPurchaseAction } from "./actions";
 
 const materialSizes = [{ id: "ms1", label: "Cement (OPC 53 Grade)" }];
 const sites = [{ id: "site1", name: "NH-48 Highway Widening" }];
@@ -16,8 +22,7 @@ describe("PurchaseForm", () => {
   it("renders the core fields for a new Purchase with Godown selected by default", () => {
     render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} />);
 
-    expect(screen.getByLabelText("Vendor")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Shree Balaji Traders" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Vendor")).toHaveAttribute("role", "combobox");
     expect(screen.getByLabelText("Material / Size")).toHaveAttribute("role", "combobox");
     expect(screen.getByLabelText("Quantity")).toBeInTheDocument();
     expect(screen.queryByLabelText("Site")).not.toBeInTheDocument();
@@ -102,10 +107,14 @@ describe("PurchaseForm", () => {
     expect(screen.getByLabelText("Site")).toHaveAttribute("role", "combobox");
   });
 
-  it("Story 9.1: sources the Vendor field from the Vendor list, not free text", () => {
+  it("Story 9.1 / inline quick-create: sources the Vendor field from a searchable Vendor picker, not free text, with an always-visible + Add Vendor row", async () => {
+    const user = userEvent.setup();
     render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} />);
 
-    expect(screen.getByLabelText("Vendor").tagName).toBe("SELECT");
+    const vendorField = screen.getByLabelText("Vendor");
+    expect(vendorField).toHaveAttribute("role", "combobox");
+    await user.click(vendorField);
+    expect(await screen.findByText("+ Add Vendor")).toBeInTheDocument();
   });
 });
 
@@ -128,6 +137,42 @@ describe("PurchaseForm — Receiver Name suggestions (story 15.5)", () => {
   it("renders an empty datalist (plain text field) when no team names are provided", () => {
     const { container } = render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} />);
     expect(container.querySelectorAll("datalist#purchase-receiver-names option")).toHaveLength(0);
+  });
+});
+
+describe("PurchaseForm — preserves typed values when the Server Action returns an error (regression)", () => {
+  // Real UUIDs (unlike the "v1"/"ms1" ids used by the render-only tests
+  // above) — createPurchaseSchema requires vendorId/materialSizeId to be
+  // UUIDs, and this test drives a real submission through client validation
+  // (AD-7) into the mocked Server Action, so the ids must actually parse.
+  const uuidVendors = [{ id: "11111111-1111-4111-8111-111111111111", name: "Shree Balaji Traders" }];
+  const uuidMaterialSizes = [{ id: "22222222-2222-4222-8222-222222222222", label: "Cement (OPC 53 Grade)" }];
+
+  it("keeps every typed field showing its value after a server-returned formError, instead of React 19's native form.reset() wiping the form", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createPurchaseAction).mockResolvedValueOnce({
+      formError: "A Purchase with this Vendor and Invoice/Challan number already exists",
+    });
+
+    render(<PurchaseForm mode="new" materialSizes={uuidMaterialSizes} sites={sites} vendors={uuidVendors} />);
+
+    await user.type(screen.getByLabelText("Vendor"), "Shree Balaji");
+    await waitFor(() => expect(screen.getByText("Shree Balaji Traders")).toBeInTheDocument());
+    await user.click(screen.getByText("Shree Balaji Traders"));
+    await user.type(screen.getByLabelText("Material / Size"), "Cement");
+    await waitFor(() => expect(screen.getByText("Cement (OPC 53 Grade)")).toBeInTheDocument());
+    await user.click(screen.getByText("Cement (OPC 53 Grade)"));
+    await user.type(screen.getByLabelText("Quantity"), "50");
+    await user.type(screen.getByLabelText("Rate"), "390");
+
+    await user.click(screen.getByRole("button", { name: "Record Purchase" }));
+
+    await screen.findByText("A Purchase with this Vendor and Invoice/Challan number already exists");
+
+    expect(screen.getByLabelText("Vendor")).toHaveValue("Shree Balaji Traders");
+    expect(screen.getByLabelText("Material / Size")).toHaveValue("Cement (OPC 53 Grade)");
+    expect(screen.getByLabelText("Quantity")).toHaveValue(50);
+    expect(screen.getByLabelText("Rate")).toHaveValue(390);
   });
 });
 
@@ -165,5 +210,39 @@ describe("PurchaseForm — pricing visibility and auto-total (D5/D7)", () => {
     expect(details).not.toBeNull();
     expect(details).not.toHaveAttribute("open");
     expect(screen.getByText(/More details/)).toBeInTheDocument();
+  });
+});
+
+describe("PurchaseForm — inline Vendor quick-create round-trip", () => {
+  it("creating a Vendor via + Add Vendor selects it into the picker and leaves every other typed field unchanged", async () => {
+    const user = userEvent.setup();
+    createVendorQuickActionMock.mockReset();
+    createVendorQuickActionMock.mockResolvedValue({ success: true, id: "vendor-new", name: "Fresh Concrete Traders" });
+
+    render(<PurchaseForm mode="new" materialSizes={materialSizes} sites={sites} vendors={vendors} />);
+
+    // Fill in other fields first — a quick-create round-trip must never
+    // disturb them (I/O matrix: "parent form's other fields unchanged").
+    await user.type(screen.getByLabelText("Material / Size"), "Cement");
+    await waitFor(() => expect(screen.getByText("Cement (OPC 53 Grade)")).toBeInTheDocument());
+    await user.click(screen.getByText("Cement (OPC 53 Grade)"));
+    await user.type(screen.getByLabelText("Quantity"), "50");
+    await user.type(screen.getByLabelText("Rate"), "390");
+
+    await user.click(screen.getByLabelText("Vendor"));
+    await user.click(await screen.findByText("+ Add Vendor"));
+
+    const dialog = await screen.findByRole("dialog", { name: "Add Vendor" });
+    await user.type(within(dialog).getByLabelText("Name"), "Fresh Concrete Traders");
+    await user.click(within(dialog).getByRole("button", { name: "Create Vendor" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Add Vendor" })).not.toBeInTheDocument());
+    expect(screen.getByLabelText("Vendor")).toHaveValue("Fresh Concrete Traders");
+
+    // The parent form's own fields, typed before the modal ever opened,
+    // survived the round-trip untouched.
+    expect(screen.getByLabelText("Material / Size")).toHaveValue("Cement (OPC 53 Grade)");
+    expect(screen.getByLabelText("Quantity")).toHaveValue(50);
+    expect(screen.getByLabelText("Rate")).toHaveValue(390);
   });
 });

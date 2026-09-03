@@ -87,7 +87,10 @@ describe("CorrectPurchasePage", () => {
     await renderCorrectPage("p1");
 
     expect(screen.getByText("Filing a correction")).toBeInTheDocument();
-    expect(screen.getByLabelText("Vendor")).toHaveValue("v1");
+    // Vendor is a searchable ComboboxField (inline quick-create) — its
+    // displayed value is the Vendor's name, not the internal id; the id
+    // still travels underneath via a hidden input (asserted separately).
+    expect(screen.getByLabelText("Vendor")).toHaveValue("Shree Balaji Traders");
     expect(screen.getByLabelText("Rate")).toHaveValue(50);
   });
 

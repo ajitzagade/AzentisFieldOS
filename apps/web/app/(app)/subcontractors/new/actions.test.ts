@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createSubcontractorAction } from "./actions";
+import { createSubcontractorAction, createSubcontractorQuickAction } from "./actions";
 
 const redirectMock = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
+
+const revalidatePathMock = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
@@ -10,6 +13,7 @@ const originalApiUrl = process.env.API_URL;
 beforeEach(() => {
   process.env.API_URL = "http://localhost:3001";
   redirectMock.mockClear();
+  revalidatePathMock.mockClear();
 });
 
 afterEach(() => {
@@ -36,7 +40,11 @@ describe("createSubcontractorAction", () => {
   });
 
   it("posts the validated payload, including workCategories as an array, and redirects to /subcontractors on success", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "sub-1", name: "Ganesh Pipeline Works" }),
+    }) as unknown as typeof fetch;
 
     await createSubcontractorAction({}, formData({ name: "Ganesh Pipeline Works" }, ["Pipe laying", "Trenching"]));
 
@@ -54,7 +62,11 @@ describe("createSubcontractorAction", () => {
   });
 
   it("defaults workCategories to an empty array when none were added", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "sub-1", name: "Ganesh Pipeline Works" }),
+    }) as unknown as typeof fetch;
 
     await createSubcontractorAction({}, formData({ name: "Ganesh Pipeline Works" }));
 
@@ -110,5 +122,31 @@ describe("createSubcontractorAction", () => {
     const result = await createSubcontractorAction({}, formData({ name: "Ganesh Pipeline Works" }));
 
     expect(result.formError).toBe("Something went wrong creating the Subcontractor. Please try again.");
+  });
+});
+
+describe("createSubcontractorQuickAction", () => {
+  it("returns { success, id, name } instead of redirecting, and revalidates every Subcontractor-listing route", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "sub-1", name: "Ganesh Pipeline Works" }),
+    }) as unknown as typeof fetch;
+
+    const result = await createSubcontractorQuickAction({}, formData({ name: "Ganesh Pipeline Works" }));
+
+    expect(result).toEqual({ success: true, id: "sub-1", name: "Ganesh Pipeline Works" });
+    expect(redirectMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).toHaveBeenCalledWith("/subcontractors");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/sites/[id]/contracts", "page");
+  });
+
+  it("surfaces the same Owner/Admin-only 403 as the full form", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 403 }) as unknown as typeof fetch;
+
+    const result = await createSubcontractorQuickAction({}, formData({ name: "Ganesh Pipeline Works" }));
+
+    expect(result.formError).toBe("Only an Owner/Admin can add a Subcontractor.");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ConfirmDialog,
@@ -26,7 +26,9 @@ import {
 import { stockStatus, useStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { useClientValidation } from "../../../../lib/use-client-validation";
 import { requireOriginal } from "../../../../lib/require-original";
+import { usePreventFormResetOnError } from "../../../../lib/use-prevent-form-reset-on-error";
 import { SiteField } from "../../_components/site-field";
+import { MaterialQuickCreateModal } from "../../materials/_components/material-quick-create-modal";
 import { createMovementAction, type CreateMovementFormState } from "./actions";
 import { parseMovementForm } from "./parse";
 
@@ -74,7 +76,7 @@ export function MovementForm({
   mode,
   kind = "GODOWN_TO_SITE",
   correctsId,
-  materialSizes,
+  materialSizes: initialMaterialSizes,
   sites,
   initial,
   teamNames = [],
@@ -93,6 +95,8 @@ export function MovementForm({
   teamNames?: string[];
 }) {
   const [state, formAction] = useActionState(createMovementAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
   // Client-side pre-submit validation runs the exact same parse as the
   // Server Action (AD-7) — inline errors without a server round-trip.
   const validation = useClientValidation(parseMovementForm);
@@ -106,9 +110,11 @@ export function MovementForm({
   // SITE_TO_SITE (FR-14). Shown inside the picker options while searching,
   // as a hint once chosen, and as an overdraw warning once a quantity is
   // typed. Corrections submit signed deltas, so no overdraw comparison there.
+  const [materialSizes, setMaterialSizes] = useState(initialMaterialSizes);
   const [materialSizeId, setMaterialSizeId] = useState(initial?.materialSizeId ?? "");
   const [sourceSiteId, setSourceSiteId] = useState(initial?.sourceSiteId ?? "");
   const [sentQuantity, setSentQuantity] = useState("");
+  const [materialQuickCreateOpen, setMaterialQuickCreateOpen] = useState(false);
   const sourceLocation = kind === "GODOWN_TO_SITE" ? "the Godown" : "the source Site";
   const sourceStock = useStock(
     kind === "GODOWN_TO_SITE" ? { kind: "godown" } : sourceSiteId ? { kind: "site", siteId: sourceSiteId } : null,
@@ -133,6 +139,7 @@ export function MovementForm({
 
   return (
     <form
+      ref={formRef}
       action={formAction}
       onSubmit={mode === "correct" ? validation.guard(confirmation.guard()) : validation.guard()}
       noValidate
@@ -204,6 +211,8 @@ export function MovementForm({
           hintTone={stock?.tone}
           emptyMessage="No matching Material"
           error={fieldError("materialSizeId")}
+          onCreateNew={mode === "correct" ? undefined : () => setMaterialQuickCreateOpen(true)}
+          createNewLabel="+ Add Material"
         />
         <input type="hidden" name="materialSizeId" value={materialSizeId} />
 
@@ -326,6 +335,15 @@ export function MovementForm({
         {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
       </ConfirmDialog>
 
+      <MaterialQuickCreateModal
+        open={materialQuickCreateOpen}
+        onOpenChange={setMaterialQuickCreateOpen}
+        onSuccess={(material) => {
+          setMaterialSizes((prev) => [{ id: material.id, label: material.name }, ...prev]);
+          setMaterialSizeId(material.id);
+          setMaterialQuickCreateOpen(false);
+        }}
+      />
     </form>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ConfirmDialog,
@@ -30,8 +30,11 @@ import {
 } from "@azentisfieldos/ui";
 import { stockStatus, useStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { useClientValidation } from "../../../../lib/use-client-validation";
+import { usePreventFormResetOnError } from "../../../../lib/use-prevent-form-reset-on-error";
 import { SiteField } from "../../_components/site-field";
 import { ChallanPhotoField } from "../../_components/challan-photo-field";
+import { MaterialQuickCreateModal } from "../../materials/_components/material-quick-create-modal";
+import { VendorQuickCreateModal } from "../../vendors/_components/vendor-quick-create-modal";
 import { createPurchaseAction, type CreatePurchaseFormState } from "./actions";
 import { parsePurchaseForm } from "./parse";
 
@@ -114,9 +117,9 @@ type PurchaseFormProps = {
 export function PurchaseForm({
   mode,
   correctsId,
-  materialSizes,
+  materialSizes: initialMaterialSizes,
   sites,
-  vendors,
+  vendors: initialVendors,
   initial,
   fixedDestination,
   teamNames = [],
@@ -124,6 +127,8 @@ export function PurchaseForm({
   original,
 }: PurchaseFormProps) {
   const [state, formAction] = useActionState(createPurchaseAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
@@ -135,8 +140,13 @@ export function PurchaseForm({
   // A Purchase adds stock, so no overdraw warning applies — but the current
   // balance at the destination is still shown inside the picker options and
   // under the chosen Material, purely for context (FR-14).
+  const [materialSizes, setMaterialSizes] = useState(initialMaterialSizes);
   const [materialSizeId, setMaterialSizeId] = useState(initial?.materialSizeId ?? "");
   const [siteId, setSiteId] = useState(initial?.siteId ?? "");
+  const [vendors, setVendors] = useState(initialVendors);
+  const [vendorId, setVendorId] = useState(initial?.vendorId ?? "");
+  const [vendorQuickCreateOpen, setVendorQuickCreateOpen] = useState(false);
+  const [materialQuickCreateOpen, setMaterialQuickCreateOpen] = useState(false);
   const destinationLocation = destination === "GODOWN" ? "the Godown" : "this Site";
   const destinationStock = useStock(
     destination === "GODOWN" ? { kind: "godown" } : siteId ? { kind: "site", siteId } : null,
@@ -185,6 +195,7 @@ export function PurchaseForm({
 
   return (
     <form
+      ref={formRef}
       action={formAction}
       onSubmit={validation.guard(mode === "correct" ? confirmation.guard() : undefined)}
       noValidate
@@ -204,17 +215,21 @@ export function PurchaseForm({
       ) : null}
 
       <Card className="mb-4">
-        <SelectField
+        <ComboboxField
           label="Vendor"
-          name="vendorId"
           required
           icon={<BuildingIcon className="size-4" />}
           disabled={mode === "correct"}
-          defaultValue={initial?.vendorId ?? ""}
-          options={[{ value: "", label: "Select a Vendor" }, ...vendors.map((v) => ({ value: v.id, label: v.name }))]}
+          options={vendors.map((v) => ({ value: v.id, label: v.name }))}
+          value={vendorId || null}
+          onValueChange={(value) => setVendorId(value ?? "")}
+          placeholder="Type a Vendor name…"
+          emptyMessage="No matching Vendor"
           error={fieldError("vendorId")}
+          onCreateNew={mode === "correct" ? undefined : () => setVendorQuickCreateOpen(true)}
+          createNewLabel="+ Add Vendor"
         />
-        {mode === "correct" ? <input type="hidden" name="vendorId" value={initial?.vendorId} /> : null}
+        <input type="hidden" name="vendorId" value={vendorId} />
 
         <ComboboxField
           label="Material / Size"
@@ -229,6 +244,8 @@ export function PurchaseForm({
           hintTone={stock?.tone}
           emptyMessage="No matching Material"
           error={fieldError("materialSizeId")}
+          onCreateNew={mode === "correct" ? undefined : () => setMaterialQuickCreateOpen(true)}
+          createNewLabel="+ Add Material"
         />
         <input type="hidden" name="materialSizeId" value={materialSizeId} />
 
@@ -449,6 +466,24 @@ export function PurchaseForm({
         {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
       </ConfirmDialog>
 
+      <VendorQuickCreateModal
+        open={vendorQuickCreateOpen}
+        onOpenChange={setVendorQuickCreateOpen}
+        onSuccess={(vendor) => {
+          setVendors((prev) => [vendor, ...prev]);
+          setVendorId(vendor.id);
+          setVendorQuickCreateOpen(false);
+        }}
+      />
+      <MaterialQuickCreateModal
+        open={materialQuickCreateOpen}
+        onOpenChange={setMaterialQuickCreateOpen}
+        onSuccess={(material) => {
+          setMaterialSizes((prev) => [{ id: material.id, label: material.name }, ...prev]);
+          setMaterialSizeId(material.id);
+          setMaterialQuickCreateOpen(false);
+        }}
+      />
     </form>
   );
 }

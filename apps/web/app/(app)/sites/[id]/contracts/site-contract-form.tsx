@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, PlusIcon, SelectField, TextField, TextareaField, cn } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, ComboboxField, PlusIcon, SelectField, TextField, TextareaField, UserIcon, cn } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
+import { SubcontractorQuickCreateModal } from "@/app/(app)/subcontractors/_components/subcontractor-quick-create-modal";
 
 export interface SubcontractorOption {
   id: string;
@@ -67,31 +69,40 @@ function SubmitButton({ mode }: { mode: "new" | "edit" }) {
 
 const emptyState: SiteContractFormState = {};
 
-export function SiteContractForm({ mode, siteId, subcontractors, initial, action, parse }: SiteContractFormProps) {
+export function SiteContractForm({ mode, siteId, subcontractors: initialSubcontractors, initial, action, parse }: SiteContractFormProps) {
   const [state, formAction] = useActionState(action, emptyState);
   const validation = useClientValidation(parse);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   const [rateType, setRateType] = useState(initial?.rateType ?? "");
+  const [subcontractors, setSubcontractors] = useState(initialSubcontractors);
+  const [subcontractorId, setSubcontractorId] = useState(initial?.subcontractorId ?? "");
+  const [subcontractorQuickCreateOpen, setSubcontractorQuickCreateOpen] = useState(false);
+
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   return (
     <Card>
-      <form action={formAction} onSubmit={validation.guard()} noValidate>
+      <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate>
         <input type="hidden" name="siteId" value={siteId} />
 
-        <SelectField
+        <ComboboxField
           label="Subcontractor"
-          name="subcontractorId"
+          icon={<UserIcon className="size-4" />}
           required={mode === "new"}
           disabled={mode === "edit"}
           hint={mode === "edit" ? "The engaged Subcontractor can't be changed after the contract is created." : undefined}
-          defaultValue={initial?.subcontractorId ?? ""}
-          options={[
-            { value: "", label: "Select a Subcontractor" },
-            ...subcontractors.map((s) => ({ value: s.id, label: s.name })),
-          ]}
+          options={subcontractors.map((s) => ({ value: s.id, label: s.name }))}
+          value={subcontractorId || null}
+          onValueChange={(value) => setSubcontractorId(value ?? "")}
+          placeholder="Type a Subcontractor name…"
+          emptyMessage="No matching Subcontractor"
           error={errorFor("subcontractorId")}
+          onCreateNew={mode === "edit" ? undefined : () => setSubcontractorQuickCreateOpen(true)}
+          createNewLabel="+ Add Subcontractor"
         />
+        <input type="hidden" name="subcontractorId" value={subcontractorId} />
 
         <TextField
           label="Work category"
@@ -225,6 +236,16 @@ export function SiteContractForm({ mode, siteId, subcontractors, initial, action
 
         <SubmitButton mode={mode} />
       </form>
+
+      <SubcontractorQuickCreateModal
+        open={subcontractorQuickCreateOpen}
+        onOpenChange={setSubcontractorQuickCreateOpen}
+        onSuccess={(subcontractor) => {
+          setSubcontractors((prev) => [subcontractor, ...prev]);
+          setSubcontractorId(subcontractor.id);
+          setSubcontractorQuickCreateOpen(false);
+        }}
+      />
     </Card>
   );
 }

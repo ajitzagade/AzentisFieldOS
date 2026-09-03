@@ -1,7 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SiteContractForm } from "./site-contract-form";
+
+const createSubcontractorQuickActionMock = vi.fn();
+vi.mock("@/app/(app)/subcontractors/new/actions", () => ({
+  createSubcontractorQuickAction: (...args: unknown[]) => createSubcontractorQuickActionMock(...args),
+}));
 
 const SUBCONTRACTORS = [
   { id: "sc1", name: "Ganesh Pipeline Works" },
@@ -117,5 +122,28 @@ describe("SiteContractForm", () => {
 
     expect(screen.getByLabelText("Subcontractor")).not.toBeDisabled();
     expect(screen.getByLabelText("Subcontractor")).toBeRequired();
+  });
+
+  it("inline quick-create: + Add Subcontractor selects the new record and leaves the typed Work category unchanged", async () => {
+    const user = userEvent.setup();
+    createSubcontractorQuickActionMock.mockReset();
+    createSubcontractorQuickActionMock.mockResolvedValue({ success: true, id: "sc-new", name: "Fresh Electricals" });
+
+    render(
+      <SiteContractForm mode="new" siteId="site-1" subcontractors={SUBCONTRACTORS} action={noopAction} parse={noopParse} />,
+    );
+
+    await user.type(screen.getByLabelText("Work category"), "Storm-water pipe laying");
+
+    await user.click(screen.getByLabelText("Subcontractor"));
+    await user.click(await screen.findByText("+ Add Subcontractor"));
+
+    const dialog = await screen.findByRole("dialog", { name: "Add Subcontractor" });
+    await user.type(within(dialog).getByLabelText("Name"), "Fresh Electricals");
+    await user.click(within(dialog).getByRole("button", { name: "Create Subcontractor" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Add Subcontractor" })).not.toBeInTheDocument());
+    expect(screen.getByLabelText("Subcontractor")).toHaveValue("Fresh Electricals");
+    expect(screen.getByLabelText("Work category")).toHaveValue("Storm-water pipe laying");
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   Button,
@@ -25,7 +25,9 @@ import {
 import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { useClientValidation } from "../../../../lib/use-client-validation";
 import { requireOriginal } from "../../../../lib/require-original";
+import { usePreventFormResetOnError } from "../../../../lib/use-prevent-form-reset-on-error";
 import { SiteField } from "../../_components/site-field";
+import { MaterialQuickCreateModal } from "../../materials/_components/material-quick-create-modal";
 import { createConsumptionAction, type CreateConsumptionFormState } from "./actions";
 import { parseConsumptionForm } from "./parse";
 
@@ -70,7 +72,7 @@ function todayDate() {
 export function ConsumptionForm({
   mode,
   correctsId,
-  materialSizes,
+  materialSizes: initialMaterialSizes,
   sites,
   initial,
 }: {
@@ -81,6 +83,8 @@ export function ConsumptionForm({
   initial?: ConsumptionFormInitialValues;
 }) {
   const [state, formAction] = useActionState(createConsumptionAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
   // Client-side pre-submit validation runs the exact same parse as the
   // Server Action (AD-7) — inline errors without a server round-trip.
   const validation = useClientValidation(parseConsumptionForm);
@@ -89,9 +93,11 @@ export function ConsumptionForm({
   // Selection is tracked (the controls stay uncontrolled for FormData)
   // so current Site Stock can be shown for the chosen Material (FR-14)
   // and the correction dialog can play the entry back by name.
+  const [materialSizes, setMaterialSizes] = useState(initialMaterialSizes);
   const [selectedSiteId, setSelectedSiteId] = useState(initial?.siteId ?? "");
   const [selectedMaterialSizeId, setSelectedMaterialSizeId] = useState(initial?.materialSizeId ?? "");
   const [quantity, setQuantity] = useState("");
+  const [materialQuickCreateOpen, setMaterialQuickCreateOpen] = useState(false);
   const siteStock = useSiteStock(selectedSiteId || null);
 
   // Availability is shown inside the picker options while searching and as
@@ -124,6 +130,7 @@ export function ConsumptionForm({
 
   return (
     <form
+      ref={formRef}
       action={formAction}
       onSubmit={mode === "correct" ? validation.guard(confirmation.guard()) : validation.guard()}
       noValidate
@@ -186,6 +193,8 @@ export function ConsumptionForm({
           hintTone={stock?.tone}
           emptyMessage="No matching Material"
           error={fieldError("materialSizeId")}
+          onCreateNew={mode === "correct" ? undefined : () => setMaterialQuickCreateOpen(true)}
+          createNewLabel="+ Add Material"
         />
         <input type="hidden" name="materialSizeId" value={selectedMaterialSizeId} />
       </Card>
@@ -263,6 +272,16 @@ export function ConsumptionForm({
         <ConfirmDialogRow label="Quantity change" value={formValue(confirmation.values, "quantity")} />
         <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} />
       </ConfirmDialog>
+
+      <MaterialQuickCreateModal
+        open={materialQuickCreateOpen}
+        onOpenChange={setMaterialQuickCreateOpen}
+        onSuccess={(material) => {
+          setMaterialSizes((prev) => [{ id: material.id, label: material.name }, ...prev]);
+          setSelectedMaterialSizeId(material.id);
+          setMaterialQuickCreateOpen(false);
+        }}
+      />
     </form>
   );
 }

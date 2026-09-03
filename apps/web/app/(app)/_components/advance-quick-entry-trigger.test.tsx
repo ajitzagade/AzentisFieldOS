@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider, Toaster } from "@azentisfieldos/ui";
@@ -12,6 +12,11 @@ vi.mock("@/lib/use-authed-fetch", () => ({
 const createAdvanceQuickActionMock = vi.fn();
 vi.mock("@/app/(app)/team/[id]/advances/actions", () => ({
   createAdvanceQuickAction: (...args: unknown[]) => createAdvanceQuickActionMock(...args),
+}));
+
+const createTeamMemberQuickActionMock = vi.fn();
+vi.mock("@/app/(app)/team/new/actions", () => ({
+  createTeamMemberQuickAction: (...args: unknown[]) => createTeamMemberQuickActionMock(...args),
 }));
 
 const refreshMock = vi.fn();
@@ -37,6 +42,7 @@ describe("AdvanceQuickEntryTrigger", () => {
     // call log from a prior test must never leak into the next one.
     teamMembersFetchMock.mockReset();
     createAdvanceQuickActionMock.mockReset();
+    createTeamMemberQuickActionMock.mockReset();
     refreshMock.mockReset();
   });
 
@@ -121,5 +127,41 @@ describe("AdvanceQuickEntryTrigger", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Record Advance" })).not.toBeInTheDocument());
     expect(aborted).toBe(true);
     expect(createAdvanceQuickActionMock).not.toHaveBeenCalled();
+  });
+
+  it("inline quick-create: + Add Team Member selects the new record into the Advance's Team Member picker", async () => {
+    const user = userEvent.setup();
+    teamMembersFetchMock.mockImplementation((path: string) => {
+      if (path === "/team-members") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ id: "11111111-1111-4111-8111-111111111111", name: "Ramesh Kumar" }],
+        });
+      }
+      if (path === "/employment-types") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ id: "22222222-2222-4222-8222-222222222222", name: "Daily Wage", isActive: true }],
+        });
+      }
+      throw new Error(`Unexpected path ${path}`);
+    });
+    createTeamMemberQuickActionMock.mockResolvedValue({ success: true, id: "member-new", name: "Suresh Patil" });
+    renderTrigger();
+
+    await user.click(screen.getByRole("button", { name: /record advance/i }));
+    await screen.findByRole("dialog");
+
+    await user.click(screen.getByLabelText("Team Member"));
+    await user.click(await screen.findByText("+ Add Team Member"));
+
+    const quickCreateDialog = await screen.findByRole("dialog", { name: "Add Team Member" });
+    await user.type(within(quickCreateDialog).getByLabelText("Name"), "Suresh Patil");
+    await user.selectOptions(within(quickCreateDialog).getByLabelText("Employment Type"), "Daily Wage");
+    await user.click(within(quickCreateDialog).getByRole("button", { name: "Create Team Member" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Add Team Member" })).not.toBeInTheDocument());
+    expect(screen.getByRole("dialog", { name: "Record Advance" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Team Member")).toHaveValue("Suresh Patil");
   });
 });

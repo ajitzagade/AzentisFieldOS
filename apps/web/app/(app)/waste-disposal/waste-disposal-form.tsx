@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ConfirmDialog,
@@ -25,8 +25,10 @@ import {
   TruckIcon,
 } from "@azentisfieldos/ui";
 import { useClientValidation } from "../../../lib/use-client-validation";
+import { usePreventFormResetOnError } from "../../../lib/use-prevent-form-reset-on-error";
 import { requireOriginal } from "../../../lib/require-original";
 import { SiteField } from "../_components/site-field";
+import { VendorQuickCreateModal } from "../vendors/_components/vendor-quick-create-modal";
 import { createWasteDisposalAction, type CreateWasteDisposalFormState } from "./actions";
 import { parseWasteDisposalForm } from "./parse";
 
@@ -87,7 +89,7 @@ export function WasteDisposalForm({
   mode,
   correctsId,
   sites,
-  vendors,
+  vendors: initialVendors,
   equipment,
   initial,
 }: {
@@ -99,16 +101,20 @@ export function WasteDisposalForm({
   initial?: WasteDisposalFormInitialValues;
 }) {
   const [state, formAction] = useActionState(createWasteDisposalAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
   // Client-side pre-submit validation runs the exact same parse as the
   // Server Action (AD-7) — inline errors without a server round-trip.
   const validation = useClientValidation(parseWasteDisposalForm);
   const fieldError = (name: string) => validation.errors[name]?.[0] ?? state.errors?.[name]?.[0];
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
   // Money movement (FR-54) — held for re-verification before it goes to
   // the ledger, same rule as the Purchase/Movement forms.
   const confirmation = useSubmitConfirmation();
 
   const [ownership, setOwnership] = useState<"OWN" | "HIRED">(initial?.ownership ?? "HIRED");
+  const [vendors, setVendors] = useState(initialVendors);
   const [vendorId, setVendorId] = useState(initial?.vendorId ?? "");
+  const [vendorQuickCreateOpen, setVendorQuickCreateOpen] = useState(false);
   const [equipmentValue, setEquipmentValue] = useState(
     initial?.machineryId
       ? `machinery:${initial.machineryId}`
@@ -138,6 +144,7 @@ export function WasteDisposalForm({
 
   return (
     <form
+      ref={formRef}
       action={formAction}
       onSubmit={correcting ? validation.guard(confirmation.guard()) : validation.guard()}
       noValidate
@@ -246,6 +253,8 @@ export function WasteDisposalForm({
               placeholder="Type a Vendor name…"
               emptyMessage="No matching Vendor — add them under Vendors first"
               error={fieldError("vendorId")}
+              onCreateNew={correcting ? undefined : () => setVendorQuickCreateOpen(true)}
+              createNewLabel="+ Add Vendor"
             />
             <input type="hidden" name="vendorId" value={correcting ? (initial?.vendorId ?? "") : vendorId} />
           </>
@@ -398,6 +407,16 @@ export function WasteDisposalForm({
         <ConfirmDialogRow label="Other charges change" value={formValue(confirmation.values, "otherCharges")} />
         <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} />
       </ConfirmDialog>
+
+      <VendorQuickCreateModal
+        open={vendorQuickCreateOpen}
+        onOpenChange={setVendorQuickCreateOpen}
+        onSuccess={(vendor) => {
+          setVendors((prev) => [vendor, ...prev]);
+          setVendorId(vendor.id);
+          setVendorQuickCreateOpen(false);
+        }}
+      />
     </form>
   );
 }

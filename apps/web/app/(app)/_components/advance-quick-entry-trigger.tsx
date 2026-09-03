@@ -7,6 +7,7 @@ import { useAuthedFetch } from "@/lib/use-authed-fetch";
 import { useClientValidation } from "@/lib/use-client-validation";
 import { parseCreateAdvanceForm } from "@/app/(app)/team/[id]/advances/parse";
 import { createAdvanceQuickAction } from "@/app/(app)/team/[id]/advances/actions";
+import { TeamMemberQuickCreateModal } from "@/app/(app)/team/_components/team-member-quick-create-modal";
 
 interface TeamMemberOption {
   id: string;
@@ -37,6 +38,11 @@ export function AdvanceQuickEntryTrigger({ size = "sm" }: { size?: "sm" | "md" }
   const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([]);
   const [teamMembersLoading, setTeamMembersLoading] = useState(false);
   const [teamMembersError, setTeamMembersError] = useState<string | null>(null);
+  const [teamMemberQuickCreateOpen, setTeamMemberQuickCreateOpen] = useState(false);
+  // Seeds AdvanceQuickEntryModal's initial Team Member selection on the
+  // remount its quick-created record forces (see onSuccess below) — that
+  // modal's own `teamMemberId` is otherwise uncontrolled.
+  const [newTeamMemberId, setNewTeamMemberId] = useState<string | undefined>(undefined);
 
   const authedFetch = useAuthedFetch();
   const toast = useToast();
@@ -84,6 +90,7 @@ export function AdvanceQuickEntryTrigger({ size = "sm" }: { size?: "sm" | "md" }
   function handleOpen() {
     openedFromRef.current += 1;
     setFormKey(openedFromRef.current);
+    setNewTeamMemberId(undefined);
     setOpen(true);
   }
 
@@ -110,6 +117,22 @@ export function AdvanceQuickEntryTrigger({ size = "sm" }: { size?: "sm" | "md" }
           // server-side by OwnerDashboard at request time — refresh so it
           // reflects the entry just recorded, without a full navigation.
           router.refresh();
+        }}
+        onCreateNewTeamMember={() => setTeamMemberQuickCreateOpen(true)}
+        initialTeamMemberId={newTeamMemberId}
+      />
+      <TeamMemberQuickCreateModal
+        open={teamMemberQuickCreateOpen}
+        onOpenChange={setTeamMemberQuickCreateOpen}
+        onSuccess={(teamMember) => {
+          setTeamMembers((prev) => [teamMember, ...prev]);
+          setNewTeamMemberId(teamMember.id);
+          setTeamMemberQuickCreateOpen(false);
+          // AdvanceQuickEntryModal's own Team Member selection is
+          // uncontrolled — remount it (same key-bump convention as
+          // reopening) so the fresh mount picks up initialTeamMemberId.
+          openedFromRef.current += 1;
+          setFormKey(openedFromRef.current);
         }}
       />
     </>

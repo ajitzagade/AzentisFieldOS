@@ -49,6 +49,18 @@ export interface AdvanceQuickEntryModalProps {
    * closes the modal and shows the success toast (this modal never
    * redirects, so it never uses the ?flash= pattern). */
   onSuccess: () => void;
+  /** Inline "+ Add Team Member" quick-create (see quick-create-modal.tsx) —
+   * this shell stays prop-driven, so the caller (AdvanceQuickEntryTrigger)
+   * owns opening its own TeamMemberQuickCreateModal and prepending the
+   * result into `teamMembers` itself; omit to render the picker without the
+   * row (matches every other optional caller-owned behavior here). */
+  onCreateNewTeamMember?: () => void;
+  /** Seeds the Team Member picker's initial selection — used only for the
+   * quick-created record: the caller bumps its remount `key` (same
+   * convention as reopening this modal) and passes the new id/name here so
+   * it's pre-selected on that fresh mount, since this component's own
+   * `teamMemberId` state is otherwise uncontrolled. */
+  initialTeamMemberId?: string;
 }
 
 const initialState: AdvanceQuickEntryFormState = {};
@@ -87,9 +99,11 @@ export function AdvanceQuickEntryModal({
   onSubmit,
   validationErrors,
   onSuccess,
+  onCreateNewTeamMember,
+  initialTeamMemberId,
 }: AdvanceQuickEntryModalProps) {
   const [state, formAction] = useActionState(action, initialState);
-  const [teamMemberId, setTeamMemberId] = useState("");
+  const [teamMemberId, setTeamMemberId] = useState(initialTeamMemberId ?? "");
   const formRef = useRef<HTMLFormElement>(null);
   usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
@@ -130,6 +144,8 @@ export function AdvanceQuickEntryModal({
               loading={teamMembersLoading}
               disabled={Boolean(teamMembersError)}
               error={teamMembersError ?? errorFor("teamMemberId")}
+              onCreateNew={onCreateNewTeamMember}
+              createNewLabel="+ Add Team Member"
             />
             <input type="hidden" name="teamMemberId" value={teamMemberId} />
 

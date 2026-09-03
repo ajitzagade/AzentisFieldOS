@@ -142,6 +142,59 @@ describe("ComboboxField", () => {
     expect(await screen.findByText("No matches found")).toBeInTheDocument();
   });
 
+  it("shows an always-visible + Add row when onCreateNew is provided, and fires it on click without selecting a data option", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const onCreateNew = vi.fn();
+    render(
+      <ComboboxField label="Material" options={OPTIONS} value={null} onValueChange={onChange} onCreateNew={onCreateNew} />,
+    );
+
+    await user.click(screen.getByLabelText("Material"));
+    const addRow = await screen.findByText("+ Add Material");
+    await user.click(addRow);
+
+    expect(onCreateNew).toHaveBeenCalledTimes(1);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("keeps the + Add row visible even when typing filters every option out", async () => {
+    const user = userEvent.setup();
+    const onCreateNew = vi.fn();
+    render(<ComboboxField label="Material" options={OPTIONS} value={null} onValueChange={() => {}} onCreateNew={onCreateNew} />);
+
+    await user.type(screen.getByLabelText("Material"), "zzz");
+
+    await waitFor(() => {
+      expect(screen.getByText("No matches found")).toBeInTheDocument();
+    });
+    expect(screen.getByText("+ Add Material")).toBeInTheDocument();
+  });
+
+  it("uses a custom createNewLabel when provided", async () => {
+    const user = userEvent.setup();
+    render(
+      <ComboboxField
+        label="Vendor"
+        options={OPTIONS}
+        value={null}
+        onValueChange={() => {}}
+        onCreateNew={() => {}}
+        createNewLabel="+ Add Vendor"
+      />,
+    );
+
+    await user.click(screen.getByLabelText("Vendor"));
+    expect(await screen.findByText("+ Add Vendor")).toBeInTheDocument();
+  });
+
+  it("does not render a + Add row when onCreateNew is omitted", async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.click(screen.getByLabelText("Material"));
+    expect(screen.queryByText(/\+ Add/)).not.toBeInTheDocument();
+  });
+
   it("colors the hint by tone and politely announces a danger-toned hint", () => {
     render(
       <ComboboxField

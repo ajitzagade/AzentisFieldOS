@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ConfirmDialog,
@@ -25,8 +25,10 @@ import {
 } from "@azentisfieldos/ui";
 import { useClientValidation } from "../../../lib/use-client-validation";
 import { requireOriginal } from "../../../lib/require-original";
+import { usePreventFormResetOnError } from "../../../lib/use-prevent-form-reset-on-error";
 import { ChallanPhotoField } from "../_components/challan-photo-field";
 import { SiteField } from "../_components/site-field";
+import { VendorQuickCreateModal } from "../vendors/_components/vendor-quick-create-modal";
 import { createRmcEntryAction, type CreateRmcEntryFormState } from "./actions";
 import { parseRmcEntryForm } from "./parse";
 
@@ -88,8 +90,10 @@ type RmcFormProps = {
 // from the corrected value the user types), and Site/Vendor/Grade lock in
 // correct mode because RmcService.create validates a correction stays tied
 // to the same delivery context.
-export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], initial }: RmcFormProps) {
+export function RmcForm({ mode, correctsId, sites, vendors: initialVendors, gradeOptions = [], initial }: RmcFormProps) {
   const [state, formAction] = useActionState(createRmcEntryAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
   // Client-side pre-submit validation runs the exact same parse as the
   // Server Action (AD-7) — inline errors without a server round-trip.
   const validation = useClientValidation(parseRmcEntryForm);
@@ -97,8 +101,10 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
+  const [vendors, setVendors] = useState(initialVendors);
   const [vendorId, setVendorId] = useState(initial?.vendorId ?? "");
   const [grade, setGrade] = useState(initial?.grade ?? "");
+  const [vendorQuickCreateOpen, setVendorQuickCreateOpen] = useState(false);
 
   // New-entry auto-total: Total Amount = quantity × rate whenever either
   // changes — the multiplication the user should never do by hand. Typing
@@ -124,6 +130,7 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
 
   return (
     <form
+      ref={formRef}
       action={formAction}
       onSubmit={mode === "correct" ? validation.guard(confirmation.guard()) : validation.guard()}
       noValidate
@@ -172,6 +179,8 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
           placeholder="Type a Vendor name…"
           emptyMessage="No matching Vendor"
           error={fieldError("vendorId")}
+          onCreateNew={mode === "correct" ? undefined : () => setVendorQuickCreateOpen(true)}
+          createNewLabel="+ Add Vendor"
         />
         <input type="hidden" name="vendorId" value={vendorId} />
 
@@ -313,6 +322,15 @@ export function RmcForm({ mode, correctsId, sites, vendors, gradeOptions = [], i
         {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
       </ConfirmDialog>
 
+      <VendorQuickCreateModal
+        open={vendorQuickCreateOpen}
+        onOpenChange={setVendorQuickCreateOpen}
+        onSuccess={(vendor) => {
+          setVendors((prev) => [vendor, ...prev]);
+          setVendorId(vendor.id);
+          setVendorQuickCreateOpen(false);
+        }}
+      />
     </form>
   );
 }

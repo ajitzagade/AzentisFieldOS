@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createVendorAction } from "./actions";
+import { createVendorAction, createVendorQuickAction } from "./actions";
 
 const redirectMock = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
+
+const revalidatePathMock = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
@@ -10,6 +13,7 @@ const originalApiUrl = process.env.API_URL;
 beforeEach(() => {
   process.env.API_URL = "http://localhost:3001";
   redirectMock.mockClear();
+  revalidatePathMock.mockClear();
 });
 
 afterEach(() => {
@@ -36,7 +40,11 @@ describe("createVendorAction", () => {
   });
 
   it("posts the validated payload, including materialsSupplied as an array, and redirects to /vendors on success", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "vendor-1", name: "Shree Balaji Traders" }),
+    }) as unknown as typeof fetch;
 
     await createVendorAction({}, formData({ name: "Shree Balaji Traders" }, ["Cement", "Steel"]));
 
@@ -54,7 +62,11 @@ describe("createVendorAction", () => {
   });
 
   it("defaults materialsSupplied to an empty array when no tags were added", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "vendor-1", name: "Shree Balaji Traders" }),
+    }) as unknown as typeof fetch;
 
     await createVendorAction({}, formData({ name: "Shree Balaji Traders" }));
 
@@ -94,5 +106,32 @@ describe("createVendorAction", () => {
     const result = await createVendorAction({}, formData({ name: "Shree Balaji Traders" }));
 
     expect(result.formError).toBe("Something went wrong creating the Vendor. Please try again.");
+  });
+});
+
+describe("createVendorQuickAction", () => {
+  it("returns { success, id, name } instead of redirecting, and revalidates every Vendor-listing route", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "vendor-1", name: "Shree Balaji Traders" }),
+    }) as unknown as typeof fetch;
+
+    const result = await createVendorQuickAction({}, formData({ name: "Shree Balaji Traders" }));
+
+    expect(result).toEqual({ success: true, id: "vendor-1", name: "Shree Balaji Traders" });
+    expect(redirectMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).toHaveBeenCalledWith("/vendors");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/movements/purchases/new");
+  });
+
+  it("returns the same per-field errors as the full form on invalid input, without calling the API", async () => {
+    global.fetch = vi.fn();
+
+    const result = await createVendorQuickAction({}, formData({ name: "" }));
+
+    expect(result.errors?.name).toBeDefined();
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });

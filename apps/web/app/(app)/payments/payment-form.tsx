@@ -1,10 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, ComboboxField, HelpBubble, PencilIcon, RotateCcwIcon, SelectField, TextField, UserIcon, WalletIcon } from "@azentisfieldos/ui";
 import { HELP_CONTENT } from "@azentisfieldos/shared";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
+import { TeamMemberQuickCreateModal } from "@/app/(app)/team/_components/team-member-quick-create-modal";
 import { createPaymentAction, type CreatePaymentFormState } from "./actions";
 import { parseCreatePaymentForm } from "./parse";
 
@@ -55,7 +57,7 @@ function formatMoney(amount: number) {
 // mode except the Team Member.
 export function PaymentForm({
   mode,
-  teamMembers,
+  teamMembers: initialTeamMembers,
   advances,
   teamMemberId: fixedTeamMemberId,
   correctsId,
@@ -69,6 +71,8 @@ export function PaymentForm({
   initial?: PaymentFormInitialValues;
 }) {
   const [state, formAction] = useActionState(createPaymentAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
@@ -77,7 +81,9 @@ export function PaymentForm({
   const validation = useClientValidation(parseCreatePaymentForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
+  const [teamMembers, setTeamMembers] = useState(initialTeamMembers);
   const [teamMemberId, setTeamMemberId] = useState(fixedTeamMemberId ?? "");
+  const [teamMemberQuickCreateOpen, setTeamMemberQuickCreateOpen] = useState(false);
   const [basePay, setBasePay] = useState(initial?.basePay ?? "");
   const [additionalAmount, setAdditionalAmount] = useState(initial?.additionalAmount ?? "0");
   const [deductions, setDeductions] = useState(initial?.deductions ?? "0");
@@ -98,7 +104,7 @@ export function PaymentForm({
     (includeAdjustment ? Number(adjustmentAmount) || 0 : 0);
 
   return (
-    <form action={formAction} onSubmit={validation.guard(confirmation.guard())} noValidate>
+    <form ref={formRef} action={formAction} onSubmit={validation.guard(confirmation.guard())} noValidate>
       <input type="hidden" name="includeAdjustment" value={includeAdjustment ? "true" : "false"} />
 
       {mode === "correct" ? (
@@ -128,6 +134,10 @@ export function PaymentForm({
           placeholder="Type a name…"
           emptyMessage="No matching Team Member"
           error={errorFor("teamMemberId")}
+          onCreateNew={
+            mode === "correct" || Boolean(fixedTeamMemberId) ? undefined : () => setTeamMemberQuickCreateOpen(true)
+          }
+          createNewLabel="+ Add Team Member"
         />
         <input type="hidden" name="teamMemberId" value={teamMemberId} />
 
@@ -242,6 +252,15 @@ export function PaymentForm({
         {mode === "correct" ? <ConfirmDialogRow label="Reason" value={formValue(confirmation.values, "reason")} /> : null}
       </ConfirmDialog>
 
+      <TeamMemberQuickCreateModal
+        open={teamMemberQuickCreateOpen}
+        onOpenChange={setTeamMemberQuickCreateOpen}
+        onSuccess={(teamMember) => {
+          setTeamMembers((prev) => [{ ...teamMember, outstandingAdvanceBalance: "0" }, ...prev]);
+          setTeamMemberId(teamMember.id);
+          setTeamMemberQuickCreateOpen(false);
+        }}
+      />
     </form>
   );
 }

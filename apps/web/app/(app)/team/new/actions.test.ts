@@ -7,7 +7,10 @@ const redirectMock = vi.hoisted(() =>
 );
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-import { createTeamMemberAction } from "./actions";
+const revalidatePathMock = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+
+import { createTeamMemberAction, createTeamMemberQuickAction } from "./actions";
 
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
@@ -15,6 +18,7 @@ const originalApiUrl = process.env.API_URL;
 beforeEach(() => {
   process.env.API_URL = "http://localhost:3001";
   redirectMock.mockClear();
+  revalidatePathMock.mockClear();
 });
 
 afterEach(() => {
@@ -40,7 +44,11 @@ describe("createTeamMemberAction", () => {
   });
 
   it("posts the validated payload (optional fields omitted) and redirects to /team on success", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "member-1", name: "Ravi Kumar" }),
+    }) as unknown as typeof fetch;
 
     await expect(
       createTeamMemberAction({}, formData({ name: "Ravi Kumar", employmentTypeId: "11111111-1111-4111-8111-111111111111" })),
@@ -57,7 +65,11 @@ describe("createTeamMemberAction", () => {
   });
 
   it("includes optional designation/contact when provided", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "member-1", name: "Ravi Kumar" }),
+    }) as unknown as typeof fetch;
 
     await expect(
       createTeamMemberAction(
@@ -100,5 +112,41 @@ describe("createTeamMemberAction", () => {
     );
 
     expect(result.formError).toBe("Something went wrong creating the Team Member. Please try again.");
+  });
+});
+
+describe("createTeamMemberQuickAction", () => {
+  it("returns { success, id, name } instead of redirecting, and revalidates every Team-Member-listing route", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "member-1", name: "Ravi Kumar" }),
+    }) as unknown as typeof fetch;
+
+    const result = await createTeamMemberQuickAction(
+      {},
+      formData({ name: "Ravi Kumar", employmentTypeId: "11111111-1111-4111-8111-111111111111" }),
+    );
+
+    expect(result).toEqual({ success: true, id: "member-1", name: "Ravi Kumar" });
+    expect(redirectMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).toHaveBeenCalledWith("/team");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/daily-activity");
+  });
+
+  it("surfaces the API's field errors when the API returns 400", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { details: { fieldErrors: { employmentTypeId: ["This Employment Type does not exist"] } } } }),
+    }) as unknown as typeof fetch;
+
+    const result = await createTeamMemberQuickAction(
+      {},
+      formData({ name: "Ravi Kumar", employmentTypeId: "11111111-1111-4111-8111-111111111111" }),
+    );
+
+    expect(result.errors?.employmentTypeId).toEqual(["This Employment Type does not exist"]);
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });

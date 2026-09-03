@@ -28,6 +28,9 @@ import { uploadPhoto } from "../../../../lib/photo-upload";
 import { useAuthedFetch } from "../../../../lib/use-authed-fetch";
 import { useDsrReferenceData } from "../../../../lib/use-dsr-reference-data";
 import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
+import { MaterialQuickCreateModal } from "../../materials/_components/material-quick-create-modal";
+import { TeamMemberQuickCreateModal } from "../../team/_components/team-member-quick-create-modal";
+import { VendorQuickCreateModal } from "../../vendors/_components/vendor-quick-create-modal";
 
 interface SiteOption {
   id: string;
@@ -110,6 +113,11 @@ function NewDsrForm() {
 
   const [crew, setCrew] = useState<CrewRow[]>([]);
   const [newCrewId, setNewCrewId] = useState<string | null>(null);
+  const [teamMemberQuickCreateOpen, setTeamMemberQuickCreateOpen] = useState(false);
+  // Consumption/RMC rows each have their own Material/Vendor picker — the
+  // quick-create modal is shared, so it tracks which row's picker opened it.
+  const [materialQuickCreateRow, setMaterialQuickCreateRow] = useState<number | null>(null);
+  const [vendorQuickCreateRow, setVendorQuickCreateRow] = useState<number | null>(null);
 
   const [consumptions, setConsumptions] = useState<ConsumptionRow[]>([]);
   const [rmcEntries, setRmcEntries] = useState<RmcRow[]>([]);
@@ -458,6 +466,8 @@ function NewDsrForm() {
             loading={reference.loading}
             placeholder="Type a name…"
             emptyMessage={reference.loadFailed ? "Couldn't load Team Members — check your connection" : "No matching Team Member"}
+            onCreateNew={() => setTeamMemberQuickCreateOpen(true)}
+            createNewLabel="+ Add Team Member"
           />
         </Card>
 
@@ -488,6 +498,8 @@ function NewDsrForm() {
                   hint={stock?.text}
                   hintTone={stock?.tone}
                   emptyMessage={reference.loadFailed ? "Couldn't load Materials — check your connection" : "No matching Material"}
+                  onCreateNew={() => setMaterialQuickCreateRow(index)}
+                  createNewLabel="+ Add Material"
                 />
                 <div className="sm:col-span-3">
                   <TextField
@@ -538,6 +550,8 @@ function NewDsrForm() {
                 loading={reference.loading}
                 placeholder="Type a Vendor name…"
                 emptyMessage={reference.loadFailed ? "Couldn't load Vendors — check your connection" : "No matching Vendor"}
+                onCreateNew={() => setVendorQuickCreateRow(index)}
+                createNewLabel="+ Add Vendor"
               />
               <div className="sm:col-span-2">
                 <TextField
@@ -781,6 +795,44 @@ function NewDsrForm() {
           Submit Daily Report
         </Button>
       </form>
+
+      <TeamMemberQuickCreateModal
+        open={teamMemberQuickCreateOpen}
+        onOpenChange={setTeamMemberQuickCreateOpen}
+        onSuccess={(teamMember) => {
+          reference.addTeamMemberOption({ value: teamMember.id, label: teamMember.name });
+          addCrewMember(teamMember.id);
+          setTeamMemberQuickCreateOpen(false);
+        }}
+      />
+      <MaterialQuickCreateModal
+        open={materialQuickCreateRow !== null}
+        onOpenChange={(open) => {
+          if (!open) setMaterialQuickCreateRow(null);
+        }}
+        onSuccess={(material) => {
+          reference.addMaterialOption({ value: material.id, label: material.name });
+          const index = materialQuickCreateRow;
+          if (index !== null) {
+            setConsumptions((rows) => rows.map((r, i) => (i === index ? { ...r, materialSizeId: material.id } : r)));
+          }
+          setMaterialQuickCreateRow(null);
+        }}
+      />
+      <VendorQuickCreateModal
+        open={vendorQuickCreateRow !== null}
+        onOpenChange={(open) => {
+          if (!open) setVendorQuickCreateRow(null);
+        }}
+        onSuccess={(vendor) => {
+          reference.addVendorOption({ value: vendor.id, label: vendor.name });
+          const index = vendorQuickCreateRow;
+          if (index !== null) {
+            setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vendorId: vendor.id } : r)));
+          }
+          setVendorQuickCreateRow(null);
+        }}
+      />
     </div>
   );
 }

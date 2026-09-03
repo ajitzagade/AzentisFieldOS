@@ -6,6 +6,7 @@ import { cn } from "../lib/cn";
 import { type FieldHintTone, hintToneClass } from "./field";
 import { CheckIcon } from "../icons/check-icon";
 import { ChevronsUpDownIcon } from "../icons/chevrons-up-down-icon";
+import { PlusIcon } from "../icons/plus-icon";
 import { XIcon } from "../icons/x-icon";
 
 // The single searchable-select implementation (AD-5), for choosing an
@@ -55,6 +56,16 @@ export interface ComboboxFieldProps {
   emptyMessage?: string;
   id?: string;
   className?: string;
+  /**
+   * Renders an always-visible "+ Add {label}" row as the last row of the
+   * popup — the picker's escape hatch when the wanted record doesn't exist
+   * yet. Rendered as a plain `<button type="button">` outside
+   * `Combobox.List`, never a `Combobox.Item`, so it's never filtered out by
+   * typing and never selectable as a data option.
+   */
+  onCreateNew?: () => void;
+  /** Defaults to `+ Add {label}`. */
+  createNewLabel?: string;
 }
 
 function matchesQuery(option: ComboboxFieldOption, query: string) {
@@ -78,6 +89,8 @@ export function ComboboxField({
   emptyMessage = "No matches found",
   id,
   className,
+  onCreateNew,
+  createNewLabel,
 }: ComboboxFieldProps) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -169,6 +182,17 @@ export function ComboboxField({
                   </Combobox.Item>
                 )}
               </Combobox.List>
+              {onCreateNew ? (
+                <button
+                  type="button"
+                  onClick={onCreateNew}
+                  disabled={disabled}
+                  className="flex w-full items-center gap-2 border-t border-border-hairline px-3 py-2 text-left text-body-sm font-semibold text-accent-teal-700 select-none hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+                >
+                  <PlusIcon className="size-4" />
+                  {createNewLabel ?? `+ Add ${label}`}
+                </button>
+              ) : null}
             </Combobox.Popup>
           </Combobox.Positioner>
         </Combobox.Portal>

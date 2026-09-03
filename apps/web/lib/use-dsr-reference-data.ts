@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ComboboxFieldOption } from "@azentisfieldos/ui";
 import { rmcGradeOptions } from "./rmc-grades";
 import { useAuthedFetch } from "./use-authed-fetch";
@@ -28,6 +28,13 @@ export interface DsrReferenceData {
   /** True when any list failed to load (e.g. offline) — pickers stay
    * usable-empty rather than looking broken. */
   loadFailed: boolean;
+  /** Inline "+ Add" quick-create support: prepend a just-created record into
+   * the relevant list without a re-fetch, so it's immediately selectable
+   * (the picker's own options array is the single source of truth for both
+   * the initial fetch and any quick-created addition). */
+  addMaterialOption: (option: ComboboxFieldOption) => void;
+  addVendorOption: (option: ComboboxFieldOption) => void;
+  addTeamMemberOption: (option: ComboboxFieldOption) => void;
 }
 
 interface MaterialListItem {
@@ -64,7 +71,9 @@ interface VehicleListItem {
   type?: { name: string } | null;
 }
 
-const EMPTY: Omit<DsrReferenceData, "loading" | "loadFailed"> = {
+type DsrReferenceListData = Omit<DsrReferenceData, "addMaterialOption" | "addVendorOption" | "addTeamMemberOption">;
+
+const EMPTY: Omit<DsrReferenceListData, "loading" | "loadFailed"> = {
   materialOptions: [],
   teamMemberOptions: [],
   vendorOptions: [],
@@ -75,7 +84,7 @@ const EMPTY: Omit<DsrReferenceData, "loading" | "loadFailed"> = {
 
 export function useDsrReferenceData(): DsrReferenceData {
   const authedFetch = useAuthedFetch();
-  const [data, setData] = useState<DsrReferenceData>({
+  const [data, setData] = useState<DsrReferenceListData>({
     ...EMPTY,
     loading: true,
     loadFailed: false,
@@ -152,5 +161,18 @@ export function useDsrReferenceData(): DsrReferenceData {
     };
   }, [authedFetch]);
 
-  return data;
+  // Inline quick-create (Vendor/Material/Team Member) prepends into these
+  // same lists rather than triggering a re-fetch — the newly created record
+  // must be selectable in the very same render its modal closes in.
+  const addMaterialOption = useCallback((option: ComboboxFieldOption) => {
+    setData((prev) => ({ ...prev, materialOptions: [option, ...prev.materialOptions] }));
+  }, []);
+  const addVendorOption = useCallback((option: ComboboxFieldOption) => {
+    setData((prev) => ({ ...prev, vendorOptions: [option, ...prev.vendorOptions] }));
+  }, []);
+  const addTeamMemberOption = useCallback((option: ComboboxFieldOption) => {
+    setData((prev) => ({ ...prev, teamMemberOptions: [option, ...prev.teamMemberOptions] }));
+  }, []);
+
+  return { ...data, addMaterialOption, addVendorOption, addTeamMemberOption };
 }

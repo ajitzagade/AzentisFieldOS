@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Badge, Button, CalendarIcon, Card, CheckCircleIcon, ComboboxField, PlusIcon, TextField, UserIcon } from "@azentisfieldos/ui";
 import { SiteField } from "../../../_components/site-field";
 import { useAuthedFetch } from "../../../../../lib/use-authed-fetch";
+import { TeamMemberQuickCreateModal } from "../../../team/_components/team-member-quick-create-modal";
 
 interface SiteOption {
   id: string;
@@ -28,14 +29,16 @@ function todayDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; teamMembers: TeamMemberOption[] }) {
+export function WorkRecordForm({ sites, teamMembers: initialTeamMembers }: { sites: SiteOption[]; teamMembers: TeamMemberOption[] }) {
   const router = useRouter();
   const authedFetch = useAuthedFetch();
 
   const [siteId, setSiteId] = useState("");
   const [workDate, setWorkDate] = useState(todayDate());
   const [crew, setCrew] = useState<CrewRow[]>([]);
+  const [teamMembers, setTeamMembers] = useState(initialTeamMembers);
   const [newMemberId, setNewMemberId] = useState<string | null>(null);
+  const [teamMemberQuickCreateOpen, setTeamMemberQuickCreateOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [crewFetchError, setCrewFetchError] = useState(false);
   // Derived, not a second state cell: loading whenever a Site+Date pair is
@@ -208,6 +211,8 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
             placeholder="Type a name…"
             emptyMessage="No matching Team Member"
             className="flex-1"
+            onCreateNew={() => setTeamMemberQuickCreateOpen(true)}
+            createNewLabel="+ Add Team Member"
           />
           <Button type="button" variant="secondary" onClick={addCrewMember} className="mt-6">
             <PlusIcon className="size-4" />
@@ -226,6 +231,16 @@ export function WorkRecordForm({ sites, teamMembers }: { sites: SiteOption[]; te
         <CheckCircleIcon className="size-4" />
         Save Attendance
       </Button>
+
+      <TeamMemberQuickCreateModal
+        open={teamMemberQuickCreateOpen}
+        onOpenChange={setTeamMemberQuickCreateOpen}
+        onSuccess={(teamMember) => {
+          setTeamMembers((prev) => [teamMember, ...prev]);
+          setNewMemberId(teamMember.id);
+          setTeamMemberQuickCreateOpen(false);
+        }}
+      />
     </form>
   );
 }
