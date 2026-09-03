@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { AmountField, Button, CalendarIcon, Card, CheckCircleIcon, FilterIcon, PencilIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createServiceLogAction, updateServiceLogAction, type ServiceLogFormState } from "./actions";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { parseCreateServiceLogForm, parseUpdateServiceLogForm } from "./parse";
 import type { ServiceLogKind } from "./service-history";
 
@@ -50,9 +51,11 @@ export function ServiceLogForm(props: ServiceLogFormProps) {
   // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
   const validation = useClientValidation(props.mode === "new" ? parseCreateServiceLogForm : parseUpdateServiceLogForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   return (
-    <form action={formAction} onSubmit={validation.guard()} noValidate>
+    <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate>
       <input type="hidden" name="assetType" value={assetType} />
       <input type="hidden" name="assetId" value={assetId} />
 

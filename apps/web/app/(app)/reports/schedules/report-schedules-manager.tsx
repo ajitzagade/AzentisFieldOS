@@ -10,6 +10,7 @@ import {
   SelectField,
   type DataTableColumn,
 } from "@azentisfieldos/ui";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import {
   REPORT_SCHEDULE_FREQUENCIES,
   REPORT_SCHEDULE_TYPES,
@@ -131,6 +132,8 @@ export function ReportSchedulesManager({
     // recipient checkboxes are uncontrolled, so form.reset() unchecks them too.
     if (state.ok) formRef.current?.reset();
   }, [state.ok]);
+
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   const columns: DataTableColumn<ReportScheduleRow>[] = [
     {

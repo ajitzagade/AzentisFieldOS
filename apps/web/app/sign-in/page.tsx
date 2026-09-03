@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { Button, Card, LockIcon, MailIcon, TextField } from "@azentisfieldos/ui";
+import { usePreventFormResetOnError } from "../../lib/use-prevent-form-reset-on-error";
 import { loginAction } from "./actions";
 import { APP_DISPLAY_NAME } from "../../lib/tenant";
 
@@ -14,6 +15,8 @@ import { APP_DISPLAY_NAME } from "../../lib/tenant";
 // action sets it as an httpOnly cookie server-side before redirecting.
 export default function SignInPage() {
   const [error, formAction, isPending] = useActionState(loginAction, null);
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!error);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-accent-navy-800 p-6">
@@ -28,7 +31,7 @@ export default function SignInPage() {
           Field operations, accounted for — sites, stock and settlements in one system.
         </p>
 
-        <form action={formAction} noValidate>
+        <form ref={formRef} action={formAction} noValidate>
           <TextField
             label="Email address"
             id="email"

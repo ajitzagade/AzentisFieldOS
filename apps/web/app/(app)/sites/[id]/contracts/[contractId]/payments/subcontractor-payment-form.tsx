@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   AmountField,
@@ -19,6 +19,7 @@ import {
   useSubmitConfirmation,
 } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { requireOriginal } from "@/lib/require-original";
 import { createSubcontractorPaymentAction, type SubcontractorPaymentFormState } from "./actions";
 import { parseSubcontractorPaymentForm } from "./parse";
@@ -79,8 +80,12 @@ export function SubcontractorPaymentForm({
     amountEntered !== null &&
     amountEntered > amountPayable;
 
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
+
   return (
     <form
+      ref={formRef}
       action={formAction}
       onSubmit={mode === "correct" ? validation.guard(confirmation.guard()) : validation.guard()}
       noValidate

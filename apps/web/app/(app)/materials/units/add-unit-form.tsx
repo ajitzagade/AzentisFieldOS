@@ -3,6 +3,7 @@
 import { useActionState, useRef, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { Button, LayersIcon, PlusIcon, TextField } from "@azentisfieldos/ui";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { createUnitAction, type CreateUnitFormState } from "./actions";
 
 function SubmitButton() {
@@ -26,6 +27,8 @@ export function AddUnitForm() {
       formRef.current?.reset();
     }
   }, [state]);
+
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   return (
     <form ref={formRef} action={formAction} noValidate className="flex items-start gap-2">

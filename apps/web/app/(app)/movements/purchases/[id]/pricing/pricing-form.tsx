@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   AmountField,
@@ -14,6 +14,7 @@ import {
   useSubmitConfirmation,
 } from "@azentisfieldos/ui";
 import { useClientValidation } from "../../../../../../lib/use-client-validation";
+import { usePreventFormResetOnError } from "../../../../../../lib/use-prevent-form-reset-on-error";
 import { completePricingAction, type CompletePricingFormState } from "./actions";
 import { parsePricingForm } from "./parse";
 
@@ -35,6 +36,8 @@ function SubmitButton() {
 export function PricingForm({ purchaseId, quantity }: { purchaseId: string; quantity: number }) {
   const boundAction = completePricingAction.bind(null, purchaseId);
   const [state, formAction] = useActionState(boundAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
   const validation = useClientValidation(parsePricingForm);
   // Money write that is one-time by design (changes afterwards go through
   // Correct) — held for re-verification like every other money submission
@@ -50,7 +53,7 @@ export function PricingForm({ purchaseId, quantity }: { purchaseId: string; quan
   const fieldError = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   return (
-    <form action={formAction} onSubmit={validation.guard(confirmation.guard())} noValidate>
+    <form ref={formRef} action={formAction} onSubmit={validation.guard(confirmation.guard())} noValidate>
       <AmountField
         label="Rate"
         name="rate"

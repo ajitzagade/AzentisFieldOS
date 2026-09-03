@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { BuildingIcon, Button, Card, FilterIcon, HashIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { createVehicleAction, type CreateVehicleFormState } from "./actions";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { parseCreateVehicleForm } from "./parse";
 
 interface Option {
@@ -30,6 +31,8 @@ export function NewVehicleForm({ vehicleTypes }: { vehicleTypes: Option[] }) {
   // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
   const validation = useClientValidation(parseCreateVehicleForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   if (vehicleTypes.length === 0) {
     return (
@@ -47,7 +50,7 @@ export function NewVehicleForm({ vehicleTypes }: { vehicleTypes: Option[] }) {
 
   return (
     <Card>
-      <form action={formAction} onSubmit={validation.guard()} noValidate>
+      <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Number"
           name="number"

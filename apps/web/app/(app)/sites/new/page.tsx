@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { Button, Card, FilterIcon, HashIcon, MapPinIcon, PlusIcon, SelectField, TextField, TextareaField } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { createSiteAction, type CreateSiteFormState } from "./actions";
 import { parseCreateSiteForm } from "./parse";
 
@@ -31,11 +32,14 @@ export default function NewSitePage() {
   const validation = useClientValidation(parseCreateSiteForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
+
   return (
     <div className="max-w-160">
       <h1 className="mb-6 text-page-title text-ink-900">Add Site</h1>
       <Card>
-        <form action={formAction} onSubmit={validation.guard()} noValidate>
+        <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate>
           <TextField
             label="Name"
             name="name"

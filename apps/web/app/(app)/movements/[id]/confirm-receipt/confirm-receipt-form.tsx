@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { Button, Card, CheckCircleIcon, HashIcon, TextField } from "@azentisfieldos/ui";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { confirmMovementReceiptAction, type ConfirmMovementReceiptFormState } from "./actions";
 
 function SubmitButton() {
@@ -19,10 +20,12 @@ const initialState: ConfirmMovementReceiptFormState = {};
 
 export function ConfirmReceiptForm({ movementId, sentQuantity }: { movementId: string; sentQuantity: string }) {
   const [state, formAction] = useActionState(confirmMovementReceiptAction.bind(null, movementId), initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   return (
     <Card>
-      <form action={formAction} noValidate>
+      <form ref={formRef} action={formAction} noValidate>
         <TextField
           label="Received Quantity"
           name="receivedQuantity"

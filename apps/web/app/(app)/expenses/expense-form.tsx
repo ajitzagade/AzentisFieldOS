@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ConfirmDialog,
@@ -24,6 +24,7 @@ import {
   WalletIcon,
 } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { SiteField } from "../_components/site-field";
 import { createExpenseAction, type CreateExpenseFormState } from "./actions";
 import { parseCreateExpenseForm } from "./parse";
@@ -93,9 +94,12 @@ export function ExpenseForm({ mode, correctsId, originalAmount, sites, categorie
   const validation = useClientValidation(parseCreateExpenseForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   return (
     <form
+      ref={formRef}
       action={formAction}
       onSubmit={validation.guard(mode === "correct" ? confirmation.guard() : undefined)}
       noValidate

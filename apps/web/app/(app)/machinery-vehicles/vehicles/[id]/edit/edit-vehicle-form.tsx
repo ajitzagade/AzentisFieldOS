@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { BuildingIcon, Button, Card, CheckCircleIcon, FilterIcon, HashIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { updateVehicleAction, type UpdateVehicleFormState } from "./actions";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { parseUpdateVehicleForm } from "./parse";
 import type { VehicleDetail } from "./page";
 
@@ -35,10 +36,12 @@ export function EditVehicleForm({ vehicle, vehicleTypes }: { vehicle: VehicleDet
   // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
   const validation = useClientValidation(parseUpdateVehicleForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   return (
     <Card>
-      <form action={formAction} onSubmit={validation.guard()} noValidate>
+      <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Number"
           name="number"

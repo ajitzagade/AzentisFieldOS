@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { BuildingIcon, Button, Card, MailIcon, MapPinIcon, PhoneIcon, PlusIcon, TagsField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { createVendorAction, type CreateVendorFormState } from "./actions";
 import { parseCreateVendorForm } from "./parse";
 
@@ -21,15 +22,17 @@ const initialState: CreateVendorFormState = {};
 
 export default function NewVendorPage() {
   const [state, formAction] = useActionState(createVendorAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
   // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
   const validation = useClientValidation(parseCreateVendorForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   return (
     <div className="max-w-160">
       <h1 className="mb-6 text-page-title text-ink-900">Add Vendor</h1>
       <Card>
-        <form action={formAction} onSubmit={validation.guard()} noValidate>
+        <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate>
           <TextField
             label="Name"
             name="name"

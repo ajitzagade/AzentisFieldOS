@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { Button, Card, ClipboardIcon, LayersIcon, PhoneIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { createTeamMemberAction, type CreateTeamMemberFormState } from "./actions";
 import { parseCreateTeamMemberForm } from "./parse";
 
@@ -27,9 +28,11 @@ const initialState: CreateTeamMemberFormState = {};
 
 export function NewTeamMemberForm({ employmentTypes }: { employmentTypes: Option[] }) {
   const [state, formAction] = useActionState(createTeamMemberAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
   // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
   const validation = useClientValidation(parseCreateTeamMemberForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   if (employmentTypes.length === 0) {
     return (
@@ -47,7 +50,7 @@ export function NewTeamMemberForm({ employmentTypes }: { employmentTypes: Option
 
   return (
     <Card>
-      <form action={formAction} onSubmit={validation.guard()} noValidate>
+      <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Name"
           name="name"

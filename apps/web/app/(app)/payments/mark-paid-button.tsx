@@ -9,6 +9,7 @@ import {
   useSubmitConfirmation,
   useToast,
 } from "@azentisfieldos/ui";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { markPaymentPaidAction, type MarkPaymentPaidFormState } from "./actions";
 
 function SubmitButton() {
@@ -33,6 +34,8 @@ export function MarkPaidButton({ id }: { id: string }) {
   const confirmation = useSubmitConfirmation();
   const toast = useToast();
   const announcedDone = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!state.formError);
 
   useEffect(() => {
     if (state.done && !announcedDone.current) {
@@ -46,7 +49,7 @@ export function MarkPaidButton({ id }: { id: string }) {
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <form action={formAction} onSubmit={confirmation.guard()}>
+      <form ref={formRef} action={formAction} onSubmit={confirmation.guard()}>
         <SubmitButton />
       </form>
       <ConfirmDialog

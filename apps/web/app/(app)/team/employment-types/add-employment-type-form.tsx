@@ -4,6 +4,7 @@ import { useActionState, useRef, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { Button, LayersIcon, PlusIcon, TextField } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { createEmploymentTypeAction, type CreateEmploymentTypeFormState } from "./actions";
 import { parseCreateEmploymentTypeForm } from "./parse";
 
@@ -30,6 +31,8 @@ export function AddEmploymentTypeForm() {
       formRef.current?.reset();
     }
   }, [state]);
+
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   return (
     <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate className="flex items-start gap-2">

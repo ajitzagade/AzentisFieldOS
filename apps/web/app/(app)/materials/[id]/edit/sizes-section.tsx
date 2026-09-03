@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useEffect } from "react";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { parseAddMaterialSizeForm } from "./parse";
 import { useFormStatus } from "react-dom";
 import { Button, Card, HashIcon, PlusIcon, TextField } from "@azentisfieldos/ui";
@@ -35,6 +36,8 @@ export function SizesSection({ materialId, sizes }: { materialId: string; sizes:
       formRef.current?.reset();
     }
   }, [state]);
+
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   return (
     <Card className="mt-4">

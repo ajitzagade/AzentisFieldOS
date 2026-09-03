@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { BoxIcon, Button, Card, ComboboxField, FilterIcon, LayersIcon, PlusIcon, TextField } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { createMaterialAction, type CreateMaterialFormState } from "./actions";
 import { parseCreateMaterialForm } from "./parse";
 
@@ -32,6 +33,8 @@ export function NewMaterialForm({ categories, units }: { categories: Option[]; u
   // Inline pre-submit validation via the same parse the Server Action runs (AD-7).
   const validation = useClientValidation(parseCreateMaterialForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   // AC (Task 4): a Material can't be created without an existing Category
   // and Unit to attach it to — guide the admin to create one first instead
@@ -64,7 +67,7 @@ export function NewMaterialForm({ categories, units }: { categories: Option[]; u
 
   return (
     <Card>
-      <form action={formAction} onSubmit={validation.guard()} noValidate>
+      <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Name"
           name="name"

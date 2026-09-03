@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button, TextField } from "@azentisfieldos/ui";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 
 // Story 14.3 (FR-49): the shared rename + disable/enable row controls for every
 // admin-configurable category family (Employment / Machinery / Vehicle Types,
@@ -73,11 +74,15 @@ export function CategoryRowActions({
     toggleAction,
     {},
   );
+  const renameFormRef = useRef<HTMLFormElement>(null);
+  const toggleFormRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(renameFormRef, !!(renameState.errors || renameState.formError));
+  usePreventFormResetOnError(toggleFormRef, !!toggleState.formError);
 
   if (editing && !renameState.ok) {
     return (
       <div className="flex flex-col items-end gap-1">
-        <form action={renameFormAction} noValidate className="flex items-end gap-2">
+        <form ref={renameFormRef} action={renameFormAction} noValidate className="flex items-end gap-2">
           <TextField
             label={`Rename ${name}`}
             name="name"
@@ -111,7 +116,7 @@ export function CategoryRowActions({
         >
           Rename
         </button>
-        <form action={toggleFormAction}>
+        <form ref={toggleFormRef} action={toggleFormAction}>
           <ToggleButton label={isActive ? "Disable" : "Enable"} />
         </form>
       </div>

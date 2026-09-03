@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, CorrectedValueField, PencilIcon, RotateCcwIcon, TextField } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { createAdvanceAdjustmentAction, type CreateAdvanceAdjustmentFormState } from "./actions";
 import { parseCreateAdvanceAdjustmentForm } from "./parse";
 
@@ -63,8 +64,11 @@ export function AdjustmentForm({
   const validation = useClientValidation(parseCreateAdvanceAdjustmentForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
+
   return (
-    <form action={formAction} onSubmit={validation.guard(confirmation.guard())} noValidate>
+    <form ref={formRef} action={formAction} onSubmit={validation.guard(confirmation.guard())} noValidate>
       <input type="hidden" name="teamMemberId" value={teamMemberId} />
       <input type="hidden" name="advanceId" value={advanceId} />
 

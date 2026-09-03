@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, ArrowsIcon, Button, CalendarIcon, Card, CheckCircleIcon, PencilIcon, RotateCcwIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import { createAssetMovementAction, type CreateAssetMovementFormState } from "./actions";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { SiteField } from "../_components/site-field";
 import { parseCreateAssetMovementForm } from "./parse";
 
@@ -60,9 +61,11 @@ export function AssetMovementForm({ mode, assetType, assetId, correctsId, sites,
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
   const [toStatus, setToStatus] = useState<AssetLocationStatus>(initial?.toStatus ?? "AT_SITE");
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   return (
-    <form action={formAction} onSubmit={validation.guard(mode === "correct" ? confirmation.guard() : undefined)} noValidate>
+    <form ref={formRef} action={formAction} onSubmit={validation.guard(mode === "correct" ? confirmation.guard() : undefined)} noValidate>
       <input type="hidden" name="assetType" value={assetType} />
       <input type="hidden" name="assetId" value={assetId} />
 

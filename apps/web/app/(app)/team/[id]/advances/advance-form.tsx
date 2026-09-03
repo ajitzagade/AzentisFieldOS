@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { ConfirmDialog, ConfirmDialogRow, formValue, useSubmitConfirmation, AmountField, Button, CalendarIcon, Card, CheckCircleIcon, CorrectedValueField, PencilIcon, RotateCcwIcon, TextField, WalletIcon } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { createAdvanceAction, type CreateAdvanceFormState } from "./actions";
 import { parseCreateAdvanceForm } from "./parse";
 
@@ -43,6 +44,7 @@ type AdvanceFormProps = {
 
 export function AdvanceForm({ mode, teamMemberId, correctsId, originalAmount, initial }: AdvanceFormProps) {
   const [state, formAction] = useActionState(createAdvanceAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
   // Hard-to-take-back submission (FR-54 / money movement) — held for
   // re-verification of the entered details before it goes to the ledger.
   const confirmation = useSubmitConfirmation();
@@ -50,9 +52,10 @@ export function AdvanceForm({ mode, teamMemberId, correctsId, originalAmount, in
   // (AD-7) — the confirmation dialog only opens once the input parses.
   const validation = useClientValidation(parseCreateAdvanceForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   return (
-    <form action={formAction} onSubmit={validation.guard(confirmation.guard())} noValidate>
+    <form ref={formRef} action={formAction} onSubmit={validation.guard(confirmation.guard())} noValidate>
       <input type="hidden" name="teamMemberId" value={teamMemberId} />
 
       {mode === "correct" ? (

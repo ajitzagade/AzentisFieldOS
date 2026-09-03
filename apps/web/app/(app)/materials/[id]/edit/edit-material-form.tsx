@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Badge, BoxIcon, Button, Card, CheckCircleIcon, ComboboxField, FilterIcon, HashIcon, LayersIcon, PencilIcon, PlusIcon, SelectField, TextField } from "@azentisfieldos/ui";
 import type { CustomFieldDefinition, CustomFieldType } from "@azentisfieldos/shared";
 import { updateMaterialAction, type UpdateMaterialFormState } from "./actions";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { parseUpdateMaterialForm } from "./parse";
 import type { MaterialDetail } from "./page";
 
@@ -66,9 +67,12 @@ export function EditMaterialForm({
     setNewType("TEXT");
   }
 
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
+
   return (
     <Card>
-      <form action={formAction} onSubmit={validation.guard()} noValidate>
+      <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate>
         <TextField
           label="Name"
           name="name"

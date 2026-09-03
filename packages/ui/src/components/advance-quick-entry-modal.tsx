@@ -7,6 +7,7 @@ import { AmountField } from "./amount-field";
 import { Button } from "./button";
 import { ComboboxField } from "./combobox-field";
 import { TextField } from "./field";
+import { usePreventFormResetOnError } from "../lib/use-prevent-form-reset-on-error";
 import { CalendarIcon } from "../icons/calendar-icon";
 import { CheckCircleIcon } from "../icons/check-circle-icon";
 import { PencilIcon } from "../icons/pencil-icon";
@@ -89,6 +90,8 @@ export function AdvanceQuickEntryModal({
 }: AdvanceQuickEntryModalProps) {
   const [state, formAction] = useActionState(action, initialState);
   const [teamMemberId, setTeamMemberId] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
 
   // The caller keys this component so it remounts fresh every time it's
   // reopened (useActionState's internal state otherwise outlives a
@@ -114,7 +117,7 @@ export function AdvanceQuickEntryModal({
             Creates the same Advance record as the full form — updates the Outstanding Balance immediately.
           </Dialog.Description>
 
-          <form action={formAction} onSubmit={onSubmit} noValidate>
+          <form ref={formRef} action={formAction} onSubmit={onSubmit} noValidate>
             <ComboboxField
               label="Team Member"
               required

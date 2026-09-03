@@ -115,6 +115,36 @@ describe("AdvanceQuickEntryModal", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/something went wrong/i);
   });
 
+  it("keeps every typed field showing its value after a server-returned formError, instead of React 19's native form.reset() wiping the form (regression)", async () => {
+    const user = userEvent.setup();
+    const action = vi.fn(
+      async (): Promise<AdvanceQuickEntryFormState> => ({
+        formError: "Something went wrong recording the Advance. Please try again.",
+      }),
+    );
+
+    render(
+      <AdvanceQuickEntryModal
+        open
+        onOpenChange={vi.fn()}
+        teamMembers={teamMembers}
+        action={action}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    await selectTeamMember(user, "Sita Devi");
+    await user.type(screen.getByLabelText("Amount"), "500");
+    await user.type(screen.getByLabelText("Reason"), "Medical emergency");
+    await user.click(screen.getByRole("button", { name: /record advance/i }));
+
+    await screen.findByRole("alert");
+
+    expect(screen.getByLabelText("Team Member")).toHaveValue("Sita Devi");
+    expect(screen.getByLabelText("Amount")).toHaveValue(500);
+    expect(screen.getByLabelText("Reason")).toHaveValue("Medical emergency");
+  });
+
   it("closes with no record created when Cancel is clicked", async () => {
     const user = userEvent.setup();
     const action = vi.fn();

@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { Button, Card, MailIcon, MapPinIcon, PhoneIcon, PlusIcon, TagsField, TextField, UserIcon } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { createSubcontractorAction, type CreateSubcontractorFormState } from "./actions";
 import { parseCreateSubcontractorForm } from "./parse";
 
@@ -25,11 +26,14 @@ export default function NewSubcontractorPage() {
   const validation = useClientValidation(parseCreateSubcontractorForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
+  const formRef = useRef<HTMLFormElement>(null);
+  usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
+
   return (
     <div className="max-w-160">
       <h1 className="mb-6 text-page-title text-ink-900">Add Subcontractor</h1>
       <Card>
-        <form action={formAction} onSubmit={validation.guard()} noValidate>
+        <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate>
           <TextField
             label="Name"
             name="name"
