@@ -72,7 +72,7 @@ export function SearchPalette({
   error,
   onSelect,
   onSeeAll,
-  placeholder = "Search Sites and Materials…",
+  placeholder = "Search sites, materials, vendors, team, payments…",
   emptyMessage = "No results",
   title = "Search",
 }: SearchPaletteProps) {
@@ -130,7 +130,7 @@ export function SearchPalette({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-ink-900/50" />
-        <Dialog.Popup className="fixed top-24 left-1/2 z-50 max-h-[70vh] w-[calc(100vw-2rem)] max-w-150 -translate-x-1/2 overflow-hidden rounded-lg bg-surface-1 shadow-3">
+        <Dialog.Popup className="fixed top-24 left-1/2 z-50 max-h-[70vh] w-[calc(100vw-2rem)] max-w-150 -translate-x-1/2 overflow-hidden rounded-lg border border-border-hairline bg-surface-1 shadow-3">
           <Dialog.Title className="sr-only">{title}</Dialog.Title>
           <div className="relative border-b border-border-hairline">
             <span className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-ink-500">
