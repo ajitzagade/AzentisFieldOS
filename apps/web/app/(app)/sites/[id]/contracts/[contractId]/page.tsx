@@ -1,5 +1,6 @@
 import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
+import type { Role } from "@azentisfieldos/shared";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -139,7 +140,7 @@ function workEntryColumns(siteId: string, contractId: string): DataTableColumn<W
   ];
 }
 
-function paymentColumns(siteId: string, contractId: string, viewerRole: string | null): DataTableColumn<SubcontractorPaymentRow>[] {
+function paymentColumns(siteId: string, contractId: string, viewerRole: Role): DataTableColumn<SubcontractorPaymentRow>[] {
   return [
     { header: "Date", cell: (payment) => <span className="text-ink-500">{formatDate(payment.paidAt)}</span> },
     {

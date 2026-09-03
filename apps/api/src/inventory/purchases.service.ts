@@ -14,6 +14,22 @@ import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
 import { paginationParams } from '../common/pagination';
 
+type PurchaseListRow = Prisma.PurchaseGetPayload<{
+  include: {
+    vendor: true;
+    site: true;
+    materialSize: { include: { material: { include: { unit: true } } } };
+  };
+}>;
+
+// D7: an unpriced (pending, paymentStatus NULL) Purchase must not count as
+// owed money — it is surfaced through countPendingPricing instead. Shared by
+// summaryForVendor and outstandingAcrossVendors so their "owed money"
+// definitions can never silently drift apart.
+const UNPAID_OR_PARTIAL: Prisma.PurchaseWhereInput['paymentStatus'] = {
+  in: ['UNPAID', 'PARTIAL'],
+};
+
 // FR-8: Owner/Admin records a Purchase into Godown or a Site directly.
 @Injectable()
 export class PurchasesService {
@@ -93,7 +109,7 @@ export class PurchasesService {
   // sibling queries) passes those, so they keep getting the full array.
   list(
     filters: InventoryReportFilters = {},
-  ): Promise<unknown[] | PaginatedResult<unknown>> {
+  ): Promise<PurchaseListRow[] | PaginatedResult<PurchaseListRow>> {
     const where = this.reportWhere(filters);
     const include = {
       vendor: true,
@@ -259,10 +275,8 @@ export class PurchasesService {
         _sum: { totalAmount: true },
       }),
       this.prisma.purchase.aggregate({
-        // Explicit statuses, not `not: 'PAID'` — an unpriced (D7 "Pricing
-        // pending", paymentStatus NULL) Purchase must not count as owed
-        // money; it is surfaced through countPendingPricing instead.
-        where: { vendorId, paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
+        // Explicit statuses, not `not: 'PAID'` — see UNPAID_OR_PARTIAL.
+        where: { vendorId, paymentStatus: UNPAID_OR_PARTIAL },
         _sum: { totalAmount: true },
       }),
     ]);
@@ -275,19 +289,17 @@ export class PurchasesService {
 
   // Dashboard's "Vendor Outstanding" tile — the tenant-wide total of
   // summaryForVendor()'s `notFullyPaidTotal`, computed with one DB-side
-  // groupBy instead of the Dashboard fetching every Vendor and firing one
-  // HTTP round trip per Vendor at summaryForVendor(). Same UNPAID/PARTIAL
-  // definition, same D7 "unpriced Purchases aren't owed money yet" rule.
+  // aggregate instead of the Dashboard fetching every Vendor and firing one
+  // HTTP round trip per Vendor at summaryForVendor(). Same UNPAID_OR_PARTIAL
+  // definition, same D7 "unpriced Purchases aren't owed money yet" rule. No
+  // per-vendor breakdown is needed here, so this is a plain aggregate
+  // (mirroring summaryForVendor two methods up), not a groupBy.
   async outstandingAcrossVendors(): Promise<number> {
-    const rows = await this.prisma.purchase.groupBy({
-      by: ['vendorId'],
-      where: { paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
+    const result = await this.prisma.purchase.aggregate({
+      where: { paymentStatus: UNPAID_OR_PARTIAL },
       _sum: { totalAmount: true },
     });
-    return rows.reduce(
-      (total, row) => total + (row._sum.totalAmount?.toNumber() ?? 0),
-      0,
-    );
+    return result._sum.totalAmount?.toNumber() ?? 0;
   }
 
   // Story 19.2: the global Search palette's Purchase coverage — Purchase

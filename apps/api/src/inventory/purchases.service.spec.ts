@@ -264,12 +264,11 @@ describe('PurchasesService.summaryForVendor', () => {
 });
 
 describe('PurchasesService.outstandingAcrossVendors', () => {
-  it('sums the UNPAID/PARTIAL totalAmount across every Vendor via one groupBy, not a per-Vendor call', async () => {
-    const groupBy = vi.fn().mockResolvedValue([
-      { vendorId: 'v1', _sum: { totalAmount: { toNumber: () => 12450 } } },
-      { vendorId: 'v2', _sum: { totalAmount: { toNumber: () => 3200 } } },
-    ]);
-    const prisma = { purchase: { groupBy } };
+  it('sums the UNPAID/PARTIAL totalAmount across every Vendor via one aggregate, not a per-Vendor call', async () => {
+    const aggregate = vi
+      .fn()
+      .mockResolvedValue({ _sum: { totalAmount: { toNumber: () => 15650 } } });
+    const prisma = { purchase: { aggregate } };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
     );
@@ -277,17 +276,18 @@ describe('PurchasesService.outstandingAcrossVendors', () => {
     const result = await service.outstandingAcrossVendors();
 
     expect(result).toBe(15650);
-    expect(groupBy).toHaveBeenCalledTimes(1);
-    expect(groupBy).toHaveBeenCalledWith({
-      by: ['vendorId'],
+    expect(aggregate).toHaveBeenCalledTimes(1);
+    expect(aggregate).toHaveBeenCalledWith({
       where: { paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
       _sum: { totalAmount: true },
     });
   });
 
   it('returns 0 when no Purchase is UNPAID/PARTIAL, not an error', async () => {
-    const groupBy = vi.fn().mockResolvedValue([]);
-    const prisma = { purchase: { groupBy } };
+    const aggregate = vi
+      .fn()
+      .mockResolvedValue({ _sum: { totalAmount: null } });
+    const prisma = { purchase: { aggregate } };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
     );

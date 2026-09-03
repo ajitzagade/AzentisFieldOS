@@ -19,6 +19,10 @@ import {
   supersededDsrIds,
 } from '../common/superseded-dsrs';
 
+type WorkRecordListRow = Prisma.WorkRecordGetPayload<{
+  include: { teamMember: true; site: true };
+}>;
+
 // FR-20: labour presence tracked per Site per day. WorkRecord.@@index
 // ([teamMemberId, workDate]) is a plain index, not a unique constraint
 // (Story 3.5 relaxed it so DSR corrections can share a crew
@@ -91,7 +95,7 @@ export class WorkRecordsService {
   async list(
     siteId?: string,
     filters: LabourReportFilters = {},
-  ): Promise<unknown[] | PaginatedResult<unknown>> {
+  ): Promise<WorkRecordListRow[] | PaginatedResult<WorkRecordListRow>> {
     const where: Prisma.WorkRecordWhereInput = {
       ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
     };

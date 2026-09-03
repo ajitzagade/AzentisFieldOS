@@ -13,6 +13,8 @@ import TeamMemberDetailPage from "./page";
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
 
+const fetchedUrls: string[] = [];
+
 function mockFetchRouter(handlers: {
   teamMember?: unknown;
   teamMemberStatus?: number;
@@ -23,6 +25,7 @@ function mockFetchRouter(handlers: {
 }) {
   global.fetch = vi.fn((url: string) => {
     const urlStr = String(url);
+    fetchedUrls.push(urlStr);
     if (urlStr.includes("/users/me")) {
       return Promise.resolve({
         ok: true,
@@ -49,6 +52,7 @@ function mockFetchRouter(handlers: {
 beforeEach(() => {
   process.env.API_URL = "http://localhost:3001";
   notFoundMock.mockClear();
+  fetchedUrls.length = 0;
 });
 
 afterEach(() => {
@@ -277,5 +281,20 @@ describe("TeamMemberDetailPage", () => {
     await renderDetailPage("tm1");
 
     expect(screen.getByRole("link", { name: /Edit/ })).toHaveAttribute("href", "/team/tm1/edit");
+  });
+
+  it("scopes the Advance Ledger fetches to this Team Member via teamMemberId, not a client-side filter over every Team Member's history", async () => {
+    // Regression guard: these fetches used to pull the whole tenant's
+    // /advances and /advance-adjustments and filter client-side. A silent
+    // regression back to that (or a dropped/mis-forwarded teamMemberId
+    // server-side) would leak another Team Member's ledger rows into this
+    // page — assert the actual request URLs, not just that *a* request to
+    // "/advances" happened.
+    mockFetchRouter({ teamMember: baseTeamMember, workHistory: [], advances: [], adjustments: [] });
+
+    await renderDetailPage("tm1");
+
+    expect(fetchedUrls.some((url) => url.includes("/advances?teamMemberId=tm1"))).toBe(true);
+    expect(fetchedUrls.some((url) => url.includes("/advance-adjustments?teamMemberId=tm1"))).toBe(true);
   });
 });

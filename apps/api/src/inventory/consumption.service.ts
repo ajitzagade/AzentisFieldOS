@@ -9,6 +9,13 @@ import type {
   PaginatedResult,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
+
+type ConsumptionListRow = Prisma.ConsumptionGetPayload<{
+  include: {
+    site: true;
+    materialSize: { include: { material: { include: { unit: true } } } };
+  };
+}>;
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
 import { paginationParams } from '../common/pagination';
@@ -86,7 +93,7 @@ export class ConsumptionService {
   // full-array behavior is unchanged.
   async list(
     filters: InventoryReportFilters = {},
-  ): Promise<unknown[] | PaginatedResult<unknown>> {
+  ): Promise<ConsumptionListRow[] | PaginatedResult<ConsumptionListRow>> {
     const superseded = await supersededDsrIds(this.prisma);
     const where: Prisma.ConsumptionWhereInput = {
       ...this.reportWhere(filters),

@@ -159,18 +159,6 @@ describe('StorageService.confirmUpload', () => {
   });
 });
 
-describe('StorageService.getReadUrl', () => {
-  it('returns the public, full-resolution Cloudinary delivery URL for the given storageKey', async () => {
-    const service = makeService({});
-
-    const url = await service.getReadUrl('dsr/dsr-1/x');
-
-    expect(url).toBe(
-      'https://res.cloudinary.com/test-cloud/image/upload/dsr/dsr-1/x',
-    );
-  });
-});
-
 describe('StorageService.getThumbnailUrl', () => {
   it('returns a downsized, format-negotiated Cloudinary delivery URL for the given storageKey', async () => {
     const service = makeService({});

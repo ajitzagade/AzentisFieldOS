@@ -22,9 +22,20 @@ import { PrismaClient } from '../generated/prisma/client';
 // before any single instance's traffic alone would justify it. A small,
 // explicit, env-overridable cap keeps each instance's footprint
 // predictable regardless of how many instances Vercel runs at once.
+const DEFAULT_POOL_MAX = 5;
+
+// Unlike a plain `Number(...) || fallback`, this rejects a misconfigured
+// negative/fractional value instead of silently passing it to pg.Pool, and
+// treats an explicit `0` the same as any other invalid value rather than
+// `||`'s accidental (0 is falsy) but unintentional fallback-to-default.
+function poolMax(value: string | undefined): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_POOL_MAX;
+}
+
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,
-  max: Number(process.env.DATABASE_POOL_MAX) || 5,
+  max: poolMax(process.env.DATABASE_POOL_MAX),
 });
 
 @Injectable()

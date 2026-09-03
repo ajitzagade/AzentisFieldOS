@@ -14,6 +14,10 @@ import { dateRangeBounds } from '../common/date-range';
 import { paginationParams } from '../common/pagination';
 import { decrementOutstandingBalanceWithFloorCheck } from './outstanding-balance';
 
+type AdvanceListRow = Prisma.AdvanceGetPayload<{
+  include: { teamMember: true };
+}>;
+
 // FR-22, NFR-3: recorded immediately, no approval gate or intermediate
 // status field anywhere in this create path.
 @Injectable()
@@ -81,7 +85,7 @@ export class AdvancesService {
   // is unchanged.
   list(
     filters: LabourReportFilters = {},
-  ): Promise<unknown[] | PaginatedResult<unknown>> {
+  ): Promise<AdvanceListRow[] | PaginatedResult<AdvanceListRow>> {
     const where: Prisma.AdvanceWhereInput = {};
     if (filters.teamMemberId) where.teamMemberId = filters.teamMemberId;
     where.givenAt = dateRangeBounds(filters.from, filters.to);

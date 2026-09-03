@@ -1,12 +1,5 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   loginSchema,
   refreshTokenSchema,
@@ -27,13 +20,14 @@ export class AuthController {
 
   // Throttled at 5 attempts/minute per caller — bounds scripted brute-force
   // login attempts. Overrides the same `default` profile AppModule's
-  // global ThrottlerGuard already applies everywhere (see AuthModule) down
-  // to a much stricter limit for just this route — a distinctly-named
-  // profile would apply its own limit to every OTHER route too, not just
-  // this one (@nestjs/throttler checks every configured profile by
-  // default unless a route's own @Throttle() overrides it by name).
+  // global ThrottlerGuard (APP_GUARD) already applies to every route down
+  // to a much stricter limit for just this one. No route-level
+  // @UseGuards(ThrottlerGuard) here — the guard is already global; adding
+  // it again on this route made ThrottlerGuard run twice per request, so
+  // every real login attempt incremented the shared counter twice and
+  // silently halved this limit to ~2-3 attempts (caught in code review,
+  // see throttler.integration.spec.ts's real-controller regression test).
   @Public()
-  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('login')
   login(@Body(new ZodValidationPipe(loginSchema)) body: LoginInput) {

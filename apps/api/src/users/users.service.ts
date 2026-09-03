@@ -10,17 +10,7 @@ import type {
 } from '@azentisfieldos/shared';
 import { Prisma, type Role } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-
-// Every User-returning method below selects exactly this shape — passwordHash
-// must NEVER be serialized into an HTTP response, even hashed.
-const SAFE_USER_SELECT = {
-  id: true,
-  name: true,
-  email: true,
-  role: true,
-  createdAt: true,
-  updatedAt: true,
-} as const;
+import { SAFE_USER_SELECT } from '../auth/safe-user-select';
 
 export interface SafeUser {
   id: string;

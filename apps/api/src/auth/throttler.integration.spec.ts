@@ -1,9 +1,12 @@
 import { Controller, Get, INestApplication } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Throttle, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
 
 // Regression coverage for a real bug found while wiring this up: a
 // second, distinctly-named throttler profile (the original `login`
@@ -94,5 +97,128 @@ describe('ThrottlerGuard wired globally (APP_GUARD) over real HTTP', () => {
 
     expect(res.status).toBe(429);
     expect(res.headers['retry-after']).toBeDefined();
+  });
+});
+
+// Regression test for the double-count bug: AuthController.login() used to
+// carry its own `@UseGuards(ThrottlerGuard)` on top of the global APP_GUARD
+// registration below, so ThrottlerGuard ran twice per request and every
+// real login attempt incremented the shared counter twice — halving the
+// documented "5 attempts/minute" limit to ~2-3. This boots the REAL
+// AuthController (not a synthetic probe) under the same global-guard wiring
+// AppModule uses, so a reintroduced route-level @UseGuards(ThrottlerGuard)
+// here would fail this test.
+describe('AuthController.login under the real global ThrottlerGuard', () => {
+  let app: INestApplication;
+  const authService = {
+    login: vi.fn().mockResolvedValue({ token: 't', refreshToken: 'r' }),
+  };
+
+  async function boot() {
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 300 }]),
+      ],
+      controllers: [AuthController],
+      providers: [
+        { provide: AuthService, useValue: authService },
+        { provide: APP_GUARD, useClass: ThrottlerGuard },
+      ],
+    }).compile();
+    app = moduleRef.createNestApplication();
+    await app.init();
+  }
+
+  afterEach(async () => {
+    if (app) await app.close();
+    authService.login.mockClear();
+  });
+
+  it('allows exactly 5 real login attempts (its own @Throttle override) before 429ing the 6th', async () => {
+    await boot();
+
+    for (let i = 0; i < 5; i++) {
+      const res = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'a@b.com', password: 'wrong' });
+      expect(res.status).not.toBe(429);
+    }
+    expect(authService.login).toHaveBeenCalledTimes(5);
+
+    const sixth = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'a@b.com', password: 'wrong' });
+    expect(sixth.status).toBe(429);
+  });
+});
+
+// Regression coverage for main.ts's `app.set('trust proxy', 1)`: without it,
+// Express's req.ip (what ThrottlerGuard's default IP-based tracking keys on)
+// resolves to the proxy's own address behind Vercel's reverse proxy, so
+// every distinct end user would collapse onto one shared rate-limit bucket
+// — a burst of legitimate traffic from many users could exhaust the shared
+// limit and 429 everyone. No prior test booted with `trust proxy` set or
+// simulated more than one client IP.
+describe('trust proxy: per-client rate limiting behind a reverse proxy', () => {
+  let app: NestExpressApplication;
+
+  async function boot(trustProxy: boolean) {
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 2 }]),
+      ],
+      controllers: [PlainProbeController],
+      providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+    }).compile();
+    app = moduleRef.createNestApplication<NestExpressApplication>();
+    if (trustProxy) {
+      // Mirrors main.ts's app.set('trust proxy', 1) exactly.
+      app.set('trust proxy', 1);
+    }
+    await app.init();
+  }
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('with trust proxy set, two distinct X-Forwarded-For client IPs get independent rate-limit buckets', async () => {
+    await boot(true);
+
+    await request(app.getHttpServer())
+      .get('/plain-probe')
+      .set('X-Forwarded-For', '203.0.113.1');
+    await request(app.getHttpServer())
+      .get('/plain-probe')
+      .set('X-Forwarded-For', '203.0.113.1');
+    const trippedA = await request(app.getHttpServer())
+      .get('/plain-probe')
+      .set('X-Forwarded-For', '203.0.113.1');
+    expect(trippedA.status).toBe(429);
+
+    // A distinct client IP must still have its own untouched limit.
+    const clientB = await request(app.getHttpServer())
+      .get('/plain-probe')
+      .set('X-Forwarded-For', '203.0.113.2');
+    expect(clientB.status).toBe(200);
+  });
+
+  it('without trust proxy set, distinct X-Forwarded-For values are ignored and both clients share one bucket (demonstrates why the setting matters)', async () => {
+    await boot(false);
+
+    await request(app.getHttpServer())
+      .get('/plain-probe')
+      .set('X-Forwarded-For', '203.0.113.1');
+    await request(app.getHttpServer())
+      .get('/plain-probe')
+      .set('X-Forwarded-For', '203.0.113.1');
+
+    // A "different" client, by X-Forwarded-For alone, is already blocked —
+    // proving req.ip ignored the header and both requests were keyed on the
+    // same underlying test-client address.
+    const clientB = await request(app.getHttpServer())
+      .get('/plain-probe')
+      .set('X-Forwarded-For', '203.0.113.2');
+    expect(clientB.status).toBe(429);
   });
 });

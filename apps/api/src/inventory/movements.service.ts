@@ -10,6 +10,14 @@ import type {
   PaginatedResult,
 } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
+
+type MovementListRow = Prisma.MovementGetPayload<{
+  include: {
+    sourceSite: true;
+    destinationSite: true;
+    materialSize: { include: { material: { include: { unit: true } } } };
+  };
+}>;
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
 import { paginationParams } from '../common/pagination';
@@ -138,7 +146,7 @@ export class MovementsService {
   // full-array behavior is unchanged.
   list(
     filters: InventoryReportFilters = {},
-  ): Promise<unknown[] | PaginatedResult<unknown>> {
+  ): Promise<MovementListRow[] | PaginatedResult<MovementListRow>> {
     const where = this.reportWhere(filters);
     const include = {
       sourceSite: true,

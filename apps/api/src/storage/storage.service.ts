@@ -121,18 +121,14 @@ export class StorageService {
 
   // Read access: Cloudinary delivery URLs are public CDN URLs — durable, no
   // presign/expiry needed. `storageKey` is the stored public_id. No actual
-  // I/O happens here (cloudinaryUrl is pure string-building), so this isn't
-  // `async` — the Promise-returning signature is kept because every caller
-  // already `await`s it and because a future delivery provider swap could
-  // reasonably need to be async.
-  getReadUrl(storageKey: string): Promise<string> {
-    return Promise.resolve(cloudinaryUrl(storageKey));
-  }
-
-  // Same durability contract as getReadUrl, downsized + format-negotiated
-  // for grid/thumbnail contexts (DSR/Site photo galleries) — see
-  // cloudinaryThumbnailUrl's comment for why this is a distinct method
-  // rather than a parameter on getReadUrl.
+  // I/O happens here (cloudinaryThumbnailUrl is pure string-building), so
+  // this isn't `async` — the Promise-returning signature is kept because
+  // every caller already `await`s it and because a future delivery provider
+  // swap could reasonably need to be async. Downsized + format-negotiated
+  // for grid/thumbnail contexts (DSR/Site photo galleries) — full-res
+  // record fields (Purchase.challanPhotoUrl, BrandingConfig.logoUrl) call
+  // cloudinaryUrl() directly at write time instead, since those URLs are
+  // computed once and stored rather than resolved on every read.
   getThumbnailUrl(storageKey: string): Promise<string> {
     return Promise.resolve(cloudinaryThumbnailUrl(storageKey));
   }

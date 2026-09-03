@@ -14,6 +14,13 @@ import { dateRangeBounds } from '../common/date-range';
 import { paginationParams } from '../common/pagination';
 import { decrementStockWithFloorCheck } from './stock-delta';
 
+type ReturnWastageListRow = Prisma.ReturnWastageGetPayload<{
+  include: {
+    site: true;
+    materialSize: { include: { material: { include: { unit: true } } } };
+  };
+}>;
+
 // FR-13: Owner/Admin or Site Supervisor records a Wastage or Return as its
 // own transaction type, distinct from Consumption. Both kinds decrease
 // Site Stock — a RETURN is material leaving the Site (back to a Vendor),
@@ -77,7 +84,7 @@ export class ReturnWastageService {
   // full-array behavior is unchanged.
   list(
     filters: InventoryReportFilters = {},
-  ): Promise<unknown[] | PaginatedResult<unknown>> {
+  ): Promise<ReturnWastageListRow[] | PaginatedResult<ReturnWastageListRow>> {
     const where = this.reportWhere(filters);
     const include = {
       site: true,

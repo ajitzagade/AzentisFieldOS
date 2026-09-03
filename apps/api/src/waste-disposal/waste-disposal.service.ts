@@ -41,6 +41,10 @@ const DISPOSAL_INCLUDE = {
   vehicle: { select: { id: true, number: true } },
 } satisfies Prisma.WasteDisposalInclude;
 
+type WasteDisposalListRow = Prisma.WasteDisposalGetPayload<{
+  include: typeof DISPOSAL_INCLUDE;
+}>;
+
 // Waste & Disposal — a per-trip disposal COST ledger (FR-41 spirit: money
 // leaving the business, attributed to a Site). Append-only (AD-9):
 // create() only ever inserts; a correction is a new signed-delta row
@@ -106,7 +110,7 @@ export class WasteDisposalService {
   // full-array behavior is unchanged.
   async list(
     filters: WasteDisposalListFilters = {},
-  ): Promise<unknown[] | PaginatedResult<unknown>> {
+  ): Promise<WasteDisposalListRow[] | PaginatedResult<WasteDisposalListRow>> {
     const where = this.whereFor(filters);
     const orderBy: Prisma.WasteDisposalOrderByWithRelationInput = {
       disposedAt: 'desc',

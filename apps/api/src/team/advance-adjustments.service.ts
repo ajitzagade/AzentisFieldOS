@@ -14,6 +14,10 @@ import { dateRangeBounds } from '../common/date-range';
 import { paginationParams } from '../common/pagination';
 import { decrementOutstandingBalanceWithFloorCheck } from './outstanding-balance';
 
+type AdvanceAdjustmentListRow = Prisma.AdvanceAdjustmentGetPayload<{
+  include: { advance: { include: { teamMember: true } }; payment: true };
+}>;
+
 // FR-23: reduces a Team Member's pooled Outstanding Balance, capped at the
 // current balance, race-safe under concurrent submissions.
 @Injectable()
@@ -71,7 +75,9 @@ export class AdvanceAdjustmentsService {
   // full-array behavior (and the Advance Ledger) is unchanged.
   list(
     filters: LabourReportFilters = {},
-  ): Promise<unknown[] | PaginatedResult<unknown>> {
+  ): Promise<
+    AdvanceAdjustmentListRow[] | PaginatedResult<AdvanceAdjustmentListRow>
+  > {
     const where: Prisma.AdvanceAdjustmentWhereInput = {};
     if (filters.teamMemberId) {
       where.advance = { teamMemberId: filters.teamMemberId };

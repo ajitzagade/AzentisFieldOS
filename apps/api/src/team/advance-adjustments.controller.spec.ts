@@ -41,13 +41,29 @@ describe('AdvanceAdjustmentsController', () => {
     expect(result).toEqual({ id: '1', ...input });
   });
 
-  it('list delegates to AdvanceAdjustmentsService.list', async () => {
+  it('list delegates to AdvanceAdjustmentsService.list with no filters when none are given', async () => {
     service.list.mockResolvedValue([{ id: '1' }]);
 
     const result = await controller.list();
 
-    expect(service.list).toHaveBeenCalled();
+    expect(service.list).toHaveBeenCalledWith({
+      teamMemberId: undefined,
+      page: undefined,
+      pageSize: undefined,
+    });
     expect(result).toEqual([{ id: '1' }]);
+  });
+
+  it("list forwards teamMemberId to AdvanceAdjustmentsService.list, so a regression here cannot leak every Team Member into one person's ledger", async () => {
+    service.list.mockResolvedValue([{ id: '1' }]);
+
+    await controller.list('tm1');
+
+    expect(service.list).toHaveBeenCalledWith({
+      teamMemberId: 'tm1',
+      page: undefined,
+      pageSize: undefined,
+    });
   });
 
   it('findOne delegates to AdvanceAdjustmentsService.findOne', async () => {
