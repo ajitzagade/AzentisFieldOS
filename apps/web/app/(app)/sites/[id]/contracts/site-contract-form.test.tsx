@@ -17,10 +17,6 @@ function noopAction() {
   return Promise.resolve({});
 }
 
-function noopParse() {
-  return { success: true as const };
-}
-
 describe("SiteContractForm", () => {
   it("shows the Fixed Amount field, and hides the Rate/Estimated Quantity fields, when Fixed Cost is selected", async () => {
     const user = userEvent.setup();
@@ -30,7 +26,6 @@ describe("SiteContractForm", () => {
         siteId="site-1"
         subcontractors={SUBCONTRACTORS}
         action={noopAction}
-        parse={noopParse}
       />,
     );
 
@@ -49,7 +44,6 @@ describe("SiteContractForm", () => {
         siteId="site-1"
         subcontractors={SUBCONTRACTORS}
         action={noopAction}
-        parse={noopParse}
       />,
     );
 
@@ -68,7 +62,6 @@ describe("SiteContractForm", () => {
         siteId="site-1"
         subcontractors={SUBCONTRACTORS}
         action={noopAction}
-        parse={noopParse}
       />,
     );
 
@@ -88,7 +81,6 @@ describe("SiteContractForm", () => {
         siteId="site-1"
         subcontractors={SUBCONTRACTORS}
         action={noopAction}
-        parse={noopParse}
         initial={{
           id: "c1",
           subcontractorId: "sc1",
@@ -116,7 +108,6 @@ describe("SiteContractForm", () => {
         siteId="site-1"
         subcontractors={SUBCONTRACTORS}
         action={noopAction}
-        parse={noopParse}
       />,
     );
 
@@ -130,7 +121,7 @@ describe("SiteContractForm", () => {
     createSubcontractorQuickActionMock.mockResolvedValue({ success: true, id: "sc-new", name: "Fresh Electricals" });
 
     render(
-      <SiteContractForm mode="new" siteId="site-1" subcontractors={SUBCONTRACTORS} action={noopAction} parse={noopParse} />,
+      <SiteContractForm mode="new" siteId="site-1" subcontractors={SUBCONTRACTORS} action={noopAction} />,
     );
 
     await user.type(screen.getByLabelText("Work category"), "Storm-water pipe laying");

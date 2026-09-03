@@ -6,6 +6,8 @@ import { Button, Card, CheckCircleIcon, ComboboxField, PlusIcon, SelectField, Te
 import { useClientValidation } from "@/lib/use-client-validation";
 import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { SubcontractorQuickCreateModal } from "@/app/(app)/subcontractors/_components/subcontractor-quick-create-modal";
+import { parseCreateSiteContractForm } from "./new/parse";
+import { parseUpdateSiteContractForm } from "./[contractId]/edit/parse";
 
 export interface SubcontractorOption {
   id: string;
@@ -38,7 +40,6 @@ interface SiteContractFormProps {
   subcontractors: SubcontractorOption[];
   initial?: SiteContractFormValues;
   action: (prevState: SiteContractFormState, formData: FormData) => Promise<SiteContractFormState>;
-  parse: (formData: FormData) => { success: boolean; error?: { flatten(): { fieldErrors: Record<string, string[]> } } };
 }
 
 function todayDate() {
@@ -69,9 +70,14 @@ function SubmitButton({ mode }: { mode: "new" | "edit" }) {
 
 const emptyState: SiteContractFormState = {};
 
-export function SiteContractForm({ mode, siteId, subcontractors: initialSubcontractors, initial, action, parse }: SiteContractFormProps) {
+export function SiteContractForm({ mode, siteId, subcontractors: initialSubcontractors, initial, action }: SiteContractFormProps) {
   const [state, formAction] = useActionState(action, emptyState);
-  const validation = useClientValidation(parse);
+  // `parse` can't travel as a prop from the Server Component page — it's a
+  // plain function, and Next.js forbids passing non-"use server" functions
+  // across the server/client boundary (this form imports both variants
+  // directly instead, matching every other dual-mode form in the app, e.g.
+  // payment-form.tsx).
+  const validation = useClientValidation(mode === "edit" ? parseUpdateSiteContractForm : parseCreateSiteContractForm);
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   const [rateType, setRateType] = useState(initial?.rateType ?? "");

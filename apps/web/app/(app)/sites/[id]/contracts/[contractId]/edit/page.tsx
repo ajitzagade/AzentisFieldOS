@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { SiteContractForm, type SubcontractorOption } from "../../site-contract-form";
 import { getSiteContract } from "../page";
 import { updateSiteContractAction } from "./actions";
-import { parseUpdateSiteContractForm } from "./parse";
 
 async function getSubcontractors(): Promise<SubcontractorOption[]> {
   const res = await authedFetch(`/subcontractors`, { cache: "no-store" });
@@ -53,7 +52,6 @@ export default async function EditSiteContractPage({
           endDate: toDateInputValue(contract.endDate),
         }}
         action={action}
-        parse={parseUpdateSiteContractForm}
       />
     </div>
   );

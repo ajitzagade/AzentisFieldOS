@@ -4,7 +4,6 @@ import { MapPinIcon } from "@azentisfieldos/ui";
 import type { SubcontractorOption } from "../site-contract-form";
 import { SiteContractForm } from "../site-contract-form";
 import { createSiteContractAction } from "./actions";
-import { parseCreateSiteContractForm } from "./parse";
 
 interface SiteSummary {
   id: string;
@@ -48,7 +47,6 @@ export default async function NewSiteContractPage({ params }: { params: Promise<
         siteId={site.id}
         subcontractors={subcontractors}
         action={createSiteContractAction}
-        parse={parseCreateSiteContractForm}
       />
     </div>
   );
