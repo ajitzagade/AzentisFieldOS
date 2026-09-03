@@ -3,9 +3,16 @@
 // name renders (sidebar, minimal top bar, sign-in card, page title) reads
 // this single constant rather than a hardcoded literal, so the eventual
 // admin-configurable version only has to change this one binding, not
-// hunt every call site. Not env-driven (yet) since nothing outside this
-// running process needs to know it.
-export const APP_DISPLAY_NAME = "Sandeep Enterprises";
+// hunt every call site. Sign-in/offline/manifest render before a user is
+// authenticated, so this can't come from the DB-backed BrandingConfig
+// (AD-1: every tenant is a separate deployment/DB) — it's baked in at
+// build time from NEXT_PUBLIC_APP_DISPLAY_NAME, set per Vercel project
+// alongside that tenant's infra/tenants/<slug>.json displayName. Several
+// tenant deployments build from this same shared repo, so this must not
+// go back to being a hardcoded literal — that silently brands every
+// other tenant with whichever name was last committed.
+export const APP_DISPLAY_NAME =
+  process.env.NEXT_PUBLIC_APP_DISPLAY_NAME?.trim() || "Your Company";
 
 // One source for the app's tagline/description, shared by the root metadata
 // (layout.tsx) and the web manifest (manifest.ts) so the two can't drift.

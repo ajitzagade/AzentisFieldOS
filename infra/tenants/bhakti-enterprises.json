@@ -1,0 +1,20 @@
+{
+  "slug": "bhakti-enterprises",
+  "displayName": "Bhakti Enterprises",
+  "domain": "bhakti-enterprises.azentis.in",
+  "branding": {
+    "logoUrl": "",
+    "primaryColorToken": "primary-600",
+    "accentColorToken": "accent-500"
+  },
+  "contact": {
+    "ownerName": "Chandrakant Zagade",
+    "email": "zagade.prem13@gmail.com",
+    "phone": "7057945455"
+  },
+  "notificationChannels": {
+    "whatsapp": false,
+    "email": false,
+    "inApp": true
+  }
+}

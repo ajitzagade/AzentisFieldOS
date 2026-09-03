@@ -42,12 +42,22 @@ const DEFAULT_EXPENSE_CATEGORIES = [
 // ships), falling back to a neutral placeholder otherwise; primaryColor
 // defaults (via the schema) to this product's own accent-teal-700 token;
 // no logo. Singleton — seeded exactly once, never a second row.
+//
+// TENANT_SLUG must be set per-deployment once more than one tenant config
+// exists in infra/tenants/ — every tenant's build clones the same repo, so
+// picking "the first non-underscore json file" is a directory-order
+// coin-flip once a second tenant file lands, silently branding one
+// deployment with another tenant's name. Falls back to the old single-file
+// scan only when TENANT_SLUG is unset (e.g. local dev with one tenant file).
 function resolveTenantName(): string {
   try {
     const tenantsDir = path.join(__dirname, "..", "tenants");
-    const file = readdirSync(tenantsDir).find(
-      (name) => name.endsWith(".json") && !name.startsWith("_"),
-    );
+    const slug = process.env.TENANT_SLUG?.trim();
+    const file = slug
+      ? `${slug}.json`
+      : readdirSync(tenantsDir).find(
+          (name) => name.endsWith(".json") && !name.startsWith("_"),
+        );
     if (!file) return "Your Company";
     const config = JSON.parse(
       readFileSync(path.join(tenantsDir, file), "utf8"),
