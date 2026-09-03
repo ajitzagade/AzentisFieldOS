@@ -190,15 +190,18 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       total: data?.sites?.total ?? 0,
     },
     {
-      key: "materials",
-      label: "Materials",
-      items: (data?.materials?.results ?? []).map((material) => ({
-        id: material.id,
-        label: material.name,
-        description: material.category.name,
-        icon: <LayersIcon />,
+      key: "inventory",
+      label: "Inventory",
+      items: (data?.inventory?.results ?? []).map((item) => ({
+        id: item.id,
+        label: `${item.materialName} — ${item.sizeLabel}`,
+        description:
+          item.location.kind === "site"
+            ? `${item.quantity} ${item.unit} at ${item.location.name}`
+            : `${item.quantity} ${item.unit} at Godown`,
+        icon: <BoxIcon />,
       })),
-      total: data?.materials?.total ?? 0,
+      total: data?.inventory?.total ?? 0,
     },
     {
       key: "vendors",
@@ -436,6 +439,21 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       })),
       total: data?.auditLogs?.total ?? 0,
     },
+    // Product feedback 2026-09-03: Materials is the least actionable group
+    // (master-data catalog, no quantity) compared to the new "Inventory"
+    // group above (actual available stock) and every transactional entity —
+    // kept last so it doesn't crowd out more relevant results.
+    {
+      key: "materials",
+      label: "Materials",
+      items: (data?.materials?.results ?? []).map((material) => ({
+        id: material.id,
+        label: material.name,
+        description: material.category.name,
+        icon: <LayersIcon />,
+      })),
+      total: data?.materials?.total ?? 0,
+    },
   ];
 
   function handleSelect(groupKey: string, item: { id: string }) {
@@ -467,6 +485,12 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       href = entityHref("site", item.id);
     } else if (groupKey === "materials") {
       href = `/materials/${item.id}/availability`;
+    } else if (groupKey === "inventory") {
+      // Inventory rows are a Stock balance, not a Material — route to the
+      // same availability page as the Materials group, keyed off the
+      // underlying Material's id rather than the Stock row's synthetic id.
+      const stock = data?.inventory?.results.find((s) => s.id === item.id);
+      if (stock) href = `/materials/${stock.materialId}/availability`;
     } else if (groupKey === "vendors") {
       href = entityHref("vendor", item.id);
     } else if (groupKey === "teamMembers") {
@@ -549,6 +573,10 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       router.push(`/sites?q=${q}`);
     } else if (groupKey === "materials") {
       router.push(`/materials?q=${q}`);
+    } else if (groupKey === "inventory") {
+      // /inventory has no q= filter (Godown/Site stock tables only) — land
+      // on the unfiltered page rather than appending an ignored ?q=.
+      router.push("/inventory");
     } else if (groupKey === "vendors") {
       router.push(`/vendors?q=${q}`);
     } else if (groupKey === "teamMembers") {

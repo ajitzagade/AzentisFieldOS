@@ -15,6 +15,20 @@ export interface MaterialSearchResult {
   category: { id: string; name: string };
 }
 
+// Product feedback 2026-09-03: distinct from MaterialSearchResult above —
+// this is a Material's *available stock* (Godown or a Site, quantity > 0),
+// not the master-data catalog entry. `materialId` routes to the same
+// /materials/[id]/availability page the Materials group uses.
+export interface InventorySearchResult {
+  id: string;
+  materialId: string;
+  materialName: string;
+  sizeLabel: string;
+  quantity: number;
+  unit: string;
+  location: { kind: "godown" } | { kind: "site"; id: string; name: string };
+}
+
 // Story 19.2: the palette's entity coverage expands to every remaining
 // major record type. Each result carries just enough to render a row
 // (label + a short disambiguating description) and to resolve routing —
@@ -205,6 +219,7 @@ export interface SearchResultGroup<T> {
 export interface SearchResponse {
   sites: SearchResultGroup<SiteSearchResult>;
   materials: SearchResultGroup<MaterialSearchResult>;
+  inventory: SearchResultGroup<InventorySearchResult>;
   vendors: SearchResultGroup<VendorSearchResult>;
   teamMembers: SearchResultGroup<TeamMemberSearchResult>;
   payments: SearchResultGroup<PaymentSearchResult>;

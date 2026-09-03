@@ -1,5 +1,30 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+export interface InventoryCandidate {
+  id: string;
+  materialId: string;
+  materialName: string;
+  sizeLabel: string;
+  quantity: number;
+  unit: string;
+  location: { kind: 'godown' } | { kind: 'site'; id: string; name: string };
+}
+
+// Shared by every method below that reads GodownStock/SiteStock — a Stock
+// row is never useful without its Material/Size/Unit label, so every query
+// against these tables includes the same nested shape (repeated 5 times
+// across this file before being pulled out here). Defined once so a future
+// field addition only needs editing in one place.
+const GODOWN_STOCK_INCLUDE = {
+  materialSize: { include: { material: { include: { unit: true } } } },
+} satisfies Prisma.GodownStockInclude;
+
+const SITE_STOCK_INCLUDE = {
+  site: true,
+  materialSize: { include: { material: { include: { unit: true } } } },
+} satisfies Prisma.SiteStockInclude;
 
 // FR-14: stock is never a manually-editable field — GodownStock/SiteStock
 // are materialized balances written only by the same transaction as the
@@ -16,9 +41,7 @@ export class StockService {
   getGodownStock(materialId?: string) {
     return this.prisma.godownStock.findMany({
       where: materialId ? { materialSize: { materialId } } : undefined,
-      include: {
-        materialSize: { include: { material: { include: { unit: true } } } },
-      },
+      include: GODOWN_STOCK_INCLUDE,
       orderBy: { materialSize: { material: { name: 'asc' } } },
     });
   }
@@ -29,10 +52,7 @@ export class StockService {
         siteId,
         materialSize: materialId ? { materialId } : undefined,
       },
-      include: {
-        site: true,
-        materialSize: { include: { material: { include: { unit: true } } } },
-      },
+      include: SITE_STOCK_INCLUDE,
       orderBy: { materialSize: { material: { name: 'asc' } } },
     });
   }
@@ -46,10 +66,7 @@ export class StockService {
       where: {
         materialSize: materialId ? { materialId } : undefined,
       },
-      include: {
-        site: true,
-        materialSize: { include: { material: { include: { unit: true } } } },
-      },
+      include: SITE_STOCK_INCLUDE,
       orderBy: [
         { site: { name: 'asc' } },
         { materialSize: { material: { name: 'asc' } } },
@@ -68,16 +85,11 @@ export class StockService {
     const [godownRows, siteRows] = await Promise.all([
       this.prisma.godownStock.findMany({
         where: { materialSize: { materialId }, quantity: { gt: 0 } },
-        include: {
-          materialSize: { include: { material: { include: { unit: true } } } },
-        },
+        include: GODOWN_STOCK_INCLUDE,
       }),
       this.prisma.siteStock.findMany({
         where: { materialSize: { materialId }, quantity: { gt: 0 } },
-        include: {
-          site: true,
-          materialSize: { include: { material: { include: { unit: true } } } },
-        },
+        include: SITE_STOCK_INCLUDE,
       }),
     ]);
 
@@ -103,6 +115,72 @@ export class StockService {
     ];
 
     return rows.sort((a, b) => Number(b.quantity) - Number(a.quantity));
+  }
+
+  // Story 16.x global search's "Inventory" group (product feedback
+  // 2026-09-03): a Material's *available stock* — Godown and every Site
+  // balance, "crushed sand 6 brass"-style — shown distinctly from the
+  // Material master-data catalog search (MaterialsService.searchCandidates),
+  // which only knows a Material's name/category, never a quantity.
+  // `quantity: { gt: 0 }` mirrors getStockByMaterial's "holding a balance"
+  // filter — a zero-balance row is not "available" and would be a
+  // misleading search result. Two plain findMany/count calls in parallel,
+  // never a per-location loop, same discipline as getStockByMaterial.
+  async searchCandidates(
+    q: string,
+  ): Promise<{ candidates: InventoryCandidate[]; total: number }> {
+    // GodownStockWhereInput and SiteStockWhereInput are structurally
+    // identical for the fields used here (`quantity`, `materialSize`) —
+    // one shared literal for all 4 calls below, not two independently
+    // maintained copies that could drift out of sync.
+    const where: Prisma.GodownStockWhereInput & Prisma.SiteStockWhereInput = {
+      quantity: { gt: 0 },
+      materialSize: {
+        material: { name: { contains: q, mode: 'insensitive' } },
+      },
+    };
+
+    const [godownRows, siteRows, godownTotal, siteTotal] = await Promise.all([
+      this.prisma.godownStock.findMany({
+        where,
+        include: GODOWN_STOCK_INCLUDE,
+        take: 200,
+      }),
+      this.prisma.siteStock.findMany({
+        where,
+        include: SITE_STOCK_INCLUDE,
+        take: 200,
+      }),
+      this.prisma.godownStock.count({ where }),
+      this.prisma.siteStock.count({ where }),
+    ]);
+
+    const candidates: InventoryCandidate[] = [
+      ...godownRows.map((row) => ({
+        id: `godown:${row.materialSizeId}`,
+        materialId: row.materialSize.materialId,
+        materialName: row.materialSize.material.name,
+        sizeLabel: row.materialSize.label,
+        quantity: Number(row.quantity),
+        unit: row.materialSize.material.unit.name,
+        location: { kind: 'godown' as const },
+      })),
+      ...siteRows.map((row) => ({
+        id: `site:${row.siteId}:${row.materialSizeId}`,
+        materialId: row.materialSize.materialId,
+        materialName: row.materialSize.material.name,
+        sizeLabel: row.materialSize.label,
+        quantity: Number(row.quantity),
+        unit: row.materialSize.material.unit.name,
+        location: {
+          kind: 'site' as const,
+          id: row.siteId,
+          name: row.site.name,
+        },
+      })),
+    ];
+
+    return { candidates, total: godownTotal + siteTotal };
   }
 
   // FR-36: a Material's Godown balance summed across all its Sizes,

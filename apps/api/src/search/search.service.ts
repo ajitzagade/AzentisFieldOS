@@ -3,6 +3,7 @@ import type { SearchResponse } from '@azentisfieldos/shared';
 import type { Role } from '../generated/prisma/client';
 import { SitesService } from '../sites/sites.service';
 import { MaterialsService } from '../materials/materials.service';
+import { StockService } from '../inventory/stock.service';
 import { VendorsService } from '../vendors/vendors.service';
 import { TeamMembersService } from '../team/team-members.service';
 import { PaymentsService } from '../team/payments.service';
@@ -61,6 +62,7 @@ export class SearchService {
   constructor(
     private readonly sites: SitesService,
     private readonly materials: MaterialsService,
+    private readonly stock: StockService,
     private readonly vendors: VendorsService,
     private readonly teamMembers: TeamMembersService,
     private readonly payments: PaymentsService,
@@ -97,6 +99,7 @@ export class SearchService {
       return {
         sites: EMPTY_GROUP,
         materials: EMPTY_GROUP,
+        inventory: EMPTY_GROUP,
         vendors: EMPTY_GROUP,
         teamMembers: EMPTY_GROUP,
         payments: EMPTY_GROUP,
@@ -143,6 +146,7 @@ export class SearchService {
     const [
       siteSettled,
       materialSettled,
+      inventorySettled,
       vendorSettled,
       teamMemberSettled,
       paymentSettled,
@@ -167,13 +171,14 @@ export class SearchService {
     ] = await Promise.allSettled([
       this.sites.searchCandidates(query),
       this.materials.searchCandidates(query),
+      this.stock.searchCandidates(query),
       this.vendors.searchCandidates(query),
       this.teamMembers.searchCandidates(query),
       this.payments.searchCandidates(query),
       this.purchases.searchCandidates(query),
       this.subcontractors.searchCandidates(query),
-      this.rmc.searchCandidates(query),
-      this.expenses.searchCandidates(query),
+      superseded.then((ids) => this.rmc.searchCandidates(query, ids)),
+      superseded.then((ids) => this.expenses.searchCandidates(query, ids)),
       this.movements.searchCandidates(query),
       superseded.then((ids) => this.consumption.searchCandidates(query, ids)),
       this.wasteDisposal.searchCandidates(query),
@@ -202,6 +207,7 @@ export class SearchService {
 
     const siteResult = settledOr(siteSettled);
     const materialResult = settledOr(materialSettled);
+    const inventoryResult = settledOr(inventorySettled);
     const vendorResult = settledOr(vendorSettled);
     const teamMemberResult = settledOr(teamMemberSettled);
     const paymentResult = settledOr(paymentSettled);
@@ -233,6 +239,15 @@ export class SearchService {
       materialResult.candidates,
       query,
       (material) => material.name,
+    ).slice(0, INLINE_LIMIT);
+    const rankedInventory = rankByQuery(
+      inventoryResult.candidates,
+      query,
+      (item) => [
+        item.materialName,
+        item.sizeLabel,
+        item.location.kind === 'site' ? item.location.name : 'Godown',
+      ],
     ).slice(0, INLINE_LIMIT);
     const rankedVendors = rankByQuery(
       vendorResult.candidates,
@@ -405,6 +420,18 @@ export class SearchService {
           category: { id: material.category.id, name: material.category.name },
         })),
         total: materialResult.total,
+      },
+      inventory: {
+        results: rankedInventory.map((item) => ({
+          id: item.id,
+          materialId: item.materialId,
+          materialName: item.materialName,
+          sizeLabel: item.sizeLabel,
+          quantity: item.quantity,
+          unit: item.unit,
+          location: item.location,
+        })),
+        total: inventoryResult.total,
       },
       vendors: {
         results: rankedVendors.map((vendor) => ({

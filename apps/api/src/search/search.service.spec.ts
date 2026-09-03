@@ -14,6 +14,7 @@ function makeService(
   const keys = [
     'searchSites',
     'searchMaterials',
+    'searchInventory',
     'searchVendors',
     'searchTeamMembers',
     'searchPayments',
@@ -41,79 +42,20 @@ function makeService(
     keys.map((key) => [key, overrides[key] ?? empty()]),
   ) as Record<(typeof keys)[number], Fn>;
 
+  // One mock per `keys` entry, in the exact order SearchService's
+  // constructor expects each entity service, plus the trailing
+  // PrismaService mock — spread from this single source of truth instead
+  // of ~24 hand-numbered `ConstructorParameters<typeof SearchService>[N]`
+  // casts. Adding a new dependency (as `stock`/`searchInventory` did above)
+  // now only means adding one entry to `keys` in the right position, not
+  // manually renumbering every argument after it — the exact class of
+  // mechanical edit that risks silently wiring a mock to the wrong slot.
+  const serviceArgs = [
+    ...keys.map((key) => ({ searchCandidates: fns[key] })),
+    { dailySiteReport: { findMany: dsrFindMany } },
+  ];
   const service = new SearchService(
-    { searchCandidates: fns.searchSites } as unknown as ConstructorParameters<
-      typeof SearchService
-    >[0],
-    {
-      searchCandidates: fns.searchMaterials,
-    } as unknown as ConstructorParameters<typeof SearchService>[1],
-    { searchCandidates: fns.searchVendors } as unknown as ConstructorParameters<
-      typeof SearchService
-    >[2],
-    {
-      searchCandidates: fns.searchTeamMembers,
-    } as unknown as ConstructorParameters<typeof SearchService>[3],
-    {
-      searchCandidates: fns.searchPayments,
-    } as unknown as ConstructorParameters<typeof SearchService>[4],
-    {
-      searchCandidates: fns.searchPurchases,
-    } as unknown as ConstructorParameters<typeof SearchService>[5],
-    {
-      searchCandidates: fns.searchSubcontractors,
-    } as unknown as ConstructorParameters<typeof SearchService>[6],
-    { searchCandidates: fns.searchRmc } as unknown as ConstructorParameters<
-      typeof SearchService
-    >[7],
-    {
-      searchCandidates: fns.searchExpenses,
-    } as unknown as ConstructorParameters<typeof SearchService>[8],
-    {
-      searchCandidates: fns.searchMovements,
-    } as unknown as ConstructorParameters<typeof SearchService>[9],
-    {
-      searchCandidates: fns.searchConsumption,
-    } as unknown as ConstructorParameters<typeof SearchService>[10],
-    {
-      searchCandidates: fns.searchWasteDisposal,
-    } as unknown as ConstructorParameters<typeof SearchService>[11],
-    {
-      searchCandidates: fns.searchReturnWastage,
-    } as unknown as ConstructorParameters<typeof SearchService>[12],
-    {
-      searchCandidates: fns.searchAdvances,
-    } as unknown as ConstructorParameters<typeof SearchService>[13],
-    {
-      searchCandidates: fns.searchAdvanceAdjustments,
-    } as unknown as ConstructorParameters<typeof SearchService>[14],
-    {
-      searchCandidates: fns.searchMachinery,
-    } as unknown as ConstructorParameters<typeof SearchService>[15],
-    {
-      searchCandidates: fns.searchVehicles,
-    } as unknown as ConstructorParameters<typeof SearchService>[16],
-    {
-      searchCandidates: fns.searchSiteContracts,
-    } as unknown as ConstructorParameters<typeof SearchService>[17],
-    {
-      searchCandidates: fns.searchWorkEntries,
-    } as unknown as ConstructorParameters<typeof SearchService>[18],
-    {
-      searchCandidates: fns.searchSubcontractorPayments,
-    } as unknown as ConstructorParameters<typeof SearchService>[19],
-    {
-      searchCandidates: fns.searchWorkRecords,
-    } as unknown as ConstructorParameters<typeof SearchService>[20],
-    { searchCandidates: fns.searchDsr } as unknown as ConstructorParameters<
-      typeof SearchService
-    >[21],
-    { searchCandidates: fns.searchAudit } as unknown as ConstructorParameters<
-      typeof SearchService
-    >[22],
-    {
-      dailySiteReport: { findMany: dsrFindMany },
-    } as unknown as ConstructorParameters<typeof SearchService>[23],
+    ...(serviceArgs as unknown as ConstructorParameters<typeof SearchService>),
   );
 
   return { service, dsrFindMany, ...fns };
@@ -123,6 +65,7 @@ const EMPTY_GROUP = { results: [], total: 0 };
 const ALL_GROUP_KEYS = [
   'sites',
   'materials',
+  'inventory',
   'vendors',
   'teamMembers',
   'payments',
@@ -264,15 +207,17 @@ describe('SearchService.search', () => {
 
   it('queries every entity with the trimmed query, including the gated ones for an OWNER_ADMIN', async () => {
     const { service, dsrFindMany, ...fns } = makeService({});
-    // Consumption/WorkRecords/Dsr take a second `superseded` argument
-    // (computed once and shared, not recomputed per-entity) — everything
-    // else is still called with the trimmed query alone. `dsrFindMany`
-    // itself is called once, with the shared "every corrected DSR" query,
-    // not with the search text at all.
+    // Consumption/WorkRecords/Dsr/Rmc/Expenses take a second `superseded`
+    // argument (computed once and shared, not recomputed per-entity) —
+    // everything else is still called with the trimmed query alone.
+    // `dsrFindMany` itself is called once, with the shared "every corrected
+    // DSR" query, not with the search text at all.
     const sharesSuperseded = new Set([
       'searchConsumption',
       'searchWorkRecords',
       'searchDsr',
+      'searchRmc',
+      'searchExpenses',
     ]);
 
     await service.search('  cement  ', 'OWNER_ADMIN');

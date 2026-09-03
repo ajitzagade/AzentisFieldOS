@@ -569,7 +569,7 @@ describe('RmcService.searchCandidates', () => {
     const rmcEntryCount = vi.fn().mockResolvedValue(1);
     const { service } = makeService({ rmcEntryFindMany, rmcEntryCount });
 
-    const result = await service.searchCandidates('m25');
+    const result = await service.searchCandidates('m25', []);
 
     const expectedWhere = {
       OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],

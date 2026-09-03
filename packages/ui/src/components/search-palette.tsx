@@ -151,9 +151,30 @@ export function SearchPalette({
 
           <div className="max-h-[55vh] overflow-y-auto p-2">
             {!hasQuery ? null : loading ? (
-              <p role="status" className="px-3 py-6 text-center text-body-sm text-ink-500">
-                Searching…
-              </p>
+              // Skeleton rows (not just a "Searching…" line) so the palette
+              // reads as actively working rather than frozen during the
+              // fan-out's round trip — product feedback 2026-09-03 that a
+              // 5-10s wait with only static text felt unresponsive.
+              <div role="status" className="px-1 py-2">
+                <p className="mb-2 flex items-center gap-2 px-2 py-1 text-body-sm text-ink-500">
+                  <span
+                    aria-hidden="true"
+                    className="size-3.5 animate-spin rounded-full border-2 border-accent-teal-700 border-t-transparent"
+                  />
+                  Searching sites, inventory, materials, and more…
+                </p>
+                <div aria-hidden="true" className="flex flex-col gap-1">
+                  {[0, 1, 2].map((row) => (
+                    <div key={row} className="flex items-center gap-3 rounded-md px-3 py-2">
+                      <span className="size-8 shrink-0 animate-pulse rounded-md bg-surface-2" />
+                      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                        <span className="h-3 w-2/5 animate-pulse rounded bg-surface-2" />
+                        <span className="h-2.5 w-1/4 animate-pulse rounded bg-surface-2" />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : error ? (
               <p role="alert" className="px-3 py-6 text-center text-body-sm text-danger-700">
                 {error}

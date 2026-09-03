@@ -313,7 +313,7 @@ describe('ExpensesService.searchCandidates', () => {
     const expenseCount = vi.fn().mockResolvedValue(1);
     const { service } = makeService({ expenseFindMany, expenseCount });
 
-    const result = await service.searchCandidates('diesel');
+    const result = await service.searchCandidates('diesel', []);
 
     const expectedWhere = {
       OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],

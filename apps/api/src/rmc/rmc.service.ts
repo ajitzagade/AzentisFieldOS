@@ -316,14 +316,22 @@ export class RmcService {
   // Story 19.2: the global Search palette's RMC coverage — same q-matching
   // fields as list() (grade, Site name, Vendor name), and the same
   // superseded-DSR exclusion so a corrected-away entry never surfaces.
-  async searchCandidates(q: string): Promise<{
+  // `superseded` is precomputed once by SearchService and shared across
+  // every entity that needs it — see ConsumptionService.searchCandidates
+  // for why (this method used to call supersededDsrIds() itself, tripling
+  // that unbounded scan on every keystroke alongside Consumption/
+  // WorkRecords/Dsr's own independent calls).
+  async searchCandidates(
+    q: string,
+    superseded: string[],
+  ): Promise<{
     candidates: Prisma.RmcEntryGetPayload<{
       include: { site: true; vendor: true };
     }>[];
     total: number;
   }> {
     const where: Prisma.RmcEntryWhereInput = {
-      ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
+      ...currentDsrRowsWhere(superseded),
       // Nested under AND, not a top-level OR — currentDsrRowsWhere already
       // occupies the top-level OR key above; a second top-level OR here
       // would silently replace it instead of ANDing with it (same reason
