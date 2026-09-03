@@ -2,7 +2,7 @@
 
 import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button, Card, CheckCircleIcon, ComboboxField, PlusIcon, SelectField, TextField, TextareaField, UserIcon, cn } from "@azentisfieldos/ui";
+import { Button, Card, CheckCircleIcon, ComboboxField, MapPinIcon, PlusIcon, SelectField, TextField, TextareaField, UserIcon, cn } from "@azentisfieldos/ui";
 import { useClientValidation } from "@/lib/use-client-validation";
 import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { SubcontractorQuickCreateModal } from "@/app/(app)/subcontractors/_components/subcontractor-quick-create-modal";
@@ -10,6 +10,11 @@ import { parseCreateSiteContractForm } from "./new/parse";
 import { parseUpdateSiteContractForm } from "./[contractId]/edit/parse";
 
 export interface SubcontractorOption {
+  id: string;
+  name: string;
+}
+
+export interface SiteOption {
   id: string;
   name: string;
 }
@@ -36,8 +41,14 @@ export interface SiteContractFormState {
 
 interface SiteContractFormProps {
   mode: "new" | "edit";
-  siteId: string;
-  subcontractors: SubcontractorOption[];
+  /** Fixed Site (site-initiated flow: `/sites/[id]/contracts/...`). Unset for the Subcontractor-initiated flow, where `sites` drives a pickable combobox instead. */
+  siteId?: string;
+  /** Pickable Subcontractor options (site-initiated flow). */
+  subcontractors?: SubcontractorOption[];
+  /** Fixed Subcontractor (subcontractor-initiated flow: `/subcontractors/[id]/contracts/new`) — rendered disabled, same visual pattern as the `mode==="edit"` fixed-Subcontractor branch. */
+  subcontractorId?: string;
+  /** Pickable Site options (subcontractor-initiated flow). */
+  sites?: SiteOption[];
   initial?: SiteContractFormValues;
   action: (prevState: SiteContractFormState, formData: FormData) => Promise<SiteContractFormState>;
 }
@@ -70,7 +81,15 @@ function SubmitButton({ mode }: { mode: "new" | "edit" }) {
 
 const emptyState: SiteContractFormState = {};
 
-export function SiteContractForm({ mode, siteId, subcontractors: initialSubcontractors, initial, action }: SiteContractFormProps) {
+export function SiteContractForm({
+  mode,
+  siteId: fixedSiteId,
+  subcontractors: initialSubcontractors,
+  subcontractorId: fixedSubcontractorId,
+  sites = [],
+  initial,
+  action,
+}: SiteContractFormProps) {
   const [state, formAction] = useActionState(action, emptyState);
   // `parse` can't travel as a prop from the Server Component page — it's a
   // plain function, and Next.js forbids passing non-"use server" functions
@@ -81,9 +100,21 @@ export function SiteContractForm({ mode, siteId, subcontractors: initialSubcontr
   const errorFor = (field: string) => validation.errors[field]?.[0] ?? state.errors?.[field]?.[0];
 
   const [rateType, setRateType] = useState(initial?.rateType ?? "");
-  const [subcontractors, setSubcontractors] = useState(initialSubcontractors);
-  const [subcontractorId, setSubcontractorId] = useState(initial?.subcontractorId ?? "");
+  const [subcontractors, setSubcontractors] = useState(initialSubcontractors ?? []);
+  const [subcontractorId, setSubcontractorId] = useState(fixedSubcontractorId ?? initial?.subcontractorId ?? "");
   const [subcontractorQuickCreateOpen, setSubcontractorQuickCreateOpen] = useState(false);
+  const [siteId, setSiteId] = useState(fixedSiteId ?? "");
+
+  // Subcontractor is fixed/non-reassignable either when editing an existing
+  // contract (its engaged Subcontractor never changes) or when this form was
+  // reached from the Subcontractor's own detail page (caller fixes
+  // `subcontractorId`) — same disabled-combobox-plus-hidden-input pattern
+  // either way.
+  const subcontractorFixed = mode === "edit" || fixedSubcontractorId !== undefined;
+  // Site is fixed for today's site-initiated flow (`siteId` prop passed);
+  // unfixed only for the Subcontractor-initiated orientation, where the
+  // Subcontractor is fixed instead and the Site is picked via `sites`.
+  const siteFixed = fixedSiteId !== undefined;
 
   const formRef = useRef<HTMLFormElement>(null);
   usePreventFormResetOnError(formRef, !!(state.errors || state.formError));
@@ -91,21 +122,44 @@ export function SiteContractForm({ mode, siteId, subcontractors: initialSubcontr
   return (
     <Card>
       <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate>
-        <input type="hidden" name="siteId" value={siteId} />
+        {siteFixed ? (
+          <input type="hidden" name="siteId" value={fixedSiteId} />
+        ) : (
+          <>
+            <ComboboxField
+              label="Site"
+              icon={<MapPinIcon className="size-4" />}
+              required
+              options={sites.map((s) => ({ value: s.id, label: s.name }))}
+              value={siteId || null}
+              onValueChange={(value) => setSiteId(value ?? "")}
+              placeholder="Type a Site name…"
+              emptyMessage="No matching Site"
+              error={errorFor("siteId")}
+            />
+            <input type="hidden" name="siteId" value={siteId} />
+          </>
+        )}
 
         <ComboboxField
           label="Subcontractor"
           icon={<UserIcon className="size-4" />}
-          required={mode === "new"}
-          disabled={mode === "edit"}
-          hint={mode === "edit" ? "The engaged Subcontractor can't be changed after the contract is created." : undefined}
+          required={mode === "new" && !subcontractorFixed}
+          disabled={subcontractorFixed}
+          hint={
+            mode === "edit"
+              ? "The engaged Subcontractor can't be changed after the contract is created."
+              : subcontractorFixed
+                ? "Fixed — you're adding a Site Contract for this Subcontractor."
+                : undefined
+          }
           options={subcontractors.map((s) => ({ value: s.id, label: s.name }))}
           value={subcontractorId || null}
           onValueChange={(value) => setSubcontractorId(value ?? "")}
           placeholder="Type a Subcontractor name…"
           emptyMessage="No matching Subcontractor"
           error={errorFor("subcontractorId")}
-          onCreateNew={mode === "edit" ? undefined : () => setSubcontractorQuickCreateOpen(true)}
+          onCreateNew={subcontractorFixed ? undefined : () => setSubcontractorQuickCreateOpen(true)}
           createNewLabel="+ Add Subcontractor"
         />
         <input type="hidden" name="subcontractorId" value={subcontractorId} />

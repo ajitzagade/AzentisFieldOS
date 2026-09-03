@@ -2,7 +2,7 @@ import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge, ClipboardIcon, DataTable, PencilIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
+import { Badge, ClipboardIcon, DataTable, PencilIcon, PlusIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
 import type { Subcontractor } from "../page";
 import { DeleteEntityButton } from "../../_components/delete-entity-button";
 import { RecordRecentlyViewed } from "../../_components/record-recently-viewed";
@@ -165,7 +165,16 @@ export default async function SubcontractorDetailPage({ params }: { params: Prom
         </div>
       </div>
 
-      <div className="mb-4 text-section-header text-ink-900">Site Contracts</div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="text-section-header text-ink-900">Site Contracts</div>
+        <Link
+          href={`/subcontractors/${subcontractor.id}/contracts/new`}
+          className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
+        >
+          <PlusIcon className="size-4" />
+          Add Site Contract
+        </Link>
+      </div>
       <DataTable
         columns={siteContractColumns}
         rowKey={(row) => row.id}

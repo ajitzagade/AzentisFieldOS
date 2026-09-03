@@ -137,4 +137,69 @@ describe("SiteContractForm", () => {
     expect(screen.getByLabelText("Subcontractor")).toHaveValue("Fresh Electricals");
     expect(screen.getByLabelText("Work category")).toHaveValue("Storm-water pipe laying");
   });
+
+  describe("subcontractor-initiated orientation (fixed Subcontractor, picked Site)", () => {
+    const FIXED_SUBCONTRACTOR = { id: "sc1", name: "Ganesh Pipeline Works" };
+    const SITES = [
+      { id: "site-1", name: "NH-48 Extension" },
+      { id: "site-2", name: "Riverside Godown" },
+    ];
+
+    it("shows the Subcontractor fixed/disabled and the Site as a required, enabled combobox", () => {
+      render(
+        <SiteContractForm
+          mode="new"
+          subcontractorId="sc1"
+          subcontractors={[FIXED_SUBCONTRACTOR]}
+          sites={SITES}
+          action={noopAction}
+        />,
+      );
+
+      const subcontractorField = screen.getByLabelText("Subcontractor");
+      expect(subcontractorField).toBeDisabled();
+      expect(subcontractorField).toHaveValue("Ganesh Pipeline Works");
+
+      const siteField = screen.getByLabelText("Site");
+      expect(siteField).not.toBeDisabled();
+      expect(siteField).toBeRequired();
+    });
+
+    it("does not offer the Subcontractor quick-create escape hatch when the Subcontractor is fixed", async () => {
+      const user = userEvent.setup();
+      render(
+        <SiteContractForm
+          mode="new"
+          subcontractorId="sc1"
+          subcontractors={[FIXED_SUBCONTRACTOR]}
+          sites={SITES}
+          action={noopAction}
+        />,
+      );
+
+      await user.click(screen.getByLabelText("Site"));
+      expect(screen.queryByText("+ Add Subcontractor")).not.toBeInTheDocument();
+    });
+
+    it("submits the picked Site's id via the hidden siteId input", async () => {
+      const user = userEvent.setup();
+      render(
+        <SiteContractForm
+          mode="new"
+          subcontractorId="sc1"
+          subcontractors={[FIXED_SUBCONTRACTOR]}
+          sites={SITES}
+          action={noopAction}
+        />,
+      );
+
+      await user.click(screen.getByLabelText("Site"));
+      await user.click(await screen.findByText("Riverside Godown"));
+
+      // The hidden input is what the Server Action actually reads from
+      // FormData — assert on it directly rather than the visible combobox.
+      const hiddenSiteInput = document.querySelector('input[name="siteId"]') as HTMLInputElement;
+      expect(hiddenSiteInput.value).toBe("site-2");
+    });
+  });
 });

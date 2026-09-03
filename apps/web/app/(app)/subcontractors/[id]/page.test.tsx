@@ -84,6 +84,17 @@ describe("SubcontractorDetailPage", () => {
     expect(screen.getByText("Trenching")).toBeInTheDocument();
   });
 
+  it("links the Add Site Contract button to this Subcontractor's flipped-orientation new-contract route", async () => {
+    mockPage({});
+
+    await renderDetailPage("sc1");
+
+    expect(screen.getByRole("link", { name: /Add Site Contract/ })).toHaveAttribute(
+      "href",
+      "/subcontractors/sc1/contracts/new",
+    );
+  });
+
   it("shows the Delete affordance to an Owner/Admin", async () => {
     mockPage({ role: "OWNER_ADMIN" });
     await renderDetailPage("sc1");
