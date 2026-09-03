@@ -145,3 +145,27 @@ describe('AdvancesService.findOne', () => {
     await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
   });
 });
+
+describe('AdvancesService.searchCandidates', () => {
+  it('matches the linked Team Member name and the free-text reason, case-insensitively', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    const prisma = { advance: { findMany, count } };
+    const service = new AdvancesService(
+      prisma as unknown as ConstructorParameters<typeof AdvancesService>[0],
+    );
+
+    await service.searchCandidates('ravi');
+
+    const expectedWhere = {
+      OR: [
+        { teamMember: { name: { contains: 'ravi', mode: 'insensitive' } } },
+        { reason: { contains: 'ravi', mode: 'insensitive' } },
+      ],
+    };
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expectedWhere }),
+    );
+    expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});

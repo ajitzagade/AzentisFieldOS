@@ -63,3 +63,42 @@ describe('DsrService.listBySiteInRange (FR-42)', () => {
     await expect(service.listBySiteInRange('site1')).resolves.toEqual([]);
   });
 });
+
+describe('DsrService.searchCandidates', () => {
+  it('excludes superseded reports (caller-supplied) and matches every narrative field, including safetyObservations', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    const prisma = { dailySiteReport: { findMany, count } };
+    const storage = {};
+    const service = new DsrService(prisma as never, storage as never);
+
+    await service.searchCandidates('slip hazard', ['superseded-dsr-1']);
+
+    const expectedWhere = {
+      id: { notIn: ['superseded-dsr-1'] },
+      OR: [
+        { site: { name: { contains: 'slip hazard', mode: 'insensitive' } } },
+        {
+          submittedBy: {
+            name: { contains: 'slip hazard', mode: 'insensitive' },
+          },
+        },
+        { workCompleted: { contains: 'slip hazard', mode: 'insensitive' } },
+        { workInProgress: { contains: 'slip hazard', mode: 'insensitive' } },
+        { plannedWork: { contains: 'slip hazard', mode: 'insensitive' } },
+        { issuesBlockers: { contains: 'slip hazard', mode: 'insensitive' } },
+        {
+          safetyObservations: {
+            contains: 'slip hazard',
+            mode: 'insensitive',
+          },
+        },
+        { notes: { contains: 'slip hazard', mode: 'insensitive' } },
+      ],
+    };
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expectedWhere }),
+    );
+    expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});

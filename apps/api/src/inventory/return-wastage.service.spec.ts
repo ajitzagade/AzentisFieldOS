@@ -137,3 +137,34 @@ describe('ReturnWastageService.findOne', () => {
     await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
   });
 });
+
+describe('ReturnWastageService.searchCandidates', () => {
+  it('matches the linked Site/Material name and free-text notes, all case-insensitively', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    const prisma = { returnWastage: { findMany, count } };
+    const service = new ReturnWastageService(
+      prisma as unknown as ConstructorParameters<
+        typeof ReturnWastageService
+      >[0],
+    );
+
+    await service.searchCandidates('cement');
+
+    const expectedWhere = {
+      OR: [
+        { site: { name: { contains: 'cement', mode: 'insensitive' } } },
+        {
+          materialSize: {
+            material: { name: { contains: 'cement', mode: 'insensitive' } },
+          },
+        },
+        { notes: { contains: 'cement', mode: 'insensitive' } },
+      ],
+    };
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expectedWhere }),
+    );
+    expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});

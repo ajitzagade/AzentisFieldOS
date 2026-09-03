@@ -595,14 +595,18 @@ export class DsrService {
   // A DSR that has since been corrected (its id appears as some other row's
   // correctsId) is excluded — same "current version only" rule as
   // listByDate/listBySiteInRange above, but DB-side here since search's
-  // candidate set is filtered by `q` first.
-  async searchCandidates(q: string): Promise<{
+  // candidate set is filtered by `q` first. `superseded` is computed once
+  // by the caller (SearchService) and shared across every entity that needs
+  // it — see ConsumptionService.searchCandidates for why.
+  async searchCandidates(
+    q: string,
+    superseded: string[],
+  ): Promise<{
     candidates: Prisma.DailySiteReportGetPayload<{
       include: { site: true; submittedBy: true };
     }>[];
     total: number;
   }> {
-    const superseded = await supersededDsrIds(this.prisma);
     const where: Prisma.DailySiteReportWhereInput = {
       id: { notIn: superseded },
       OR: [
@@ -616,6 +620,7 @@ export class DsrService {
         { workInProgress: { contains: q, mode: 'insensitive' as const } },
         { plannedWork: { contains: q, mode: 'insensitive' as const } },
         { issuesBlockers: { contains: q, mode: 'insensitive' as const } },
+        { safetyObservations: { contains: q, mode: 'insensitive' as const } },
         { notes: { contains: q, mode: 'insensitive' as const } },
       ],
     };

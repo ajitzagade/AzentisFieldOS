@@ -132,13 +132,16 @@ export class WorkRecordsService {
 
   // Story 16.6: the global Search palette's Work Record (Attendance)
   // coverage — matches the linked Team Member/Site name. Superseded
-  // (since-corrected) DSR rows are excluded, same as list().
+  // (since-corrected) DSR rows are excluded, same as list(). `superseded`
+  // is computed once by the caller (SearchService) and shared across every
+  // entity that needs it — see ConsumptionService.searchCandidates for why.
   async searchCandidates(
     q: string,
+    superseded: string[],
   ): Promise<{ candidates: WorkRecordListRow[]; total: number }> {
     const where: Prisma.WorkRecordWhereInput = {
       AND: [
-        currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
+        currentDsrRowsWhere(superseded),
         {
           OR: [
             {

@@ -10,6 +10,14 @@ export interface GlobalSearchState {
   error: string | null;
 }
 
+// `.length` counts UTF-16 code units, not code points — a single
+// astral-plane character (most emoji) is a 2-unit surrogate pair and would
+// slip past a `.length < 2` guard. Spreading a string iterates by code
+// point, matching the same fix on the server side (search.service.ts).
+function codePointLength(value: string): number {
+  return [...value].length;
+}
+
 // Takes an already-debounced query (debouncing lives at the call site, a UI
 // concern — same split every Story 16.1 list-client uses). Never calls the
 // endpoint for a blank/whitespace query (AC #6 — empty search shows nothing,
@@ -28,7 +36,7 @@ export function useGlobalSearch(query: string): GlobalSearchState {
   useEffect(() => {
     // A blank query has nothing to fetch — handled below without touching
     // state, so this branch never needs a synchronous setState-in-effect.
-    if (trimmed.length < 2) return;
+    if (codePointLength(trimmed) < 2) return;
     let cancelled = false;
     authedFetch(`/search?q=${encodeURIComponent(trimmed)}`)
       .then((res) => {
@@ -48,7 +56,7 @@ export function useGlobalSearch(query: string): GlobalSearchState {
     };
   }, [trimmed, authedFetch]);
 
-  if (trimmed.length < 2) {
+  if (codePointLength(trimmed) < 2) {
     return { data: null, loading: false, error: null };
   }
 

@@ -153,7 +153,8 @@ export class VehicleService {
   }
 
   // Story 16.6: the global Search palette's Vehicle coverage — matches the
-  // registration number and the driver's name.
+  // registration number, the driver's name, and the Vehicle Type name (e.g.
+  // "Tipper"), per this story's own AC ("by name, registration, or type").
   async searchCandidates(q: string): Promise<{
     candidates: Prisma.VehicleGetPayload<{
       include: { type: true; currentSite: true };
@@ -164,6 +165,7 @@ export class VehicleService {
       OR: [
         { number: { contains: q, mode: 'insensitive' as const } },
         { driver: { contains: q, mode: 'insensitive' as const } },
+        { type: { name: { contains: q, mode: 'insensitive' as const } } },
       ],
     };
     const [candidates, total] = await Promise.all([

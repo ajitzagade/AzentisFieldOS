@@ -158,7 +158,9 @@ export class MachineryService {
   }
 
   // Story 16.6: the global Search palette's Machinery coverage — matches
-  // name, asset number, and the operator's name (e.g. "JCB").
+  // name, asset number, operator's name (e.g. "JCB"), and Machinery Type
+  // name (e.g. "Excavator"), per this story's own AC ("by name, registration,
+  // or type").
   async searchCandidates(q: string): Promise<{
     candidates: Prisma.MachineryGetPayload<{
       include: { type: true; currentSite: true };
@@ -170,6 +172,7 @@ export class MachineryService {
         { name: { contains: q, mode: 'insensitive' as const } },
         { assetNumber: { contains: q, mode: 'insensitive' as const } },
         { operator: { contains: q, mode: 'insensitive' as const } },
+        { type: { name: { contains: q, mode: 'insensitive' as const } } },
       ],
     };
     const [candidates, total] = await Promise.all([

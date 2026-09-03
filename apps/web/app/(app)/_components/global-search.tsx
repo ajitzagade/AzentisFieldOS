@@ -59,7 +59,7 @@ export const ACTION_ICONS: Record<string, ReactNode> = {
   "record-consumption": <LayersIcon />,
   "record-wastage": <RotateCcwIcon />,
   "record-waste-disposal": <AlertTriangleIcon />,
-  "add-machinery": <TruckIcon />,
+  "add-machinery": <GearIcon />,
   "add-vehicle": <TruckIcon />,
   "view-attendance": <UsersIcon />,
 };
@@ -318,7 +318,7 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       label: "Wastage / Return",
       items: (data?.returnWastages?.results ?? []).map((entry) => ({
         id: entry.id,
-        label: entry.materialName,
+        label: `${entry.materialName} — ${entry.kind === "WASTAGE" ? "Wastage" : "Return"}`,
         description: entry.siteName,
         icon: <RotateCcwIcon />,
       })),
@@ -350,8 +350,10 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       items: (data?.machinery?.results ?? []).map((machine) => ({
         id: machine.id,
         label: machine.name,
-        description: machine.currentSiteName ?? machine.assetNumber,
-        icon: <TruckIcon />,
+        description: machine.currentSiteName
+          ? `${machine.typeName} — ${machine.currentSiteName}`
+          : machine.typeName,
+        icon: <GearIcon />,
       })),
       total: data?.machinery?.total ?? 0,
     },
@@ -361,7 +363,9 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       items: (data?.vehicles?.results ?? []).map((vehicle) => ({
         id: vehicle.id,
         label: vehicle.number,
-        description: vehicle.currentSiteName ?? undefined,
+        description: vehicle.currentSiteName
+          ? `${vehicle.typeName} — ${vehicle.currentSiteName}`
+          : vehicle.typeName,
         icon: <TruckIcon />,
       })),
       total: data?.vehicles?.total ?? 0,
@@ -448,94 +452,94 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       return;
     }
 
-    setOpen(false);
+    // Resolve the destination first, close the palette only once we
+    // actually have somewhere to send the user — a handful of groups need
+    // a `data` lookup to build their nested route, and if that lookup ever
+    // misses (e.g. a fresher search response replaced `data` between render
+    // and click), closing the palette with nowhere to go would be a silent
+    // dead click. Every branch below resolves to either a string (navigate)
+    // or `null` (do nothing, palette stays open).
+    let href: string | null = null;
     // sites/vendors/teamMembers/subcontractors share their exact `${base}/${id}`
     // routing with Recently Viewed (recently-viewed-chips.tsx) — one shared
     // helper, not two independently maintained tables (Story 16.6).
     if (groupKey === "sites") {
-      router.push(entityHref("site", item.id));
+      href = entityHref("site", item.id);
     } else if (groupKey === "materials") {
-      router.push(`/materials/${item.id}/availability`);
+      href = `/materials/${item.id}/availability`;
     } else if (groupKey === "vendors") {
-      router.push(entityHref("vendor", item.id));
+      href = entityHref("vendor", item.id);
     } else if (groupKey === "teamMembers") {
-      router.push(entityHref("team-member", item.id));
+      href = entityHref("team-member", item.id);
     } else if (groupKey === "subcontractors") {
-      router.push(entityHref("subcontractor", item.id));
+      href = entityHref("subcontractor", item.id);
     } else if (groupKey === "payments") {
-      router.push(`/payments/${item.id}/correct`);
+      href = `/payments/${item.id}/correct`;
     } else if (groupKey === "rmc") {
-      router.push(`/rmc/${item.id}/correct`);
+      href = `/rmc/${item.id}/correct`;
     } else if (groupKey === "expenses") {
-      router.push(`/expenses/${item.id}/correct`);
+      href = `/expenses/${item.id}/correct`;
     } else if (groupKey === "purchases") {
       // D7: an unpriced Purchase (totalAmount null) routes to the Owner's
       // one-time pricing screen instead of the Correct flow.
       const purchase = data?.purchases?.results.find((p) => p.id === item.id);
-      if (purchase && purchase.totalAmount === null) {
-        router.push(`/movements/purchases/${item.id}/pricing`);
-      } else {
-        router.push(`/movements/purchases/${item.id}/correct`);
-      }
+      href =
+        purchase && purchase.totalAmount === null
+          ? `/movements/purchases/${item.id}/pricing`
+          : `/movements/purchases/${item.id}/correct`;
     } else if (groupKey === "movements") {
       // The app's own Movements log uses this exact path for every
       // Movement regardless of kind (Godown→Site or Site→Site) — see
       // movements-list-client.tsx's own correctHref.
-      router.push(`/movements/godown-to-site/${item.id}/correct`);
+      href = `/movements/godown-to-site/${item.id}/correct`;
     } else if (groupKey === "consumptions") {
-      router.push(`/movements/consumption/${item.id}/correct`);
+      href = `/movements/consumption/${item.id}/correct`;
     } else if (groupKey === "returnWastages") {
-      router.push(`/movements/return-wastage/${item.id}/correct`);
+      href = `/movements/return-wastage/${item.id}/correct`;
     } else if (groupKey === "wasteDisposals") {
-      router.push(`/waste-disposal/${item.id}/correct`);
+      href = `/waste-disposal/${item.id}/correct`;
     } else if (groupKey === "advances") {
       const advance = data?.advances?.results.find((a) => a.id === item.id);
-      if (advance) {
-        router.push(`/team/${advance.teamMemberId}/advances/${item.id}/correct`);
-      }
+      if (advance) href = `/team/${advance.teamMemberId}/advances/${item.id}/correct`;
     } else if (groupKey === "advanceAdjustments") {
       const adjustment = data?.advanceAdjustments?.results.find((a) => a.id === item.id);
       if (adjustment) {
-        router.push(
-          `/team/${adjustment.teamMemberId}/advances/${adjustment.advanceId}/adjustments/${item.id}/correct`,
-        );
+        href = `/team/${adjustment.teamMemberId}/advances/${adjustment.advanceId}/adjustments/${item.id}/correct`;
       }
     } else if (groupKey === "machinery") {
-      router.push(`/machinery-vehicles/machinery/${item.id}`);
+      href = `/machinery-vehicles/machinery/${item.id}`;
     } else if (groupKey === "vehicles") {
-      router.push(`/machinery-vehicles/vehicles/${item.id}`);
+      href = `/machinery-vehicles/vehicles/${item.id}`;
     } else if (groupKey === "siteContracts") {
       const contract = data?.siteContracts?.results.find((c) => c.id === item.id);
-      if (contract) {
-        router.push(`/sites/${contract.siteId}/contracts/${item.id}`);
-      }
+      if (contract) href = `/sites/${contract.siteId}/contracts/${item.id}`;
     } else if (groupKey === "workEntries") {
       const entry = data?.workEntries?.results.find((e) => e.id === item.id);
       if (entry) {
-        router.push(
-          `/sites/${entry.siteId}/contracts/${entry.siteContractId}/work-entries/${item.id}/correct`,
-        );
+        href = `/sites/${entry.siteId}/contracts/${entry.siteContractId}/work-entries/${item.id}/correct`;
       }
     } else if (groupKey === "subcontractorPayments") {
       const payment = data?.subcontractorPayments?.results.find((p) => p.id === item.id);
       if (payment) {
-        router.push(
-          `/sites/${payment.siteId}/contracts/${payment.siteContractId}/payments/${item.id}/correct`,
-        );
+        href = `/sites/${payment.siteId}/contracts/${payment.siteContractId}/payments/${item.id}/correct`;
       }
     } else if (groupKey === "workRecords") {
       // No dedicated per-Work-Record page exists — the closest real
       // destination is the Team Member's own detail page.
       const record = data?.workRecords?.results.find((r) => r.id === item.id);
-      if (record) {
-        router.push(`/team/${record.teamMemberId}`);
-      }
+      if (record) href = `/team/${record.teamMemberId}`;
     } else if (groupKey === "dailyReports") {
-      router.push(`/daily-activity/${item.id}`);
+      href = `/daily-activity/${item.id}`;
     } else if (groupKey === "auditLogs") {
-      // Append-only, no per-row page — land on the log itself.
-      router.push("/settings/audit-log");
+      // Append-only, no per-row page — narrow to the acting user rather
+      // than landing on the unfiltered log (Review Findings, story 16.6).
+      const log = data?.auditLogs?.results.find((l) => l.id === item.id);
+      href = log ? `/settings/audit-log?userId=${log.userId}` : "/settings/audit-log";
     }
+
+    if (href === null) return;
+    setOpen(false);
+    router.push(href);
   }
 
   function handleSeeAll(groupKey: string) {

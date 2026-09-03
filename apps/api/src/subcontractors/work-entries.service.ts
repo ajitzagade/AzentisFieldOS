@@ -30,7 +30,9 @@ export class WorkEntriesService {
   // list() — this is not one of the money-movement tables.
   async searchCandidates(q: string): Promise<{
     candidates: Prisma.SubcontractorWorkEntryGetPayload<{
-      include: { siteContract: { include: { subcontractor: true; site: true } } };
+      include: {
+        siteContract: { include: { subcontractor: true; site: true } };
+      };
     }>[];
     total: number;
   }> {
@@ -54,7 +56,9 @@ export class WorkEntriesService {
     const [candidates, total] = await Promise.all([
       this.prisma.subcontractorWorkEntry.findMany({
         where,
-        include: { siteContract: { include: { subcontractor: true, site: true } } },
+        include: {
+          siteContract: { include: { subcontractor: true, site: true } },
+        },
         orderBy: { workDate: 'desc' },
         take: 200,
       }),

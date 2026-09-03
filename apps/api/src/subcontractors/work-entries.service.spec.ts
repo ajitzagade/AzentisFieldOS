@@ -247,3 +247,38 @@ describe('WorkEntriesService.list', () => {
     });
   });
 });
+
+describe('WorkEntriesService.searchCandidates', () => {
+  it("matches the linked Site Contract's Subcontractor/Site name and the free-text note, case-insensitively", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    const prisma = { subcontractorWorkEntry: { findMany, count } };
+    const service = new WorkEntriesService(
+      prisma as unknown as ConstructorParameters<typeof WorkEntriesService>[0],
+    );
+
+    await service.searchCandidates('universal');
+
+    const expectedWhere = {
+      OR: [
+        {
+          siteContract: {
+            subcontractor: {
+              name: { contains: 'universal', mode: 'insensitive' },
+            },
+          },
+        },
+        {
+          siteContract: {
+            site: { name: { contains: 'universal', mode: 'insensitive' } },
+          },
+        },
+        { note: { contains: 'universal', mode: 'insensitive' } },
+      ],
+    };
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expectedWhere }),
+    );
+    expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});

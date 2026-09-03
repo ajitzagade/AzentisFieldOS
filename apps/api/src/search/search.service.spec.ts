@@ -5,7 +5,10 @@ type Fn = ReturnType<typeof vi.fn>;
 
 const toNumber = (n: number) => ({ toNumber: () => n });
 
-function makeService(overrides: Record<string, Fn> = {}) {
+function makeService(
+  overrides: Record<string, Fn> = {},
+  dsrFindMany: Fn = vi.fn().mockResolvedValue([]),
+) {
   const empty = () => vi.fn().mockResolvedValue({ candidates: [], total: 0 });
 
   const keys = [
@@ -39,32 +42,81 @@ function makeService(overrides: Record<string, Fn> = {}) {
   ) as Record<(typeof keys)[number], Fn>;
 
   const service = new SearchService(
-    { searchCandidates: fns.searchSites } as unknown as ConstructorParameters<typeof SearchService>[0],
-    { searchCandidates: fns.searchMaterials } as unknown as ConstructorParameters<typeof SearchService>[1],
-    { searchCandidates: fns.searchVendors } as unknown as ConstructorParameters<typeof SearchService>[2],
-    { searchCandidates: fns.searchTeamMembers } as unknown as ConstructorParameters<typeof SearchService>[3],
-    { searchCandidates: fns.searchPayments } as unknown as ConstructorParameters<typeof SearchService>[4],
-    { searchCandidates: fns.searchPurchases } as unknown as ConstructorParameters<typeof SearchService>[5],
-    { searchCandidates: fns.searchSubcontractors } as unknown as ConstructorParameters<typeof SearchService>[6],
-    { searchCandidates: fns.searchRmc } as unknown as ConstructorParameters<typeof SearchService>[7],
-    { searchCandidates: fns.searchExpenses } as unknown as ConstructorParameters<typeof SearchService>[8],
-    { searchCandidates: fns.searchMovements } as unknown as ConstructorParameters<typeof SearchService>[9],
-    { searchCandidates: fns.searchConsumption } as unknown as ConstructorParameters<typeof SearchService>[10],
-    { searchCandidates: fns.searchWasteDisposal } as unknown as ConstructorParameters<typeof SearchService>[11],
-    { searchCandidates: fns.searchReturnWastage } as unknown as ConstructorParameters<typeof SearchService>[12],
-    { searchCandidates: fns.searchAdvances } as unknown as ConstructorParameters<typeof SearchService>[13],
-    { searchCandidates: fns.searchAdvanceAdjustments } as unknown as ConstructorParameters<typeof SearchService>[14],
-    { searchCandidates: fns.searchMachinery } as unknown as ConstructorParameters<typeof SearchService>[15],
-    { searchCandidates: fns.searchVehicles } as unknown as ConstructorParameters<typeof SearchService>[16],
-    { searchCandidates: fns.searchSiteContracts } as unknown as ConstructorParameters<typeof SearchService>[17],
-    { searchCandidates: fns.searchWorkEntries } as unknown as ConstructorParameters<typeof SearchService>[18],
-    { searchCandidates: fns.searchSubcontractorPayments } as unknown as ConstructorParameters<typeof SearchService>[19],
-    { searchCandidates: fns.searchWorkRecords } as unknown as ConstructorParameters<typeof SearchService>[20],
-    { searchCandidates: fns.searchDsr } as unknown as ConstructorParameters<typeof SearchService>[21],
-    { searchCandidates: fns.searchAudit } as unknown as ConstructorParameters<typeof SearchService>[22],
+    { searchCandidates: fns.searchSites } as unknown as ConstructorParameters<
+      typeof SearchService
+    >[0],
+    {
+      searchCandidates: fns.searchMaterials,
+    } as unknown as ConstructorParameters<typeof SearchService>[1],
+    { searchCandidates: fns.searchVendors } as unknown as ConstructorParameters<
+      typeof SearchService
+    >[2],
+    {
+      searchCandidates: fns.searchTeamMembers,
+    } as unknown as ConstructorParameters<typeof SearchService>[3],
+    {
+      searchCandidates: fns.searchPayments,
+    } as unknown as ConstructorParameters<typeof SearchService>[4],
+    {
+      searchCandidates: fns.searchPurchases,
+    } as unknown as ConstructorParameters<typeof SearchService>[5],
+    {
+      searchCandidates: fns.searchSubcontractors,
+    } as unknown as ConstructorParameters<typeof SearchService>[6],
+    { searchCandidates: fns.searchRmc } as unknown as ConstructorParameters<
+      typeof SearchService
+    >[7],
+    {
+      searchCandidates: fns.searchExpenses,
+    } as unknown as ConstructorParameters<typeof SearchService>[8],
+    {
+      searchCandidates: fns.searchMovements,
+    } as unknown as ConstructorParameters<typeof SearchService>[9],
+    {
+      searchCandidates: fns.searchConsumption,
+    } as unknown as ConstructorParameters<typeof SearchService>[10],
+    {
+      searchCandidates: fns.searchWasteDisposal,
+    } as unknown as ConstructorParameters<typeof SearchService>[11],
+    {
+      searchCandidates: fns.searchReturnWastage,
+    } as unknown as ConstructorParameters<typeof SearchService>[12],
+    {
+      searchCandidates: fns.searchAdvances,
+    } as unknown as ConstructorParameters<typeof SearchService>[13],
+    {
+      searchCandidates: fns.searchAdvanceAdjustments,
+    } as unknown as ConstructorParameters<typeof SearchService>[14],
+    {
+      searchCandidates: fns.searchMachinery,
+    } as unknown as ConstructorParameters<typeof SearchService>[15],
+    {
+      searchCandidates: fns.searchVehicles,
+    } as unknown as ConstructorParameters<typeof SearchService>[16],
+    {
+      searchCandidates: fns.searchSiteContracts,
+    } as unknown as ConstructorParameters<typeof SearchService>[17],
+    {
+      searchCandidates: fns.searchWorkEntries,
+    } as unknown as ConstructorParameters<typeof SearchService>[18],
+    {
+      searchCandidates: fns.searchSubcontractorPayments,
+    } as unknown as ConstructorParameters<typeof SearchService>[19],
+    {
+      searchCandidates: fns.searchWorkRecords,
+    } as unknown as ConstructorParameters<typeof SearchService>[20],
+    { searchCandidates: fns.searchDsr } as unknown as ConstructorParameters<
+      typeof SearchService
+    >[21],
+    { searchCandidates: fns.searchAudit } as unknown as ConstructorParameters<
+      typeof SearchService
+    >[22],
+    {
+      dailySiteReport: { findMany: dsrFindMany },
+    } as unknown as ConstructorParameters<typeof SearchService>[23],
   );
 
-  return { service, ...fns };
+  return { service, dsrFindMany, ...fns };
 }
 
 const EMPTY_GROUP = { results: [], total: 0 };
@@ -112,6 +164,23 @@ describe('SearchService.search', () => {
     const { service, ...fns } = makeService({});
 
     const result = await service.search('a', 'OWNER_ADMIN');
+
+    for (const fn of Object.values(fns)) {
+      expect(fn).not.toHaveBeenCalled();
+    }
+    expect(result).toEqual(
+      Object.fromEntries(ALL_GROUP_KEYS.map((key) => [key, EMPTY_GROUP])),
+    );
+  });
+
+  it('short-circuits a single astral-plane character (e.g. an emoji) despite its .length being 2', async () => {
+    // "🏗" is one code point but a 2-unit UTF-16 surrogate pair — a naive
+    // `.length < 2` guard would let it through as if it were 2 characters.
+    const emoji = '🏗';
+    expect(emoji.length).toBe(2);
+    const { service, ...fns } = makeService({});
+
+    const result = await service.search(emoji, 'OWNER_ADMIN');
 
     for (const fn of Object.values(fns)) {
       expect(fn).not.toHaveBeenCalled();
@@ -194,13 +263,43 @@ describe('SearchService.search', () => {
   });
 
   it('queries every entity with the trimmed query, including the gated ones for an OWNER_ADMIN', async () => {
-    const { service, ...fns } = makeService({});
+    const { service, dsrFindMany, ...fns } = makeService({});
+    // Consumption/WorkRecords/Dsr take a second `superseded` argument
+    // (computed once and shared, not recomputed per-entity) — everything
+    // else is still called with the trimmed query alone. `dsrFindMany`
+    // itself is called once, with the shared "every corrected DSR" query,
+    // not with the search text at all.
+    const sharesSuperseded = new Set([
+      'searchConsumption',
+      'searchWorkRecords',
+      'searchDsr',
+    ]);
 
     await service.search('  cement  ', 'OWNER_ADMIN');
 
-    for (const fn of Object.values(fns)) {
-      expect(fn).toHaveBeenCalledWith('cement');
+    for (const [key, fn] of Object.entries(fns)) {
+      if (sharesSuperseded.has(key)) {
+        expect(fn).toHaveBeenCalledWith('cement', []);
+      } else {
+        expect(fn).toHaveBeenCalledWith('cement');
+      }
     }
+    expect(dsrFindMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('computes the superseded-DSR set once and shares it across Consumption/WorkRecords/Dsr, instead of each independently re-querying it', async () => {
+    const dsrFindMany = vi.fn().mockResolvedValue([]);
+    const { service, searchConsumption, searchWorkRecords, searchDsr } =
+      makeService({}, dsrFindMany);
+
+    await service.search('cement', 'OWNER_ADMIN');
+
+    // Three entities need the identical "every corrected DSR in the tenant"
+    // set — this must be one shared DB round-trip, not three.
+    expect(dsrFindMany).toHaveBeenCalledTimes(1);
+    expect(searchConsumption).toHaveBeenCalledWith('cement', []);
+    expect(searchWorkRecords).toHaveBeenCalledWith('cement', []);
+    expect(searchDsr).toHaveBeenCalledWith('cement', []);
   });
 
   it("returns the Materials group's results even when Sites search rejects (per-group error isolation)", async () => {
@@ -570,7 +669,12 @@ describe('SearchService.search', () => {
     const result = await service.search('ravi', 'OWNER_ADMIN');
 
     expect(result.advances.results).toEqual([
-      { id: 'adv1', teamMemberId: 'tm1', teamMemberName: 'Ravi Kumar', amount: 3000 },
+      {
+        id: 'adv1',
+        teamMemberId: 'tm1',
+        teamMemberName: 'Ravi Kumar',
+        amount: 3000,
+      },
     ]);
     expect(result.advances.total).toBe(1);
   });
@@ -610,6 +714,7 @@ describe('SearchService.search', () => {
           id: 'mc1',
           name: 'JCB 3DX',
           assetNumber: 'MC-001',
+          type: { name: 'Excavator' },
           currentSite: { name: 'NH-48 Widening' },
         },
       ],
@@ -624,6 +729,7 @@ describe('SearchService.search', () => {
         id: 'mc1',
         name: 'JCB 3DX',
         assetNumber: 'MC-001',
+        typeName: 'Excavator',
         currentSiteName: 'NH-48 Widening',
       },
     ]);
@@ -633,7 +739,12 @@ describe('SearchService.search', () => {
   it('maps a Vehicle candidate to its search result shape', async () => {
     const searchVehicles = vi.fn().mockResolvedValue({
       candidates: [
-        { id: 'vh1', number: 'MH12AB1234', currentSite: null },
+        {
+          id: 'vh1',
+          number: 'MH12AB1234',
+          type: { name: 'Tipper' },
+          currentSite: null,
+        },
       ],
       total: 1,
     });
@@ -642,7 +753,12 @@ describe('SearchService.search', () => {
     const result = await service.search('mh12', 'OWNER_ADMIN');
 
     expect(result.vehicles.results).toEqual([
-      { id: 'vh1', number: 'MH12AB1234', currentSiteName: null },
+      {
+        id: 'vh1',
+        number: 'MH12AB1234',
+        typeName: 'Tipper',
+        currentSiteName: null,
+      },
     ]);
     expect(result.vehicles.total).toBe(1);
   });
@@ -782,6 +898,60 @@ describe('SearchService.search', () => {
       expect(result.auditLogs).toEqual({ results: [], total: 0 });
     });
 
+    it('leaves every other group untouched for a SITE_SUPERVISOR — no new restriction beyond the two genuinely gated groups (story 16.5 AC)', async () => {
+      const searchSites = vi.fn().mockResolvedValue({
+        candidates: [
+          {
+            id: 's1',
+            name: 'Nashik Site',
+            location: 'Nashik',
+            contractReference: null,
+          },
+        ],
+        total: 1,
+      });
+      const searchPayments = vi.fn().mockResolvedValue({
+        candidates: [
+          {
+            id: 'pay1',
+            teamMember: { name: 'Ravi Kumar' },
+            payPeriod: 'Aug 2026',
+            netPayable: toNumber(8000),
+          },
+        ],
+        total: 1,
+      });
+      const searchAdvances = vi.fn().mockResolvedValue({
+        candidates: [
+          {
+            id: 'adv1',
+            teamMemberId: 'tm1',
+            teamMember: { name: 'Ravi Kumar' },
+            amount: toNumber(3000),
+          },
+        ],
+        total: 1,
+      });
+      const { service } = makeService({
+        searchSites,
+        searchPayments,
+        searchAdvances,
+      });
+
+      const result = await service.search('ravi', 'SITE_SUPERVISOR');
+
+      // Payment/Advance are deliberately read-open at their own endpoints
+      // (only creates are owner-gated) — a Supervisor's search must return
+      // them exactly as an Owner's would, same as any unrelated group like
+      // Sites. Only Subcontractor Payment and Audit Log are actually gated.
+      expect(searchSites).toHaveBeenCalledWith('ravi');
+      expect(searchPayments).toHaveBeenCalledWith('ravi');
+      expect(searchAdvances).toHaveBeenCalledWith('ravi');
+      expect(result.sites.results).toHaveLength(1);
+      expect(result.payments.results).toHaveLength(1);
+      expect(result.advances.results).toHaveLength(1);
+    });
+
     it('includes Subcontractor Payment and Audit Log results for an OWNER_ADMIN', async () => {
       const searchSubcontractorPayments = vi.fn().mockResolvedValue({
         candidates: [
@@ -805,6 +975,7 @@ describe('SearchService.search', () => {
             id: 'al1',
             action: 'Recorded Payment',
             entityType: 'Payment',
+            userId: 'u1',
             user: { name: 'Owner Admin' },
           },
         ],
@@ -830,7 +1001,12 @@ describe('SearchService.search', () => {
         },
       ]);
       expect(result.auditLogs.results).toEqual([
-        { id: 'al1', action: 'Recorded Payment', userName: 'Owner Admin' },
+        {
+          id: 'al1',
+          action: 'Recorded Payment',
+          userId: 'u1',
+          userName: 'Owner Admin',
+        },
       ]);
     });
   });

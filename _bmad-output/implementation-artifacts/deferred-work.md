@@ -258,3 +258,12 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: `_bmad-output/implementation-artifacts/spec-19-2-global-search-and-action-palette.md`
   summary: Documentation drift — `EXPERIENCE.md`/`DESIGN.md` (cited as authoritative references by every Epic 19 story spec) were not updated to reflect the as-shipped search coverage, curated Actions list, or the `action-button-row`/mobile-card implementation details.
   evidence: Blind Hunter noted this; no functional impact, but future stories citing these docs as ground truth should have their assumptions re-verified against code rather than the docs.
+
+## Deferred from: code review of story-16.5/story-16.6 (2026-09-03)
+
+- source_spec: `_bmad-output/planning-artifacts/stories/phase-8-post-launch/epic-16-search-and-scale/story-16.6-search-full-entity-coverage.md`
+  summary: 14 new entities' searched columns have no `pg_trgm` index yet, in some tension with the epic's own stated constraint ("do not add or change indexes... unless a genuinely new, currently-uncovered column is introduced").
+  evidence: Acceptance Auditor + Blind Hunter both flagged this. Already disclosed as a known follow-up in the story's own Completion Notes — a deliberate, disclosed tradeoff, not silently hidden. The stated justification ("same reasoning as 16.5's indexing note") is imprecise: 16.5's case already had an index via a different mechanism (`pg_trgm`, commit `14bc517`); here there is genuinely no index at all yet. Escalate only if real query volume on these new columns shows it's needed.
+- source_spec: `_bmad-output/planning-artifacts/stories/phase-8-post-launch/epic-16-search-and-scale/story-16.6-search-full-entity-coverage.md`
+  summary: The new `apps/api/src/search/search-candidates.integration.spec.ts` is gated by `describeIfDb`/`DATABASE_URL` and never runs in the actual CI pipeline (no Postgres service, no `DATABASE_URL` in `.github/workflows/ci.yml`).
+  evidence: Verification Gap flagged this. Same pre-existing limitation every other `*.integration.spec.ts` in this repo already has (e.g. `purchases.service.integration.spec.ts`), not introduced or worsened by this diff — the story's "verified" claim is accurate only for local runs with `DATABASE_URL` set.

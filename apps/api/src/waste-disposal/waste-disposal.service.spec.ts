@@ -198,3 +198,27 @@ describe('WasteDisposalService.findOne', () => {
     );
   });
 });
+
+describe('WasteDisposalService.searchCandidates', () => {
+  it('matches the linked Site/Vendor name, the waste type, and free-text notes, all case-insensitively', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    const prisma = { wasteDisposal: { findMany, count } };
+    const service = new WasteDisposalService(prisma as never);
+
+    await service.searchCandidates('debris');
+
+    const expectedWhere = {
+      OR: [
+        { site: { name: { contains: 'debris', mode: 'insensitive' } } },
+        { vendor: { name: { contains: 'debris', mode: 'insensitive' } } },
+        { wasteType: { contains: 'debris', mode: 'insensitive' } },
+        { notes: { contains: 'debris', mode: 'insensitive' } },
+      ],
+    };
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expectedWhere }),
+    );
+    expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});

@@ -58,13 +58,13 @@ Delivered: min-query-length guard (server + client, both short-circuit sites) an
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `apps/api/src/search/search.service.ts` -- add role param + min-length short-circuit + inline gating helper -- closes the two live gaps (query robustness now, role-gate mechanism ready for 16.6)
-- [ ] `apps/api/src/search/search.controller.ts` -- thread `CurrentUser` role into the service call -- role must originate from the authenticated request, not a query param
-- [ ] `apps/web/lib/use-global-search.ts` -- 2-char minimum guard on both short-circuit sites -- matches server-side behavior, avoids a request that would be short-circuited anyway
-- [ ] `apps/api/src/search/search.service.spec.ts` -- unit tests for role-gate (synthetic entry) and min-length -- proves the mechanism works before 16.6 has a real consumer
-- [ ] `apps/api/src/search/search-candidates.integration.spec.ts` (new) -- real-DB test for one entity's `searchCandidates()` -- closes the "never exercised against real Prisma `where`" gap
-- [ ] `apps/web/lib/use-global-search.test.ts` -- out-of-order response test -- proves the closure-cancellation + query-match safety net actually holds under a race
-- [ ] new e2e spec -- Supervisor `POST /payments` direct-call 403 test -- proves the `ownerOnly` Actions convenience filter is backed by real authorization, not just UI hiding
+- [x] `apps/api/src/search/search.service.ts` -- min-length short-circuit done here; role param + gating helper (`canSeeGatedGroup`) shipped in Story 16.6 instead — see Spec Change Log
+- [x] `apps/api/src/search/search.controller.ts` -- `CurrentUser` role threading shipped in Story 16.6 instead — see Spec Change Log
+- [x] `apps/web/lib/use-global-search.ts` -- 2-char minimum guard on both short-circuit sites (later hardened to count code points, not UTF-16 units — see story-16.6's Review Findings)
+- [x] `apps/api/src/search/search.service.spec.ts` -- min-length unit tests done here; the role-gate test moved to Story 16.6 alongside the mechanism itself
+- [x] `apps/api/src/search/search-candidates.integration.spec.ts` (new) -- real-DB test for Vendor's `searchCandidates()`
+- [x] `apps/web/lib/use-global-search.test.ts` -- out-of-order response test
+- [x] new e2e spec (`e2e/specs/auth.spec.ts`) -- Supervisor `POST /payments` direct-call 403 test
 
 **Acceptance Criteria:**
 - Given a query trimmed to fewer than 2 characters, when search runs (frontend or a direct service call), then no DB query is issued and the standard empty-groups shape is returned
@@ -74,9 +74,12 @@ Delivered: min-query-length guard (server + client, both short-circuit sites) an
 
 ## Spec Change Log
 
+- **2026-09-03 (bmad-code-review finding, Story 16.6 implementation).** This spec's frozen `Approach` section (above) commits to building the role-gating mechanism inside 16.5 ("Thread the caller's role from `SearchController` into `SearchService.search()`..."). It was not built here — the Completion Notes above explain why (no live consumer until 16.6), but that reasoning should have been recorded as a formal deviation at the time rather than left as an implicit gap between the frozen intent and what actually shipped. Recording it now: the role-gating mechanism (role threading + gate check) was built in Story 16.6, applied immediately to its two real consumers (Subcontractor Payment, Audit Log) in the same change — see that story's own Completion Notes for what shipped. This spec's Tasks & Acceptance checkboxes above for `search.service.ts`/`search.controller.ts` role-gating work are satisfied by that later change, not by anything in this story's own diff.
+- **2026-09-03 (same review).** The Design Notes below originally described a generic `canSeeGroup(role, restrictedTo?: Role[])` helper design. What shipped in 16.6 (`canSeeGatedGroup(role): boolean`, checking against a fixed `OWNER_ONLY_ROLES` module constant) is simpler and has no `restrictedTo` parameter — harmless today since every currently-gated group needs the identical `OWNER_ADMIN`-only restriction, and this app has only two roles total. Design Notes below corrected to describe the shipped shape; if a future group ever needs a *different* restricted-role set, `canSeeGatedGroup` will need a `restrictedTo` parameter added at that point, not before.
+
 ## Design Notes
 
-The role-gating mechanism is intentionally minimal, not a registry refactor: `search.service.ts`'s current composition (9 individually-injected services, one `Promise.allSettled` call, positional destructuring) stays exactly as-is. Add a small helper, e.g. `canSeeGroup(role: Role, restrictedTo?: Role[]) => !restrictedTo || restrictedTo.includes(role)`, and call it inline wherever a future group needs it — Story 16.6 will add `subcontractorPayments`/`auditLogs` to the composition array using this same helper with `restrictedTo: ['OWNER_ADMIN']`. This keeps 16.5's diff small and avoids restructuring working code for entities that don't exist yet.
+The role-gating mechanism is intentionally minimal, not a registry refactor: `search.service.ts`'s composition (23 individually-injected services, one `Promise.allSettled` call, positional destructuring) stays exactly as-is. Story 16.6 shipped `canSeeGatedGroup(role: Role): boolean`, checking against a fixed `OWNER_ONLY_ROLES: Role[] = ['OWNER_ADMIN']` module-level constant — not the more general `canSeeGroup(role, restrictedTo?)` this section originally envisioned (see Spec Change Log above for why the simpler shape was fine). Gated groups (`subcontractorPayments`, `auditLogs`) skip the DB call entirely when `!canSeeGatedGroup(role)`, rather than querying and discarding the result.
 
 ## Verification
 

@@ -189,6 +189,29 @@ describe('VehicleService.list', () => {
   });
 });
 
+describe('VehicleService.searchCandidates', () => {
+  it('matches number, driver, and Vehicle Type name, all case-insensitively', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ findMany });
+
+    await service.searchCandidates('tipper');
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [
+            { number: { contains: 'tipper', mode: 'insensitive' } },
+            { driver: { contains: 'tipper', mode: 'insensitive' } },
+            {
+              type: { name: { contains: 'tipper', mode: 'insensitive' } },
+            },
+          ],
+        },
+      }),
+    );
+  });
+});
+
 describe('VehicleService.findOne', () => {
   it('throws NotFoundException when no Vehicle matches the id', async () => {
     const { service } = makeService({

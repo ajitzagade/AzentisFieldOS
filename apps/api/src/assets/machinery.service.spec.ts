@@ -197,6 +197,32 @@ describe('MachineryService.list', () => {
   });
 });
 
+describe('MachineryService.searchCandidates', () => {
+  it('matches name, assetNumber, operator, and Machinery Type name, all case-insensitively', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ findMany });
+
+    await service.searchCandidates('excavator');
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [
+            { name: { contains: 'excavator', mode: 'insensitive' } },
+            { assetNumber: { contains: 'excavator', mode: 'insensitive' } },
+            { operator: { contains: 'excavator', mode: 'insensitive' } },
+            {
+              type: {
+                name: { contains: 'excavator', mode: 'insensitive' },
+              },
+            },
+          ],
+        },
+      }),
+    );
+  });
+});
+
 describe('MachineryService.findOne', () => {
   it('throws NotFoundException when no Machine matches the id', async () => {
     const { service } = makeService({

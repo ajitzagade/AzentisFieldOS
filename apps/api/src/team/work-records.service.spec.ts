@@ -212,3 +212,37 @@ describe('WorkRecordsService.getDefaultCrew', () => {
     );
   });
 });
+
+describe('WorkRecordsService.searchCandidates', () => {
+  it('ANDs the caller-supplied superseded-DSR filter with its own text-match OR, never spreading one over the other', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    const prisma = { workRecord: { findMany, count } };
+    const service = new WorkRecordsService(
+      prisma as unknown as ConstructorParameters<typeof WorkRecordsService>[0],
+    );
+
+    await service.searchCandidates('ravi', ['superseded-dsr-1']);
+
+    const expectedWhere = {
+      AND: [
+        {
+          OR: [
+            { dailySiteReportId: null },
+            { dailySiteReportId: { notIn: ['superseded-dsr-1'] } },
+          ],
+        },
+        {
+          OR: [
+            { teamMember: { name: { contains: 'ravi', mode: 'insensitive' } } },
+            { site: { name: { contains: 'ravi', mode: 'insensitive' } } },
+          ],
+        },
+      ],
+    };
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expectedWhere }),
+    );
+    expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});

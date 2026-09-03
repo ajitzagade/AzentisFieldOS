@@ -124,12 +124,14 @@ export interface MachinerySearchResult {
   id: string;
   name: string;
   assetNumber: string;
+  typeName: string;
   currentSiteName: string | null;
 }
 
 export interface VehicleSearchResult {
   id: string;
   number: string;
+  typeName: string;
   currentSiteName: string | null;
 }
 
@@ -182,11 +184,16 @@ export interface DailyReportSearchResult {
 // The other role-gated group (Story 16.5) — matches
 // AuditController.list()'s own @Roles('OWNER_ADMIN'). No siteName: resolving
 // it needs the same extra siteId->name lookup AuditController.list() does,
-// not worth adding to the already-22-way search fan-out for a search-result
-// row that already carries `action`.
+// not worth adding to the already-23-way search fan-out for a search-result
+// row that already carries `action`. `userId` (distinct from `userName`,
+// which is display-only) lets the palette narrow "See this entry" to
+// "See this user's entries" via /settings/audit-log?userId= — there is no
+// per-row page for an append-only log, so this is the closest real
+// destination a click can offer.
 export interface AuditLogSearchResult {
   id: string;
   action: string;
+  userId: string;
   userName: string;
 }
 

@@ -24,6 +24,8 @@ import { SubcontractorPaymentsService } from '../subcontractors/subcontractor-pa
 import { WorkRecordsService } from '../team/work-records.service';
 import { DsrService } from '../dsr/dsr.service';
 import { AuditService } from '../audit/audit.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { supersededDsrIds } from '../common/superseded-dsrs';
 import { rankByQuery } from './rank-by-query';
 
 // How many results per group are shown inline — beyond this, the client
@@ -80,14 +82,18 @@ export class SearchService {
     private readonly workRecords: WorkRecordsService,
     private readonly dsr: DsrService,
     private readonly audit: AuditService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async search(q: string, role: Role): Promise<SearchResponse> {
     const query = q?.trim() ?? '';
     // A 1-character query is too broad to be useful and needlessly fires a
     // DB round-trip per entity on every keystroke — same threshold enforced
-    // client-side in use-global-search.ts.
-    if (query.length < 2) {
+    // client-side in use-global-search.ts. Count code points, not UTF-16
+    // code units — `.length` alone would let a single astral-plane
+    // character (most emoji) through, since its UTF-16 encoding is a
+    // 2-unit surrogate pair.
+    if ([...query].length < 2) {
       return {
         sites: EMPTY_GROUP,
         materials: EMPTY_GROUP,
@@ -119,6 +125,16 @@ export class SearchService {
     // cheaper than querying and discarding, and defense-in-depth alongside
     // the role check applied below.
     const canSeeGated = canSeeGatedGroup(role);
+
+    // Kicked off now, not awaited yet, and shared with Consumption/
+    // WorkRecords/Dsr below via `.then()` (not a blocking `await` here) —
+    // each independently needs "every corrected DSR in the tenant" to
+    // exclude superseded rows, and recomputing that unbounded scan 3x
+    // concurrently on every keystroke would be wasteful. `.then()` keeps
+    // this promise racing alongside the other 20 unrelated entity queries
+    // in the Promise.allSettled below, rather than serializing it in front
+    // of the whole batch the way an `await` here would.
+    const superseded = supersededDsrIds(this.prisma);
 
     // One group's failure (e.g. a slow/erroring query) must not blank out a
     // group that succeeded — Promise.allSettled isolates each entity's
@@ -159,7 +175,7 @@ export class SearchService {
       this.rmc.searchCandidates(query),
       this.expenses.searchCandidates(query),
       this.movements.searchCandidates(query),
-      this.consumption.searchCandidates(query),
+      superseded.then((ids) => this.consumption.searchCandidates(query, ids)),
       this.wasteDisposal.searchCandidates(query),
       this.returnWastage.searchCandidates(query),
       this.advances.searchCandidates(query),
@@ -171,8 +187,8 @@ export class SearchService {
       canSeeGated
         ? this.subcontractorPayments.searchCandidates(query)
         : Promise.resolve(EMPTY_CANDIDATES),
-      this.workRecords.searchCandidates(query),
-      this.dsr.searchCandidates(query),
+      superseded.then((ids) => this.workRecords.searchCandidates(query, ids)),
+      superseded.then((ids) => this.dsr.searchCandidates(query, ids)),
       canSeeGated
         ? this.audit.searchCandidates(query)
         : Promise.resolve(EMPTY_CANDIDATES),
@@ -304,17 +320,25 @@ export class SearchService {
     const rankedAdvanceAdjustments = rankByQuery(
       advanceAdjustmentResult.candidates,
       query,
-      (adjustment) => [adjustment.advance.teamMember.name, adjustment.note ?? ''],
+      (adjustment) => [
+        adjustment.advance.teamMember.name,
+        adjustment.note ?? '',
+      ],
     ).slice(0, INLINE_LIMIT);
     const rankedMachinery = rankByQuery(
       machineryResult.candidates,
       query,
-      (machine) => [machine.name, machine.assetNumber, machine.operator ?? ''],
+      (machine) => [
+        machine.name,
+        machine.assetNumber,
+        machine.operator ?? '',
+        machine.type.name,
+      ],
     ).slice(0, INLINE_LIMIT);
     const rankedVehicles = rankByQuery(
       vehicleResult.candidates,
       query,
-      (vehicle) => [vehicle.number, vehicle.driver ?? ''],
+      (vehicle) => [vehicle.number, vehicle.driver ?? '', vehicle.type.name],
     ).slice(0, INLINE_LIMIT);
     const rankedSiteContracts = rankByQuery(
       siteContractResult.candidates,
@@ -355,6 +379,7 @@ export class SearchService {
       report.workInProgress ?? '',
       report.plannedWork ?? '',
       report.issuesBlockers ?? '',
+      report.safetyObservations ?? '',
       report.notes ?? '',
     ]).slice(0, INLINE_LIMIT);
     const rankedAudit = rankByQuery(auditResult.candidates, query, (log) => [
@@ -502,6 +527,7 @@ export class SearchService {
           id: machine.id,
           name: machine.name,
           assetNumber: machine.assetNumber,
+          typeName: machine.type.name,
           currentSiteName: machine.currentSite?.name ?? null,
         })),
         total: machineryResult.total,
@@ -510,6 +536,7 @@ export class SearchService {
         results: rankedVehicles.map((vehicle) => ({
           id: vehicle.id,
           number: vehicle.number,
+          typeName: vehicle.type.name,
           currentSiteName: vehicle.currentSite?.name ?? null,
         })),
         total: vehicleResult.total,
@@ -566,6 +593,7 @@ export class SearchService {
         results: rankedAudit.map((log) => ({
           id: log.id,
           action: log.action,
+          userId: log.userId,
           userName: log.user.name,
         })),
         total: auditResult.total,

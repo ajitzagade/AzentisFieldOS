@@ -249,3 +249,37 @@ describe('MovementsService.confirmReceipt', () => {
     });
   });
 });
+
+describe('MovementsService.searchCandidates', () => {
+  it('matches the linked Material/source-Site/destination-Site name and free-text notes, all case-insensitively', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    const prisma = { movement: { findMany, count } };
+    const service = new MovementsService(
+      prisma as unknown as ConstructorParameters<typeof MovementsService>[0],
+    );
+
+    await service.searchCandidates('steel');
+
+    const expectedWhere = {
+      OR: [
+        {
+          materialSize: {
+            material: { name: { contains: 'steel', mode: 'insensitive' } },
+          },
+        },
+        { sourceSite: { name: { contains: 'steel', mode: 'insensitive' } } },
+        {
+          destinationSite: {
+            name: { contains: 'steel', mode: 'insensitive' },
+          },
+        },
+        { notes: { contains: 'steel', mode: 'insensitive' } },
+      ],
+    };
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expectedWhere }),
+    );
+    expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});

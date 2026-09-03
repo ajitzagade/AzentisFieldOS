@@ -72,7 +72,7 @@ export function SearchPalette({
   error,
   onSelect,
   onSeeAll,
-  placeholder = "Search sites, materials, vendors, team, payments…",
+  placeholder = "Search sites, materials, machinery, payments, and more…",
   emptyMessage = "No results",
   title = "Search",
 }: SearchPaletteProps) {

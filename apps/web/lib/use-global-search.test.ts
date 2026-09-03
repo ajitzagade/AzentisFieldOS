@@ -81,6 +81,20 @@ describe("useGlobalSearch", () => {
     expect(result.current).toEqual({ data: null, loading: false, error: null });
   });
 
+  it("does not call fetch for a single astral-plane character (e.g. an emoji) despite its .length being 2", () => {
+    // "🏗" is one code point but a 2-unit UTF-16 surrogate pair — a naive
+    // `.length < 2` guard would let it through as if it were 2 characters.
+    const emoji = "🏗";
+    expect(emoji.length).toBe(2);
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useGlobalSearch(emoji));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current).toEqual({ data: null, loading: false, error: null });
+  });
+
   it("shows the most recently issued query's result even when an earlier query's response resolves later", async () => {
     const RESPONSE_CE = {
       sites: { results: [{ id: "ce1", name: "CE Site", location: "X", contractReference: null }], total: 1 },

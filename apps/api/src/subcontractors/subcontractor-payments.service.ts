@@ -32,7 +32,9 @@ export class SubcontractorPaymentsService {
   // applies no role filter, since search.service.ts enforces it uniformly.
   async searchCandidates(q: string): Promise<{
     candidates: Prisma.SubcontractorPaymentGetPayload<{
-      include: { siteContract: { include: { subcontractor: true; site: true } } };
+      include: {
+        siteContract: { include: { subcontractor: true; site: true } };
+      };
     }>[];
     total: number;
   }> {
@@ -56,7 +58,9 @@ export class SubcontractorPaymentsService {
     const [candidates, total] = await Promise.all([
       this.prisma.subcontractorPayment.findMany({
         where,
-        include: { siteContract: { include: { subcontractor: true, site: true } } },
+        include: {
+          siteContract: { include: { subcontractor: true, site: true } },
+        },
         orderBy: { paidAt: 'desc' },
         take: 200,
       }),

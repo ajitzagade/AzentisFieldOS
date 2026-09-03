@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider, Toaster } from "@azentisfieldos/ui";
 
@@ -70,6 +70,49 @@ const RESPONSE = {
     // description caption renders siteName as its own text node, and
     // duplicate exact text across groups would make findByText ambiguous.
     results: [{ id: "exp1", description: "Diesel", siteName: "Pune Extension", amount: 2000 }],
+    total: 1,
+  },
+  // Story 16.6: representative fixtures for the newly-covered groups —
+  // not every one of the 14 needs its own fixture here, since the routing
+  // logic they exercise falls into a small number of real shapes (a plain
+  // /base/id route, a correction route, a nested Site/Site-Contract route,
+  // and a no-detail-page fallback). One fixture per shape is what these
+  // tests actually verify.
+  movements: {
+    // Deliberately NOT "Cement" — the Materials fixture above already uses
+    // that exact text, and findByText("Cement") in the Materials-routing
+    // test must stay unambiguous.
+    results: [{ id: "mv1", materialName: "TMT Steel Bars", sourceSiteName: null, destinationSiteName: "Nashik Site B" }],
+    total: 1,
+  },
+  machinery: {
+    results: [{ id: "mc1", name: "JCB 3DX", assetNumber: "MC-001", typeName: "Excavator", currentSiteName: "Nashik Site B" }],
+    total: 1,
+  },
+  siteContracts: {
+    results: [
+      { id: "sct1", siteId: "site-x", subcontractorName: "Balaji Contractors", siteName: "Nashik Site B", status: "ACTIVE" },
+    ],
+    total: 1,
+  },
+  workEntries: {
+    results: [
+      { id: "we1", siteId: "site-x", siteContractId: "sct1", subcontractorName: "Balaji Contractors", siteName: "Nashik Site B" },
+    ],
+    total: 1,
+  },
+  subcontractorPayments: {
+    results: [
+      { id: "sp1", siteId: "site-x", siteContractId: "sct1", subcontractorName: "Balaji Contractors", siteName: "Nashik Site B", amount: 5000 },
+    ],
+    total: 1,
+  },
+  workRecords: {
+    results: [{ id: "wr1", teamMemberId: "tm-attend", teamMemberName: "Anil Shinde", siteName: "Nashik Site B" }],
+    total: 1,
+  },
+  auditLogs: {
+    results: [{ id: "al1", action: "Recorded Payment", userId: "u-owner", userName: "Owner Admin" }],
     total: 1,
   },
 };
@@ -216,7 +259,11 @@ describe("GlobalSearch", () => {
 
     await openAndSearch("balaji");
 
-    fireEvent.click(await screen.findByText("Balaji Contractors", {}, { timeout: 1000 }));
+    // "Balaji Contractors" also labels the Site Contract/Work Entry/
+    // Subcontractor Payment fixtures (Story 16.6) — the Subcontractors
+    // group renders first, per `groups` order.
+    const rows = await screen.findAllByText("Balaji Contractors", {}, { timeout: 1000 });
+    fireEvent.click(rows[0]!);
 
     expect(pushMock).toHaveBeenCalledWith("/subcontractors/sub1");
   });
@@ -316,6 +363,116 @@ describe("GlobalSearch", () => {
     );
 
     expect(pushMock).toHaveBeenCalledWith("/vendors?q=universal");
+  });
+
+  // Story 16.6: one representative test per new routing shape, not one per
+  // entity — search.service.spec.ts already covers per-entity result
+  // mapping; these verify global-search.tsx's own routing logic.
+  it("navigates to the Movement's correct page when a Movement result is selected", async () => {
+    mockFetch(RESPONSE);
+    render(<Harness />);
+
+    await openAndSearch("steel");
+
+    fireEvent.click(await screen.findByText("TMT Steel Bars", {}, { timeout: 1000 }));
+
+    expect(pushMock).toHaveBeenCalledWith("/movements/godown-to-site/mv1/correct");
+  });
+
+  it("navigates to the Machinery detail page when a Machinery result is selected", async () => {
+    mockFetch(RESPONSE);
+    render(<Harness />);
+
+    await openAndSearch("jcb");
+
+    fireEvent.click(await screen.findByText("JCB 3DX", {}, { timeout: 1000 }));
+
+    expect(pushMock).toHaveBeenCalledWith("/machinery-vehicles/machinery/mc1");
+  });
+
+  it("navigates to the Site Contract's nested detail page (using the result's own siteId) when selected", async () => {
+    mockFetch(RESPONSE);
+    render(<Harness />);
+
+    await openAndSearch("balaji");
+
+    const rows = await screen.findAllByText("Balaji Contractors", {}, { timeout: 1000 });
+    // Subcontractors, Site Contracts, Work Entries, and Subcontractor
+    // Payments all render "Balaji Contractors" as their label — the Site
+    // Contract row is the second group to render, per `groups` order.
+    fireEvent.click(rows[1]!);
+
+    expect(pushMock).toHaveBeenCalledWith("/sites/site-x/contracts/sct1");
+  });
+
+  it("navigates to a Subcontractor Payment's nested correct page (using both the site and site-contract ids) when selected", async () => {
+    mockFetch(RESPONSE);
+    render(<Harness />);
+
+    await openAndSearch("balaji");
+
+    const rows = await screen.findAllByText("Balaji Contractors", {}, { timeout: 1000 });
+    fireEvent.click(rows[3]!); // Subcontractors, Site Contracts, Work Entries, then Subcontractor Payments
+
+    expect(pushMock).toHaveBeenCalledWith("/sites/site-x/contracts/sct1/payments/sp1/correct");
+  });
+
+  it("falls back to the Team Member's own detail page for a Work Record result — no dedicated Attendance page exists", async () => {
+    mockFetch(RESPONSE);
+    render(<Harness />);
+
+    await openAndSearch("anil");
+
+    fireEvent.click(await screen.findByText("Anil Shinde", {}, { timeout: 1000 }));
+
+    expect(pushMock).toHaveBeenCalledWith("/team/tm-attend");
+  });
+
+  it("does not navigate or close the palette if a lookup-dependent group's item is missing from the fetched data (stale-click race)", async () => {
+    // RESPONSE has no `advances` key at all — the same code path a stale
+    // click (data refreshed between render and click) would hit, since
+    // `data?.advances?.results.find(...)` short-circuits to `undefined`
+    // either way. Review Findings, story 16.6.
+    mockFetch(RESPONSE);
+    const { result } = renderHook(() => useGlobalSearchController("OWNER_ADMIN"));
+
+    act(() => result.current.setOpen(true));
+    act(() => result.current.onQueryChange("anything"));
+    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 1000 });
+
+    act(() => result.current.handleSelect("advances", { id: "does-not-exist", label: "Ghost" }));
+
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(result.current.open).toBe(true);
+  });
+
+  it("navigates to the Audit Log page filtered by the acting user for an Audit Log result — no per-row page exists", async () => {
+    mockFetch(RESPONSE);
+    render(<Harness />);
+
+    await openAndSearch("payment");
+
+    fireEvent.click(await screen.findByText("Recorded Payment", {}, { timeout: 1000 }));
+
+    expect(pushMock).toHaveBeenCalledWith("/settings/audit-log?userId=u-owner");
+  });
+
+  it('falls back to a real, searchable destination for "See all" on a group with no flat list page, instead of a dead button', async () => {
+    const manyWorkRecords = {
+      ...ALL_EMPTY,
+      workRecords: {
+        results: [{ id: "wr1", teamMemberId: "tm-attend", teamMemberName: "Anil Shinde", siteName: "Nashik Site B" }],
+        total: 9,
+      },
+    };
+    mockFetch(manyWorkRecords);
+    render(<Harness />);
+
+    await openAndSearch("anil");
+
+    fireEvent.click(await screen.findByRole("button", { name: /see all 9 results/i }, { timeout: 1000 }));
+
+    expect(pushMock).toHaveBeenCalledWith("/team?q=anil");
   });
 
   // ---- Story 19.2: curated Actions ----

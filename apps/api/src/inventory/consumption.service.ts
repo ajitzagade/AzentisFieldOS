@@ -158,14 +158,20 @@ export class ConsumptionService {
   // Story 16.6: the global Search palette's Consumption coverage — matches
   // the linked Site/Material name plus the activity reference and free-text
   // notes. Superseded (since-corrected) DSR rows are excluded, same as
-  // list().
-  async searchCandidates(q: string): Promise<{
+  // list(). `superseded` is computed once by the caller (SearchService) and
+  // shared across every entity that needs it — DsrService/WorkRecordsService
+  // ask for the identical tenant-wide set on every search request, so
+  // computing it here too would mean 3 redundant, concurrent, unbounded
+  // scans of "every corrected DSR" per keystroke.
+  async searchCandidates(
+    q: string,
+    superseded: string[],
+  ): Promise<{
     candidates: Prisma.ConsumptionGetPayload<{
       include: { site: true; materialSize: { include: { material: true } } };
     }>[];
     total: number;
   }> {
-    const superseded = await supersededDsrIds(this.prisma);
     // AND, not spread — both this method's own `OR` (query matching) and
     // currentDsrRowsWhere's `OR` (supersession filter) use the same key;
     // spreading one after the other would silently drop the first.

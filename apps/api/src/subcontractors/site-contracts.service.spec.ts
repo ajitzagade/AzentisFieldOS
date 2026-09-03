@@ -465,3 +465,29 @@ describe('SiteContractsService.countDraftPendingTerms', () => {
     expect(result).toBe(2);
   });
 });
+
+describe('SiteContractsService.searchCandidates', () => {
+  it('matches the linked Subcontractor/Site name and the work category, case-insensitively', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    const { service } = makeService({ findMany, count });
+
+    await service.searchCandidates('universal');
+
+    const expectedWhere = {
+      OR: [
+        {
+          subcontractor: {
+            name: { contains: 'universal', mode: 'insensitive' },
+          },
+        },
+        { site: { name: { contains: 'universal', mode: 'insensitive' } } },
+        { workCategory: { contains: 'universal', mode: 'insensitive' } },
+      ],
+    };
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expectedWhere }),
+    );
+    expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});
