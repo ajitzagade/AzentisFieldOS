@@ -61,6 +61,12 @@ import { clearRecentlyViewed } from "../../../lib/recently-viewed";
 // never a viewport breakpoint (AD-3/AD-11).
 export interface AppShellProps {
   role: Role;
+  // Live from BrandingConfig (fetched server-side in the (app) layout) so a
+  // Settings > Branding save reflects here immediately, same request. Falls
+  // back to the build-time APP_DISPLAY_NAME when unset — mirrors the
+  // sign-in page's own fallback, since that page can't reach the
+  // authenticated /branding-config endpoint before login.
+  tenantName?: string;
   children: ReactNode;
 }
 
@@ -91,6 +97,7 @@ function NavLink({ item, active, onNavigate }: { item: NavItem; active: boolean;
 function SidebarNav({
   pathname,
   role,
+  tenantName,
   onNavigate,
   pwaAvailable,
   onRequestInstall,
@@ -98,6 +105,7 @@ function SidebarNav({
 }: {
   pathname: string;
   role: Role;
+  tenantName: string;
   onNavigate?: () => void;
   pwaAvailable: boolean;
   onRequestInstall: () => void;
@@ -115,9 +123,9 @@ function SidebarNav({
     <>
       <div className="mb-6 flex items-center gap-2 px-2">
         <div className="flex size-8 items-center justify-center rounded-md bg-accent-teal-700 text-body-sm font-bold text-white">
-          {APP_DISPLAY_NAME[0]}
+          {tenantName[0]}
         </div>
-        <div className="text-card-title font-semibold tracking-tight">{APP_DISPLAY_NAME}</div>
+        <div className="text-card-title font-semibold tracking-tight">{tenantName}</div>
       </div>
 
       {/* Story 16.2: one search entry point, visible in the shell — the
@@ -326,7 +334,17 @@ function OwnerQuickBar({
   );
 }
 
-function SidebarShell({ pathname, role, children }: { pathname: string; role: Role; children: ReactNode }) {
+function SidebarShell({
+  pathname,
+  role,
+  tenantName,
+  children,
+}: {
+  pathname: string;
+  role: Role;
+  tenantName: string;
+  children: ReactNode;
+}) {
   const [navOpen, setNavOpen] = useState(false);
   const [lastPathname, setLastPathname] = useState(pathname);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -376,6 +394,7 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
           <SidebarNav
             pathname={pathname}
             role={role}
+            tenantName={tenantName}
             pwaAvailable={pwaInstall.available}
             onRequestInstall={() => setInstallDialogOpen(true)}
             onOpenSearch={() => search.setOpen(true)}
@@ -394,7 +413,7 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
           >
             <MenuIcon className="size-5" />
           </button>
-          <span className="text-card-title font-semibold text-ink-900">{APP_DISPLAY_NAME}</span>
+          <span className="text-card-title font-semibold text-ink-900">{tenantName}</span>
           {/* Story 16.2: reachable in one tap on mobile, not gated behind the drawer. */}
           <GlobalSearchButton
             iconOnly
@@ -430,6 +449,7 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
               <SidebarNav
                 pathname={pathname}
                 role={role}
+                tenantName={tenantName}
                 onNavigate={() => setNavOpen(false)}
                 pwaAvailable={pwaInstall.available}
                 onRequestInstall={() => setInstallDialogOpen(true)}
@@ -480,8 +500,9 @@ function SidebarShell({ pathname, role, children }: { pathname: string; role: Ro
   );
 }
 
-export function AppShell({ role, children }: AppShellProps) {
+export function AppShell({ role, tenantName, children }: AppShellProps) {
   const pathname = usePathname();
+  const resolvedTenantName = tenantName?.trim() || APP_DISPLAY_NAME;
 
   // Sidebar shell for every role (product direction) — the `role` decides the
   // nav set (Supervisor trim + bottom quick-bar vs the Owner's full rail) and
@@ -490,7 +511,7 @@ export function AppShell({ role, children }: AppShellProps) {
   // Action redirect carrying ?flash=) reports success through one channel.
   return (
     <ToastProvider>
-      <SidebarShell pathname={pathname} role={role}>
+      <SidebarShell pathname={pathname} role={role} tenantName={resolvedTenantName}>
         {children}
       </SidebarShell>
       <Toaster />
