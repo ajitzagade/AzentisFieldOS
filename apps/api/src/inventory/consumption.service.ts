@@ -155,6 +155,59 @@ export class ConsumptionService {
     return consumption;
   }
 
+  // Story 16.6: the global Search palette's Consumption coverage — matches
+  // the linked Site/Material name plus the activity reference and free-text
+  // notes. Superseded (since-corrected) DSR rows are excluded, same as
+  // list().
+  async searchCandidates(q: string): Promise<{
+    candidates: Prisma.ConsumptionGetPayload<{
+      include: { site: true; materialSize: { include: { material: true } } };
+    }>[];
+    total: number;
+  }> {
+    const superseded = await supersededDsrIds(this.prisma);
+    // AND, not spread — both this method's own `OR` (query matching) and
+    // currentDsrRowsWhere's `OR` (supersession filter) use the same key;
+    // spreading one after the other would silently drop the first.
+    const where: Prisma.ConsumptionWhereInput = {
+      AND: [
+        currentDsrRowsWhere(superseded),
+        {
+          OR: [
+            { site: { name: { contains: q, mode: 'insensitive' as const } } },
+            {
+              materialSize: {
+                material: {
+                  name: { contains: q, mode: 'insensitive' as const },
+                },
+              },
+            },
+            {
+              activityReference: {
+                contains: q,
+                mode: 'insensitive' as const,
+              },
+            },
+            { notes: { contains: q, mode: 'insensitive' as const } },
+          ],
+        },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.consumption.findMany({
+        where,
+        include: {
+          site: true,
+          materialSize: { include: { material: true } },
+        },
+        orderBy: { consumedAt: 'desc' },
+        take: 200,
+      }),
+      this.prisma.consumption.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // A siteId/materialSizeId/recordedByUserId that doesn't exist must be a
   // clean 400, not a raw 500 — same pattern as PurchasesService.
   private translateWriteError(error: unknown) {

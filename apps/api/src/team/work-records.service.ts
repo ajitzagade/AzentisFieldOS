@@ -130,6 +130,39 @@ export class WorkRecordsService {
     }));
   }
 
+  // Story 16.6: the global Search palette's Work Record (Attendance)
+  // coverage — matches the linked Team Member/Site name. Superseded
+  // (since-corrected) DSR rows are excluded, same as list().
+  async searchCandidates(
+    q: string,
+  ): Promise<{ candidates: WorkRecordListRow[]; total: number }> {
+    const where: Prisma.WorkRecordWhereInput = {
+      AND: [
+        currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
+        {
+          OR: [
+            {
+              teamMember: {
+                name: { contains: q, mode: 'insensitive' as const },
+              },
+            },
+            { site: { name: { contains: q, mode: 'insensitive' as const } } },
+          ],
+        },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.workRecord.findMany({
+        where,
+        include: { teamMember: true, site: true },
+        orderBy: { workDate: 'desc' },
+        take: 200,
+      }),
+      this.prisma.workRecord.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // AC #2: "previous day" means the most recent prior date with data for
   // this Site, not literally date - 1 (a Site can skip a day, or be new).
   async getDefaultCrew(siteId: string, beforeDate: string) {

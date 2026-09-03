@@ -130,6 +130,35 @@ export class AdvanceAdjustmentsService {
     return advanceAdjustment;
   }
 
+  // Story 16.6: the global Search palette's Advance Adjustment coverage —
+  // matches the parent Advance's Team Member name plus the free-text note.
+  async searchCandidates(
+    q: string,
+  ): Promise<{ candidates: AdvanceAdjustmentListRow[]; total: number }> {
+    const where: Prisma.AdvanceAdjustmentWhereInput = {
+      OR: [
+        {
+          advance: {
+            teamMember: {
+              name: { contains: q, mode: 'insensitive' as const },
+            },
+          },
+        },
+        { note: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.advanceAdjustment.findMany({
+        where,
+        include: { advance: { include: { teamMember: true } }, payment: true },
+        orderBy: { adjustedAt: 'desc' },
+        take: 200,
+      }),
+      this.prisma.advanceAdjustment.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // An advanceId/paymentId that doesn't exist must be a clean 400, not a
   // raw 500 — P2025 comes from this method's own findUniqueOrThrow, P2003
   // from a foreign-key violation on the AdvanceAdjustment insert itself,

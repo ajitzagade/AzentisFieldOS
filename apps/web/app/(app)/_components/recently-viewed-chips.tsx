@@ -3,15 +3,17 @@
 import { type ReactNode } from "react";
 import { BuildingIcon, EntityChip, MapPinIcon, UserIcon, UsersIcon } from "@azentisfieldos/ui";
 import { useRecentlyViewed, type RecentlyViewedType } from "@/lib/recently-viewed";
+import { entityHref } from "@/lib/entity-href";
 
 // Same icon-per-entity-type convention as global-search.tsx's search-result
 // groups and nav-config.ts's nav items — never a third hand-maintained icon
-// map for the same four entities.
-const TYPE_CONFIG: Record<RecentlyViewedType, { icon: ReactNode; label: string; hrefBase: string }> = {
-  site: { icon: <MapPinIcon />, label: "Site", hrefBase: "/sites" },
-  vendor: { icon: <BuildingIcon />, label: "Vendor", hrefBase: "/vendors" },
-  "team-member": { icon: <UsersIcon />, label: "Team Member", hrefBase: "/team" },
-  subcontractor: { icon: <UserIcon />, label: "Subcontractor", hrefBase: "/subcontractors" },
+// map for the same four entities. Routing itself lives in entity-href.ts,
+// shared with global-search.tsx's handleSelect — not duplicated here.
+const TYPE_CONFIG: Record<RecentlyViewedType, { icon: ReactNode; label: string }> = {
+  site: { icon: <MapPinIcon />, label: "Site" },
+  vendor: { icon: <BuildingIcon />, label: "Vendor" },
+  "team-member": { icon: <UsersIcon />, label: "Team Member" },
+  subcontractor: { icon: <UserIcon />, label: "Subcontractor" },
 };
 
 // Story 19.6: the Dashboard's horizontally-scrolling "recently viewed" row —
@@ -30,7 +32,7 @@ export function RecentlyViewedChips() {
         return (
           <EntityChip
             key={`${entry.type}:${entry.id}`}
-            href={`${config.hrefBase}/${entry.id}`}
+            href={entityHref(entry.type, entry.id)}
             icon={config.icon}
             name={entry.name}
             typeLabel={config.label}

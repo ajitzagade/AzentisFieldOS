@@ -204,6 +204,37 @@ export class SiteContractsService {
     };
   }
 
+  // Story 16.6: the global Search palette's Site Contract coverage —
+  // matches the linked Subcontractor/Site name and the work category.
+  async searchCandidates(q: string): Promise<{
+    candidates: Prisma.SiteContractGetPayload<{
+      include: { subcontractor: true; site: true };
+    }>[];
+    total: number;
+  }> {
+    const where: Prisma.SiteContractWhereInput = {
+      OR: [
+        {
+          subcontractor: {
+            name: { contains: q, mode: 'insensitive' as const },
+          },
+        },
+        { site: { name: { contains: q, mode: 'insensitive' as const } } },
+        { workCategory: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.siteContract.findMany({
+        where,
+        include: { subcontractor: true, site: true },
+        orderBy: { createdAt: 'desc' },
+        take: 200,
+      }),
+      this.prisma.siteContract.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // D7's countPendingPricing() shape, reused: how many Site Contracts are
   // still Draft with a genuinely missing rate-type-appropriate term — not
   // merely "not yet Active." A Draft contract that already has every

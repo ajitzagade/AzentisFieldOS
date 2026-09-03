@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { CreateSubcontractorWorkEntryInput } from '@azentisfieldos/shared';
+import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { applyQuantityDelta } from './quantity-completed';
 
@@ -21,6 +22,45 @@ export class WorkEntriesService {
         : {},
       orderBy: { workDate: 'desc' },
     });
+  }
+
+  // Story 16.6: the global Search palette's Subcontractor Work Entry
+  // coverage — matches the linked Site Contract's Subcontractor/Site name
+  // and the free-text note. Open to any authenticated user, same as
+  // list() — this is not one of the money-movement tables.
+  async searchCandidates(q: string): Promise<{
+    candidates: Prisma.SubcontractorWorkEntryGetPayload<{
+      include: { siteContract: { include: { subcontractor: true; site: true } } };
+    }>[];
+    total: number;
+  }> {
+    const where: Prisma.SubcontractorWorkEntryWhereInput = {
+      OR: [
+        {
+          siteContract: {
+            subcontractor: {
+              name: { contains: q, mode: 'insensitive' as const },
+            },
+          },
+        },
+        {
+          siteContract: {
+            site: { name: { contains: q, mode: 'insensitive' as const } },
+          },
+        },
+        { note: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.subcontractorWorkEntry.findMany({
+        where,
+        include: { siteContract: { include: { subcontractor: true, site: true } } },
+        orderBy: { workDate: 'desc' },
+        take: 200,
+      }),
+      this.prisma.subcontractorWorkEntry.count({ where }),
+    ]);
+    return { candidates, total };
   }
 
   async create(

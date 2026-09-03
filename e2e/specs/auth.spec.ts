@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { loginAsOwner, loginAsSupervisor } from "../fixtures/auth";
 import { OWNER_EMAIL } from "../fixtures/test-users";
+import { API_BASE_URL } from "../fixtures/constants";
 
 test.describe("Sign in", () => {
   test("Owner/Admin signs in and lands on the cross-Site Dashboard", async ({ page }) => {
@@ -39,5 +40,24 @@ test.describe("Sign in", () => {
     await expect(page).toHaveURL(/\/sign-in/);
     await page.goto("/");
     await expect(page).toHaveURL(/\/sign-in/);
+  });
+
+  // The Search/Action palette's `ownerOnly` filter (Story 19.2) only hides
+  // an entry from a Supervisor's UI — it is documented as a convenience,
+  // with the real boundary asserted to be apps/api's own @Roles('OWNER_ADMIN')
+  // guards. This proves that assertion directly against a real running API,
+  // bypassing the UI entirely, rather than trusting the code comment.
+  test("a Site Supervisor's direct POST /payments call is rejected with 403, not just hidden from the UI", async ({ page }) => {
+    await loginAsSupervisor(page);
+    const cookie = await page.evaluate(() => document.cookie);
+    const token = cookie.match(/(?:^|; )session=([^;]*)/)?.[1];
+    expect(token).toBeTruthy();
+
+    const response = await page.request.post(`${API_BASE_URL}/payments`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {},
+    });
+
+    expect(response.status()).toBe(403);
   });
 });

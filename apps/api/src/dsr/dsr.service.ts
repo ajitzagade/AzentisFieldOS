@@ -590,6 +590,47 @@ export class DsrService {
     return rows.filter((r) => !correctedIds.has(r.id));
   }
 
+  // Story 16.6: the global Search palette's Daily Report coverage — matches
+  // the linked Site/submitter name plus every free-text narrative field.
+  // A DSR that has since been corrected (its id appears as some other row's
+  // correctsId) is excluded — same "current version only" rule as
+  // listByDate/listBySiteInRange above, but DB-side here since search's
+  // candidate set is filtered by `q` first.
+  async searchCandidates(q: string): Promise<{
+    candidates: Prisma.DailySiteReportGetPayload<{
+      include: { site: true; submittedBy: true };
+    }>[];
+    total: number;
+  }> {
+    const superseded = await supersededDsrIds(this.prisma);
+    const where: Prisma.DailySiteReportWhereInput = {
+      id: { notIn: superseded },
+      OR: [
+        { site: { name: { contains: q, mode: 'insensitive' as const } } },
+        {
+          submittedBy: {
+            name: { contains: q, mode: 'insensitive' as const },
+          },
+        },
+        { workCompleted: { contains: q, mode: 'insensitive' as const } },
+        { workInProgress: { contains: q, mode: 'insensitive' as const } },
+        { plannedWork: { contains: q, mode: 'insensitive' as const } },
+        { issuesBlockers: { contains: q, mode: 'insensitive' as const } },
+        { notes: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.dailySiteReport.findMany({
+        where,
+        include: { site: true, submittedBy: true },
+        orderBy: { reportDate: 'desc' },
+        take: 200,
+      }),
+      this.prisma.dailySiteReport.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // story 3.4 AC #2: the single report's full detail. Story 3.5: also
   // reports whether this specific report has since been corrected, so the
   // detail page can point at the newer version instead of silently

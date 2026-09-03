@@ -50,7 +50,10 @@ async function bootstrap() {
   const corsOrigin = process.env.CORS_ORIGIN?.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
-  if ((!corsOrigin || corsOrigin.length === 0) && process.env.NODE_ENV === 'production') {
+  if (
+    (!corsOrigin || corsOrigin.length === 0) &&
+    process.env.NODE_ENV === 'production'
+  ) {
     throw new Error(
       'CORS_ORIGIN must be set in production (comma-separated allowed origins) — refusing to start with an allow-any-origin fallback.',
     );

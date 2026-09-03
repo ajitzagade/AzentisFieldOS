@@ -116,6 +116,38 @@ export class ReturnWastageService {
     }));
   }
 
+  // Story 16.6: the global Search palette's Return/Wastage coverage —
+  // distinct from the newer WasteDisposal (Epic 15) ledger; matches the
+  // linked Site/Material name plus free-text notes.
+  async searchCandidates(q: string): Promise<{
+    candidates: Prisma.ReturnWastageGetPayload<{
+      include: { site: true; materialSize: { include: { material: true } } };
+    }>[];
+    total: number;
+  }> {
+    const where: Prisma.ReturnWastageWhereInput = {
+      OR: [
+        { site: { name: { contains: q, mode: 'insensitive' as const } } },
+        {
+          materialSize: {
+            material: { name: { contains: q, mode: 'insensitive' as const } },
+          },
+        },
+        { notes: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.returnWastage.findMany({
+        where,
+        include: { site: true, materialSize: { include: { material: true } } },
+        orderBy: { recordedAt: 'desc' },
+        take: 200,
+      }),
+      this.prisma.returnWastage.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   private reportWhere(
     filters: InventoryReportFilters,
   ): Prisma.ReturnWastageWhereInput {

@@ -157,6 +157,33 @@ export class MachineryService {
     }
   }
 
+  // Story 16.6: the global Search palette's Machinery coverage — matches
+  // name, asset number, and the operator's name (e.g. "JCB").
+  async searchCandidates(q: string): Promise<{
+    candidates: Prisma.MachineryGetPayload<{
+      include: { type: true; currentSite: true };
+    }>[];
+    total: number;
+  }> {
+    const where: Prisma.MachineryWhereInput = {
+      OR: [
+        { name: { contains: q, mode: 'insensitive' as const } },
+        { assetNumber: { contains: q, mode: 'insensitive' as const } },
+        { operator: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.machinery.findMany({
+        where,
+        include: { type: true, currentSite: true },
+        orderBy: { name: 'asc' },
+        take: 200,
+      }),
+      this.prisma.machinery.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // A typeId that doesn't exist (P2003) or a duplicate assetNumber
   // (P2002, @unique) must be a clean 400, not a raw 500 — same pattern as
   // MaterialsService.translateWriteError.

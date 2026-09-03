@@ -129,6 +129,31 @@ export class AdvancesService {
     return advance;
   }
 
+  // Story 16.6: the global Search palette's Advance coverage — matches the
+  // linked Team Member's name plus the free-text reason.
+  async searchCandidates(
+    q: string,
+  ): Promise<{ candidates: AdvanceListRow[]; total: number }> {
+    const where: Prisma.AdvanceWhereInput = {
+      OR: [
+        {
+          teamMember: { name: { contains: q, mode: 'insensitive' as const } },
+        },
+        { reason: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.advance.findMany({
+        where,
+        include: { teamMember: true },
+        orderBy: { givenAt: 'desc' },
+        take: 200,
+      }),
+      this.prisma.advance.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // A teamMemberId that doesn't exist must be a clean 400, not a raw 500 —
   // same pattern as PurchasesService.translateWriteError.
   private translateWriteError(error: unknown) {

@@ -5,17 +5,23 @@ import { useRouter } from "next/navigation";
 import { matchSearchActions, type Role } from "@azentisfieldos/shared";
 import {
   AdvanceQuickEntryModal,
+  AlertTriangleIcon,
+  ArrowsIcon,
   BarChartIcon,
   BoxIcon,
   BuildingIcon,
+  CheckCircleIcon,
   ClipboardIcon,
   DropletIcon,
   GearIcon,
   LayersIcon,
+  LockIcon,
   MapPinIcon,
   ReceiptIcon,
+  RotateCcwIcon,
   SearchIcon,
   SearchPalette,
+  TruckIcon,
   UserIcon,
   UsersIcon,
   WalletIcon,
@@ -25,6 +31,7 @@ import {
 } from "@azentisfieldos/ui";
 import { useAuthedFetch } from "@/lib/use-authed-fetch";
 import { useClientValidation } from "@/lib/use-client-validation";
+import { entityHref } from "@/lib/entity-href";
 import { parseCreateAdvanceForm } from "@/app/(app)/team/[id]/advances/parse";
 import { createAdvanceQuickAction } from "@/app/(app)/team/[id]/advances/actions";
 import { useGlobalSearch } from "../../../lib/use-global-search";
@@ -48,6 +55,13 @@ export const ACTION_ICONS: Record<string, ReactNode> = {
   "review-and-price": <BoxIcon />,
   "open-reports": <BarChartIcon />,
   "open-settings": <GearIcon />,
+  "record-movement": <ArrowsIcon />,
+  "record-consumption": <LayersIcon />,
+  "record-wastage": <RotateCcwIcon />,
+  "record-waste-disposal": <AlertTriangleIcon />,
+  "add-machinery": <TruckIcon />,
+  "add-vehicle": <TruckIcon />,
+  "view-attendance": <UsersIcon />,
 };
 
 export interface GlobalSearchController {
@@ -263,6 +277,161 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       })),
       total: data?.expenses?.total ?? 0,
     },
+    // Story 16.6: every remaining core entity type.
+    {
+      key: "movements",
+      label: "Movements",
+      items: (data?.movements?.results ?? []).map((movement) => ({
+        id: movement.id,
+        label: movement.materialName,
+        description: movement.sourceSiteName
+          ? `${movement.sourceSiteName} → ${movement.destinationSiteName}`
+          : `Godown → ${movement.destinationSiteName}`,
+        icon: <ArrowsIcon />,
+      })),
+      total: data?.movements?.total ?? 0,
+    },
+    {
+      key: "consumptions",
+      label: "Consumption",
+      items: (data?.consumptions?.results ?? []).map((consumption) => ({
+        id: consumption.id,
+        label: consumption.materialName,
+        description: consumption.siteName,
+        icon: <LayersIcon />,
+      })),
+      total: data?.consumptions?.total ?? 0,
+    },
+    {
+      key: "wasteDisposals",
+      label: "Waste Disposal",
+      items: (data?.wasteDisposals?.results ?? []).map((disposal) => ({
+        id: disposal.id,
+        label: disposal.wasteType,
+        description: disposal.siteName,
+        icon: <AlertTriangleIcon />,
+      })),
+      total: data?.wasteDisposals?.total ?? 0,
+    },
+    {
+      key: "returnWastages",
+      label: "Wastage / Return",
+      items: (data?.returnWastages?.results ?? []).map((entry) => ({
+        id: entry.id,
+        label: entry.materialName,
+        description: entry.siteName,
+        icon: <RotateCcwIcon />,
+      })),
+      total: data?.returnWastages?.total ?? 0,
+    },
+    {
+      key: "advances",
+      label: "Advances",
+      items: (data?.advances?.results ?? []).map((advance) => ({
+        id: advance.id,
+        label: advance.teamMemberName,
+        icon: <WalletIcon />,
+      })),
+      total: data?.advances?.total ?? 0,
+    },
+    {
+      key: "advanceAdjustments",
+      label: "Advance Adjustments",
+      items: (data?.advanceAdjustments?.results ?? []).map((adjustment) => ({
+        id: adjustment.id,
+        label: adjustment.teamMemberName,
+        icon: <WalletIcon />,
+      })),
+      total: data?.advanceAdjustments?.total ?? 0,
+    },
+    {
+      key: "machinery",
+      label: "Machinery",
+      items: (data?.machinery?.results ?? []).map((machine) => ({
+        id: machine.id,
+        label: machine.name,
+        description: machine.currentSiteName ?? machine.assetNumber,
+        icon: <TruckIcon />,
+      })),
+      total: data?.machinery?.total ?? 0,
+    },
+    {
+      key: "vehicles",
+      label: "Vehicles",
+      items: (data?.vehicles?.results ?? []).map((vehicle) => ({
+        id: vehicle.id,
+        label: vehicle.number,
+        description: vehicle.currentSiteName ?? undefined,
+        icon: <TruckIcon />,
+      })),
+      total: data?.vehicles?.total ?? 0,
+    },
+    {
+      key: "siteContracts",
+      label: "Site Contracts",
+      items: (data?.siteContracts?.results ?? []).map((contract) => ({
+        id: contract.id,
+        label: contract.subcontractorName,
+        description: contract.siteName,
+        icon: <ClipboardIcon />,
+      })),
+      total: data?.siteContracts?.total ?? 0,
+    },
+    {
+      key: "workEntries",
+      label: "Work Progress",
+      items: (data?.workEntries?.results ?? []).map((entry) => ({
+        id: entry.id,
+        label: entry.subcontractorName,
+        description: entry.siteName,
+        icon: <CheckCircleIcon />,
+      })),
+      total: data?.workEntries?.total ?? 0,
+    },
+    {
+      key: "subcontractorPayments",
+      label: "Subcontractor Payments",
+      items: (data?.subcontractorPayments?.results ?? []).map((payment) => ({
+        id: payment.id,
+        label: payment.subcontractorName,
+        description: payment.siteName,
+        icon: <WalletIcon />,
+      })),
+      total: data?.subcontractorPayments?.total ?? 0,
+    },
+    {
+      key: "workRecords",
+      label: "Attendance",
+      items: (data?.workRecords?.results ?? []).map((record) => ({
+        id: record.id,
+        label: record.teamMemberName,
+        description: record.siteName,
+        icon: <UsersIcon />,
+      })),
+      total: data?.workRecords?.total ?? 0,
+    },
+    {
+      key: "dailyReports",
+      label: "Daily Reports",
+      items: (data?.dailyReports?.results ?? []).map((report) => ({
+        id: report.id,
+        label: report.siteName,
+        description: report.submittedByName,
+        icon: <ClipboardIcon />,
+      })),
+      total: data?.dailyReports?.total ?? 0,
+    },
+    {
+      key: "auditLogs",
+      label: "Audit Log",
+      items: (data?.auditLogs?.results ?? []).map((log) => ({
+        id: log.id,
+        label: log.action,
+        description: log.userName,
+        icon: <LockIcon />,
+      })),
+      total: data?.auditLogs?.total ?? 0,
+    },
   ];
 
   function handleSelect(groupKey: string, item: { id: string }) {
@@ -280,16 +449,19 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
     }
 
     setOpen(false);
+    // sites/vendors/teamMembers/subcontractors share their exact `${base}/${id}`
+    // routing with Recently Viewed (recently-viewed-chips.tsx) — one shared
+    // helper, not two independently maintained tables (Story 16.6).
     if (groupKey === "sites") {
-      router.push(`/sites/${item.id}`);
+      router.push(entityHref("site", item.id));
     } else if (groupKey === "materials") {
       router.push(`/materials/${item.id}/availability`);
     } else if (groupKey === "vendors") {
-      router.push(`/vendors/${item.id}`);
+      router.push(entityHref("vendor", item.id));
     } else if (groupKey === "teamMembers") {
-      router.push(`/team/${item.id}`);
+      router.push(entityHref("team-member", item.id));
     } else if (groupKey === "subcontractors") {
-      router.push(`/subcontractors/${item.id}`);
+      router.push(entityHref("subcontractor", item.id));
     } else if (groupKey === "payments") {
       router.push(`/payments/${item.id}/correct`);
     } else if (groupKey === "rmc") {
@@ -305,6 +477,64 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       } else {
         router.push(`/movements/purchases/${item.id}/correct`);
       }
+    } else if (groupKey === "movements") {
+      // The app's own Movements log uses this exact path for every
+      // Movement regardless of kind (Godown→Site or Site→Site) — see
+      // movements-list-client.tsx's own correctHref.
+      router.push(`/movements/godown-to-site/${item.id}/correct`);
+    } else if (groupKey === "consumptions") {
+      router.push(`/movements/consumption/${item.id}/correct`);
+    } else if (groupKey === "returnWastages") {
+      router.push(`/movements/return-wastage/${item.id}/correct`);
+    } else if (groupKey === "wasteDisposals") {
+      router.push(`/waste-disposal/${item.id}/correct`);
+    } else if (groupKey === "advances") {
+      const advance = data?.advances?.results.find((a) => a.id === item.id);
+      if (advance) {
+        router.push(`/team/${advance.teamMemberId}/advances/${item.id}/correct`);
+      }
+    } else if (groupKey === "advanceAdjustments") {
+      const adjustment = data?.advanceAdjustments?.results.find((a) => a.id === item.id);
+      if (adjustment) {
+        router.push(
+          `/team/${adjustment.teamMemberId}/advances/${adjustment.advanceId}/adjustments/${item.id}/correct`,
+        );
+      }
+    } else if (groupKey === "machinery") {
+      router.push(`/machinery-vehicles/machinery/${item.id}`);
+    } else if (groupKey === "vehicles") {
+      router.push(`/machinery-vehicles/vehicles/${item.id}`);
+    } else if (groupKey === "siteContracts") {
+      const contract = data?.siteContracts?.results.find((c) => c.id === item.id);
+      if (contract) {
+        router.push(`/sites/${contract.siteId}/contracts/${item.id}`);
+      }
+    } else if (groupKey === "workEntries") {
+      const entry = data?.workEntries?.results.find((e) => e.id === item.id);
+      if (entry) {
+        router.push(
+          `/sites/${entry.siteId}/contracts/${entry.siteContractId}/work-entries/${item.id}/correct`,
+        );
+      }
+    } else if (groupKey === "subcontractorPayments") {
+      const payment = data?.subcontractorPayments?.results.find((p) => p.id === item.id);
+      if (payment) {
+        router.push(
+          `/sites/${payment.siteId}/contracts/${payment.siteContractId}/payments/${item.id}/correct`,
+        );
+      }
+    } else if (groupKey === "workRecords") {
+      // No dedicated per-Work-Record page exists — the closest real
+      // destination is the Team Member's own detail page.
+      const record = data?.workRecords?.results.find((r) => r.id === item.id);
+      if (record) {
+        router.push(`/team/${record.teamMemberId}`);
+      }
+    } else if (groupKey === "dailyReports") {
+      router.push(`/daily-activity/${item.id}`);
+    } else if (groupKey === "auditLogs") {
+      // Append-only, no per-row page — land on the log itself.
+      router.push("/settings/audit-log");
     }
   }
 
@@ -331,6 +561,46 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       // Purchases live inside the Movements log, filtered by type — there
       // is no standalone /purchases list page.
       router.push(`/movements?type=PURCHASE&q=${q}`);
+    } else if (groupKey === "movements") {
+      router.push(`/movements?type=MOVEMENT&q=${q}`);
+    } else if (groupKey === "consumptions") {
+      router.push(`/movements?type=CONSUMPTION&q=${q}`);
+    } else if (groupKey === "returnWastages") {
+      router.push(`/movements?type=RETURN_WASTAGE&q=${q}`);
+    } else if (groupKey === "wasteDisposals") {
+      // /waste-disposal has no text-search filter (siteId/vendorId/date
+      // only, per WasteDisposalController) — land on the unfiltered log
+      // rather than appending an ignored ?q=.
+      router.push("/waste-disposal");
+    } else if (groupKey === "machinery") {
+      // Machinery and Vehicles share one page with separately-named query
+      // params (mq/vq per machinery-vehicles/page.tsx), not a generic q=.
+      router.push(`/machinery-vehicles?mq=${q}`);
+    } else if (groupKey === "vehicles") {
+      router.push(`/machinery-vehicles?vq=${q}`);
+    } else if (groupKey === "advances" || groupKey === "advanceAdjustments" || groupKey === "workRecords") {
+      // None of these three have their own flat, text-searchable list page
+      // (Advances/Adjustments live nested per Team Member; Work Records has
+      // no list page at all) — SearchPalette still renders "See all" once a
+      // group's total exceeds the inline cap regardless of whether a route
+      // exists here, so silently doing nothing would be a dead button.
+      // /team?q= is the closest real, searchable destination for all three.
+      router.push(`/team?q=${q}`);
+    } else if (
+      groupKey === "siteContracts" ||
+      groupKey === "workEntries" ||
+      groupKey === "subcontractorPayments"
+    ) {
+      // Same reasoning — none of these three have a flat list page (all
+      // nested under a Site Contract). /subcontractors?q= is the closest
+      // real, searchable destination.
+      router.push(`/subcontractors?q=${q}`);
+    } else if (groupKey === "dailyReports") {
+      // /daily-activity has no q= filter — land on the unfiltered log
+      // rather than a dead button.
+      router.push("/daily-activity");
+    } else if (groupKey === "auditLogs") {
+      router.push("/settings/audit-log");
     }
   }
 

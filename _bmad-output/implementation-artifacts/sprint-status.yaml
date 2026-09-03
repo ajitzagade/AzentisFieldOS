@@ -139,11 +139,13 @@ development_status:
   15-5-receiver-name-suggestions: done
   epic-15-retrospective: optional
 
-  epic-16: done
+  epic-16: in-progress
   16-1-list-search-filter-sort-pagination-platform: done
   16-2-global-search: done
   16-3-cross-site-material-lookup-and-transfer: done
   16-4-navigation-information-architecture: done
+  16-5-search-security-and-performance-hardening: done
+  16-6-search-full-entity-coverage: ready-for-dev
   epic-16-retrospective: optional
 
   epic-17: done

@@ -704,6 +704,65 @@ export const SEARCH_ACTIONS: SearchAction[] = [
     keywords: ["reports", "open reports"],
     href: "/reports",
   },
+  // Story 16.6: one action per newly search-covered module with a genuine
+  // flat (site/asset-agnostic) route. Site Contract creation, Work
+  // Progress, Subcontractor Payments, and asset Maintenance/Fuel logs are
+  // deliberately NOT added here — every one of those routes is nested
+  // under a specific Site or asset (e.g. `/sites/[id]/contracts/new`,
+  // `/machinery-vehicles/machinery/[id]/service-log`), so there is no
+  // single flat destination a palette action could link to without first
+  // knowing which Site/asset. They stay reachable via their own
+  // detail-page actions and via search's entity results, not the Actions
+  // list.
+  {
+    id: "record-movement",
+    title: "Record Movement",
+    description: "Send material Godown → Site or Site → Site",
+    keywords: ["record movement", "material sent", "godown to site", "transfer"],
+    href: "/movements/godown-to-site/new",
+  },
+  {
+    id: "record-consumption",
+    title: "Record Consumption",
+    description: "Log material used today",
+    keywords: ["record consumption", "material used"],
+    href: "/movements/consumption/new",
+  },
+  {
+    id: "record-wastage",
+    title: "Record Wastage / Return",
+    description: "Log material wasted or returned",
+    keywords: ["record wastage", "wastage", "return"],
+    href: "/movements/return-wastage/new",
+  },
+  {
+    id: "record-waste-disposal",
+    title: "Record Waste Disposal",
+    description: "Log a waste or disposal trip",
+    keywords: ["waste disposal", "dispose", "disposal"],
+    href: "/waste-disposal/new",
+  },
+  {
+    id: "add-machinery",
+    title: "Add Machinery",
+    description: "Register a new Machine",
+    keywords: ["add machinery", "new machinery", "add machine"],
+    href: "/machinery-vehicles/machinery/new",
+  },
+  {
+    id: "add-vehicle",
+    title: "Add Vehicle",
+    description: "Register a new Vehicle",
+    keywords: ["add vehicle", "new vehicle"],
+    href: "/machinery-vehicles/vehicles/new",
+  },
+  {
+    id: "view-attendance",
+    title: "View Attendance",
+    description: "Team & Attendance",
+    keywords: ["view attendance", "attendance", "work record"],
+    href: "/team",
+  },
   {
     id: "open-settings",
     title: "Open Settings",

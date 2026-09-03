@@ -28,7 +28,7 @@ export function useGlobalSearch(query: string): GlobalSearchState {
   useEffect(() => {
     // A blank query has nothing to fetch — handled below without touching
     // state, so this branch never needs a synchronous setState-in-effect.
-    if (!trimmed) return;
+    if (trimmed.length < 2) return;
     let cancelled = false;
     authedFetch(`/search?q=${encodeURIComponent(trimmed)}`)
       .then((res) => {
@@ -48,7 +48,7 @@ export function useGlobalSearch(query: string): GlobalSearchState {
     };
   }, [trimmed, authedFetch]);
 
-  if (!trimmed) {
+  if (trimmed.length < 2) {
     return { data: null, loading: false, error: null };
   }
 

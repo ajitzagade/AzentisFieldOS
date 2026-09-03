@@ -70,4 +70,53 @@ describe("useGlobalSearch", () => {
     expect(result.current.data).toBeNull();
     expect(result.current.loading).toBe(false);
   });
+
+  it("does not call fetch for a query trimmed below 2 characters", () => {
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useGlobalSearch(" c "));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current).toEqual({ data: null, loading: false, error: null });
+  });
+
+  it("shows the most recently issued query's result even when an earlier query's response resolves later", async () => {
+    const RESPONSE_CE = {
+      sites: { results: [{ id: "ce1", name: "CE Site", location: "X", contractReference: null }], total: 1 },
+      materials: { results: [], total: 0 },
+    };
+    const RESPONSE_CEM = {
+      sites: { results: [{ id: "cem1", name: "Cement Site", location: "X", contractReference: null }], total: 1 },
+      materials: { results: [], total: 0 },
+    };
+
+    const resolvers: Array<(value: unknown) => void> = [];
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { result, rerender } = renderHook(
+      ({ query }: { query: string }) => useGlobalSearch(query),
+      { initialProps: { query: "ce" } },
+    );
+    rerender({ query: "cem" });
+
+    await waitFor(() => expect(resolvers.length).toBe(2));
+
+    // Resolve the second-issued ("cem") request first, then the stale
+    // first ("ce") request — the hook must end up showing "cem"'s data,
+    // never overwritten by the late-arriving stale response.
+    resolvers[1]!({ ok: true, status: 200, json: async () => RESPONSE_CEM });
+    await waitFor(() => expect(result.current.data).toEqual(RESPONSE_CEM));
+
+    resolvers[0]!({ ok: true, status: 200, json: async () => RESPONSE_CE });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(result.current.data).toEqual(RESPONSE_CEM);
+    expect(result.current.loading).toBe(false);
+  });
 });

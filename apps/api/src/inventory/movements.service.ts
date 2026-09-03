@@ -211,6 +211,51 @@ export class MovementsService {
     return movement;
   }
 
+  // Story 16.6: the global Search palette's Movement coverage — Movement has
+  // no name of its own, so this matches the linked Material/source-Site/
+  // destination-Site name plus free-text notes.
+  async searchCandidates(q: string): Promise<{
+    candidates: Prisma.MovementGetPayload<{
+      include: {
+        sourceSite: true;
+        destinationSite: true;
+        materialSize: { include: { material: true } };
+      };
+    }>[];
+    total: number;
+  }> {
+    const where: Prisma.MovementWhereInput = {
+      OR: [
+        {
+          materialSize: {
+            material: { name: { contains: q, mode: 'insensitive' as const } },
+          },
+        },
+        { sourceSite: { name: { contains: q, mode: 'insensitive' as const } } },
+        {
+          destinationSite: {
+            name: { contains: q, mode: 'insensitive' as const },
+          },
+        },
+        { notes: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.movement.findMany({
+        where,
+        include: {
+          sourceSite: true,
+          destinationSite: true,
+          materialSize: { include: { material: true } },
+        },
+        orderBy: { movedAt: 'desc' },
+        take: 200,
+      }),
+      this.prisma.movement.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   // A materialSizeId/sourceSiteId/destinationSiteId that doesn't exist
   // must be a clean 400, not a raw 500 — same pattern as
   // PurchasesService.translateWriteError.

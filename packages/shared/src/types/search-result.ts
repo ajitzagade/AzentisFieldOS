@@ -70,6 +70,126 @@ export interface ExpenseSearchResult {
   amount: number;
 }
 
+// Story 16.6: the palette's coverage expands to every remaining core entity
+// type. Same "just enough to render a row and resolve routing" shape as the
+// Story 19.2 results above.
+export interface MovementSearchResult {
+  id: string;
+  materialName: string;
+  sourceSiteName: string | null;
+  destinationSiteName: string;
+}
+
+export interface ConsumptionSearchResult {
+  id: string;
+  materialName: string;
+  siteName: string;
+}
+
+export interface WasteDisposalSearchResult {
+  id: string;
+  wasteType: string;
+  siteName: string;
+  vendorName: string | null;
+}
+
+// Distinct from WasteDisposal above — Epic 5's Return/Wastage inventory
+// transaction (decreases Site Stock), not Epic 15's per-trip disposal cost
+// ledger.
+export interface ReturnWastageSearchResult {
+  id: string;
+  kind: string;
+  materialName: string;
+  siteName: string;
+}
+
+export interface AdvanceSearchResult {
+  id: string;
+  // Routing needs the parent Team Member's id — /team/[id]/advances/[advanceId]/correct.
+  teamMemberId: string;
+  teamMemberName: string;
+  amount: number;
+}
+
+export interface AdvanceAdjustmentSearchResult {
+  id: string;
+  // Routing needs both — /team/[teamMemberId]/advances/[advanceId]/adjustments/[id]/correct.
+  teamMemberId: string;
+  advanceId: string;
+  teamMemberName: string;
+  amount: number;
+}
+
+export interface MachinerySearchResult {
+  id: string;
+  name: string;
+  assetNumber: string;
+  currentSiteName: string | null;
+}
+
+export interface VehicleSearchResult {
+  id: string;
+  number: string;
+  currentSiteName: string | null;
+}
+
+export interface SiteContractSearchResult {
+  id: string;
+  // Routing needs the Site's id — /sites/[siteId]/contracts/[id].
+  siteId: string;
+  subcontractorName: string;
+  siteName: string;
+  status: string;
+}
+
+export interface WorkEntrySearchResult {
+  id: string;
+  // Routing needs both — /sites/[siteId]/contracts/[siteContractId]/work-entries/[id]/correct.
+  siteId: string;
+  siteContractId: string;
+  subcontractorName: string;
+  siteName: string;
+}
+
+// One of two groups the search layer role-gates to OWNER_ADMIN (Story
+// 16.5's mechanism) — matches SubcontractorPaymentsController's own
+// class-level @Roles('OWNER_ADMIN').
+export interface SubcontractorPaymentSearchResult {
+  id: string;
+  // Routing needs both — /sites/[siteId]/contracts/[siteContractId]/payments/[id]/correct.
+  siteId: string;
+  siteContractId: string;
+  subcontractorName: string;
+  siteName: string;
+  amount: number;
+}
+
+export interface WorkRecordSearchResult {
+  id: string;
+  // Routing falls back to the Team Member's own detail page — no
+  // per-Work-Record page exists today.
+  teamMemberId: string;
+  teamMemberName: string;
+  siteName: string;
+}
+
+export interface DailyReportSearchResult {
+  id: string;
+  siteName: string;
+  submittedByName: string;
+}
+
+// The other role-gated group (Story 16.5) — matches
+// AuditController.list()'s own @Roles('OWNER_ADMIN'). No siteName: resolving
+// it needs the same extra siteId->name lookup AuditController.list() does,
+// not worth adding to the already-22-way search fan-out for a search-result
+// row that already carries `action`.
+export interface AuditLogSearchResult {
+  id: string;
+  action: string;
+  userName: string;
+}
+
 export interface SearchResultGroup<T> {
   results: T[];
   total: number;
@@ -85,4 +205,18 @@ export interface SearchResponse {
   subcontractors: SearchResultGroup<SubcontractorSearchResult>;
   rmc: SearchResultGroup<RmcSearchResult>;
   expenses: SearchResultGroup<ExpenseSearchResult>;
+  movements: SearchResultGroup<MovementSearchResult>;
+  consumptions: SearchResultGroup<ConsumptionSearchResult>;
+  wasteDisposals: SearchResultGroup<WasteDisposalSearchResult>;
+  returnWastages: SearchResultGroup<ReturnWastageSearchResult>;
+  advances: SearchResultGroup<AdvanceSearchResult>;
+  advanceAdjustments: SearchResultGroup<AdvanceAdjustmentSearchResult>;
+  machinery: SearchResultGroup<MachinerySearchResult>;
+  vehicles: SearchResultGroup<VehicleSearchResult>;
+  siteContracts: SearchResultGroup<SiteContractSearchResult>;
+  workEntries: SearchResultGroup<WorkEntrySearchResult>;
+  subcontractorPayments: SearchResultGroup<SubcontractorPaymentSearchResult>;
+  workRecords: SearchResultGroup<WorkRecordSearchResult>;
+  dailyReports: SearchResultGroup<DailyReportSearchResult>;
+  auditLogs: SearchResultGroup<AuditLogSearchResult>;
 }

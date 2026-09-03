@@ -240,6 +240,33 @@ export class WasteDisposalService {
     return disposal;
   }
 
+  // Story 16.6: the global Search palette's Waste Disposal coverage —
+  // matches the linked Site/Vendor name, the waste type, and free-text
+  // notes.
+  async searchCandidates(q: string): Promise<{
+    candidates: WasteDisposalListRow[];
+    total: number;
+  }> {
+    const where: Prisma.WasteDisposalWhereInput = {
+      OR: [
+        { site: { name: { contains: q, mode: 'insensitive' as const } } },
+        { vendor: { name: { contains: q, mode: 'insensitive' as const } } },
+        { wasteType: { contains: q, mode: 'insensitive' as const } },
+        { notes: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+    const [candidates, total] = await Promise.all([
+      this.prisma.wasteDisposal.findMany({
+        where,
+        include: DISPOSAL_INCLUDE,
+        orderBy: { disposedAt: 'desc' },
+        take: 200,
+      }),
+      this.prisma.wasteDisposal.count({ where }),
+    ]);
+    return { candidates, total };
+  }
+
   private whereFor(
     filters: WasteDisposalListFilters,
   ): Prisma.WasteDisposalWhereInput {
