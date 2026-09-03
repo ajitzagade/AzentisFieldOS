@@ -129,7 +129,11 @@ export class StorageService {
   // record fields (Purchase.challanPhotoUrl, BrandingConfig.logoUrl) call
   // cloudinaryUrl() directly at write time instead, since those URLs are
   // computed once and stored rather than resolved on every read.
-  getThumbnailUrl(storageKey: string): Promise<string> {
-    return Promise.resolve(cloudinaryThumbnailUrl(storageKey));
+  // `width` passes straight through to cloudinaryThumbnailUrl's own default
+  // (480) when omitted — the photo-gallery lightbox (FR-31) calls this a
+  // second time per photo with a larger width for its `previewUrl`, still
+  // via this one helper rather than a second Cloudinary URL builder.
+  getThumbnailUrl(storageKey: string, width?: number): Promise<string> {
+    return Promise.resolve(cloudinaryThumbnailUrl(storageKey, width));
   }
 }

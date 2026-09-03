@@ -32,10 +32,14 @@ export async function getSitePhotoGallery(
   return Promise.all(
     photos.map(async (photo): Promise<PhotoGalleryItem> => ({
       id: photo.id,
-      // PhotoGalleryItem.url only ever renders into PhotoGalleryGrid's
-      // thumbnail cells (no lightbox/full-size viewer exists) — the
-      // downsized, format-safe URL, not the full-resolution original.
+      // PhotoGalleryItem.url renders into PhotoGalleryGrid's thumbnail
+      // cells — the downsized, format-safe URL, not the full-resolution
+      // original.
       url: await storage.getThumbnailUrl(photo.storageKey),
+      // previewUrl feeds the click-to-preview lightbox (same grid,
+      // full-size view) — a larger rendition of the same storageKey via
+      // the same helper, not the untransformed original.
+      previewUrl: await storage.getThumbnailUrl(photo.storageKey, 1600),
       reportDate: photo.dailySiteReport.reportDate.toISOString().slice(0, 10),
       dailySiteReportId: photo.dailySiteReportId,
       uploaderName: photo.uploadedBy.name,

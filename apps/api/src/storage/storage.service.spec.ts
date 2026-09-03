@@ -169,4 +169,14 @@ describe('StorageService.getThumbnailUrl', () => {
       'https://res.cloudinary.com/test-cloud/image/upload/w_480,c_limit,q_auto,f_auto/dsr/dsr-1/x',
     );
   });
+
+  it('honors an explicit width for a larger rendition (e.g. the gallery lightbox previewUrl)', async () => {
+    const service = makeService({});
+
+    const url = await service.getThumbnailUrl('dsr/dsr-1/x', 1600);
+
+    expect(url).toBe(
+      'https://res.cloudinary.com/test-cloud/image/upload/w_1600,c_limit,q_auto,f_auto/dsr/dsr-1/x',
+    );
+  });
 });

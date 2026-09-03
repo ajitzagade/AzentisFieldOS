@@ -13,6 +13,7 @@
   "dependencies": {
     "@azentisfieldos/shared": "workspace:*",
     "@azentisfieldos/ui": "workspace:*",
+    "@base-ui-components/react": "1.0.0-rc.0",
     "dexie": "^4.4.4",
     "next": "16.3.0",
     "react": "19.2.8",
