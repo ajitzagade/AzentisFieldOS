@@ -133,6 +133,18 @@ export class VendorsService {
     return this.purchasesService.summaryForVendor(id);
   }
 
+  // Perf review 2026-09-03: the Vendors list page's batched counterpart to
+  // purchaseSummary() above — one call for every row on the page instead of
+  // one HTTP round trip per Vendor. Deliberately skips findOne()'s
+  // existence/soft-delete check per id: an id for a Vendor that's since
+  // been deleted simply gets back a zeroed summary (same shape
+  // summaryForVendors returns for "no matching Purchases"), which is fine
+  // since the caller already has these ids from its own just-loaded,
+  // already-visible list — there's nothing to 404.
+  purchaseSummaries(ids: string[]) {
+    return this.purchasesService.summaryForVendors(ids);
+  }
+
   // Story 19.2: the global Search palette's Vendor coverage — same
   // safety-valve reasoning as SitesService.searchCandidates (search.service.ts
   // ranks/caps the candidate set; this just returns everything DB-matched).

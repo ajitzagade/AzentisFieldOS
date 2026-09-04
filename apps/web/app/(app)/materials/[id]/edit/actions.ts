@@ -2,6 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { parseUpdateMaterialForm } from "./parse";
 
 export interface UpdateMaterialFormState {
@@ -50,5 +51,10 @@ export async function updateMaterialAction(
     return { formError: "Something went wrong updating the Material. Please try again." };
   }
 
+  // Code review 2026-09-04: /materials now carries a short revalidate
+  // window (perf review), so a redirect back there without this call could
+  // show the pre-edit name/details for up to that window — this closes it,
+  // matching materials/new/actions.ts's own revalidatePath("/materials").
+  revalidatePath("/materials");
   redirect(`/materials?flash=${encodeURIComponent("Material updated")}`);
 }

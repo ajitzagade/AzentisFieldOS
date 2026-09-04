@@ -287,6 +287,65 @@ export class PurchasesService {
     };
   }
 
+  // Perf review 2026-09-03: the Vendors list page used to call
+  // summaryForVendor() once per row via HTTP (up to 25 concurrent round
+  // trips just to open the tab) — the exact per-Vendor N+1 pattern
+  // outstandingAcrossVendors() above was already introduced to avoid for
+  // the Dashboard. Two groupBy queries (not one per Vendor) computes every
+  // requested Vendor's summary in one DB round trip each; a Vendor with no
+  // matching Purchases in either group simply keeps its zeroed entry below,
+  // mirroring summaryForVendor's own `?? 0` fallback.
+  async summaryForVendors(
+    vendorIds: string[],
+  ): Promise<
+    Record<string, { totalThisYear: number; notFullyPaidTotal: number }>
+  > {
+    const summaries: Record<
+      string,
+      { totalThisYear: number; notFullyPaidTotal: number }
+    > = {};
+    for (const id of vendorIds) {
+      summaries[id] = { totalThisYear: 0, notFullyPaidTotal: 0 };
+    }
+    if (vendorIds.length === 0) {
+      return summaries;
+    }
+
+    const now = new Date();
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const nextYearStart = new Date(now.getFullYear() + 1, 0, 1);
+
+    const [thisYearRows, notFullyPaidRows] = await Promise.all([
+      this.prisma.purchase.groupBy({
+        by: ['vendorId'],
+        where: {
+          vendorId: { in: vendorIds },
+          purchasedAt: { gte: yearStart, lt: nextYearStart },
+        },
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.purchase.groupBy({
+        by: ['vendorId'],
+        // Explicit statuses, not `not: 'PAID'` — see UNPAID_OR_PARTIAL.
+        where: {
+          vendorId: { in: vendorIds },
+          paymentStatus: UNPAID_OR_PARTIAL,
+        },
+        _sum: { totalAmount: true },
+      }),
+    ]);
+
+    for (const row of thisYearRows) {
+      summaries[row.vendorId]!.totalThisYear =
+        row._sum.totalAmount?.toNumber() ?? 0;
+    }
+    for (const row of notFullyPaidRows) {
+      summaries[row.vendorId]!.notFullyPaidTotal =
+        row._sum.totalAmount?.toNumber() ?? 0;
+    }
+    return summaries;
+  }
+
   // Dashboard's "Vendor Outstanding" tile — the tenant-wide total of
   // summaryForVendor()'s `notFullyPaidTotal`, computed with one DB-side
   // aggregate instead of the Dashboard fetching every Vendor and firing one

@@ -46,6 +46,12 @@ async function getTeamMembers(params: TeamPageSearchParams): Promise<PaginatedRe
   query.set("pageSize", params.pageSize ?? String(DEFAULT_PAGE_SIZE));
   if (params.q) query.set("q", params.q);
 
+  // Deliberately left `no-store`, unlike the other master-data list pages
+  // this perf review otherwise added a short revalidate window to: this
+  // response bundles `todaysAttendance`, a same-day status set by the DSR/
+  // Attendance flow, which does not revalidatePath("/team") — a cached
+  // window here would show a stale Present/Absent badge, not just a
+  // slightly-stale name list.
   const res = await authedFetch(`/team-members?${query.toString()}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Team Members (${res.status})`);

@@ -35,9 +35,10 @@ function mockFetch(vendors: unknown[], summaries: Record<string, { totalThisYear
         json: async () => ({ rows: vendors, total: vendors.length, page: 1, pageSize: 25 }),
       } as Response;
     }
-    const match = /\/vendors\/([^/]+)\/purchase-summary$/.exec(url);
-    if (match) {
-      return { ok: true, json: async () => summaries[match[1]!] } as Response;
+    // Perf review 2026-09-03: one batched call for the whole page instead
+    // of one per Vendor row — see getVendorPurchaseSummaries in page.tsx.
+    if (url.includes("/vendors/purchase-summary?ids=")) {
+      return { ok: true, json: async () => summaries } as Response;
     }
     throw new Error(`Unexpected fetch: ${url}`);
   }) as unknown as typeof fetch;
@@ -109,6 +110,43 @@ describe("VendorsPage", () => {
     // Rendered as both the desktop table panel and the mobile card panel.
     expect(screen.getAllByText("No Vendors yet.")).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: /Add your first Vendor/ })[0]).toHaveAttribute("href", "/vendors/new");
+  });
+
+  // Code review 2026-09-04: batching the per-row summary fetch into one
+  // call (perf review) means a single failure now blanks every row's
+  // summary instead of isolating one — this pins that tradeoff down so a
+  // future regression (e.g. the whole page crashing instead of degrading)
+  // gets caught.
+  it("shows the honest '—' fallback on every row, not a crash, when the batched purchase-summary call fails", async () => {
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/vendors?")) {
+        return {
+          ok: true,
+          json: async () => ({
+            rows: [
+              { id: "1", name: "Anand RMC Suppliers", contactPerson: null, phone: null, email: null, address: null, materialsSupplied: [] },
+              { id: "2", name: "Shree Balaji Traders", contactPerson: null, phone: null, email: null, address: null, materialsSupplied: [] },
+            ],
+            total: 2,
+            page: 1,
+            pageSize: 25,
+          }),
+        } as Response;
+      }
+      if (url.includes("/vendors/purchase-summary?ids=")) {
+        return { ok: false, status: 500, json: async () => ({}) } as Response;
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as unknown as typeof fetch;
+
+    await renderVendorsPage();
+
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Anand RMC Suppliers")).toBeInTheDocument();
+    expect(table.getByText("Shree Balaji Traders")).toBeInTheDocument();
+    // Both rows' money columns fall back to "—", not a thrown error.
+    expect(table.getAllByText("—").length).toBeGreaterThanOrEqual(2);
   });
 
   it("renders the Add Vendor link in the page header", async () => {

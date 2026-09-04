@@ -22,6 +22,19 @@ interface SubcontractorsPageSearchParams {
 
 const DEFAULT_PAGE_SIZE = 25;
 
+// Perf review 2026-09-03: Subcontractor master data changes rarely, carries
+// no same-day derived status (unlike Team Members' todaysAttendance), and
+// subcontractors/new, subcontractors/[id]/edit, and subcontractors/[id]
+// (delete) actions.ts all call revalidatePath("/subcontractors") on their
+// respective mutation — so a short time-based revalidate window never
+// shows stale data after one. Code review 2026-09-04 correction: Next's
+// fetch Data Cache key includes request headers, and authedFetch attaches
+// a per-user Authorization header — so this cache entry is per-user, not
+// shared tenant-wide. It still avoids a re-fetch when the SAME user
+// re-opens this tab within the window (the reported symptom), just not
+// concurrent different users sharing one DB round trip.
+const SUBCONTRACTOR_LIST_REVALIDATE_SECONDS = 10;
+
 async function getSubcontractors(
   params: SubcontractorsPageSearchParams,
 ): Promise<PaginatedResult<Subcontractor>> {
@@ -30,7 +43,9 @@ async function getSubcontractors(
   query.set("pageSize", params.pageSize ?? String(DEFAULT_PAGE_SIZE));
   if (params.q) query.set("q", params.q);
 
-  const res = await authedFetch(`/subcontractors?${query.toString()}`, { cache: "no-store" });
+  const res = await authedFetch(`/subcontractors?${query.toString()}`, {
+    next: { revalidate: SUBCONTRACTOR_LIST_REVALIDATE_SECONDS },
+  });
   if (!res.ok) {
     throw new Error(`Failed to load Subcontractors (${res.status})`);
   }

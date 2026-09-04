@@ -17,8 +17,23 @@ export interface MaterialListItem {
   lowStockThreshold: string | null;
 }
 
+// Perf review 2026-09-03: master-data catalogs (Materials/Categories/Units)
+// change rarely and every create/update/edit action here already calls
+// revalidatePath("/materials") (materials/new, materials/categories,
+// materials/units, materials/[id]/edit actions.ts) — so a short
+// time-based revalidate window never shows stale data after a mutation.
+// Code review 2026-09-04 correction: Next's fetch Data Cache key includes
+// request headers, and authedFetch attaches a per-user Authorization
+// header — so this cache entry is per-user, not shared tenant-wide. It
+// still avoids a re-fetch when the SAME user re-opens this tab within the
+// window (the reported symptom), just not concurrent different users
+// sharing one DB round trip.
+const CATALOG_REVALIDATE_SECONDS = 10;
+
 async function getMaterials(): Promise<MaterialListItem[]> {
-  const res = await authedFetch(`/materials`, { cache: "no-store" });
+  const res = await authedFetch(`/materials`, {
+    next: { revalidate: CATALOG_REVALIDATE_SECONDS },
+  });
   if (!res.ok) {
     throw new Error(`Failed to load Materials (${res.status})`);
   }
@@ -26,7 +41,9 @@ async function getMaterials(): Promise<MaterialListItem[]> {
 }
 
 async function getCategories(): Promise<TaxonomyCategory[]> {
-  const res = await authedFetch(`/material-categories`, { cache: "no-store" });
+  const res = await authedFetch(`/material-categories`, {
+    next: { revalidate: CATALOG_REVALIDATE_SECONDS },
+  });
   if (!res.ok) {
     throw new Error(`Failed to load Material Categories (${res.status})`);
   }
@@ -34,7 +51,9 @@ async function getCategories(): Promise<TaxonomyCategory[]> {
 }
 
 async function getUnits(): Promise<TaxonomyUnit[]> {
-  const res = await authedFetch(`/units`, { cache: "no-store" });
+  const res = await authedFetch(`/units`, {
+    next: { revalidate: CATALOG_REVALIDATE_SECONDS },
+  });
   if (!res.ok) {
     throw new Error(`Failed to load Units (${res.status})`);
   }

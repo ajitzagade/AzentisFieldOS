@@ -27,19 +27,37 @@ interface VendorsPageSearchParams {
 
 const DEFAULT_PAGE_SIZE = 25;
 
+// Perf review 2026-09-03: Vendor master data changes rarely, and
+// vendors/new, vendors/[id]/edit, and vendors/[id] (delete) actions.ts all
+// call revalidatePath("/vendors") on their respective mutation — so a
+// short time-based revalidate window never shows stale data after one.
+// Code review 2026-09-04 correction: Next's fetch Data Cache key includes
+// request headers, and authedFetch attaches a per-user Authorization
+// header — so this cache entry is per-user, not shared tenant-wide. It
+// still avoids a re-fetch when the SAME user re-opens this tab within the
+// window (the reported symptom), just not concurrent different users
+// sharing one DB round trip. Purchase summary below stays no-store — it's
+// a money figure derived from transaction data (Purchases), not master data.
+const VENDOR_LIST_REVALIDATE_SECONDS = 10;
+
 async function getVendors(params: VendorsPageSearchParams): Promise<PaginatedResult<Vendor>> {
   const query = new URLSearchParams();
   query.set("page", params.page ?? "1");
   query.set("pageSize", params.pageSize ?? String(DEFAULT_PAGE_SIZE));
   if (params.q) query.set("q", params.q);
 
-  const res = await authedFetch(`/vendors?${query.toString()}`, { cache: "no-store" });
+  const res = await authedFetch(`/vendors?${query.toString()}`, {
+    next: { revalidate: VENDOR_LIST_REVALIDATE_SECONDS },
+  });
   if (!res.ok) {
     throw new Error(`Failed to load Vendors (${res.status})`);
   }
   return res.json();
 }
 
+// Used by the Vendor detail page (vendors/[id]/page.tsx) for its own
+// single-Vendor view — the list page below uses the batched sibling
+// instead, never a fan-out of this per row.
 export async function getVendorPurchaseSummary(id: string): Promise<VendorPurchaseSummary> {
   const res = await authedFetch(`/vendors/${id}/purchase-summary`, { cache: "no-store" });
   if (!res.ok) {
@@ -48,15 +66,32 @@ export async function getVendorPurchaseSummary(id: string): Promise<VendorPurcha
   return res.json();
 }
 
-// A single Vendor's summary fetch failing (deleted mid-request, transient
-// 5xx) must not blank the whole table — every other row still loaded fine.
-// `null` means "couldn't load," rendered as an honest "—", never
-// defaulted to 0/Fully Paid, which would misrepresent what's actually owed.
-async function getVendorPurchaseSummarySafe(id: string): Promise<VendorPurchaseSummary | null> {
+// Perf review 2026-09-03: the Vendors list used to call
+// getVendorPurchaseSummary once per row (up to 25 concurrent HTTP round
+// trips just to open the tab). One batched call now covers the whole page.
+async function getVendorPurchaseSummaries(
+  ids: string[],
+): Promise<Record<string, VendorPurchaseSummary>> {
+  if (ids.length === 0) return {};
+  const res = await authedFetch(`/vendors/purchase-summary?ids=${ids.join(",")}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to load Vendor purchase summaries (${res.status})`);
+  }
+  return res.json();
+}
+
+// The batch fetch failing (transient 5xx) must not blank the whole table —
+// every row just shows the honest "—" fallback below, same as before this
+// was a single request instead of one per row.
+async function getVendorPurchaseSummariesSafe(
+  ids: string[],
+): Promise<Record<string, VendorPurchaseSummary>> {
   try {
-    return await getVendorPurchaseSummary(id);
+    return await getVendorPurchaseSummaries(ids);
   } catch {
-    return null;
+    return {};
   }
 }
 
@@ -67,8 +102,11 @@ export default async function VendorsPage({
 }) {
   const params = (await searchParams) ?? {};
   const vendorsResult = await getVendors(params);
-  const summaries = await Promise.all(vendorsResult.rows.map((vendor) => getVendorPurchaseSummarySafe(vendor.id)));
-  const rows: VendorRow[] = vendorsResult.rows.map((vendor, index) => ({ ...vendor, summary: summaries[index]! }));
+  const summaries = await getVendorPurchaseSummariesSafe(vendorsResult.rows.map((vendor) => vendor.id));
+  const rows: VendorRow[] = vendorsResult.rows.map((vendor) => ({
+    ...vendor,
+    summary: summaries[vendor.id] ?? null,
+  }));
 
   return (
     <>

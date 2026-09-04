@@ -2,6 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { parseUpdateVendorForm } from "./parse";
 
 export interface UpdateVendorFormState {
@@ -42,5 +43,10 @@ export async function updateVendorAction(
     return { formError: "Something went wrong updating the Vendor. Please try again." };
   }
 
+  // Code review 2026-09-04: /vendors now carries a short revalidate window
+  // (perf review), so a redirect back there without this call could show
+  // the pre-edit name/details for up to that window — closes it, matching
+  // vendors/new/actions.ts's own revalidatePath("/vendors").
+  revalidatePath("/vendors");
   redirect(`/vendors?flash=${encodeURIComponent("Vendor updated")}`);
 }

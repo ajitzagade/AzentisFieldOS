@@ -4,6 +4,9 @@ import { deleteVendorAction } from "./actions";
 const redirectMock = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
+const revalidatePathMock = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
 

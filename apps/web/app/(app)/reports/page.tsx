@@ -1428,8 +1428,12 @@ export default async function ReportsPage({
   } = await searchParams;
   const tab = resolveTab(tabParam);
 
-  // The always-visible delivery log (Story 13.1).
-  const reports = await getDailyReports();
+  // The always-visible delivery log (Story 13.1). Kicked off now but not
+  // awaited until it's actually rendered below (perf review 2026-09-03) —
+  // it's independent of the selected tab, so awaiting it here would force
+  // every tab-specific fetch below to wait for it first instead of running
+  // concurrently.
+  const reportsPromise = getDailyReports();
 
   // Only fetch what the active tab needs. A Site report is inherently per-Site,
   // so default to the first Site when none is selected — the view is never
@@ -1471,6 +1475,10 @@ export default async function ReportsPage({
       getFinancialReport({ siteId, from, to }),
     ]);
   }
+
+  // By now reportsPromise has been in flight concurrently with every
+  // tab-specific fetch above, so this rarely adds its own wait.
+  const reports = await reportsPromise;
 
   return (
     <>

@@ -19,14 +19,21 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-import AppLayout from "./layout";
+import { AppShellWithChrome } from "./layout";
 
 function mockMe(role: string) {
   authedFetchMock.mockResolvedValue({ ok: true, json: async () => ({ role }) });
 }
 
+// Perf review 2026-09-03: role/tenantName resolution moved out of the
+// default-exported AppLayout into this named AppShellWithChrome component,
+// wrapped in a <Suspense> boundary by AppLayout so the loading skeleton can
+// stream immediately on navigation instead of blocking on these fetches.
+// Testing-library's render() can't drive React's real Suspense/RSC
+// streaming machinery, so these tests target AppShellWithChrome directly —
+// the same role-resolution behavior AppLayout delegates to at runtime.
 async function renderLayout() {
-  render(await AppLayout({ children: <div>page content</div> }));
+  render(await AppShellWithChrome({ children: <div>page content</div> }));
 }
 
 afterEach(() => {

@@ -15,6 +15,7 @@ describe('VendorsController', () => {
     findOne: ReturnType<typeof vi.fn>;
     purchases: ReturnType<typeof vi.fn>;
     purchaseSummary: ReturnType<typeof vi.fn>;
+    purchaseSummaries: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -25,6 +26,7 @@ describe('VendorsController', () => {
       findOne: vi.fn(),
       purchases: vi.fn(),
       purchaseSummary: vi.fn(),
+      purchaseSummaries: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -113,6 +115,59 @@ describe('VendorsController', () => {
 
     expect(service.purchaseSummary).toHaveBeenCalledWith('1');
     expect(result).toEqual({ totalThisYear: 0, notFullyPaidTotal: 0 });
+  });
+
+  it('purchaseSummaries splits the comma-separated ids query param and delegates to VendorsService.purchaseSummaries', async () => {
+    service.purchaseSummaries.mockResolvedValue({
+      v1: { totalThisYear: 0, notFullyPaidTotal: 0 },
+      v2: { totalThisYear: 100, notFullyPaidTotal: 0 },
+    });
+
+    const result = await controller.purchaseSummaries('v1,v2');
+
+    expect(service.purchaseSummaries).toHaveBeenCalledWith(['v1', 'v2']);
+    expect(result).toEqual({
+      v1: { totalThisYear: 0, notFullyPaidTotal: 0 },
+      v2: { totalThisYear: 100, notFullyPaidTotal: 0 },
+    });
+  });
+
+  it('purchaseSummaries passes an empty array when ids is omitted, never undefined', async () => {
+    service.purchaseSummaries.mockResolvedValue({});
+
+    await controller.purchaseSummaries();
+
+    expect(service.purchaseSummaries).toHaveBeenCalledWith([]);
+  });
+
+  // Code review 2026-09-04: a duplicate `?ids=a&ids=b` query string is
+  // parsed into an array by Nest's query parser, not the comma-joined
+  // string the handler otherwise assumes — same hazard SearchController's
+  // own `q` param already guards against.
+  it('purchaseSummaries joins an array ids value (duplicate ?ids= query keys) instead of crashing on .split', async () => {
+    service.purchaseSummaries.mockResolvedValue({});
+
+    await controller.purchaseSummaries(['v1', 'v2']);
+
+    expect(service.purchaseSummaries).toHaveBeenCalledWith(['v1', 'v2']);
+  });
+
+  it('purchaseSummaries trims whitespace around each id', async () => {
+    service.purchaseSummaries.mockResolvedValue({});
+
+    await controller.purchaseSummaries('v1, v2 , v3');
+
+    expect(service.purchaseSummaries).toHaveBeenCalledWith(['v1', 'v2', 'v3']);
+  });
+
+  it("purchaseSummaries caps the id list at 200, mirroring searchCandidates' safety valve", async () => {
+    service.purchaseSummaries.mockResolvedValue({});
+    const manyIds = Array.from({ length: 250 }, (_, i) => `v${i}`);
+
+    await controller.purchaseSummaries(manyIds.join(','));
+
+    const calledWith = service.purchaseSummaries.mock.calls[0]![0] as string[];
+    expect(calledWith).toHaveLength(200);
   });
 });
 

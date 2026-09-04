@@ -263,6 +263,100 @@ describe('PurchasesService.summaryForVendor', () => {
   });
 });
 
+describe('PurchasesService.summaryForVendors', () => {
+  it('computes a per-Vendor summary from two groupBy calls, not one aggregate per Vendor', async () => {
+    const groupBy = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { vendorId: 'v1', _sum: { totalAmount: { toNumber: () => 32600 } } },
+      ])
+      .mockResolvedValueOnce([
+        { vendorId: 'v2', _sum: { totalAmount: { toNumber: () => 5000 } } },
+      ]);
+    const prisma = { purchase: { groupBy } };
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+    );
+
+    const result = await service.summaryForVendors(['v1', 'v2']);
+
+    expect(groupBy).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({
+      v1: { totalThisYear: 32600, notFullyPaidTotal: 0 },
+      v2: { totalThisYear: 0, notFullyPaidTotal: 5000 },
+    });
+  });
+
+  it('returns a zeroed entry for every requested id with no matching Purchases, never omitting a row', async () => {
+    const groupBy = vi.fn().mockResolvedValue([]);
+    const prisma = { purchase: { groupBy } };
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+    );
+
+    const result = await service.summaryForVendors(['v1', 'v2']);
+
+    expect(result).toEqual({
+      v1: { totalThisYear: 0, notFullyPaidTotal: 0 },
+      v2: { totalThisYear: 0, notFullyPaidTotal: 0 },
+    });
+  });
+
+  it('short-circuits an empty id list without querying the database', async () => {
+    const groupBy = vi.fn();
+    const prisma = { purchase: { groupBy } };
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+    );
+
+    const result = await service.summaryForVendors([]);
+
+    expect(result).toEqual({});
+    expect(groupBy).not.toHaveBeenCalled();
+  });
+
+  // Code review 2026-09-04: the tests above only assert call count and
+  // result shape, never the actual `where` clause — this pins the
+  // vendorId scoping, the calendar-year boundary math, and the
+  // UNPAID_OR_PARTIAL filter down, mirroring summaryForVendor's own
+  // where-clause assertions above.
+  it('scopes both groupBy calls to the requested vendorIds, the calendar year, and UNPAID_OR_PARTIAL', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 5, 15));
+      const groupBy = vi.fn().mockResolvedValue([]);
+      const prisma = { purchase: { groupBy } };
+      const service = new PurchasesService(
+        prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      );
+
+      await service.summaryForVendors(['v1', 'v2']);
+
+      expect(groupBy).toHaveBeenNthCalledWith(1, {
+        by: ['vendorId'],
+        where: {
+          vendorId: { in: ['v1', 'v2'] },
+          purchasedAt: {
+            gte: new Date(2026, 0, 1),
+            lt: new Date(2027, 0, 1),
+          },
+        },
+        _sum: { totalAmount: true },
+      });
+      expect(groupBy).toHaveBeenNthCalledWith(2, {
+        by: ['vendorId'],
+        where: {
+          vendorId: { in: ['v1', 'v2'] },
+          paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
+        },
+        _sum: { totalAmount: true },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('PurchasesService.outstandingAcrossVendors', () => {
   it('sums the UNPAID/PARTIAL totalAmount across every Vendor via one aggregate, not a per-Vendor call', async () => {
     const aggregate = vi

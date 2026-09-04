@@ -11,6 +11,7 @@ function makeService(overrides: {
   purchasesService?: {
     listByVendor: ReturnType<typeof vi.fn>;
     summaryForVendor: ReturnType<typeof vi.fn>;
+    summaryForVendors?: ReturnType<typeof vi.fn>;
   };
 }) {
   const vendorFindUnique = overrides.vendorFindUnique ?? vi.fn();
@@ -31,6 +32,7 @@ function makeService(overrides: {
   const purchasesService = overrides.purchasesService ?? {
     listByVendor: vi.fn(),
     summaryForVendor: vi.fn(),
+    summaryForVendors: vi.fn(),
   };
 
   const service = new VendorsService(
@@ -262,6 +264,30 @@ describe('VendorsService.purchaseSummary', () => {
     await expect(service.purchaseSummary('1')).resolves.toEqual({
       totalThisYear: 0,
       notFullyPaidTotal: 0,
+    });
+  });
+});
+
+describe('VendorsService.purchaseSummaries', () => {
+  it('delegates straight to PurchasesService.summaryForVendors, no per-id existence check', async () => {
+    const summaryForVendors = vi.fn().mockResolvedValue({
+      v1: { totalThisYear: 100, notFullyPaidTotal: 0 },
+      v2: { totalThisYear: 0, notFullyPaidTotal: 50 },
+    });
+    const { service } = makeService({
+      purchasesService: {
+        listByVendor: vi.fn(),
+        summaryForVendor: vi.fn(),
+        summaryForVendors,
+      },
+    });
+
+    const result = await service.purchaseSummaries(['v1', 'v2']);
+
+    expect(summaryForVendors).toHaveBeenCalledWith(['v1', 'v2']);
+    expect(result).toEqual({
+      v1: { totalThisYear: 100, notFullyPaidTotal: 0 },
+      v2: { totalThisYear: 0, notFullyPaidTotal: 50 },
     });
   });
 });

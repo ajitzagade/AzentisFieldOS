@@ -2,6 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { parseUpdateSubcontractorForm } from "./parse";
 
 export interface UpdateSubcontractorFormState {
@@ -53,5 +54,10 @@ export async function updateSubcontractorAction(
     return { formError: "Something went wrong updating the Subcontractor. Please try again." };
   }
 
+  // Code review 2026-09-04: /subcontractors now carries a short revalidate
+  // window (perf review), so a redirect back there without this call could
+  // show the pre-edit name/details for up to that window — closes it,
+  // matching subcontractors/new/actions.ts's own revalidatePath.
+  revalidatePath("/subcontractors");
   redirect(`/subcontractors?flash=${encodeURIComponent("Subcontractor updated")}`);
 }

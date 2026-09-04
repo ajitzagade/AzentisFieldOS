@@ -228,6 +228,114 @@ describe('CustomAuthGuard', () => {
     );
   });
 
+  it('caches the resolved User across requests within the TTL window, skipping a second DB lookup', async () => {
+    const verifyAsync = vi.fn().mockResolvedValue({ sub: 'user-1' });
+    const findUnique = vi
+      .fn()
+      .mockResolvedValue({ id: 'user-1', role: 'SITE_SUPERVISOR' });
+    const { prisma } = makePrisma(findUnique);
+    const guard = new CustomAuthGuard(
+      makeReflector(false),
+      makeJwtService(verifyAsync),
+      prisma,
+    );
+
+    const first = makeContext({ authorization: 'Bearer good' });
+    await expect(guard.canActivate(first.context)).resolves.toBe(true);
+    const second = makeContext({ authorization: 'Bearer good' });
+    await expect(guard.canActivate(second.context)).resolves.toBe(true);
+
+    expect(findUnique).toHaveBeenCalledTimes(1);
+    expect(second.request.user).toEqual({
+      id: 'user-1',
+      role: 'SITE_SUPERVISOR',
+    });
+  });
+
+  it('coalesces concurrent requests for the same not-yet-cached user into one DB lookup', async () => {
+    const verifyAsync = vi.fn().mockResolvedValue({ sub: 'user-1' });
+    let resolveFindUnique!: (value: { id: string; role: string }) => void;
+    const findUnique = vi.fn().mockReturnValue(
+      new Promise((resolve) => {
+        resolveFindUnique = resolve;
+      }),
+    );
+    const { prisma } = makePrisma(findUnique);
+    const guard = new CustomAuthGuard(
+      makeReflector(false),
+      makeJwtService(verifyAsync),
+      prisma,
+    );
+
+    const first = makeContext({ authorization: 'Bearer good' });
+    const second = makeContext({ authorization: 'Bearer good' });
+    // Both requests race in before the single findUnique call resolves —
+    // neither has anything cached yet, so without coalescing each would
+    // fire its own DB lookup.
+    const firstCall = guard.canActivate(first.context);
+    const secondCall = guard.canActivate(second.context);
+    resolveFindUnique({ id: 'user-1', role: 'SITE_SUPERVISOR' });
+    await Promise.all([firstCall, secondCall]);
+
+    expect(findUnique).toHaveBeenCalledTimes(1);
+    expect(first.request.user).toEqual({
+      id: 'user-1',
+      role: 'SITE_SUPERVISOR',
+    });
+    expect(second.request.user).toEqual({
+      id: 'user-1',
+      role: 'SITE_SUPERVISOR',
+    });
+  });
+
+  it('re-queries the DB once the cached entry has expired', async () => {
+    vi.useFakeTimers();
+    try {
+      const verifyAsync = vi.fn().mockResolvedValue({ sub: 'user-1' });
+      const findUnique = vi
+        .fn()
+        .mockResolvedValue({ id: 'user-1', role: 'SITE_SUPERVISOR' });
+      const { prisma } = makePrisma(findUnique);
+      const guard = new CustomAuthGuard(
+        makeReflector(false),
+        makeJwtService(verifyAsync),
+        prisma,
+      );
+
+      const first = makeContext({ authorization: 'Bearer good' });
+      await guard.canActivate(first.context);
+      vi.advanceTimersByTime(5_001);
+      const second = makeContext({ authorization: 'Bearer good' });
+      await guard.canActivate(second.context);
+
+      expect(findUnique).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not cache a null lookup, so a subsequent request for the same subject re-queries the DB', async () => {
+    const verifyAsync = vi.fn().mockResolvedValue({ sub: 'gone' });
+    const findUnique = vi.fn().mockResolvedValue(null);
+    const { prisma } = makePrisma(findUnique);
+    const guard = new CustomAuthGuard(
+      makeReflector(false),
+      makeJwtService(verifyAsync),
+      prisma,
+    );
+
+    const first = makeContext({ authorization: 'Bearer good' });
+    await expect(guard.canActivate(first.context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    const second = makeContext({ authorization: 'Bearer good' });
+    await expect(guard.canActivate(second.context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+
+    expect(findUnique).toHaveBeenCalledTimes(2);
+  });
+
   it('bypasses verification entirely for a @Public() route (login / cron / health)', async () => {
     const verifyAsync = vi.fn();
     const { prisma } = makePrisma();

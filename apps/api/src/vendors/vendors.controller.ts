@@ -45,6 +45,34 @@ export class VendorsController {
     return this.vendorsService.list({ q, page, pageSize, sort, order });
   }
 
+  // Registered before @Get(':id') — a literal path segment must be matched
+  // ahead of the dynamic :id route, or Nest/Express would treat
+  // "purchase-summary" as an :id value here (same reasoning as @Get()
+  // above being registered ahead of @Get(':id')).
+  @Get('purchase-summary')
+  purchaseSummaries(@Query('ids') ids?: string | string[]) {
+    // A duplicate `?ids=a&ids=b` query string is parsed into an array by
+    // Nest's underlying query parser (same hazard SearchController's own
+    // `q` param handles) — join it back into the one comma-delimited
+    // shape the single-value case already expects, rather than crashing
+    // on `.split` not being a function. Trimmed so `ids=v1, v2` (a space
+    // after the comma) doesn't silently produce a `' v2'` that matches
+    // nothing.
+    const raw = Array.isArray(ids) ? ids.join(',') : ids;
+    const idList = raw
+      ? raw
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean)
+          // Same safety-valve reasoning as VendorsService.searchCandidates'
+          // 200 cap — today's only caller (the Vendors list page) is
+          // already bounded to 100 by paginationParams' MAX_PAGE_SIZE, so
+          // this is defense-in-depth, not a limit anyone should ever hit.
+          .slice(0, 200)
+      : [];
+    return this.vendorsService.purchaseSummaries(idList);
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,
