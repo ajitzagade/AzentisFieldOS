@@ -19,6 +19,23 @@ export const APP_DISPLAY_NAME =
 export const APP_DESCRIPTION =
   "Construction contractor operations: sites, inventory, labour, and daily reporting in one place.";
 
+// Story 20.1's signed TWA APK's Android application id (the package name
+// declared in infra/android's Bubblewrap config) and Story 20.1's shared
+// keystore's SHA-256 certificate fingerprint (keytool -list -v output,
+// colon-separated uppercase hex, pasted verbatim — never parsed/reformatted
+// here). Together these are what app/.well-known/assetlinks.json/route.ts
+// emits so Chrome can verify the installed TWA owns this Tenant's domain
+// and render full-screen instead of falling back to a Custom Tab address
+// bar. Server-only (no NEXT_PUBLIC_ prefix — read inside a Route Handler,
+// never shipped to the client bundle). Same rationale as APP_DISPLAY_NAME:
+// several tenant deployments build from this shared repo, so these must
+// stay env-derived, never a hardcoded literal, and must fall back to an
+// empty string (not throw) so local dev / an unconfigured deployment still
+// serves a well-formed (empty) Digital Asset Links statement.
+export const ANDROID_PACKAGE_ID = process.env.ANDROID_PACKAGE_ID?.trim() || "";
+export const ANDROID_SHA256_FINGERPRINT =
+  process.env.ANDROID_SHA256_FINGERPRINT?.trim() || "";
+
 // The one literal brand color shared by the web manifest and the viewport
 // theme color. A manifest is static JSON config — it can't read the CSS
 // design-token var — so this mirrors `--accent-teal-700`
