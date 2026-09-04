@@ -4,14 +4,27 @@ import { setAuthCookies, clearAuthCookies, type AuthTokens } from "@/lib/auth-co
 // Named proxy.ts, not middleware.ts — Next.js 16 renamed the file
 // convention from Middleware to Proxy (functionality unchanged).
 //
-// Only /sign-in is public — every other route, including the root, requires
-// a session cookie (AD-1: no tenant-selection step, straight to the app once
-// signed in). This is a cheap presence check for UX redirect purposes only —
-// it does NOT verify the JWT's signature or expiry. The real security
-// boundary is apps/api's CustomAuthGuard, which verifies the token on every
-// request; a stale/expired cookie here just means the first API call fails
-// and the page shows an error state, not a security hole.
-const isPublicRoute = (pathname: string) => pathname.startsWith("/sign-in");
+// Only /sign-in and /icons are public — every other route, including the
+// root, requires a session cookie (AD-1: no tenant-selection step, straight
+// to the app once signed in). This is a cheap presence check for UX redirect
+// purposes only — it does NOT verify the JWT's signature or expiry. The real
+// security boundary is apps/api's CustomAuthGuard, which verifies the token
+// on every request; a stale/expired cookie here just means the first API
+// call fails and the page shows an error state, not a security hole.
+//
+// /icons must stay public: apps/web/app/manifest.ts (served at the
+// dot-containing, matcher-excluded /manifest.webmanifest) references these
+// URLs, and the manifest is only useful for PWA/TWA installability if an
+// unauthenticated client — Chrome's installability check, Bubblewrap's
+// `bubblewrap init`/`build`, an Android device installing the app — can
+// actually fetch the icon bytes. Found 2026-09-04 running a real
+// `bubblewrap init` (infra/android/): it failed fetching
+// "/icons/icon-512" because, unlike /manifest.webmanifest, the icon route
+// has no dot in its path, so it wasn't excluded by the matcher below either
+// — it hit this guard, had no session cookie, and 307-redirected to
+// /sign-in HTML instead of serving the PNG.
+const isPublicRoute = (pathname: string) =>
+  pathname.startsWith("/sign-in") || pathname.startsWith("/icons");
 
 export default async function proxy(req: NextRequest) {
   if (isPublicRoute(req.nextUrl.pathname)) {
