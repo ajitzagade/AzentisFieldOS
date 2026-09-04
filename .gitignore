@@ -40,3 +40,12 @@ e2e/report/
 # misc
 *.pem
 .env*
+
+# Android signing keys — generated once via infra/android/README.md, never
+# committed. Base64-encode for CI/deployment secrets instead.
+*.jks
+*.keystore
+
+# TWA build output/scratch (infra/android/build.ts) — signed APKs and the
+# per-slug Bubblewrap build workspace. infra/android/template/ is unaffected.
+infra/android/dist/
