@@ -1,0 +1,12 @@
+.git
+.turbo
+node_modules
+**/node_modules
+.next
+**/.next
+e2e/report
+e2e/test-results
+infra/android/dist
+infra/android/template
+*.jks
+*.keystore
