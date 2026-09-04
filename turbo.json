@@ -6,7 +6,7 @@
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/infra/prisma/**"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**", "api/index.js"],
-      "env": ["VERCEL_ENV", "DATABASE_URL"]
+      "env": ["VERCEL_ENV", "DATABASE_URL", "ANDROID_PACKAGE_ID", "ANDROID_SHA256_FINGERPRINT"]
     },
     "dev": {
       "cache": false,
