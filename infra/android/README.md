@@ -7,8 +7,50 @@ Android project; `build.ts` copies it, points it at one tenant's manifest and
 package id, and produces `dist/<slug>.apk`.
 
 This is the shared build primitive. It does not know about
-`infra/tenants/*.json` or provisioning — a later story (20.3/20.4) wires this
-up per tenant. Run it by hand with explicit arguments until then.
+`infra/tenants/*.json` or provisioning — Story 20.4 wires this up per tenant.
+Run it by hand with explicit arguments until then.
+
+## Per-tenant branding is automatic — no separate Android config (story 20.3)
+
+`--manifest-url` is the *only* branding input this build ever needs. Bubblewrap's
+`TwaManifest.fromWebManifest` (which `build.ts` calls, same as `bubblewrap init`
+itself does) reads the app name, icons, and theme color straight out of whatever
+manifest that URL serves — and `apps/web`'s manifest (`app/manifest.ts`,
+`lib/tenant.ts`, `app/icons/[icon]/route.tsx`) already derives the app name and
+the icon's initials glyph from that deployment's own `NEXT_PUBLIC_APP_DISPLAY_NAME`.
+`build.ts` never overrides any of it — it only sets `packageId` and `signingKey`,
+the two fields a web manifest can't carry (see the source comment above
+`TwaManifest.fromWebManifest` in `build.ts`). Point this script at two
+different tenants' own manifest URLs and you get two APKs with distinct app
+names and icon initials, with zero Android-layer branding config to
+maintain — verified directly against `@bubblewrap/core`'s
+`TwaManifest.fromWebManifest` with two distinct manifest fixtures for this
+story (see `_bmad-output/implementation-artifacts/spec-20-3-tenant-branded-apk-generation.md`).
+**Not yet tenant-differentiated:** `BRAND_THEME_COLOR` in `lib/tenant.ts` is
+still one hardcoded literal shared by every tenant deployment (per-tenant
+color is Epic 14 work that hasn't landed) — so every tenant's icon background
+and splash color are identical today; only the app name and icon-glyph
+initials actually differ per tenant right now.
+
+`infra/tenants/<slug>.json` now carries an `androidPackageId` field per tenant
+(added this story) for exactly this script's `--package-id` flag — not yet
+read automatically (Story 20.4 wires provisioning to pass it through), so
+keep supplying `--package-id` by hand until then. Package id sections must be
+`[a-zA-Z][a-zA-Z0-9_]*` (Android/Java rules) — a tenant's hyphenated slug
+needs its hyphens swapped for underscores (e.g. `sandeep-enterprises` ->
+`in.azentis.sandeep_enterprises`), confirmed against `@bubblewrap/core`'s own
+`util.validatePackageId`, the same validator this script's `--package-id`
+flag already runs. Must also be unique across every `infra/tenants/*.json` —
+Android treats package id as the app's permanent identity, so two tenants
+sharing one would collide on-device, and changing a tenant's id after its APK
+is already distributed doesn't "update" that install, it registers as a
+different app (a fresh sideload, not an upgrade) — pick it once, deliberately.
+
+Shell-level branding (icon/name/splash) is baked in at build time and does
+not refresh on its own after distribution — if a Tenant's `NEXT_PUBLIC_APP_DISPLAY_NAME`
+changes later, the already-installed APK keeps showing the old one until a
+new APK is built and manually redistributed. This is the epic's documented
+"no auto-update for shell-level changes" limitation, not a defect.
 
 ## Prerequisites
 
@@ -124,21 +166,20 @@ generic answers at every prompt) rather than hand-editing the generated
 files — see the Design Notes in
 `_bmad-output/implementation-artifacts/spec-20-1-twa-wrapper-build-template-and-signing.md`.
 
-## Known limitation found while building this
+## Known limitation found while building this (resolved in source, not yet deployed)
 
-`apps/web`'s `/icons/*` routes were, at the time this story was built,
+`apps/web`'s `/icons/*` routes were, at the time story 20.1 was built,
 blocked by `apps/web/proxy.ts`'s auth check (redirected to `/sign-in`
 instead of serving the PNG) — `/manifest.webmanifest` itself is
 matcher-excluded and public, but the icon routes it references were not.
 Bubblewrap's own icon-fetch during `init`/`update` needs those bytes
-unauthenticated to embed them into the Android project. A fix
-(allowlisting `/icons` as public, alongside `/sign-in`) was made locally in
-`apps/web/proxy.ts` as part of finding this — **that fix is a real product
-bug fix, not just a build-tooling workaround** (Chrome's own PWA
-installability check and any Android device installing a tenant's TWA need
-the same unauthenticated access), but committing/deploying it is a human
-call, not made here. Until it ships, running this build against a tenant's
-**production** manifest URL will fail fetching icons; the live scaffold and
-verification run for this story used a generic placeholder icon URL
-(`https://placehold.co/512x512.png`) precisely to route around this and
-still prove the rest of the pipeline against the real, live manifest JSON.
+unauthenticated to embed them into the Android project. The fix
+(allowlisting `/icons` as public, alongside `/sign-in`) has since been
+committed (`f759313`), so this repo's source no longer has the bug — but
+**deploying it to a given tenant's production URL is still a separate human
+call** (see `deferred-work.md`). Until a tenant's live deployment has that
+fix live, running this build against its **production** manifest URL will
+still fail fetching icons there; route around it the same way story 20.1
+did (a generic placeholder icon URL, or a local/staging deployment that
+already has the fix) until the target tenant's production deploy picks it
+up.

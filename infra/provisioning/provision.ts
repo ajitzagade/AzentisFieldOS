@@ -11,6 +11,8 @@ interface TenantConfig {
   slug: string;
   displayName: string;
   domain: string;
+  /** Android application id for this tenant's TWA build (epic-20 story 20.3/20.4) -- [a-zA-Z][a-zA-Z0-9_]* per section, no hyphens. */
+  androidPackageId: string;
   branding: {
     logoUrl: string;
     primaryColorToken: string;

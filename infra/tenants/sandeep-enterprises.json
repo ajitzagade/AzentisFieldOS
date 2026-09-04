@@ -2,6 +2,7 @@
   "slug": "sandeep-enterprises",
   "displayName": "Sandeep Enterprises",
   "domain": "sandeep-enterprises.azentisfieldos.app",
+  "androidPackageId": "in.azentis.sandeep_enterprises",
   "branding": {
     "logoUrl": "",
     "primaryColorToken": "primary-600",

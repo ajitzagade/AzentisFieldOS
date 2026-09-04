@@ -2,6 +2,7 @@
   "slug": "bhakti-enterprises",
   "displayName": "Bhakti Enterprises",
   "domain": "bhakti-enterprises.azentis.in",
+  "androidPackageId": "in.azentis.bhakti_enterprises",
   "branding": {
     "logoUrl": "",
     "primaryColorToken": "primary-600",
