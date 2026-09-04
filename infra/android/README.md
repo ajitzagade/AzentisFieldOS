@@ -131,6 +131,11 @@ inspect it) — that fingerprint is what a later story's `assetlinks.json`
 (20.2) verifies against, so the same keystore must be reused for every
 tenant build, not regenerated per tenant.
 
+Once a signed APK exists, see `DISTRIBUTION.md` for how to actually get it
+onto a Tenant's phone (story 20.6) — and `qa-20-5-manual-parity-checklist.md`
+(`_bmad-output/implementation-artifacts/`) for the manual pass to run before
+handing it to a client.
+
 ## How `template/` was scaffolded
 
 `template/` is real `bubblewrap init` output (`@bubblewrap/cli` pinned in
