@@ -4,8 +4,13 @@
  * fake/guessed API calls here; each TODO becomes real code against a real
  * provider account, verified by actually provisioning a tenant.
  */
+import { spawn } from "node:child_process";
+import fs from "node:fs";
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
+
+const require_ = createRequire(import.meta.url);
 
 interface TenantConfig {
   slug: string;
@@ -35,6 +40,89 @@ async function loadTenantConfig(slug: string): Promise<TenantConfig> {
 async function createVercelProject(_config: TenantConfig): Promise<void> {
   // TODO: Vercel API — create project bound to apps/web, set domain + branding env vars.
   throw new Error("not implemented — see infra/provisioning/README.md");
+}
+
+/**
+ * Resolves `tsx`'s CLI binary the same way `infra/android/build.ts`'s
+ * `resolveBubblewrapBin()` resolves Bubblewrap's — read the real bin path out
+ * of the dependency's own package.json rather than assuming a relative path,
+ * so a version bump can't silently break this. Unlike `@bubblewrap/cli`
+ * (`bin` is an object keyed by command name), `tsx`'s `bin` field is a plain
+ * string — there's only one binary to resolve.
+ */
+function resolveTsxBin(): string {
+  const pkgJsonPath = require_.resolve("tsx/package.json");
+  const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8")) as {
+    bin?: string;
+  };
+  if (typeof pkg.bin !== "string" || pkg.bin.length === 0) {
+    throw new Error(
+      "unexpected tsx package.json bin field shape — check for a version bump " +
+        `(read from ${pkgJsonPath}, expected pkg.bin to be a non-empty string).`,
+    );
+  }
+  return path.join(path.dirname(pkgJsonPath), pkg.bin);
+}
+
+/**
+ * Builds and signs this Tenant's Android TWA wrapper APK by spawning
+ * `infra/android/build.ts` (Story 20.1) as a subprocess — that script is a
+ * self-invoking CLI (`main().catch(...)` runs at module load), not a library
+ * to import (same reasoning as `e2e/fixtures/seed.ts`'s
+ * `require.main === module` guard), so we shell out to it exactly the way it
+ * shells out to `bubblewrap`. `env: process.env` passes the shared signing
+ * key (`ANDROID_KEYSTORE_BASE64`/`ANDROID_KEYSTORE_PASSWORD`, etc.) through
+ * unchanged — this never generates or accepts a per-Tenant keystore. Arg
+ * validation (https-only manifest URL, package id shape) is `build.ts`'s own
+ * job; a bad arg still surfaces loudly via a non-zero exit.
+ */
+function buildAndroidApk(config: TenantConfig): Promise<void> {
+  if (!config.domain) {
+    throw new Error(
+      `tenant "${config.slug}" has no domain configured — cannot build a manifest URL for the Android build`,
+    );
+  }
+
+  const tsxBin = resolveTsxBin();
+  const buildScript = path.resolve(import.meta.dirname, "../android/build.ts");
+  const manifestUrl = `https://${config.domain}/manifest.webmanifest`;
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      [
+        tsxBin,
+        buildScript,
+        "--manifest-url",
+        manifestUrl,
+        "--package-id",
+        config.androidPackageId,
+        "--slug",
+        config.slug,
+      ],
+      { env: process.env, stdio: "inherit" },
+    );
+    child.on("error", (error) => {
+      reject(
+        new Error(
+          `failed to spawn Android build for tenant "${config.slug}": ${error.message}`,
+        ),
+      );
+    });
+    child.on("exit", (code, signal) => {
+      if (code === 0) {
+        resolve();
+      } else if (signal) {
+        reject(
+          new Error(`Android build for tenant "${config.slug}" was killed by signal ${signal}`),
+        );
+      } else {
+        reject(
+          new Error(`Android build failed for tenant "${config.slug}" (exit code ${code})`),
+        );
+      }
+    });
+  });
 }
 
 async function createDatabase(_config: TenantConfig): Promise<void> {
@@ -70,6 +158,7 @@ async function main() {
 
   const config = await loadTenantConfig(slug);
   await createVercelProject(config);
+  await buildAndroidApk(config);
   await createDatabase(config);
   await runMigrations(config);
   await seedFirstAdmin(config);
