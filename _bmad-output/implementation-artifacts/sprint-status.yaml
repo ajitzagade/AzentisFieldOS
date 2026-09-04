@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-12-2026 14:26
-last_updated: 09-04-2026 18:31
+last_updated: 09-04-2026 18:38
 project: AzentisFieldOS
 project_key: NOKEY
 tracking_system: file-system
@@ -182,6 +182,6 @@ development_status:
   20-2-per-tenant-digital-asset-link-verification: review
   20-3-tenant-branded-apk-generation: review
   20-4-provisioning-pipeline-integration: review
-  20-5-manual-qa-parity-pass: ready-for-dev
+  20-5-manual-qa-parity-pass: in-progress
   20-6-manual-distribution-runbook: ready-for-dev
   epic-20-retrospective: optional
