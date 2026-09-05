@@ -12,6 +12,7 @@ import {
   PlusIcon,
   UsersIcon,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { ROLES, createUserSchema, type Role } from "@azentisfieldos/shared";
 import { useAuthedFetch } from "../../../lib/use-authed-fetch";
@@ -144,6 +145,12 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
     { header: "Role", cell: (row) => <RoleCell row={row} onChange={handleRoleChange} /> },
   ];
 
+  const mobileCard: DataTableMobileCard<UserRow> = {
+    primary: (row) => row.name,
+    omitHeaders: ["Name", "Role"],
+    footer: (row) => <RoleCell row={row} onChange={handleRoleChange} />,
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <form
@@ -212,6 +219,7 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
 
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(row) => row.id}
         state={
           users.length === 0

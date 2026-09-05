@@ -62,10 +62,6 @@ export default function SignInPage() {
             Sign in
           </Button>
         </form>
-
-        <div className="mt-6 flex items-center justify-center gap-2 text-eyebrow text-ink-500">
-          Single-tenant deployment for your organisation — no tenant selection required.
-        </div>
       </Card>
     </div>
   );

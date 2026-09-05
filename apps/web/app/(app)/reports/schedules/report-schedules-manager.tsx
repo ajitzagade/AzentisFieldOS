@@ -9,6 +9,7 @@ import {
   PlusIcon,
   SelectField,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import {
@@ -163,6 +164,12 @@ export function ReportSchedulesManager({
     { header: "", align: "right", cell: (row) => <ScheduleToggle id={row.id} enabled={row.enabled} /> },
   ];
 
+  const mobileCard: DataTableMobileCard<ReportScheduleRow> = {
+    primary: (row) => REPORT_TYPE_LABELS[row.reportType] ?? row.reportType,
+    omitHeaders: ["Report"],
+    action: (row) => <ScheduleToggle id={row.id} enabled={row.enabled} />,
+  };
+
   return (
     <div className="flex flex-col gap-8">
       <form
@@ -238,6 +245,7 @@ export function ReportSchedulesManager({
 
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(row) => row.id}
         state={
           schedules.length === 0

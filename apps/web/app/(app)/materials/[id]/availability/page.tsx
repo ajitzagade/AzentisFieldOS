@@ -1,7 +1,14 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BoxIcon, buttonVariants, cn, DataTable, type DataTableColumn } from "@azentisfieldos/ui";
+import {
+  BoxIcon,
+  buttonVariants,
+  cn,
+  DataTable,
+  type DataTableColumn,
+  type DataTableMobileCard,
+} from "@azentisfieldos/ui";
 
 interface MaterialListItem {
   id: string;
@@ -76,6 +83,16 @@ function columns(): DataTableColumn<StockRow>[] {
   ];
 }
 
+const mobileCard: DataTableMobileCard<StockRow> = {
+  primary: (row) => locationLabel(row.location),
+  omitHeaders: ["Location"],
+  action: (row) => (
+    <Link href={transferHref(row)} className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
+      Transfer
+    </Link>
+  ),
+};
+
 export default async function MaterialAvailabilityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [material, rows] = await Promise.all([getMaterial(id), getStockByMaterial(id)]);
@@ -92,6 +109,7 @@ export default async function MaterialAvailabilityPage({ params }: { params: Pro
 
       <DataTable
         columns={columns()}
+        mobileCard={mobileCard}
         rowKey={(row) => `${row.location.kind === "godown" ? "godown" : row.location.id}-${row.materialSizeId}`}
         state={
           rows.length === 0

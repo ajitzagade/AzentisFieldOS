@@ -56,6 +56,11 @@
   --shadow-2: 0 6px 16px rgba(27, 36, 48, 0.1), 0 2px 5px rgba(27, 36, 48, 0.06);
   --shadow-3: 0 14px 36px rgba(27, 36, 48, 0.16), 0 5px 10px rgba(27, 36, 48, 0.07);
   --shadow-2-hover: 0 10px 26px rgba(27, 36, 48, 0.15), 0 4px 8px rgba(27, 36, 48, 0.07);
+  /* shadow-2, negated upward — for a bar fixed to the bottom edge, whose
+     content sits above it rather than below (2026-09-05 mobile-bar review:
+     a flat hairline-only bottom bar is the exact anti-pattern this section
+     already rejects for cards, just never applied here). */
+  --shadow-bar-top: 0 -6px 16px rgba(27, 36, 48, 0.1), 0 -2px 5px rgba(27, 36, 48, 0.06);
 }
 
 /*
@@ -92,6 +97,7 @@
   --shadow-2: 0 6px 20px rgba(0, 0, 0, 0.45);
   --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.5);
   --shadow-2-hover: 0 10px 26px rgba(0, 0, 0, 0.5);
+  --shadow-bar-top: 0 -6px 20px rgba(0, 0, 0, 0.45);
 }
 
 @theme {
@@ -129,6 +135,7 @@
   --shadow-2: var(--shadow-2);
   --shadow-3: var(--shadow-3);
   --shadow-2-hover: var(--shadow-2-hover);
+  --shadow-bar-top: var(--shadow-bar-top);
 
   /* Typography — apps/web loads Geist via next/font and exposes it as
      --font-geist-sans; DESIGN.md's system-font fallback stack follows it

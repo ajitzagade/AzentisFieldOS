@@ -9,6 +9,7 @@ import {
   SelectField,
   TextField,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 
 interface AuditLogRow {
@@ -87,6 +88,11 @@ const columns: DataTableColumn<AuditLogRow>[] = [
     cell: (r) => r.siteName ?? <span className="text-ink-500">—</span>,
   },
 ];
+
+const mobileCard: DataTableMobileCard<AuditLogRow> = {
+  primary: (r) => r.user.name,
+  omitHeaders: ["Who"],
+};
 
 // Owner/Admin-only audit trail (defence-in-depth with the API's 403): every
 // create/update/correction/delete in the system, newest first — who did
@@ -167,6 +173,7 @@ export default async function AuditLogPage({
 
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(r) => r.id}
         state={
           rows.length === 0

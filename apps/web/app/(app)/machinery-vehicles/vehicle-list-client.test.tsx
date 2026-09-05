@@ -46,9 +46,10 @@ function renderClient(overrides: Partial<Parameters<typeof VehicleListClient>[0]
 }
 
 describe("VehicleListClient", () => {
-  it("renders every row", () => {
+  it("renders every row in the desktop table and as a mobile card", () => {
     renderClient();
-    expect(screen.getByText("MH12AB1234")).toBeInTheDocument();
+    // Once in the md+ table row, once as the below-md card's primary line.
+    expect(screen.getAllByText("MH12AB1234")).toHaveLength(2);
   });
 
   it("debounces the search box before writing to the URL", () => {
@@ -71,14 +72,14 @@ describe("VehicleListClient", () => {
 
   it("shows the zero-Vehicles-ever empty state with no active search", () => {
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Vehicles registered yet.")).toBeInTheDocument();
+    expect(screen.getAllByText("No Vehicles registered yet.")).toHaveLength(2);
   });
 
   it("shows the no-matches empty state with Clear filters when a search is active", () => {
     hookState = { q: "nonexistent" };
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Vehicles match your search.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getAllByText("No Vehicles match your search.")).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]!);
     expect(clearAll).toHaveBeenCalledOnce();
   });
 

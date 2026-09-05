@@ -136,7 +136,7 @@ describe("MachineryDetailPage", () => {
       "href",
       "/machinery-vehicles/machinery/m1/service-log/new",
     );
-    expect(screen.getByText("No fuel, maintenance, or repair entries logged yet.")).toBeInTheDocument();
+    expect(screen.getAllByText("No fuel, maintenance, or repair entries logged yet.")).toHaveLength(2);
   });
 
   it("renders every logged fuel/maintenance/repair entry with a normal Edit action, not Correct (AC #1, #2)", async () => {
@@ -149,13 +149,13 @@ describe("MachineryDetailPage", () => {
 
     await renderDetailPage("m1");
 
-    expect(screen.getByText("Filled up before site move")).toBeInTheDocument();
-    expect(screen.getByText("Fuel")).toBeInTheDocument();
-    expect(screen.getByText("Repair")).toBeInTheDocument();
+    expect(screen.getAllByText("Filled up before site move")).toHaveLength(2);
+    expect(screen.getAllByText("Fuel")).toHaveLength(2);
+    expect(screen.getAllByText("Repair")).toHaveLength(2);
     const serviceLogEditLinks = screen
       .getAllByRole("link", { name: "Edit" })
       .filter((link) => link.getAttribute("href")?.includes("/service-log/"));
-    expect(serviceLogEditLinks).toHaveLength(2);
+    expect(serviceLogEditLinks).toHaveLength(4);
     expect(serviceLogEditLinks[0]).toHaveAttribute("href", "/machinery-vehicles/machinery/m1/service-log/sl1/edit");
   });
 });

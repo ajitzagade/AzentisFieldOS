@@ -131,21 +131,21 @@ describe("ReportsPage — Recent Reports delivery log (Story 13.1)", () => {
   it("reflects each of the three delivery states in the status badge", async () => {
     await renderReportsPage({ daily: [rowDelivered, rowPending, rowFailed] });
 
-    expect(screen.getByText("Delivered")).toBeInTheDocument();
-    expect(screen.getByText("Pending")).toBeInTheDocument();
-    expect(screen.getByText("Failed")).toBeInTheDocument();
+    expect(screen.getAllByText("Delivered")).toHaveLength(2);
+    expect(screen.getAllByText("Pending")).toHaveLength(2);
+    expect(screen.getAllByText("Failed")).toHaveLength(2);
   });
 
   it("renders a row per Daily Site Report scoped to that type only", async () => {
     await renderReportsPage({ daily: [rowDelivered, rowPending, rowFailed] });
 
-    expect(screen.getAllByText("Daily Site Report")).toHaveLength(3);
+    expect(screen.getAllByText("Daily Site Report")).toHaveLength(6);
   });
 
   it("shows an empty state when no reports have compiled yet", async () => {
     await renderReportsPage({ daily: [] });
 
-    expect(screen.getByText(/No reports yet/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/No reports yet/i)).toHaveLength(2);
   });
 
   it("has NO 'Send' control anywhere — reports deliver automatically (UX-DR19)", async () => {
@@ -203,8 +203,8 @@ describe("ReportsPage — Site & Inventory report tabs (Story 13.2)", () => {
     );
 
     expect(screen.getByText("Daily Report History")).toBeInTheDocument();
-    expect(screen.getByText("RCC pour completed")).toBeInTheDocument();
-    expect(screen.getByText("Ramesh Yadav")).toBeInTheDocument();
+    expect(screen.getAllByText("RCC pour completed")).toHaveLength(2);
+    expect(screen.getAllByText("Ramesh Yadav")).toHaveLength(2);
     expect(siteReportUrl).toContain("siteId=site1");
     expect(siteReportUrl).toContain("from=2026-08-01");
     expect(siteReportUrl).toContain("to=2026-08-31");
@@ -213,7 +213,7 @@ describe("ReportsPage — Site & Inventory report tabs (Story 13.2)", () => {
   it("Site Reports tab shows an empty DSR state for a window with no reports", async () => {
     await renderReportsPage({ sites: [{ id: "site1", name: "NH-48" }] }, { tab: "site" });
 
-    expect(screen.getByText(/No Daily Reports in this date range/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/No Daily Reports in this date range/i)).toHaveLength(2);
   });
 
   it("Inventory Reports tab renders its sections and threads siteId/materialId into the request", async () => {
@@ -247,8 +247,8 @@ describe("ReportsPage — Site & Inventory report tabs (Story 13.2)", () => {
     expect(screen.getByText("Low-stock Alerts")).toBeInTheDocument();
     expect(screen.getByText("Current Stock")).toBeInTheDocument();
     expect(screen.getByText("Transaction History")).toBeInTheDocument();
-    expect(screen.getByText("Consumption")).toBeInTheDocument();
-    expect(screen.getByText("Cement (50kg)")).toBeInTheDocument();
+    expect(screen.getAllByText("Consumption")).toHaveLength(2);
+    expect(screen.getAllByText("Cement (50kg)")).toHaveLength(2);
     expect(inventoryUrl).toContain("siteId=site1");
     expect(inventoryUrl).toContain("materialId=mat1");
   });
@@ -308,7 +308,7 @@ describe("ReportsPage — Labour & Machinery/Vehicle report tabs (Story 13.3)", 
     expect(screen.getByText("Payment History")).toBeInTheDocument();
     expect(screen.getByText("Outstanding Advances")).toBeInTheDocument();
     expect(screen.getByText("Advance & Adjustment History")).toBeInTheDocument();
-    expect(screen.getByText("Medical")).toBeInTheDocument();
+    expect(screen.getAllByText("Medical")).toHaveLength(2);
     expect(labourUrl).toContain("teamMemberId=tm1");
     expect(labourUrl).toContain("from=2026-08-01");
     expect(labourUrl).toContain("to=2026-08-31");
@@ -336,7 +336,7 @@ describe("ReportsPage — Labour & Machinery/Vehicle report tabs (Story 13.3)", 
 
     expect(screen.getByText("Machinery — Current Status")).toBeInTheDocument();
     expect(screen.getByText("Vehicles — Current Status")).toBeInTheDocument();
-    expect(screen.getByText("Excavator EX-01")).toBeInTheDocument();
+    expect(screen.getAllByText("Excavator EX-01")).toHaveLength(2);
     expect(screen.getByText(/Select an asset above/i)).toBeInTheDocument();
   });
 
@@ -383,7 +383,7 @@ describe("ReportsPage — Labour & Machinery/Vehicle report tabs (Story 13.3)", 
     expect(screen.getByText("Movement History")).toBeInTheDocument();
     expect(screen.getByText("Fuel, Maintenance & Repair History")).toBeInTheDocument();
     expect(screen.getByText("Hydraulic fault")).toBeInTheDocument();
-    expect(screen.getByText("Replaced hydraulic hose")).toBeInTheDocument();
+    expect(screen.getAllByText("Replaced hydraulic hose")).toHaveLength(2);
     expect(machineryUrl).toContain("assetType=MACHINERY");
     expect(machineryUrl).toContain("assetId=m1");
     expect(machineryUrl).toContain("from=2026-08-01");

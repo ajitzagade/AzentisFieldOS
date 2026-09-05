@@ -7,6 +7,7 @@ export * from "./components/data-table";
 export * from "./components/pagination";
 export * from "./components/stat-tile";
 export * from "./components/gap-flag";
+export * from "./components/gap-flag-list";
 export * from "./components/help-bubble";
 export * from "./components/correct-action";
 export * from "./components/empty-state";

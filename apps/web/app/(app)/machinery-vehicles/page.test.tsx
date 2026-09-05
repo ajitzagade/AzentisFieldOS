@@ -55,16 +55,17 @@ describe("MachineryVehiclesPage", () => {
 
     await renderMachineryVehiclesPage();
 
-    expect(screen.getByText("JCB 3DX")).toBeInTheDocument();
-    expect(screen.getByText("Excavator")).toBeInTheDocument();
-    expect(screen.getByText("AST-001")).toBeInTheDocument();
-    expect(screen.getByText("NH-48 Highway Widening")).toBeInTheDocument();
-    expect(screen.getByText("In Use")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "JCB 3DX" })).toHaveAttribute("href", "/machinery-vehicles/machinery/m1");
-    expect(screen.getByRole("link", { name: "Correct" })).toHaveAttribute(
-      "href",
-      "/machinery-vehicles/machinery/m1/movements/log1/correct",
-    );
+    expect(screen.getAllByText("JCB 3DX")).toHaveLength(2);
+    expect(screen.getAllByText("Excavator")).toHaveLength(2);
+    expect(screen.getAllByText("AST-001")).toHaveLength(2);
+    expect(screen.getAllByText("NH-48 Highway Widening")).toHaveLength(2);
+    expect(screen.getAllByText("In Use")).toHaveLength(2);
+    for (const link of screen.getAllByRole("link", { name: "JCB 3DX" })) {
+      expect(link).toHaveAttribute("href", "/machinery-vehicles/machinery/m1");
+    }
+    for (const link of screen.getAllByRole("link", { name: "Correct" })) {
+      expect(link).toHaveAttribute("href", "/machinery-vehicles/machinery/m1/movements/log1/correct");
+    }
   });
 
   it("omits the Correct action for a Machine with no Movement history yet", async () => {
@@ -106,13 +107,12 @@ describe("MachineryVehiclesPage", () => {
 
     await renderMachineryVehiclesPage();
 
-    expect(screen.getByText("MH-12-AB-1234")).toBeInTheDocument();
-    expect(screen.getByText("Suresh")).toBeInTheDocument();
-    expect(screen.getByText("Available")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "MH-12-AB-1234" })).toHaveAttribute(
-      "href",
-      "/machinery-vehicles/vehicles/v1",
-    );
+    expect(screen.getAllByText("MH-12-AB-1234")).toHaveLength(2);
+    expect(screen.getAllByText("Suresh")).toHaveLength(2);
+    expect(screen.getAllByText("Available")).toHaveLength(2);
+    for (const link of screen.getAllByRole("link", { name: "MH-12-AB-1234" })) {
+      expect(link).toHaveAttribute("href", "/machinery-vehicles/vehicles/v1");
+    }
   });
 
   it("renders empty states with add-first actions when both registers are empty", async () => {
@@ -120,16 +120,14 @@ describe("MachineryVehiclesPage", () => {
 
     await renderMachineryVehiclesPage();
 
-    expect(screen.getByText("No Machinery registered yet.")).toBeInTheDocument();
-    expect(screen.getByText("No Vehicles registered yet.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Register your first Machine/ })).toHaveAttribute(
-      "href",
-      "/machinery-vehicles/machinery/new",
-    );
-    expect(screen.getByRole("link", { name: /Register your first Vehicle/ })).toHaveAttribute(
-      "href",
-      "/machinery-vehicles/vehicles/new",
-    );
+    expect(screen.getAllByText("No Machinery registered yet.")).toHaveLength(2);
+    expect(screen.getAllByText("No Vehicles registered yet.")).toHaveLength(2);
+    for (const link of screen.getAllByRole("link", { name: /Register your first Machine/ })) {
+      expect(link).toHaveAttribute("href", "/machinery-vehicles/machinery/new");
+    }
+    for (const link of screen.getAllByRole("link", { name: /Register your first Vehicle/ })) {
+      expect(link).toHaveAttribute("href", "/machinery-vehicles/vehicles/new");
+    }
   });
 
   it("links the header actions and section links to the new/types routes", async () => {

@@ -16,6 +16,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { quantityUnitLabel } from "./quantity-unit-label";
 
@@ -122,22 +123,41 @@ function rateOrAmountLabel(contract: SiteContractDetail): string {
   return `₹${Number(contract.rate).toLocaleString("en-IN")} / ${unit}`;
 }
 
+function renderWorkEntryAction(entry: WorkEntryRow, siteId: string, contractId: string) {
+  return (
+    <CorrectAction
+      icon={<RotateCcwIcon />}
+      href={`/sites/${siteId}/contracts/${contractId}/work-entries/${entry.id}/correct`}
+    />
+  );
+}
+
 function workEntryColumns(siteId: string, contractId: string): DataTableColumn<WorkEntryRow>[] {
   return [
     { header: "Date", cell: (entry) => <span className="text-ink-500">{formatDate(entry.workDate)}</span> },
     { header: "Quantity", align: "right", cell: (entry) => <span className="tabular-nums">{entry.quantity}</span> },
     { header: "Note", cell: (entry) => entry.note ?? <span className="text-ink-500">—</span> },
-    {
-      header: "",
-      align: "right",
-      cell: (entry) => (
-        <CorrectAction
-          icon={<RotateCcwIcon />}
-          href={`/sites/${siteId}/contracts/${contractId}/work-entries/${entry.id}/correct`}
-        />
-      ),
-    },
+    { header: "", align: "right", cell: (entry) => renderWorkEntryAction(entry, siteId, contractId) },
   ];
+}
+
+function workEntryMobileCard(siteId: string, contractId: string): DataTableMobileCard<WorkEntryRow> {
+  return {
+    primary: (entry) => formatDate(entry.workDate),
+    omitHeaders: ["Date"],
+    action: (entry) => renderWorkEntryAction(entry, siteId, contractId),
+  };
+}
+
+// Money movement is Owner/Admin-only (same rule as Record Payment above) —
+// only show the affordance to a viewer who can use it.
+function renderPaymentAction(payment: SubcontractorPaymentRow, siteId: string, contractId: string, viewerRole: Role) {
+  return viewerRole !== "OWNER_ADMIN" ? null : (
+    <CorrectAction
+      icon={<RotateCcwIcon />}
+      href={`/sites/${siteId}/contracts/${contractId}/payments/${payment.id}/correct`}
+    />
+  );
 }
 
 function paymentColumns(siteId: string, contractId: string, viewerRole: Role): DataTableColumn<SubcontractorPaymentRow>[] {
@@ -153,20 +173,16 @@ function paymentColumns(siteId: string, contractId: string, viewerRole: Role): D
       align: "right",
       cell: (payment) => <span className="font-semibold text-gold-700 tabular-nums">₹{Number(payment.amount).toLocaleString("en-IN")}</span>,
     },
-    {
-      header: "",
-      align: "right",
-      // Money movement is Owner/Admin-only (same rule as Record Payment
-      // above) — only show the affordance to a viewer who can use it.
-      cell: (payment) =>
-        viewerRole !== "OWNER_ADMIN" ? null : (
-          <CorrectAction
-            icon={<RotateCcwIcon />}
-            href={`/sites/${siteId}/contracts/${contractId}/payments/${payment.id}/correct`}
-          />
-        ),
-    },
+    { header: "", align: "right", cell: (payment) => renderPaymentAction(payment, siteId, contractId, viewerRole) },
   ];
+}
+
+function paymentMobileCard(siteId: string, contractId: string, viewerRole: Role): DataTableMobileCard<SubcontractorPaymentRow> {
+  return {
+    primary: (payment) => formatDate(payment.paidAt),
+    omitHeaders: ["Date"],
+    action: (payment) => renderPaymentAction(payment, siteId, contractId, viewerRole),
+  };
 }
 
 export default async function SiteContractDetailPage({
@@ -324,6 +340,7 @@ export default async function SiteContractDetailPage({
       <div className="mb-8">
         <DataTable
           columns={workEntryColumns(siteId, contractId)}
+          mobileCard={workEntryMobileCard(siteId, contractId)}
           rowKey={(entry) => entry.id}
           state={
             workEntries === null
@@ -338,6 +355,7 @@ export default async function SiteContractDetailPage({
       <div className="mb-4 text-section-header text-ink-900">Payments</div>
       <DataTable
         columns={paymentColumns(siteId, contractId, viewerRole)}
+        mobileCard={paymentMobileCard(siteId, contractId, viewerRole)}
         rowKey={(payment) => payment.id}
         state={
           payments === null

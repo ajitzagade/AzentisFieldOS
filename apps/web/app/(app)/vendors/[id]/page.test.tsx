@@ -68,7 +68,9 @@ describe("VendorDetailPage", () => {
 
     await renderDetailPage("v1");
 
-    expect(screen.getByText("No Purchases recorded yet for this Vendor.")).toBeInTheDocument();
+    // Rendered once in the md+ table's empty panel and once in the
+    // below-md mobile card's empty panel.
+    expect(screen.getAllByText("No Purchases recorded yet for this Vendor.")).toHaveLength(2);
   });
 
   it("renders every Purchase with Material, Quantity, Amount, Invoice/Challan #, and Payment status", async () => {
@@ -87,11 +89,12 @@ describe("VendorDetailPage", () => {
 
     await renderDetailPage("v1");
 
-    expect(screen.getByText("Cement (OPC 53)")).toBeInTheDocument();
-    expect(screen.getByText("500 Bags")).toBeInTheDocument();
-    expect(screen.getByText("₹1,90,000")).toBeInTheDocument();
-    expect(screen.getByText("INV-4521")).toBeInTheDocument();
-    expect(screen.getByText("Paid")).toBeInTheDocument();
+    // Rendered once in the md+ table and once in the below-md mobile card.
+    expect(screen.getAllByText("Cement (OPC 53)")).toHaveLength(2);
+    expect(screen.getAllByText("500 Bags")).toHaveLength(2);
+    expect(screen.getAllByText("₹1,90,000")).toHaveLength(2);
+    expect(screen.getAllByText("INV-4521")).toHaveLength(2);
+    expect(screen.getAllByText("Paid")).toHaveLength(2);
   });
 
   it("renders an Edit Vendor link pointing to the edit route", async () => {
@@ -129,7 +132,8 @@ describe("VendorDetailPage — unpriced (Pricing pending) purchase rows", () => 
 
     await renderDetailPage("v1");
 
-    expect(screen.getByText("Pricing pending")).toBeInTheDocument();
+    // Rendered once in the md+ table and once in the below-md mobile card.
+    expect(screen.getAllByText("Pricing pending")).toHaveLength(2);
     expect(screen.queryByText("₹0")).not.toBeInTheDocument();
   });
 });

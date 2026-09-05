@@ -16,6 +16,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import type { TeamMemberDetail } from "./edit/page";
 import { RecordRecentlyViewed } from "../../_components/record-recently-viewed";
@@ -187,6 +188,17 @@ const ledgerColumns: DataTableColumn<LedgerRow>[] = [
   { header: "", cell: (r) => r.actions },
 ];
 
+const workHistoryMobileCard: DataTableMobileCard<WorkHistoryEntry> = {
+  primary: (w) => formatDate(w.workDate),
+  omitHeaders: ["Date"],
+};
+
+const ledgerMobileCard: DataTableMobileCard<LedgerRow> = {
+  primary: (r) => r.date,
+  omitHeaders: ["Date"],
+  action: (r) => r.actions,
+};
+
 export default async function TeamMemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [role, teamMember, workHistory, advances, adjustments] = await Promise.all([
@@ -280,6 +292,7 @@ export default async function TeamMemberDetailPage({ params }: { params: Promise
               }
             : { status: "success", rows: workHistory }
         }
+        mobileCard={workHistoryMobileCard}
       />
 
       <div className="mb-4 mt-8 flex flex-wrap items-center justify-between gap-3">
@@ -312,6 +325,7 @@ export default async function TeamMemberDetailPage({ params }: { params: Promise
                 }
               : { status: "success", rows: ledgerRows }
           }
+          mobileCard={ledgerMobileCard}
         />
       </div>
     </>

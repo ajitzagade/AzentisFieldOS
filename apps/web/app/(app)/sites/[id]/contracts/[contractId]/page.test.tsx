@@ -165,8 +165,8 @@ describe("SiteContractDetailPage", () => {
 
     await renderDetailPage("site-1", "c1");
 
-    expect(screen.getByText("No Work Entries logged yet for this Site Contract.")).toBeInTheDocument();
-    expect(screen.getByText("No Payments recorded yet for this Site Contract.")).toBeInTheDocument();
+    expect(screen.getAllByText("No Work Entries logged yet for this Site Contract.")).toHaveLength(2);
+    expect(screen.getAllByText("No Payments recorded yet for this Site Contract.")).toHaveLength(2);
   });
 
   it("shows a Correct action on Payment rows to an Owner/Admin — money movement is Owner/Admin-only", async () => {
@@ -176,7 +176,7 @@ describe("SiteContractDetailPage", () => {
 
     mockContractPage({ role: "OWNER_ADMIN", payments });
     await renderDetailPage("site-1", "c1");
-    expect(screen.getByRole("link", { name: /Correct/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Correct/ })).toHaveLength(2);
   });
 
   it("hides the Correct action on Payment rows from a Supervisor", async () => {
@@ -200,6 +200,6 @@ describe("SiteContractDetailPage", () => {
 
     await renderDetailPage("site-1", "c1");
 
-    expect(screen.getByText("Couldn't load Work Entries right now.")).toBeInTheDocument();
+    expect(screen.getAllByText("Couldn't load Work Entries right now.")).toHaveLength(2);
   });
 });

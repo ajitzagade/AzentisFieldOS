@@ -97,8 +97,11 @@ describe("TeamMemberDetailPage", () => {
     expect(screen.getByRole("heading", { name: "Ravi Kumar" })).toBeInTheDocument();
     expect(screen.getByText("Weekly")).toBeInTheDocument();
     expect(screen.getByText("+91 98765 43210")).toBeInTheDocument();
-    expect(screen.getAllByText("NH-48 Highway Widening")).toHaveLength(2);
-    expect(screen.getByText("8h / 1h OT")).toBeInTheDocument();
+    // 3, not 2: the profile's "Current / Last Site" field, plus the
+    // desktop table row and the mobileCard's stacked-card copy of the same
+    // row (both always render in the DOM — see DataTable's mobileCard doc).
+    expect(screen.getAllByText("NH-48 Highway Widening")).toHaveLength(3);
+    expect(screen.getAllByText("8h / 1h OT")).toHaveLength(2);
   });
 
   it("derives today's attendance and current site from the most recent Work Record", async () => {
@@ -112,7 +115,9 @@ describe("TeamMemberDetailPage", () => {
 
     await renderDetailPage("tm1");
 
-    expect(screen.getAllByText("Present")).toHaveLength(2);
+    // 3: profile "Today's attendance" badge, plus the desktop row and the
+    // mobileCard's stacked-card copy of the same Attendance badge.
+    expect(screen.getAllByText("Present")).toHaveLength(3);
   });
 
   it("shows honest placeholders when the Team Member has no Work Records, Advances, or Adjustments yet", async () => {
@@ -125,8 +130,11 @@ describe("TeamMemberDetailPage", () => {
 
     await renderDetailPage("tm1");
 
-    expect(screen.getByText("No Work Records yet for this Team Member.")).toBeInTheDocument();
-    expect(screen.getByText("No Advances recorded yet for this Team Member.")).toBeInTheDocument();
+    // Each empty state renders twice: the desktop table's empty row and the
+    // mobileCard list's empty panel both always exist in the DOM (CSS-hidden
+    // per breakpoint, not conditionally rendered).
+    expect(screen.getAllByText("No Work Records yet for this Team Member.")).toHaveLength(2);
+    expect(screen.getAllByText("No Advances recorded yet for this Team Member.")).toHaveLength(2);
     expect(screen.getByText("₹0")).toBeInTheDocument();
   });
 
@@ -148,10 +156,17 @@ describe("TeamMemberDetailPage", () => {
     await renderDetailPage("tm1");
 
     expect(screen.getByText("₹8,000")).toBeInTheDocument();
-    expect(screen.getByText("Medical")).toBeInTheDocument();
+    // 2, not 1: the ledger's mobileCard.action reuses the same row.actions
+    // node as the desktop "" column, so it (and the row's Reason text)
+    // renders once in the desktop table and once in the stacked mobile card.
+    expect(screen.getAllByText("Medical")).toHaveLength(2);
     expect(screen.getByRole("link", { name: "Record Advance" })).toHaveAttribute("href", "/team/tm1/advances/new");
-    expect(screen.getByRole("link", { name: "Correct" })).toHaveAttribute("href", "/team/tm1/advances/adv1/correct");
-    expect(screen.getByRole("link", { name: /Adjust/ })).toHaveAttribute("href", "/team/tm1/advances/adv1/adjustments/new");
+    for (const link of screen.getAllByRole("link", { name: "Correct" })) {
+      expect(link).toHaveAttribute("href", "/team/tm1/advances/adv1/correct");
+    }
+    for (const link of screen.getAllByRole("link", { name: /Adjust/ })) {
+      expect(link).toHaveAttribute("href", "/team/tm1/advances/adv1/adjustments/new");
+    }
   });
 
   it("hides Record Advance for SITE_SUPERVISOR, since apps/api now rejects that write", async () => {
@@ -199,8 +214,8 @@ describe("TeamMemberDetailPage", () => {
     // let a Supervisor see Adjust/Correct links that 403 server-side, but
     // every existing test with a non-empty ledger used the default
     // OWNER_ADMIN role, so it would never have caught it.
-    expect(screen.getByText("Medical")).toBeInTheDocument();
-    expect(screen.getByText("Adjusted against July payment")).toBeInTheDocument();
+    expect(screen.getAllByText("Medical")).toHaveLength(2);
+    expect(screen.getAllByText("Adjusted against July payment")).toHaveLength(2);
     expect(screen.queryByRole("link", { name: "Correct" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Adjust/ })).not.toBeInTheDocument();
   });
@@ -231,9 +246,9 @@ describe("TeamMemberDetailPage", () => {
 
     await renderDetailPage("tm1");
 
-    expect(screen.getByText("Adjustment")).toBeInTheDocument();
-    expect(screen.getByText("Adjusted against July payment")).toBeInTheDocument();
-    expect(screen.getByText("−₹3,000")).toBeInTheDocument();
+    expect(screen.getAllByText("Adjustment")).toHaveLength(2);
+    expect(screen.getAllByText("Adjusted against July payment")).toHaveLength(2);
+    expect(screen.getAllByText("−₹3,000")).toHaveLength(2);
     const correctLinks = screen.getAllByRole("link", { name: "Correct" });
     expect(correctLinks.map((link) => link.getAttribute("href"))).toContain(
       "/team/tm1/advances/adv1/adjustments/aa1/correct",
@@ -257,7 +272,7 @@ describe("TeamMemberDetailPage", () => {
 
     await renderDetailPage("tm1");
 
-    expect(screen.getByText("Absent")).toBeInTheDocument();
+    expect(screen.getAllByText("Absent")).toHaveLength(2);
   });
 
   it("shows a Disabled badge for an inactive Team Member", async () => {

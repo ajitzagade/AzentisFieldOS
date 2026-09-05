@@ -14,6 +14,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { useListQueryState } from "../../../lib/use-list-query-state";
 import { useDebouncedSearch } from "../../../lib/use-debounced-search";
@@ -27,6 +28,26 @@ export interface MachineryListItem {
   type: { id: string; name: string };
   currentSite: { id: string; name: string } | null;
   movementLogs: { id: string }[];
+}
+
+function renderRowActions(m: MachineryListItem) {
+  return (
+    <>
+      {m.movementLogs[0] ? (
+        <CorrectAction
+          icon={<RotateCcwIcon className="size-4" />}
+          href={`/machinery-vehicles/machinery/${m.id}/movements/${m.movementLogs[0].id}/correct`}
+        />
+      ) : null}
+      <Link
+        href={`/machinery-vehicles/machinery/${m.id}`}
+        aria-label={m.name}
+        className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}
+      >
+        <ChevronRightIcon className="size-4" />
+      </Link>
+    </>
+  );
 }
 
 const columns: DataTableColumn<MachineryListItem>[] = [
@@ -45,25 +66,15 @@ const columns: DataTableColumn<MachineryListItem>[] = [
   { header: "Status", cell: (m) => statusBadge(m.currentStatus), sortKey: "currentStatus" },
   {
     header: "",
-    cell: (m) => (
-      <div className="flex items-center justify-end gap-1">
-        {m.movementLogs[0] ? (
-          <CorrectAction
-            icon={<RotateCcwIcon className="size-4" />}
-            href={`/machinery-vehicles/machinery/${m.id}/movements/${m.movementLogs[0].id}/correct`}
-          />
-        ) : null}
-        <Link
-          href={`/machinery-vehicles/machinery/${m.id}`}
-          aria-label={m.name}
-          className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}
-        >
-          <ChevronRightIcon className="size-4" />
-        </Link>
-      </div>
-    ),
+    cell: (m) => <div className="flex items-center justify-end gap-1">{renderRowActions(m)}</div>,
   },
 ];
+
+const mobileCard: DataTableMobileCard<MachineryListItem> = {
+  primary: (m) => m.name,
+  omitHeaders: ["Name"],
+  action: renderRowActions,
+};
 
 export function MachineryListClient({
   rows,
@@ -95,6 +106,7 @@ export function MachineryListClient({
 
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(m) => m.id}
         sort={query.sort ? { key: query.sort, order: query.order ?? "asc" } : undefined}
         onSortChange={query.setSort}

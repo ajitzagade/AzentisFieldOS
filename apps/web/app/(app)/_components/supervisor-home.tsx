@@ -12,6 +12,7 @@ import {
   ClipboardIcon,
   DropletIcon,
   GapFlag,
+  GapFlagList,
   LayersIcon,
   ReceiptIcon,
   UsersIcon,
@@ -106,24 +107,30 @@ export async function SupervisorHome() {
       {today !== null ? (
         missing.length > 0 ? (
           // One flag per Site, each deep-linking the form to that Site —
-          // never a single banner naming all of them at once (FR-35).
-          <div className="mb-6 flex flex-col gap-3">
-            {missing.map((site) => (
-              <GapFlag
-                key={site.siteId}
-                icon={<AlertTriangleIcon />}
-                message={`Daily Report still due today for ${site.name}.`}
-                action={
-                  <Link
-                    href={`/dsr/new?siteId=${site.siteId}`}
-                    className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
-                  >
-                    <ClipboardIcon className="size-4" />
-                    Start Daily Report
-                  </Link>
-                }
-              />
-            ))}
+          // never a single banner naming all of them at once (FR-35). Folds
+          // behind a summary line once there are several, via GapFlagList.
+          <div className="mb-6">
+            <GapFlagList
+              count={missing.length}
+              summary={`Daily Report still due today for ${missing.length} sites`}
+            >
+              {missing.map((site) => (
+                <GapFlag
+                  key={site.siteId}
+                  icon={<AlertTriangleIcon />}
+                  message={`Daily Report still due today for ${site.name}.`}
+                  action={
+                    <Link
+                      href={`/dsr/new?siteId=${site.siteId}`}
+                      className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+                    >
+                      <ClipboardIcon className="size-4" />
+                      Start Daily Report
+                    </Link>
+                  }
+                />
+              ))}
+            </GapFlagList>
           </div>
         ) : today.sitesReportingToday > 0 ? (
           // Success only when at least one Site actually reported — a tenant

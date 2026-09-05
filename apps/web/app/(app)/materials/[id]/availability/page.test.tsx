@@ -67,7 +67,9 @@ describe("MaterialAvailabilityPage", () => {
 
     await renderPage("mat-1");
 
-    expect(screen.getByText("Not currently in stock at any location")).toBeInTheDocument();
+    // Rendered once in the md+ table's empty panel and once in the
+    // below-md mobile card's empty panel.
+    expect(screen.getAllByText("Not currently in stock at any location")).toHaveLength(2);
   });
 
   it("renders a Godown row with quantity/unit and a Transfer link to the Godown→Site form", async () => {
@@ -80,9 +82,10 @@ describe("MaterialAvailabilityPage", () => {
 
     await renderPage("mat-1");
 
-    expect(screen.getByText("Godown")).toBeInTheDocument();
-    expect(screen.getByText("50kg")).toBeInTheDocument();
-    expect(screen.getByText("40 Bags")).toBeInTheDocument();
+    // Rendered once in the md+ table and once in the below-md mobile card.
+    expect(screen.getAllByText("Godown")).toHaveLength(2);
+    expect(screen.getAllByText("50kg")).toHaveLength(2);
+    expect(screen.getAllByText("40 Bags")).toHaveLength(2);
     expect(screen.getByRole("link", { name: /Transfer from here/ })).toHaveAttribute(
       "href",
       "/movements/godown-to-site/new?materialSizeId=ms1",
@@ -105,7 +108,8 @@ describe("MaterialAvailabilityPage", () => {
 
     await renderPage("mat-1");
 
-    expect(screen.getByText("Nashik Metro")).toBeInTheDocument();
+    // Rendered once in the md+ table and once in the below-md mobile card.
+    expect(screen.getAllByText("Nashik Metro")).toHaveLength(2);
     expect(screen.getByRole("link", { name: /Transfer from here/ })).toHaveAttribute(
       "href",
       "/movements/site-to-site/new?materialSizeId=ms1&sourceSiteId=site-1",

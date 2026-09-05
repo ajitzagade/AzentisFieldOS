@@ -2,7 +2,17 @@ import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge, CameraIcon, ClipboardIcon, DataTable, PencilIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
+import {
+  Badge,
+  CameraIcon,
+  ClipboardIcon,
+  DataTable,
+  PencilIcon,
+  buttonVariants,
+  cn,
+  type DataTableColumn,
+  type DataTableMobileCard,
+} from "@azentisfieldos/ui";
 import { getVendorPurchaseSummary, type Vendor, type VendorPurchaseSummary } from "../page";
 import { DeleteEntityButton } from "../../_components/delete-entity-button";
 import { RecordRecentlyViewed } from "../../_components/record-recently-viewed";
@@ -119,6 +129,11 @@ const purchaseColumns: DataTableColumn<VendorPurchase>[] = [
   },
   { header: "Date", cell: (purchase) => <span className="text-ink-500">{formatDate(purchase.purchasedAt)}</span> },
 ];
+
+const purchaseMobileCard: DataTableMobileCard<VendorPurchase> = {
+  primary: (purchase) => formatDate(purchase.purchasedAt),
+  omitHeaders: ["Date"],
+};
 
 export default async function VendorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -239,6 +254,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
       <div className="mb-4 text-section-header text-ink-900">Purchase History</div>
       <DataTable
         columns={purchaseColumns}
+        mobileCard={purchaseMobileCard}
         rowKey={(purchase) => purchase.id}
         state={
           purchases.length === 0

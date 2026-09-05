@@ -55,10 +55,10 @@ describe("SubcontractorsPage", () => {
 
     await renderSubcontractorsPage();
 
-    expect(screen.getByText("Ganesh Pipeline Works")).toBeInTheDocument();
-    expect(screen.getByText("Ramesh Kadam")).toBeInTheDocument();
-    expect(screen.getByText("Pipe laying")).toBeInTheDocument();
-    expect(screen.getByText("Trenching")).toBeInTheDocument();
+    expect(screen.getAllByText("Ganesh Pipeline Works")).toHaveLength(2);
+    expect(screen.getAllByText("Ramesh Kadam")).toHaveLength(2);
+    expect(screen.getAllByText("Pipe laying")).toHaveLength(2);
+    expect(screen.getAllByText("Trenching")).toHaveLength(2);
   });
 
   it("links each row to its Subcontractor detail route", async () => {
@@ -68,7 +68,9 @@ describe("SubcontractorsPage", () => {
 
     await renderSubcontractorsPage();
 
-    expect(screen.getByText("Om Sai Earthmovers").closest("a")).toHaveAttribute("href", "/subcontractors/abc");
+    for (const el of screen.getAllByText("Om Sai Earthmovers")) {
+      expect(el.closest("a")).toHaveAttribute("href", "/subcontractors/abc");
+    }
   });
 
   it("renders the empty state with an add-first-Subcontractor action when there are zero Subcontractors", async () => {
@@ -76,11 +78,10 @@ describe("SubcontractorsPage", () => {
 
     await renderSubcontractorsPage();
 
-    expect(screen.getByText("No Subcontractors yet.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Add your first Subcontractor/ })).toHaveAttribute(
-      "href",
-      "/subcontractors/new",
-    );
+    expect(screen.getAllByText("No Subcontractors yet.")).toHaveLength(2);
+    for (const link of screen.getAllByRole("link", { name: /Add your first Subcontractor/ })) {
+      expect(link).toHaveAttribute("href", "/subcontractors/new");
+    }
   });
 
   it("renders the Add Subcontractor link in the page header", async () => {

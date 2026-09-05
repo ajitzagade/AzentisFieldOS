@@ -152,6 +152,29 @@ describe("DashboardPage", () => {
     expect(screen.queryByRole("link", { name: /view site/i })).toBeNull();
   });
 
+  it("folds 3+ missing Sites behind a summary, open by default — every Site stays visible, not just reachable (FR-35)", async () => {
+    mockDashboard({
+      today: {
+        ...baseToday,
+        sitesMissingDsrToday: [
+          { siteId: "s1", name: "Balaji Nagar" },
+          { siteId: "s2", name: "Metro Depot" },
+          { siteId: "s3", name: "Riverside Bridge Approach" },
+        ],
+      },
+    });
+
+    await renderDashboard();
+
+    expect(screen.getByText("3 sites have not submitted a Daily Report yet today")).toBeInTheDocument();
+    expect(screen.getByText("Balaji Nagar has not submitted a Daily Report yet today.")).toBeVisible();
+    expect(screen.getByText("Metro Depot has not submitted a Daily Report yet today.")).toBeVisible();
+    expect(
+      screen.getByText("Riverside Bridge Approach has not submitted a Daily Report yet today."),
+    ).toBeVisible();
+    expect(screen.getAllByRole("link", { name: /view site/i })).toHaveLength(3);
+  });
+
   it("renders the Overall section — every figure links to its source screen (AC #2)", async () => {
     mockDashboard({});
     await renderDashboard();
@@ -398,6 +421,28 @@ describe("DashboardPage", () => {
     // hero + one per flag; the flags carry ?siteId= deep links
     expect(starts.some((link) => link.getAttribute("href") === "/dsr/new?siteId=s1")).toBe(true);
     expect(starts.some((link) => link.getAttribute("href") === "/dsr/new?siteId=s2")).toBe(true);
+  });
+
+  it("Supervisor Home: folds 3+ missing Sites behind a summary, open by default (FR-35)", async () => {
+    mockDashboard({
+      role: "SITE_SUPERVISOR",
+      today: {
+        ...baseToday,
+        sitesMissingDsrToday: [
+          { siteId: "s1", name: "NH-48 Widening" },
+          { siteId: "s2", name: "Metro Depot" },
+          { siteId: "s3", name: "Riverside Bridge Approach" },
+        ],
+      },
+    });
+    await renderDashboard();
+
+    expect(screen.getByText("Daily Report still due today for 3 sites")).toBeInTheDocument();
+    expect(screen.getByText("Daily Report still due today for NH-48 Widening.")).toBeVisible();
+    expect(screen.getByText("Daily Report still due today for Metro Depot.")).toBeVisible();
+    expect(screen.getByText("Daily Report still due today for Riverside Bridge Approach.")).toBeVisible();
+    const starts = screen.getAllByRole("link", { name: /Start Daily Report/ });
+    expect(starts.some((link) => link.getAttribute("href") === "/dsr/new?siteId=s3")).toBe(true);
   });
 
   it("Supervisor Home: all-submitted success line only when something actually reported", async () => {

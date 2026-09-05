@@ -12,6 +12,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { useListQueryState } from "../../../lib/use-list-query-state";
 import { useDebouncedSearch } from "../../../lib/use-debounced-search";
@@ -50,6 +51,11 @@ const columns: DataTableColumn<Subcontractor>[] = [
   },
 ];
 
+const mobileCard: DataTableMobileCard<Subcontractor> = {
+  primary: (subcontractor) => subcontractor.name,
+  omitHeaders: ["Name"],
+};
+
 export function SubcontractorsListClient({
   rows,
   total,
@@ -80,6 +86,7 @@ export function SubcontractorsListClient({
 
       <DataTable
         columns={columns}
+        mobileCard={mobileCard}
         rowKey={(subcontractor) => subcontractor.id}
         rowHref={(subcontractor) => `/subcontractors/${subcontractor.id}`}
         sort={query.sort ? { key: query.sort, order: query.order ?? "asc" } : undefined}

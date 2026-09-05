@@ -22,6 +22,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { PhotoGalleryGrid } from "../_components/photo-gallery-grid";
 import { statusBadge, type AssetLocationStatus } from "../machinery-vehicles/status-badge";
@@ -465,6 +466,15 @@ const dailyReportColumns: DataTableColumn<DailyReportRow>[] = [
   },
 ];
 
+const dailyReportMobileCard: DataTableMobileCard<DailyReportRow> = {
+  primary: (row) => (
+    <>
+      {row.reportType} <span className="text-ink-500">· {row.siteName}</span>
+    </>
+  ),
+  omitHeaders: ["Report", "Site"],
+};
+
 function dsrSummary(row: DsrHistoryRow) {
   if (row.workCompleted) return row.workCompleted;
   if (row._count.consumptions > 0) {
@@ -479,6 +489,11 @@ const dsrHistoryColumns: DataTableColumn<DsrHistoryRow>[] = [
   { header: "Crew Present", align: "right", cell: (row) => row._count.workRecords },
   { header: "Summary", cell: (row) => dsrSummary(row) },
 ];
+
+const dsrHistoryMobileCard: DataTableMobileCard<DsrHistoryRow> = {
+  primary: (row) => <span className="font-semibold">{formatDate(row.reportDate)}</span>,
+  omitHeaders: ["Date"],
+};
 
 const feedColumns: DataTableColumn<FeedItem>[] = [
   { header: "Date", cell: (row) => <span className="text-ink-500">{formatDate(row.occurredAt)}</span> },
@@ -496,6 +511,11 @@ const feedColumns: DataTableColumn<FeedItem>[] = [
   },
 ];
 
+const feedMobileCard: DataTableMobileCard<FeedItem> = {
+  primary: (row) => formatDate(row.occurredAt),
+  omitHeaders: ["Date"],
+};
+
 const godownStockColumns: DataTableColumn<StockRow>[] = [
   { header: "Material", cell: (r) => r.materialSize.material.name },
   {
@@ -505,6 +525,11 @@ const godownStockColumns: DataTableColumn<StockRow>[] = [
   { header: "Unit", cell: (r) => r.materialSize.material.unit.name },
   { header: "Qty on Hand", align: "right", cell: (r) => r.quantity },
 ];
+
+const godownStockMobileCard: DataTableMobileCard<StockRow> = {
+  primary: (r) => r.materialSize.material.name,
+  omitHeaders: ["Material"],
+};
 
 const siteStockColumns: DataTableColumn<StockRow>[] = [
   { header: "Site", cell: (r) => r.site?.name ?? "—" },
@@ -535,6 +560,16 @@ const transactionColumns: DataTableColumn<TransactionRow>[] = [
   { header: "Site", cell: (r) => r.site },
   { header: "Quantity", align: "right", cell: (r) => r.quantity },
 ];
+
+const transactionMobileCard: DataTableMobileCard<TransactionRow> = {
+  primary: (r) => (
+    <span className="flex flex-wrap items-center gap-2">
+      <span className="font-semibold">{r.type}</span>
+      {r.material}
+    </span>
+  ),
+  omitHeaders: ["Type", "Material"],
+};
 
 function materialLabel(ms: MaterialSizeRef) {
   return `${ms.material.name}${ms.label ? ` (${ms.label})` : ""}`;
@@ -623,6 +658,7 @@ function SiteReportView({
     return (
       <DataTable
         columns={dsrHistoryColumns}
+        mobileCard={dsrHistoryMobileCard}
         rowKey={(row) => row.id}
         state={{ status: "empty", icon: <ClipboardIcon />, message: "No Sites yet." }}
       />
@@ -645,6 +681,7 @@ function SiteReportView({
       <h2 className="mb-3 text-card-title text-ink-900">Daily Report History</h2>
       <DataTable
         columns={dsrHistoryColumns}
+        mobileCard={dsrHistoryMobileCard}
         rowKey={(row) => row.id}
         rowHref={(row) => `/daily-activity/${row.id}`}
         state={
@@ -661,6 +698,7 @@ function SiteReportView({
       <h2 className="mb-3 mt-8 text-card-title text-ink-900">Activity History</h2>
       <DataTable
         columns={feedColumns}
+        mobileCard={feedMobileCard}
         rowKey={(row) => `${row.type}-${row.id}`}
         state={
           report.feed.length === 0
@@ -753,6 +791,7 @@ function InventoryReportView({
       <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <DataTable
           columns={godownStockColumns}
+          mobileCard={godownStockMobileCard}
           rowKey={(r) => r.materialSizeId}
           state={
             report.godownStock.length === 0
@@ -779,6 +818,7 @@ function InventoryReportView({
       <h2 className="mb-3 text-card-title text-ink-900">Transaction History</h2>
       <DataTable
         columns={transactionColumns}
+        mobileCard={transactionMobileCard}
         rowKey={(r) => r.key}
         state={
           transactions.length === 0
@@ -816,6 +856,15 @@ const workRecordColumns: DataTableColumn<LabourWorkRecord>[] = [
   },
 ];
 
+const workRecordMobileCard: DataTableMobileCard<LabourWorkRecord> = {
+  primary: (w) => (
+    <>
+      {w.teamMember.name} <span className="text-ink-500">· {formatDate(w.workDate)}</span>
+    </>
+  ),
+  omitHeaders: ["Team Member", "Date"],
+};
+
 const paymentColumns: DataTableColumn<LabourPayment>[] = [
   { header: "Recorded", cell: (p) => <span className="text-ink-500">{formatDate(p.createdAt)}</span> },
   { header: "Team Member", cell: (p) => p.teamMember.name },
@@ -835,6 +884,11 @@ const paymentColumns: DataTableColumn<LabourPayment>[] = [
     cell: (p) => <span className="tabular-nums font-semibold text-gold-700">{formatMoneyStr(p.netPayable)}</span>,
   },
 ];
+
+const paymentMobileCard: DataTableMobileCard<LabourPayment> = {
+  primary: (p) => p.teamMember.name,
+  omitHeaders: ["Team Member"],
+};
 
 const outstandingColumns: DataTableColumn<OutstandingRow>[] = [
   { header: "Team Member", cell: (r) => r.name },
@@ -872,6 +926,16 @@ const ledgerColumns: DataTableColumn<LedgerRow>[] = [
     cell: (r) => <span className="tabular-nums">{formatMoneyStr(r.amount)}</span>,
   },
 ];
+
+const ledgerMobileCard: DataTableMobileCard<LedgerRow> = {
+  primary: (r) => (
+    <>
+      {r.teamMember}{" "}
+      {r.type === "Advance" ? <Badge variant="gold">Advance</Badge> : <Badge variant="neutral">Adjustment</Badge>}
+    </>
+  ),
+  omitHeaders: ["Team Member", "Type"],
+};
 
 function mergeLedger(report: LabourReport): LedgerRow[] {
   const rows: LedgerRow[] = [
@@ -953,6 +1017,7 @@ function LabourReportView({
       <h2 className="mb-3 text-card-title text-ink-900">Attendance &amp; Work History</h2>
       <DataTable
         columns={workRecordColumns}
+        mobileCard={workRecordMobileCard}
         rowKey={(w) => w.id}
         state={
           report.workRecords.length === 0
@@ -968,6 +1033,7 @@ function LabourReportView({
       <h2 className="mb-3 mt-8 text-card-title text-ink-900">Payment History</h2>
       <DataTable
         columns={paymentColumns}
+        mobileCard={paymentMobileCard}
         rowKey={(p) => p.id}
         state={
           report.payments.length === 0
@@ -990,6 +1056,7 @@ function LabourReportView({
       <h2 className="mb-3 mt-8 text-card-title text-ink-900">Advance &amp; Adjustment History</h2>
       <DataTable
         columns={ledgerColumns}
+        mobileCard={ledgerMobileCard}
         rowKey={(r) => r.key}
         state={
           ledger.length === 0
@@ -1021,6 +1088,11 @@ const registerColumns: DataTableColumn<AssetRegisterRow>[] = [
   { header: "Current Site", cell: (a) => a.currentSite?.name ?? <span className="text-ink-500">—</span> },
   { header: "Status", cell: (a) => statusBadge(a.currentStatus) },
 ];
+
+const registerMobileCard: DataTableMobileCard<AssetRegisterRow> = {
+  primary: (a) => a.name ?? a.number ?? "—",
+  omitHeaders: ["Asset"],
+};
 
 const assetMovementColumns: DataTableColumn<AssetMovementRow>[] = [
   { header: "Date", cell: (m) => <span className="text-ink-500">{formatDate(m.movedAt)}</span> },
@@ -1057,6 +1129,16 @@ const assetServiceColumns: DataTableColumn<AssetServiceRow>[] = [
       ),
   },
 ];
+
+const assetServiceMobileCard: DataTableMobileCard<AssetServiceRow> = {
+  primary: (s) => (
+    <span className="flex flex-wrap items-center gap-2">
+      {serviceKindBadge(s.kind)}
+      <span className="text-ink-500">{formatDate(s.serviceDate)}</span>
+    </span>
+  ),
+  omitHeaders: ["Date", "Kind"],
+};
 
 function MachineryReportView({
   report,
@@ -1129,6 +1211,7 @@ function MachineryReportView({
           <h2 className="mb-3 mt-8 text-card-title text-ink-900">Fuel, Maintenance &amp; Repair History</h2>
           <DataTable
             columns={assetServiceColumns}
+            mobileCard={assetServiceMobileCard}
             rowKey={(s) => s.id}
             state={
               report.serviceLogs.length === 0
@@ -1142,6 +1225,7 @@ function MachineryReportView({
           <h2 className="mb-3 text-card-title text-ink-900">Machinery — Current Status</h2>
           <DataTable
             columns={registerColumns}
+            mobileCard={registerMobileCard}
             rowKey={(a) => a.id}
             state={
               report.machinery.length === 0
@@ -1153,6 +1237,7 @@ function MachineryReportView({
           <h2 className="mb-3 mt-8 text-card-title text-ink-900">Vehicles — Current Status</h2>
           <DataTable
             columns={registerColumns}
+            mobileCard={registerMobileCard}
             rowKey={(a) => a.id}
             state={
               report.vehicles.length === 0
@@ -1248,6 +1333,11 @@ const siteBreakdownColumns: DataTableColumn<FinancialSiteRow>[] = [
     ),
   },
 ];
+
+const siteBreakdownMobileCard: DataTableMobileCard<FinancialSiteRow> = {
+  primary: (r) => r.name,
+  omitHeaders: ["Site"],
+};
 
 function scopedCategoryRows(
   scope: FinancialSiteRow | FinancialContractorTotal,
@@ -1376,6 +1466,7 @@ function FinancialReportView({
           </p>
           <DataTable
             columns={siteBreakdownColumns}
+            mobileCard={siteBreakdownMobileCard}
             rowKey={(r) => r.siteId}
             state={
               report.bySite.length === 0
@@ -1576,6 +1667,7 @@ export default async function ReportsPage({
 
       <DataTable
         columns={dailyReportColumns}
+        mobileCard={dailyReportMobileCard}
         rowKey={(row) => row.id}
         rowHref={(row) => `/reports/daily/${row.id}`}
         state={

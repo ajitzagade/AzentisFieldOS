@@ -84,7 +84,7 @@ describe("SiteDetailPage", () => {
 
     await renderDetailPage("site-1");
 
-    expect(screen.getByText("No activity logged yet for this Site.")).toBeInTheDocument();
+    expect(screen.getAllByText("No activity logged yet for this Site.")).toHaveLength(2);
   });
 
   it("renders mixed record types in one feed with type labels and amounts where present", async () => {
@@ -102,11 +102,11 @@ describe("SiteDetailPage", () => {
 
     await renderDetailPage("site-1");
 
-    expect(screen.getByText("Diesel refill")).toBeInTheDocument();
-    expect(screen.getByText("Expense")).toBeInTheDocument();
-    expect(screen.getByText("₹4,200")).toBeInTheDocument();
-    expect(screen.getByText("Daily Site Report submitted")).toBeInTheDocument();
-    expect(screen.getByText("Report")).toBeInTheDocument();
+    expect(screen.getAllByText("Diesel refill")).toHaveLength(2);
+    expect(screen.getAllByText("Expense")).toHaveLength(2);
+    expect(screen.getAllByText("₹4,200")).toHaveLength(2);
+    expect(screen.getAllByText("Daily Site Report submitted")).toHaveLength(2);
+    expect(screen.getAllByText("Report")).toHaveLength(2);
   });
 
   it("renders an Edit Site link pointing to the edit route", async () => {
@@ -137,7 +137,7 @@ describe("SiteDetailPage", () => {
 
     await renderDetailPage("site-1");
 
-    expect(screen.getByText("No Subcontractors engaged at this Site yet.")).toBeInTheDocument();
+    expect(screen.getAllByText("No Subcontractors engaged at this Site yet.")).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: /Add Subcontractor/ })[0]).toHaveAttribute(
       "href",
       "/sites/site-1/contracts/new",
@@ -149,7 +149,7 @@ describe("SiteDetailPage", () => {
 
     await renderDetailPage("site-1");
 
-    expect(screen.getByText("Couldn't load this Site's Subcontractors right now.")).toBeInTheDocument();
+    expect(screen.getAllByText("Couldn't load this Site's Subcontractors right now.")).toHaveLength(2);
   });
 
   it("renders each Site Contract row, and shows an Advance credit (not a raw negative) for a negative outstandingAmount", async () => {
@@ -168,8 +168,8 @@ describe("SiteDetailPage", () => {
 
     await renderDetailPage("site-1");
 
-    expect(screen.getByText("Ganesh Pipeline Works")).toBeInTheDocument();
-    expect(screen.getByText(/Advance/)).toBeInTheDocument();
-    expect(screen.getByText(/₹5,000/)).toBeInTheDocument();
+    expect(screen.getAllByText("Ganesh Pipeline Works")).toHaveLength(2);
+    expect(screen.getAllByText(/Advance/)).toHaveLength(2);
+    expect(screen.getAllByText(/₹5,000/)).toHaveLength(2);
   });
 });

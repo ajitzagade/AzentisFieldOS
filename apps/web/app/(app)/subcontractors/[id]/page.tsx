@@ -2,7 +2,17 @@ import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge, ClipboardIcon, DataTable, PencilIcon, PlusIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
+import {
+  Badge,
+  ClipboardIcon,
+  DataTable,
+  PencilIcon,
+  PlusIcon,
+  buttonVariants,
+  cn,
+  type DataTableColumn,
+  type DataTableMobileCard,
+} from "@azentisfieldos/ui";
 import type { Subcontractor } from "../page";
 import { DeleteEntityButton } from "../../_components/delete-entity-button";
 import { RecordRecentlyViewed } from "../../_components/record-recently-viewed";
@@ -67,6 +77,11 @@ const siteContractColumns: DataTableColumn<SubcontractorSiteContract>[] = [
       ),
   },
 ];
+
+const siteContractMobileCard: DataTableMobileCard<SubcontractorSiteContract> = {
+  primary: (row) => row.site.name,
+  omitHeaders: ["Site"],
+};
 
 async function getSubcontractor(id: string): Promise<Subcontractor | null> {
   const res = await authedFetch(`/subcontractors/${id}`, { cache: "no-store" });
@@ -177,6 +192,7 @@ export default async function SubcontractorDetailPage({ params }: { params: Prom
       </div>
       <DataTable
         columns={siteContractColumns}
+        mobileCard={siteContractMobileCard}
         rowKey={(row) => row.id}
         rowHref={(row) => `/sites/${row.site.id}/contracts/${row.id}`}
         state={

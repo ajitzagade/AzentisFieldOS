@@ -47,10 +47,15 @@ describe("DailyActivityPage", () => {
 
     await renderLogPage();
 
-    expect(screen.getByText("Submitted")).toBeInTheDocument();
-    expect(screen.getByText("Ramesh Yadav")).toBeInTheDocument();
-    expect(screen.getByText("RCC pour completed")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /NH-48/ })).toHaveAttribute("href", "/daily-activity/dsr-1");
+    // Rendered once in the md+ table and once in the below-md mobile card.
+    expect(screen.getAllByText("Submitted")).toHaveLength(2);
+    expect(screen.getAllByText("Ramesh Yadav")).toHaveLength(2);
+    expect(screen.getAllByText("RCC pour completed")).toHaveLength(2);
+    const links = screen.getAllByRole("link", { name: /NH-48/ });
+    expect(links).toHaveLength(2);
+    for (const link of links) {
+      expect(link).toHaveAttribute("href", "/daily-activity/dsr-1");
+    }
   });
 
   it('shows "Not submitted" with no link and no row href for a Site with no report today (AC #1, AC #3)', async () => {
@@ -61,8 +66,9 @@ describe("DailyActivityPage", () => {
 
     await renderLogPage();
 
-    expect(screen.getByText("Not submitted")).toBeInTheDocument();
-    expect(screen.getByText("Not submitted yet today")).toBeInTheDocument();
+    // Rendered once in the md+ table and once in the below-md mobile card.
+    expect(screen.getAllByText("Not submitted")).toHaveLength(2);
+    expect(screen.getAllByText("Not submitted yet today")).toHaveLength(2);
     expect(screen.queryByRole("link", { name: /Sector 12 Metro Depot/ })).not.toBeInTheDocument();
   });
 
@@ -85,7 +91,8 @@ describe("DailyActivityPage", () => {
 
     await renderLogPage();
 
-    expect(screen.getByText("3 material entries logged")).toBeInTheDocument();
-    expect(screen.getByText("Not submitted yet today")).toBeInTheDocument();
+    // Rendered once in the md+ table and once in the below-md mobile card.
+    expect(screen.getAllByText("3 material entries logged")).toHaveLength(2);
+    expect(screen.getAllByText("Not submitted yet today")).toHaveLength(2);
   });
 });

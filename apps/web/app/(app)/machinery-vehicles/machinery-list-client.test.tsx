@@ -46,9 +46,10 @@ function renderClient(overrides: Partial<Parameters<typeof MachineryListClient>[
 }
 
 describe("MachineryListClient", () => {
-  it("renders every row", () => {
+  it("renders every row in the desktop table and as a mobile card", () => {
     renderClient();
-    expect(screen.getByText("JCB 3DX")).toBeInTheDocument();
+    // Once in the md+ table row, once as the below-md card's primary line.
+    expect(screen.getAllByText("JCB 3DX")).toHaveLength(2);
   });
 
   it("debounces the search box before writing to the URL", () => {
@@ -71,14 +72,14 @@ describe("MachineryListClient", () => {
 
   it("shows the zero-Machinery-ever empty state with no active search", () => {
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Machinery registered yet.")).toBeInTheDocument();
+    expect(screen.getAllByText("No Machinery registered yet.")).toHaveLength(2);
   });
 
   it("shows the no-matches empty state with Clear filters when a search is active", () => {
     hookState = { q: "nonexistent" };
     renderClient({ rows: [], total: 0 });
-    expect(screen.getByText("No Machinery match your search.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getAllByText("No Machinery match your search.")).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]!);
     expect(clearAll).toHaveBeenCalledOnce();
   });
 

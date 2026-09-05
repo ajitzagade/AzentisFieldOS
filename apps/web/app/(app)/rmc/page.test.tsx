@@ -149,9 +149,10 @@ describe("RmcPage", () => {
 
     expect(reportUrl).toContain("groupBy=site");
     expect(screen.getByRole("tab", { name: "By Site" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("NH-48 Highway Widening")).toBeInTheDocument();
-    expect(screen.getByText("₹3,04,000")).toBeInTheDocument();
-    expect(screen.getByText("50 m³")).toBeInTheDocument();
+    // Rendered once in the md+ table and once in the below-md mobile card.
+    expect(screen.getAllByText("NH-48 Highway Widening")).toHaveLength(2);
+    expect(screen.getAllByText("₹3,04,000")).toHaveLength(2);
+    expect(screen.getAllByText("50 m³")).toHaveLength(2);
   });
 
   it("renders a genuine empty state for the report when there are no RMC deliveries", async () => {
@@ -159,6 +160,8 @@ describe("RmcPage", () => {
 
     await renderRmcPage();
 
-    expect(screen.getByText("No RMC deliveries to report on yet.")).toBeInTheDocument();
+    // Rendered once in the md+ table's empty panel and once in the
+    // below-md mobile card's empty panel.
+    expect(screen.getAllByText("No RMC deliveries to report on yet.")).toHaveLength(2);
   });
 });

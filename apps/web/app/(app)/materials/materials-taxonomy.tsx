@@ -19,6 +19,7 @@ import {
   cn,
   useToast,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { useAuthedFetch } from "../../../lib/use-authed-fetch";
 
@@ -341,6 +342,27 @@ export function MaterialsTaxonomy({
     },
   ];
 
+  const materialMobileCard: DataTableMobileCard<TaxonomyMaterial> = {
+    primary: (m) => (
+      <span className="flex items-center gap-2">
+        {m.name}
+        {!m.isActive ? <Badge variant="neutral">Disabled</Badge> : null}
+      </span>
+    ),
+    omitHeaders: ["Material", "Status"],
+    action: (m) => (
+      <>
+        <Link href={`/materials/${m.id}/edit`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
+          <PencilIcon className="size-4" />
+          Edit
+        </Link>
+        <Button variant="ghost" size="sm" isLoading={togglingId === m.id} onClick={() => handleToggleMaterial(m)}>
+          {m.isActive ? "Disable" : "Enable"}
+        </Button>
+      </>
+    ),
+  };
+
   return (
     <>
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -542,6 +564,7 @@ export function MaterialsTaxonomy({
 
               <DataTable
                 columns={materialColumns}
+                mobileCard={materialMobileCard}
                 rowKey={(m) => m.id}
                 state={
                   visibleMaterials.length === 0

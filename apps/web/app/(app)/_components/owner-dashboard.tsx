@@ -14,6 +14,7 @@ import {
   DropletIcon,
   EmptyState,
   GapFlag,
+  GapFlagList,
   LayersIcon,
   MapPinIcon,
   PlusIcon,
@@ -299,25 +300,34 @@ export async function OwnerDashboard() {
       </div>
 
       {today.sitesMissingDsrToday.length > 0 ? (
-        // One GapFlag per missing Site — never a single flag naming all of
-        // them at once (FR-35: "never a silent absence in a list").
-        <div className="mt-6 flex flex-col gap-3">
-          {today.sitesMissingDsrToday.map((site) => (
-            <GapFlag
-              key={site.siteId}
-              icon={<AlertTriangleIcon />}
-              message={`${site.name} has not submitted a Daily Report yet today.`}
-              action={
-                <Link
-                  href={`/sites/${site.siteId}`}
-                  className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
-                >
-                  <MapPinIcon className="size-4" />
-                  View Site
-                </Link>
-              }
-            />
-          ))}
+        <div className="mt-6">
+          {/* One GapFlag per missing Site — never a single flag naming all of
+              them at once (FR-35: "never a silent absence in a list"). Below
+              GapFlagList's threshold every flag still renders inline; above
+              it they fold behind a summary line so a Tenant with many Sites
+              doesn't get a wall of warning rows — each Site is still
+              individually named and actionable once expanded. */}
+          <GapFlagList
+            count={today.sitesMissingDsrToday.length}
+            summary={`${today.sitesMissingDsrToday.length} sites have not submitted a Daily Report yet today`}
+          >
+            {today.sitesMissingDsrToday.map((site) => (
+              <GapFlag
+                key={site.siteId}
+                icon={<AlertTriangleIcon />}
+                message={`${site.name} has not submitted a Daily Report yet today.`}
+                action={
+                  <Link
+                    href={`/sites/${site.siteId}`}
+                    className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+                  >
+                    <MapPinIcon className="size-4" />
+                    View Site
+                  </Link>
+                }
+              />
+            ))}
+          </GapFlagList>
         </div>
       ) : null}
 

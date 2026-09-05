@@ -211,7 +211,7 @@ function SupervisorQuickBar({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="Quick actions"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border-hairline bg-surface-1 pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 bg-surface-1 shadow-(--shadow-bar-top) pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <div className="flex">
         {SUPERVISOR_QUICK_BAR_ITEMS.map((item) => {
@@ -223,12 +223,19 @@ function SupervisorQuickBar({ pathname }: { pathname: string }) {
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-caption transition-colors duration-(--default-transition-duration) ease-(--ease-standard) focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none",
+                "flex min-h-14 flex-1 items-center justify-center text-caption transition-colors duration-(--default-transition-duration) ease-(--ease-standard) focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none",
                 active ? "font-semibold text-accent-teal-700" : "font-medium text-ink-500 hover:text-ink-700",
               )}
             >
-              <Icon className="size-5" />
-              {item.label}
+              <span
+                className={cn(
+                  "flex flex-col items-center gap-0.5 rounded-full px-3 py-1 transition-colors duration-(--default-transition-duration) ease-(--ease-standard)",
+                  active && "bg-accent-teal-100",
+                )}
+              >
+                <Icon className="size-5" />
+                {item.label}
+              </span>
             </Link>
           );
         })}
@@ -286,7 +293,7 @@ function OwnerQuickBar({
     <>
       <nav
         aria-label="Quick actions"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-border-hairline bg-surface-1 pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 bg-surface-1 shadow-(--shadow-bar-top) pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
         <div className="flex">
           {OWNER_QUICK_BAR_LINKS.map((item) => {
@@ -297,10 +304,20 @@ function OwnerQuickBar({
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={cn(itemClassName, active && "font-semibold text-accent-teal-700 hover:text-accent-teal-700")}
+                className={cn(
+                  "flex min-h-14 flex-1 items-center justify-center text-caption font-medium text-ink-500 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:text-ink-700 focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none",
+                  active && "font-semibold text-accent-teal-700 hover:text-accent-teal-700",
+                )}
               >
-                <Icon className="size-5" />
-                {item.label}
+                <span
+                  className={cn(
+                    "flex flex-col items-center gap-0.5 rounded-full px-3 py-1 transition-colors duration-(--default-transition-duration) ease-(--ease-standard)",
+                    active && "bg-accent-teal-100",
+                  )}
+                >
+                  <Icon className="size-5" />
+                  {item.label}
+                </span>
               </Link>
             );
           })}
@@ -401,8 +418,11 @@ function SidebarShell({
           />
         </aside>
 
-        {/* Mobile top bar — below lg only. */}
-        <header className="flex items-center gap-3 border-b border-border-hairline bg-surface-1 px-4 py-3 lg:hidden">
+        {/* Mobile top bar — below lg only. pt-safe-area matches the bottom
+            quick-bars' pb-safe-area: viewportFit "cover" (app/layout.tsx)
+            draws content under the notch/status bar, so without this the bar
+            renders partly behind it, worst on an installed (standalone) PWA. */}
+        <header className="flex items-center gap-3 border-b border-border-hairline bg-surface-1 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-3 lg:hidden">
           <button
             type="button"
             onClick={() => setNavOpen(true)}

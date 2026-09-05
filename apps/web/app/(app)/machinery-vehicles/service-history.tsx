@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, DataTable, GearIcon, PencilIcon, type DataTableColumn } from "@azentisfieldos/ui";
+import { Badge, DataTable, GearIcon, PencilIcon, type DataTableColumn, type DataTableMobileCard } from "@azentisfieldos/ui";
 
 export type ServiceLogKind = "FUEL" | "MAINTENANCE" | "REPAIR";
 
@@ -41,28 +41,36 @@ export function ServiceHistoryTable({
   basePath: "machinery" | "vehicles";
   assetId: string;
 }) {
+  function renderEditAction(log: ServiceLogEntry) {
+    return (
+      <Link
+        href={`/machinery-vehicles/${basePath}/${assetId}/service-log/${log.id}/edit`}
+        className="inline-flex items-center gap-1 text-body-sm text-accent-teal-700 hover:underline"
+      >
+        <PencilIcon className="size-4" />
+        Edit
+      </Link>
+    );
+  }
+
   const columns: DataTableColumn<ServiceLogEntry>[] = [
     { header: "Date", cell: (log) => formatDate(log.serviceDate) },
     { header: "Kind", cell: (log) => kindBadge(log.kind) },
     { header: "Notes", cell: (log) => log.notes ?? <span className="text-ink-500">—</span> },
     { header: "Cost", align: "right", cell: (log) => formatCost(log.cost) },
-    {
-      header: "",
-      cell: (log) => (
-        <Link
-          href={`/machinery-vehicles/${basePath}/${assetId}/service-log/${log.id}/edit`}
-          className="inline-flex items-center gap-1 text-body-sm text-accent-teal-700 hover:underline"
-        >
-          <PencilIcon className="size-4" />
-          Edit
-        </Link>
-      ),
-    },
+    { header: "", cell: renderEditAction },
   ];
+
+  const mobileCard: DataTableMobileCard<ServiceLogEntry> = {
+    primary: (log) => formatDate(log.serviceDate),
+    omitHeaders: ["Date"],
+    action: renderEditAction,
+  };
 
   return (
     <DataTable
       columns={columns}
+      mobileCard={mobileCard}
       rowKey={(log) => log.id}
       state={
         logs.length === 0

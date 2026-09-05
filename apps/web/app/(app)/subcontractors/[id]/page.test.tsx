@@ -112,7 +112,7 @@ describe("SubcontractorDetailPage", () => {
 
     await renderDetailPage("sc1");
 
-    expect(screen.getByText("No Site Contracts recorded yet for this Subcontractor.")).toBeInTheDocument();
+    expect(screen.getAllByText("No Site Contracts recorded yet for this Subcontractor.")).toHaveLength(2);
   });
 
   it("renders a distinct error state, not the empty state, when the Site Contracts fetch fails", async () => {
@@ -120,7 +120,7 @@ describe("SubcontractorDetailPage", () => {
 
     await renderDetailPage("sc1");
 
-    expect(screen.getByText("Couldn't load this Subcontractor's Site Contracts right now.")).toBeInTheDocument();
+    expect(screen.getAllByText("Couldn't load this Subcontractor's Site Contracts right now.")).toHaveLength(2);
   });
 
   it("shows an Advance credit (not a raw negative) for a negative outstandingAmount", async () => {
@@ -140,7 +140,7 @@ describe("SubcontractorDetailPage", () => {
 
     await renderDetailPage("sc1");
 
-    expect(screen.getByText(/Advance/)).toBeInTheDocument();
-    expect(screen.getByText(/₹5,000/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Advance/)).toHaveLength(2);
+    expect(screen.getAllByText(/₹5,000/)).toHaveLength(2);
   });
 });

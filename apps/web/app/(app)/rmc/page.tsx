@@ -12,6 +12,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import { RmcEntriesListClient, type RmcEntryRow } from "./rmc-entries-list-client";
 
@@ -84,8 +85,12 @@ async function getRmcStats(): Promise<RmcStats> {
   return res.json();
 }
 
+function firstHeaderFor(groupBy: ReportGroupBy): string {
+  return groupBy === "day" ? "Date" : groupBy === "site" ? "Site" : "Vendor";
+}
+
 function reportColumns(groupBy: ReportGroupBy): DataTableColumn<RmcReportRow>[] {
-  const firstHeader = groupBy === "day" ? "Date" : groupBy === "site" ? "Site" : "Vendor";
+  const firstHeader = firstHeaderFor(groupBy);
   return [
     {
       header: firstHeader,
@@ -101,6 +106,13 @@ function reportColumns(groupBy: ReportGroupBy): DataTableColumn<RmcReportRow>[] 
       cell: (row) => <span className="font-semibold text-gold-700">{formatMoney(row.totalCost)}</span>,
     },
   ];
+}
+
+function reportMobileCard(groupBy: ReportGroupBy): DataTableMobileCard<RmcReportRow> {
+  return {
+    primary: (row) => (groupBy === "day" ? formatDate(row.label) : row.label),
+    omitHeaders: [firstHeaderFor(groupBy)],
+  };
 }
 
 // AC #1: RMC deliveries are their own entity, not merged into the
@@ -183,6 +195,7 @@ export default async function RmcPage({
 
         <DataTable
           columns={reportColumns(groupBy)}
+          mobileCard={reportMobileCard(groupBy)}
           rowKey={(row) => row.key}
           state={
             report.length === 0

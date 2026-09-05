@@ -11,6 +11,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import type { Site } from "../sites/page";
 
@@ -114,6 +115,11 @@ function buildColumns(isToday: boolean): DataTableColumn<LogRow>[] {
   ];
 }
 
+const mobileCard: DataTableMobileCard<LogRow> = {
+  primary: (row) => row.site.name,
+  omitHeaders: ["Site"],
+};
+
 export default async function DailyActivityPage({
   searchParams,
 }: {
@@ -173,6 +179,7 @@ export default async function DailyActivityPage({
 
       <DataTable
         columns={buildColumns(isToday)}
+        mobileCard={mobileCard}
         rowKey={(row) => row.site.id}
         // AC #3: a Site with no report today carries no link at all — never
         // an href, never a pointer-cursor affordance for a row with

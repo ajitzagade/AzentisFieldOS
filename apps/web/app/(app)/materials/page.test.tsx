@@ -72,10 +72,10 @@ describe("MaterialsPage", () => {
     expect(screen.getAllByText("Pipes & Fittings").length).toBeGreaterThan(0);
     // Both the left-panel caption and the detail header report the count.
     expect(screen.getAllByText("1 active Material").length).toBeGreaterThan(0);
-    expect(screen.getByText("RCC Pipe")).toBeInTheDocument();
-    expect(screen.getByText("300mm")).toBeInTheDocument();
-    expect(screen.getByText("450mm")).toBeInTheDocument();
-    expect(screen.getByText("Pcs")).toBeInTheDocument();
+    expect(screen.getAllByText("RCC Pipe")).toHaveLength(2);
+    expect(screen.getAllByText("300mm")).toHaveLength(2);
+    expect(screen.getAllByText("450mm")).toHaveLength(2);
+    expect(screen.getAllByText("Pcs")).toHaveLength(2);
   });
 
   it("shows — for a Material with zero Sizes, not a blank cell", async () => {
@@ -86,7 +86,7 @@ describe("MaterialsPage", () => {
 
     await renderMaterialsPage();
 
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getAllByText("—")).toHaveLength(2);
   });
 
   it("shows a Disabled badge for an inactive Material without hiding it from the list (AC #2)", async () => {
@@ -97,9 +97,9 @@ describe("MaterialsPage", () => {
 
     await renderMaterialsPage();
 
-    expect(screen.getByText("Old Material")).toBeInTheDocument();
+    expect(screen.getAllByText("Old Material")).toHaveLength(2);
     expect(screen.getAllByText("Disabled").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Enable" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Enable" }).length).toBeGreaterThan(0);
   });
 
   it("renders taxonomy stat tiles counting Categories and Materials, active and total", async () => {
@@ -132,7 +132,7 @@ describe("MaterialsPage", () => {
 
     await renderMaterialsPage();
 
-    expect(screen.getByText("No Materials in this Category yet — add the first one above.")).toBeInTheDocument();
+    expect(screen.getAllByText("No Materials in this Category yet — add the first one above.")).toHaveLength(2);
     expect(screen.getByLabelText("Add a Material to this Category")).toBeInTheDocument();
     expect(screen.getByLabelText("Unit")).toHaveAttribute("role", "combobox");
   });
@@ -142,7 +142,9 @@ describe("MaterialsPage", () => {
 
     await renderMaterialsPage();
 
-    expect(screen.getByRole("link", { name: /Edit/ })).toHaveAttribute("href", "/materials/abc/edit");
+    for (const link of screen.getAllByRole("link", { name: /Edit/ })) {
+      expect(link).toHaveAttribute("href", "/materials/abc/edit");
+    }
   });
 
   it("quick-adds a Material to the selected Category via POST /materials with the picked Unit", async () => {
@@ -192,7 +194,7 @@ describe("MaterialsPage", () => {
     // Category with an empty result would otherwise look broken despite
     // the search term being correctly carried over.
     expect(screen.getByDisplayValue("cement")).toBeInTheDocument();
-    expect(screen.getByText("OPC Cement")).toBeInTheDocument();
+    expect(screen.getAllByText("OPC Cement")).toHaveLength(2);
   });
 
   it("uses only the first value, without crashing, when a duplicate ?q= arrives as an array", async () => {

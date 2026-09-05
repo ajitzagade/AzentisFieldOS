@@ -20,6 +20,7 @@ import {
   buttonVariants,
   cn,
   type DataTableColumn,
+  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
 import type { Site } from "../page";
 import { PhotoGalleryGrid } from "../../_components/photo-gallery-grid";
@@ -207,6 +208,11 @@ const feedColumns: DataTableColumn<FeedItem>[] = [
   },
 ];
 
+const feedMobileCard: DataTableMobileCard<FeedItem> = {
+  primary: (item) => formatDateTime(item.occurredAt),
+  omitHeaders: ["Date"],
+};
+
 const stockColumns: DataTableColumn<SiteStockRow>[] = [
   {
     header: "Material",
@@ -229,6 +235,11 @@ const recentDsrColumns: DataTableColumn<RecentDsrRow>[] = [
     cell: (row) => row.workCompleted ?? <span className="text-ink-500">—</span>,
   },
 ];
+
+const recentDsrMobileCard: DataTableMobileCard<RecentDsrRow> = {
+  primary: (row) => formatDate(row.reportDate),
+  omitHeaders: ["Date"],
+};
 
 const siteContractColumns: DataTableColumn<SiteContractRow>[] = [
   { header: "Subcontractor", cell: (row) => <span className="font-semibold">{row.subcontractor.name}</span> },
@@ -267,6 +278,11 @@ const siteContractColumns: DataTableColumn<SiteContractRow>[] = [
       ),
   },
 ];
+
+const siteContractMobileCard: DataTableMobileCard<SiteContractRow> = {
+  primary: (row) => row.subcontractor.name,
+  omitHeaders: ["Subcontractor"],
+};
 
 export default async function SiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -427,6 +443,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
           <div className="mb-4 text-section-header text-ink-900">Recent Daily Reports</div>
           <DataTable
             columns={recentDsrColumns}
+            mobileCard={recentDsrMobileCard}
             rowKey={(row) => row.id}
             rowHref={(row) => `/daily-activity/${row.id}`}
             state={
@@ -476,6 +493,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
         </div>
         <DataTable
           columns={siteContractColumns}
+          mobileCard={siteContractMobileCard}
           rowKey={(row) => row.id}
           rowHref={(row) => `/sites/${site.id}/contracts/${row.id}`}
           state={
@@ -501,6 +519,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
       <div className="mb-4 text-section-header text-ink-900">Activity Feed</div>
       <DataTable
         columns={feedColumns}
+        mobileCard={feedMobileCard}
         rowKey={(item) => item.id}
         state={
           site.feed.length === 0
