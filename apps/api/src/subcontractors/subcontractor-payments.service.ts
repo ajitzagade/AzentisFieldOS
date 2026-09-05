@@ -3,6 +3,7 @@ import type { CreateSubcontractorPaymentInput } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { applyAmountPaidDelta } from './amount-paid';
+import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 
 export interface SubcontractorPaymentsListQuery {
   siteContractId?: string;
@@ -13,7 +14,10 @@ export interface SubcontractorPaymentsListQuery {
 // SubcontractorPaymentsController.
 @Injectable()
 export class SubcontractorPaymentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pushNotifications: PushNotificationsService,
+  ) {}
 
   list(query: SubcontractorPaymentsListQuery = {}) {
     return this.prisma.subcontractorPayment.findMany({
@@ -96,15 +100,33 @@ export class SubcontractorPaymentsService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const payment = await tx.subcontractorPayment.create({
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.subcontractorPayment.create({
         data: { ...input, recordedByUserId },
       });
       // AD-9: amountPaid is materialized and write-path-only, updated in
       // the same transaction as the causing row. Floor-checked at zero only
       // (AC #4) — no ceiling.
       await applyAmountPaidDelta(tx, input.siteContractId, input.amount);
-      return payment;
+      return created;
     });
+
+    // Outside the transaction — a push failure must never roll back a
+    // successfully recorded Payment. Corrections aren't a "new" payment
+    // event. excludeUserId: this create() is Owner/Admin-only, so without
+    // it the acting Owner would get a push confirming their own action.
+    if (!input.correctsId) {
+      void this.pushNotifications.sendToRole(
+        'OWNER_ADMIN',
+        {
+          title: 'Payment recorded',
+          body: `A payment of ₹${input.amount.toLocaleString('en-IN')} was recorded for ${contract.subcontractor.name}.`,
+          url: `/subcontractors/${contract.subcontractorId}`,
+        },
+        recordedByUserId,
+      );
+    }
+
+    return payment;
   }
 }

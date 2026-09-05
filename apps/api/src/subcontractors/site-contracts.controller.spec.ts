@@ -34,13 +34,14 @@ describe('SiteContractsController', () => {
     controller = module.get<SiteContractsController>(SiteContractsController);
   });
 
-  it('create delegates to SiteContractsService.create with the validated body', async () => {
+  it('create delegates to SiteContractsService.create with the validated body and the acting user id', async () => {
     const input = { siteId: 's1', subcontractorId: 'sc1' };
+    const user = { id: 'u1', role: 'OWNER_ADMIN' } as never;
     service.create.mockResolvedValue({ id: '1', ...input });
 
-    const result = await controller.create(input as never);
+    const result = await controller.create(user, input as never);
 
-    expect(service.create).toHaveBeenCalledWith(input);
+    expect(service.create).toHaveBeenCalledWith(input, 'u1');
     expect(result).toEqual({ id: '1', ...input });
   });
 

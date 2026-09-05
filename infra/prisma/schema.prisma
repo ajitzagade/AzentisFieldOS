@@ -38,10 +38,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  dailySiteReports DailySiteReport[]
-  photos           Photo[]
-  auditLogs        AuditLog[]
-  refreshTokens    RefreshToken[]
+  dailySiteReports  DailySiteReport[]
+  photos            Photo[]
+  auditLogs         AuditLog[]
+  refreshTokens     RefreshToken[]
+  pushSubscriptions PushSubscription[]
 }
 
 // Backs the long-lived side of auth: the access JWT (session cookie) is
@@ -62,6 +63,25 @@ model RefreshToken {
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// One row per subscribed browser/device (Web Push API) — a user with two
+// devices has two rows, both notified. Session/config state, not a
+// transaction-history table — AD-9's append-only rule does not apply; a
+// dead subscription (push service returns 404/410) is deleted outright, not
+// corrected. `endpoint` alone is unique (it's the push service's own
+// per-registration URL — the same browser install always gets the same one
+// back from a re-subscribe, so this doubles as upsert-by-endpoint).
+model PushSubscription {
+  id        String   @id @default(uuid(7))
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }

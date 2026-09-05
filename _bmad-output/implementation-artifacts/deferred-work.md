@@ -349,3 +349,21 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: `infra/android/DISTRIBUTION.md`
   summary: No guidance for the shared-signing-key-rotation/compromise scenario — `infra/android/README.md` already notes losing the keystore means no tenant app can ever receive a signed update again, but neither doc says what to actually do (client-side uninstall/reinstall across every affected tenant?) if the key needs to be actively rotated.
   evidence: Blind Hunter review flagged this. Not fixed here — this is a bigger topic (incident response for a compromised shared secret affecting every tenant simultaneously) than a distribution runbook's scope; it deserves its own document once/if it's prioritized, not a bolted-on paragraph here.
+
+## Deferred from: code review of story-21.1 (2026-09-06)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-21-1-web-push-notifications.md`
+  summary: `isPendingTerms()` (a predicate over one row) and `countDraftPendingTerms()` (the equivalent Prisma `where` clause) express the same five "pending terms" conditions independently, by hand, with a comment promising to keep them in sync.
+  evidence: Blind Hunter + Verification Gap both flagged this. Not merged into one implementation — that would force `countDraftPendingTerms()`'s DB-side `COUNT` into an in-memory filter (fetch every Draft row, filter in JS), a real performance regression as Site Contracts grow. Instead added a regression test (`site-contracts.service.spec.ts`) that replicates the where-clause in plain JS and cross-checks it against `isPendingTerms()` across a representative table of shapes — genuine drift between the two now fails a test immediately.
+- source_spec: `_bmad-output/implementation-artifacts/spec-21-1-web-push-notifications.md`
+  summary: No e2e/Playwright coverage of the push subscribe/unsubscribe/receive flow — the project's own convention is at least one create-and-verify smoke test per new module surface.
+  evidence: Blind Hunter + Verification Gap both flagged this. Real E2E proof was already done manually once this session (a persistent, non-incognito Chromium context — `browser.newContext()` is always incognito and Chrome disables the Push API there; headless also always reports `Notification.permission` as `denied`). A permanent automated version needs that same non-standard Playwright harness plus a realistic ~90s timeout for first-time FCM channel registration on a fresh profile — real effort, not a quick add; deferred rather than rushed.
+- source_spec: `_bmad-output/implementation-artifacts/spec-21-1-web-push-notifications.md`
+  summary: No component test for the sidebar's push UI states (enable/on/blocked/disabled-while-subscribing) in `app-shell.test.tsx`.
+  evidence: Blind Hunter + Verification Gap both flagged this. The underlying hook (`use-push-notifications.ts`) has full unit coverage including the exact `subscribed` vs `permission` bug found during manual E2E testing; the sidebar wiring itself (`app-shell.tsx`) is comparatively low-risk (conditional rendering + two callback wirings) and `app-shell.test.tsx` doesn't currently mock `usePushNotifications` at all — deferred as lower priority than the trigger-logic gaps that were fixed.
+- source_spec: `_bmad-output/implementation-artifacts/spec-21-1-web-push-notifications.md`
+  summary: `PushSubscription` has no `updatedAt`/`lastSeenAt` and no proactive pruning mechanism beyond reactive 404/410 cleanup on an actual failed send — a subscription that's simply abandoned (device lost/reset without ever unsubscribing, or a Supervisor whose role never happens to trigger an Owner-targeted event) can sit forever.
+  evidence: Blind Hunter flagged this. Low urgency at current single-tenant, small-user-count scale; a scheduled cleanup job is real future work, not a defect today.
+- source_spec: `_bmad-output/implementation-artifacts/spec-21-1-web-push-notifications.md`
+  summary: The service worker's `showNotification` call uses the same full-color app icon for both `icon` and `badge` — a `badge` is meant to be a small monochrome silhouette for the Android status bar, and no such asset exists in this diff.
+  evidence: Blind Hunter flagged this. Needs a real design asset to be created, not a code fix — out of scope for this review pass.

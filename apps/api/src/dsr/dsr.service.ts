@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { CreateDsrInput } from '@azentisfieldos/shared';
@@ -15,6 +16,7 @@ import {
 } from '../common/superseded-dsrs';
 import { applySiteStockDelta } from '../inventory/stock-delta';
 import { StorageService } from '../storage/storage.service';
+import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 
 // FR-28: one DSR per Site per date, with all its nested sub-records
 // created atomically (a partial write must never happen).
@@ -37,9 +39,12 @@ import { StorageService } from '../storage/storage.service';
 // check-then-act race window a DB unique constraint no longer closes.
 @Injectable()
 export class DsrService {
+  private readonly logger = new Logger(DsrService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly pushNotifications: PushNotificationsService,
   ) {}
 
   // Every call site acquires locks in the same relative order (site+date
@@ -87,9 +92,10 @@ export class DsrService {
   // longer a placeholder resolved inside the service.
   async create(input: CreateDsrInput, submittedByUserId: string) {
     const reportDate = new Date(input.reportDate);
+    let isFirstSubmission = false;
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const result = await this.prisma.$transaction(async (tx) => {
         // Advisory lock, acquired before anything else in this
         // transaction: DailySiteReport.@@unique([siteId, reportDate]) was
         // relaxed to a plain index (Story 3.5) so a correction can share a
@@ -104,6 +110,7 @@ export class DsrService {
         const existingOriginal = await tx.dailySiteReport.findFirst({
           where: { siteId: input.siteId, reportDate, correctsId: null },
         });
+        isFirstSubmission = !existingOriginal;
 
         const dsrData = {
           workCompleted: input.workCompleted,
@@ -286,6 +293,37 @@ export class DsrService {
           },
         });
       });
+
+      // Outside the transaction — a push failure must never roll back a
+      // successfully saved DSR. Only on the first submission for this
+      // Site/date, never on an offline-sync retry resubmitting the same
+      // day (AD-8), which would otherwise re-notify on every retry. Wrapped
+      // in its own try/catch: this runs after the DSR already committed, so
+      // a transient failure here (e.g. the site lookup) must never surface
+      // to the client as a failed submission.
+      if (isFirstSubmission) {
+        try {
+          const site = await this.prisma.site.findUnique({
+            where: { id: input.siteId },
+            select: { name: true },
+          });
+          void this.pushNotifications.sendToRole(
+            'OWNER_ADMIN',
+            {
+              title: 'Daily Report submitted',
+              body: `${site?.name ?? 'A Site'} submitted today's Daily Report.`,
+              url: `/daily-activity/${result.id}`,
+            },
+            submittedByUserId,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Failed to send 'Daily Report submitted' push for DSR ${result.id}: ${String(error)}`,
+          );
+        }
+      }
+
+      return result;
     } catch (error) {
       if (error instanceof ConflictException) {
         throw error;

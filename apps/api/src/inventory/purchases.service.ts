@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type {
@@ -13,6 +14,7 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
 import { paginationParams } from '../common/pagination';
+import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 
 type PurchaseListRow = Prisma.PurchaseGetPayload<{
   include: {
@@ -33,9 +35,14 @@ const UNPAID_OR_PARTIAL: Prisma.PurchaseWhereInput['paymentStatus'] = {
 // FR-8: Owner/Admin records a Purchase into Godown or a Site directly.
 @Injectable()
 export class PurchasesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(PurchasesService.name);
 
-  async create(input: CreatePurchaseInput) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pushNotifications: PushNotificationsService,
+  ) {}
+
+  async create(input: CreatePurchaseInput, recordedByUserId?: string) {
     if (input.correctsId) {
       const original = await this.prisma.purchase.findUnique({
         where: { id: input.correctsId },
@@ -61,8 +68,9 @@ export class PurchasesService {
       }
     }
 
+    let purchaseResult: Prisma.PurchaseGetPayload<object>;
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      purchaseResult = await this.prisma.$transaction(async (tx) => {
         const purchase = await tx.purchase.create({
           data: { ...input, purchasedAt: new Date(input.purchasedAt) },
         });
@@ -98,6 +106,38 @@ export class PurchasesService {
     } catch (error) {
       throw this.translateWriteError(error);
     }
+
+    // Outside the transaction — a push failure must never roll back a
+    // successfully recorded Purchase. Corrections aren't "new" pending
+    // pricing, so they're excluded even if the corrected row is also
+    // unpriced. Wrapped in its own try/catch: this runs after the Purchase
+    // already committed, so a transient failure here must never surface to
+    // the client as a failed submission.
+    if (!input.correctsId && purchaseResult.totalAmount === null) {
+      try {
+        const site = purchaseResult.siteId
+          ? await this.prisma.site.findUnique({
+              where: { id: purchaseResult.siteId },
+              select: { name: true },
+            })
+          : null;
+        void this.pushNotifications.sendToRole(
+          'OWNER_ADMIN',
+          {
+            title: 'Purchase needs pricing',
+            body: `A Purchase at ${site?.name ?? 'Godown'} is waiting for pricing.`,
+            url: `/movements/purchases/${purchaseResult.id}/pricing`,
+          },
+          recordedByUserId,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to send 'Purchase needs pricing' push for Purchase ${purchaseResult.id}: ${String(error)}`,
+        );
+      }
+    }
+
+    return purchaseResult;
   }
 
   // Story 13.2 (FR-43): the same Purchase list the Inventory page shows,

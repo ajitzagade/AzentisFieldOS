@@ -29,12 +29,18 @@ function makeService(overrides: {
     $transaction: vi.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
   };
 
+  const pushNotifications = {
+    sendToRole: vi.fn().mockResolvedValue(undefined),
+  };
   const service = new SubcontractorPaymentsService(
     prisma as unknown as ConstructorParameters<
       typeof SubcontractorPaymentsService
     >[0],
+    pushNotifications as unknown as ConstructorParameters<
+      typeof SubcontractorPaymentsService
+    >[1],
   );
-  return { service, prisma, tx };
+  return { service, prisma, tx, pushNotifications };
 }
 
 const DRAFT_CONTRACT = {
@@ -246,6 +252,67 @@ describe('SubcontractorPaymentsService.create', () => {
       expect.objectContaining({ data: { amountPaid: { increment: 1000 } } }),
     );
   });
+
+  it("sends a 'Payment recorded' push excluding the recording user for a fresh Payment", async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValue({ id: 'p1', amount: 50000, type: 'ADVANCE' });
+    const { service, pushNotifications } = makeService({
+      findUnique: vi.fn().mockResolvedValue({
+        ...DRAFT_CONTRACT,
+        subcontractorId: 'sc1',
+        subcontractor: {
+          id: 'sc1',
+          name: 'Ganesh Pipeline Works',
+          deletedAt: null,
+        },
+      }),
+      create,
+    });
+
+    await service.create(
+      {
+        siteContractId: 'c1',
+        type: 'ADVANCE',
+        amount: 50000,
+        paidAt: new Date(),
+      } as never,
+      'u1',
+    );
+
+    expect(pushNotifications.sendToRole).toHaveBeenCalledWith(
+      'OWNER_ADMIN',
+      {
+        title: 'Payment recorded',
+        body: 'A payment of ₹50,000 was recorded for Ganesh Pipeline Works.',
+        url: '/subcontractors/sc1',
+      },
+      'u1',
+    );
+  });
+
+  it("does not send a 'Payment recorded' push for a correction", async () => {
+    const { service, pushNotifications } = makeService({
+      findUnique: vi.fn().mockResolvedValue(DRAFT_CONTRACT),
+      findUniquePayment: vi
+        .fn()
+        .mockResolvedValue({ id: 'p1', siteContractId: 'c1' }),
+    });
+
+    await service.create(
+      {
+        siteContractId: 'c1',
+        type: 'ADVANCE',
+        amount: 1000,
+        paidAt: new Date(),
+        correctsId: 'p1',
+        reason: 'typo',
+      } as never,
+      'u1',
+    );
+
+    expect(pushNotifications.sendToRole).not.toHaveBeenCalled();
+  });
 });
 
 describe('SubcontractorPaymentsService.list', () => {
@@ -267,10 +334,14 @@ describe('SubcontractorPaymentsService.searchCandidates', () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const count = vi.fn().mockResolvedValue(0);
     const prisma = { subcontractorPayment: { findMany, count } };
+    const pushNotifications = {};
     const service = new SubcontractorPaymentsService(
       prisma as unknown as ConstructorParameters<
         typeof SubcontractorPaymentsService
       >[0],
+      pushNotifications as unknown as ConstructorParameters<
+        typeof SubcontractorPaymentsService
+      >[1],
     );
 
     await service.searchCandidates('universal');

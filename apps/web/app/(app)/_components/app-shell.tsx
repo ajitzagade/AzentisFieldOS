@@ -4,6 +4,7 @@ import { Suspense, type ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  BellIcon,
   cn,
   ConfirmDialog,
   DownloadIcon,
@@ -39,6 +40,7 @@ import {
 } from "./global-search";
 import { APP_DISPLAY_NAME } from "../../../lib/tenant";
 import { usePwaInstall } from "../../../lib/use-pwa-install";
+import { usePushNotifications, type PushNotifications } from "../../../lib/use-push-notifications";
 import { clearRememberedSite } from "./site-field";
 import { clearRecentlyViewed } from "../../../lib/recently-viewed";
 
@@ -102,6 +104,7 @@ function SidebarNav({
   pwaAvailable,
   onRequestInstall,
   onOpenSearch,
+  pushNotifications,
 }: {
   pathname: string;
   role: Role;
@@ -110,6 +113,7 @@ function SidebarNav({
   pwaAvailable: boolean;
   onRequestInstall: () => void;
   onOpenSearch: () => void;
+  pushNotifications: PushNotifications;
 }) {
   // Task-first trim for the Supervisor (simplicity review 2026-09-01): six
   // daily surfaces instead of the Owner's full 14-item rail. Owner surfaces
@@ -118,6 +122,7 @@ function SidebarNav({
   // the real boundary).
   const ungroupedItems = role === "SITE_SUPERVISOR" ? SUPERVISOR_UNGROUPED_NAV_ITEMS : UNGROUPED_NAV_ITEMS;
   const navGroups = role === "SITE_SUPERVISOR" ? SUPERVISOR_NAV_GROUPS : NAV_GROUPS;
+  const hasBottomActions = pwaAvailable || pushNotifications.supported;
 
   return (
     <>
@@ -158,22 +163,55 @@ function SidebarNav({
         <NavLink item={SETTINGS_NAV_ITEM} active={isActive(pathname, SETTINGS_NAV_ITEM.href)} onNavigate={onNavigate} />
       ) : null}
 
-      {/* Story 1.9: a deliberate, user-initiated affordance instead of an
-          unprompted floating banner — only rendered when the browser has
-          actually signaled installability (Android's beforeinstallprompt,
-          or iOS Safari not yet installed). Confirmed via a dialog rather
-          than firing the native prompt (or navigating to instructions)
-          straight from the click. */}
-      {pwaAvailable ? (
-        <button
-          type="button"
-          onClick={onRequestInstall}
-          className="mt-auto flex w-full items-center gap-3 rounded-md px-3 py-2 text-body-sm font-medium text-ink-on-accent/80 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-white/10 hover:text-ink-on-accent"
-        >
-          <DownloadIcon className="size-4 shrink-0" />
-          Download app
-        </button>
-      ) : null}
+      <div className={cn("flex flex-col gap-1", hasBottomActions && "mt-auto")}>
+        {/* Story 1.9: a deliberate, user-initiated affordance instead of an
+            unprompted floating banner — only rendered when the browser has
+            actually signaled installability (Android's beforeinstallprompt,
+            or iOS Safari not yet installed). Confirmed via a dialog rather
+            than firing the native prompt (or navigating to instructions)
+            straight from the click. */}
+        {pwaAvailable ? (
+          <button
+            type="button"
+            onClick={onRequestInstall}
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-body-sm font-medium text-ink-on-accent/80 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-white/10 hover:text-ink-on-accent"
+          >
+            <DownloadIcon className="size-4 shrink-0" />
+            Download app
+          </button>
+        ) : null}
+
+        {/* Both roles can enable push (Owner and Supervisor) — a per-device
+            opt-in, distinct from Settings' tenant-wide
+            NotificationChannelSetting rows. `subscribed` (a real
+            getSubscription() check), never `permission`, drives the
+            on/off label — permission can read "granted" with no actual
+            subscription underneath. Once permission is denied,
+            requestPermission() can't re-prompt (browser-enforced), so that
+            state renders a static hint instead of a dead button. */}
+        {pushNotifications.supported && pushNotifications.permission !== "denied" ? (
+          <button
+            type="button"
+            disabled={pushNotifications.subscribing || pushNotifications.subscribed === undefined}
+            onClick={() => {
+              if (pushNotifications.subscribed) {
+                void pushNotifications.unsubscribe();
+              } else {
+                void pushNotifications.subscribe();
+              }
+            }}
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-body-sm font-medium text-ink-on-accent/80 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-white/10 hover:text-ink-on-accent disabled:opacity-50"
+          >
+            <BellIcon className="size-4 shrink-0" />
+            {pushNotifications.subscribed ? "Notifications on" : "Enable notifications"}
+          </button>
+        ) : null}
+        {pushNotifications.supported && pushNotifications.permission === "denied" ? (
+          <p className="px-3 text-caption text-ink-on-accent/50">
+            Notifications blocked — enable them in your browser&apos;s site settings.
+          </p>
+        ) : null}
+      </div>
 
       {/* Plain POST form, not a client-side handler — works even before any
           client JS has hydrated, and mirrors /api/auth/logout's own plain
@@ -189,7 +227,7 @@ function SidebarNav({
           clearRememberedSite();
           clearRecentlyViewed();
         }}
-        className={pwaAvailable ? "pt-4" : "mt-auto pt-4"}
+        className={hasBottomActions ? "pt-4" : "mt-auto pt-4"}
       >
         <button
           type="submit"
@@ -367,6 +405,7 @@ function SidebarShell({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const pwaInstall = usePwaInstall();
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
+  const pushNotifications = usePushNotifications();
   const search = useGlobalSearchController(role);
 
   async function handleConfirmInstall() {
@@ -415,6 +454,7 @@ function SidebarShell({
             pwaAvailable={pwaInstall.available}
             onRequestInstall={() => setInstallDialogOpen(true)}
             onOpenSearch={() => search.setOpen(true)}
+            pushNotifications={pushNotifications}
           />
         </aside>
 
@@ -474,6 +514,7 @@ function SidebarShell({
                 pwaAvailable={pwaInstall.available}
                 onRequestInstall={() => setInstallDialogOpen(true)}
                 onOpenSearch={() => search.setOpen(true)}
+                pushNotifications={pushNotifications}
               />
             </aside>
           </div>

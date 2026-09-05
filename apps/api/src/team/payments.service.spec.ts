@@ -12,6 +12,8 @@ function makeService(overrides: {
   advanceFindUniqueOrThrow?: ReturnType<typeof vi.fn>;
   teamMemberUpdateMany?: ReturnType<typeof vi.fn>;
   advanceAdjustmentCreate?: ReturnType<typeof vi.fn>;
+  teamMemberFindUnique?: ReturnType<typeof vi.fn>;
+  sendToRole?: ReturnType<typeof vi.fn>;
 }) {
   const paymentCreate =
     overrides.paymentCreate ??
@@ -25,6 +27,11 @@ function makeService(overrides: {
   const advanceAdjustmentCreate =
     overrides.advanceAdjustmentCreate ??
     vi.fn().mockResolvedValue({ id: 'aa1' });
+  const teamMemberFindUnique =
+    overrides.teamMemberFindUnique ??
+    vi.fn().mockResolvedValue({ name: 'Test Member' });
+  const sendToRole =
+    overrides.sendToRole ?? vi.fn().mockResolvedValue(undefined);
 
   const tx = {
     payment: { create: paymentCreate },
@@ -35,11 +42,15 @@ function makeService(overrides: {
 
   const prisma = {
     payment: { findUnique: paymentFindUnique },
+    teamMember: { findUnique: teamMemberFindUnique },
     $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(tx)),
   };
 
   const service = new PaymentsService(
     prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+    { sendToRole } as unknown as ConstructorParameters<
+      typeof PaymentsService
+    >[1],
   );
 
   return {
@@ -49,6 +60,7 @@ function makeService(overrides: {
     advanceFindUniqueOrThrow,
     teamMemberUpdateMany,
     advanceAdjustmentCreate,
+    sendToRole,
   };
 }
 
@@ -114,6 +126,43 @@ describe('PaymentsService.create — netPayable computation (AC #1, #3)', () => 
         data: expect.objectContaining({ status: 'pending', paidAt: null }),
       }),
     );
+  });
+});
+
+describe("PaymentsService.create — 'Payment recorded' push", () => {
+  it('sends a push excluding the recording user for a fresh Payment', async () => {
+    const teamMemberFindUnique = vi
+      .fn()
+      .mockResolvedValue({ name: 'Ravi Kumar' });
+    const { service, sendToRole } = makeService({ teamMemberFindUnique });
+
+    await service.create(baseInput, 'u1');
+
+    expect(sendToRole).toHaveBeenCalledWith(
+      'OWNER_ADMIN',
+      {
+        title: 'Payment recorded',
+        body: 'A payment was recorded for Ravi Kumar.',
+        url: '/payments/p1',
+      },
+      'u1',
+    );
+  });
+
+  it('does not send a push for a correction', async () => {
+    const paymentFindUnique = vi.fn().mockResolvedValue({
+      id: 'p-orig',
+      teamMemberId: 'tm1',
+      advanceAdjustments: [],
+    });
+    const { service, sendToRole } = makeService({ paymentFindUnique });
+
+    await service.create(
+      { ...baseInput, correctsId: 'p-orig', reason: 'Base pay was wrong' },
+      'u1',
+    );
+
+    expect(sendToRole).not.toHaveBeenCalled();
   });
 });
 
@@ -358,6 +407,9 @@ describe('PaymentsService.markPaid', () => {
     const prisma = { payment: { updateMany, findUnique, findUniqueOrThrow } };
     const service = new PaymentsService(
       prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PaymentsService>[1],
     );
     return { service, updateMany, findUnique };
   }
@@ -397,6 +449,9 @@ describe('PaymentsService.findOne', () => {
     const prisma = { payment: { findUnique } };
     return new PaymentsService(
       prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PaymentsService>[1],
     );
   }
 
@@ -413,6 +468,9 @@ describe('PaymentsService.list — search & pagination', () => {
     const prisma = { payment: { findMany } };
     const service = new PaymentsService(
       prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PaymentsService>[1],
     );
 
     const result = await service.list();
@@ -433,6 +491,9 @@ describe('PaymentsService.list — search & pagination', () => {
     const prisma = { payment: { findMany } };
     const service = new PaymentsService(
       prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PaymentsService>[1],
     );
 
     await service.list({ q: 'ravi' });
@@ -452,6 +513,9 @@ describe('PaymentsService.list — search & pagination', () => {
     const prisma = { payment: { findMany, count } };
     const service = new PaymentsService(
       prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PaymentsService>[1],
     );
 
     const result = await service.list({ page: '1', pageSize: '10' });
@@ -472,6 +536,9 @@ describe('PaymentsService.list — search & pagination', () => {
     const prisma = { payment: { findMany } };
     const service = new PaymentsService(
       prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PaymentsService>[1],
     );
 
     await service.list({ sort: 'netPayable', order: 'asc' });
@@ -486,6 +553,9 @@ describe('PaymentsService.list — search & pagination', () => {
     const prisma = { payment: { findMany } };
     const service = new PaymentsService(
       prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PaymentsService>[1],
     );
 
     await service.list({ sort: 'id' });
@@ -502,6 +572,9 @@ describe('PaymentsService.countPending', () => {
     const prisma = { payment: { count } };
     const service = new PaymentsService(
       prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PaymentsService>[1],
     );
 
     const result = await service.countPending();
@@ -518,6 +591,9 @@ describe('PaymentsService.searchCandidates', () => {
     const prisma = { payment: { findMany, count } };
     const service = new PaymentsService(
       prisma as unknown as ConstructorParameters<typeof PaymentsService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PaymentsService>[1],
     );
 
     const result = await service.searchCandidates('ravi');

@@ -18,6 +18,7 @@ import {
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import { PurchasesService } from './purchases.service';
 
 // RolesGuard is a no-op on handlers without @Roles() metadata — only the
@@ -30,8 +31,8 @@ export class PurchasesController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(createPurchaseSchema))
-  create(@Body() body: CreatePurchaseInput) {
-    return this.purchasesService.create(body);
+  create(@CurrentUser() user: AuthUser, @Body() body: CreatePurchaseInput) {
+    return this.purchasesService.create(body, user.id);
   }
 
   // Story 19.5: `?pendingPricing=true` narrows to unpriced originals only —

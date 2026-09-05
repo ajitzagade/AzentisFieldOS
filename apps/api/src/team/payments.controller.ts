@@ -16,6 +16,7 @@ import {
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import { PaymentsService } from './payments.service';
 
 @Controller('payments')
@@ -27,8 +28,8 @@ export class PaymentsController {
   @Roles('OWNER_ADMIN')
   @Post()
   @UsePipes(new ZodValidationPipe(createPaymentSchema))
-  create(@Body() body: CreatePaymentInput) {
-    return this.paymentsService.create(body);
+  create(@CurrentUser() user: AuthUser, @Body() body: CreatePaymentInput) {
+    return this.paymentsService.create(body, user.id);
   }
 
   @Get()

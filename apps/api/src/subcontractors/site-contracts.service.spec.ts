@@ -29,10 +29,16 @@ function makeService(overrides: {
     subcontractor: { findUnique: findUniqueSubcontractor },
     site: { findUnique: findUniqueSite },
   };
+  const pushNotifications = {
+    sendToRole: vi.fn().mockResolvedValue(undefined),
+  };
   const service = new SiteContractsService(
     prisma as unknown as ConstructorParameters<typeof SiteContractsService>[0],
+    pushNotifications as unknown as ConstructorParameters<
+      typeof SiteContractsService
+    >[1],
   );
-  return { service, prisma };
+  return { service, prisma, pushNotifications };
 }
 
 const LIVE_DRAFT_MISSING_TERMS = {
@@ -128,6 +134,124 @@ describe('SiteContractsService.create', () => {
     });
     expect(result).toMatchObject({ id: 'c1' });
   });
+
+  it("sends a 'Site Contract needs terms' push when the created contract is Draft and missing terms", async () => {
+    const create = vi.fn().mockResolvedValue(LIVE_DRAFT_MISSING_TERMS);
+    const findUniqueSite = vi
+      .fn()
+      .mockResolvedValue({ id: 's1', name: 'NH-48 Widening', deletedAt: null });
+    const { service, pushNotifications } = makeService({
+      create,
+      findUniqueSite,
+    });
+
+    await service.create(
+      { subcontractorId: 'sc1', siteId: 's1' } as never,
+      'u1',
+    );
+
+    expect(pushNotifications.sendToRole).toHaveBeenCalledWith(
+      'OWNER_ADMIN',
+      {
+        title: 'Site Contract needs terms',
+        body: 'A new Site Contract at NH-48 Widening still needs its terms filled in.',
+        url: '/sites/s1/contracts/c1',
+      },
+      'u1',
+    );
+  });
+
+  it("does not send a 'Site Contract needs terms' push when the created contract already has every term", async () => {
+    const create = vi.fn().mockResolvedValue({
+      ...LIVE_DRAFT_COMPLETE_TERMS,
+      workCategory: 'Storm-water pipe laying',
+      rateType: 'PER_PIPE',
+      rate: new Prisma.Decimal(250),
+      startDate: new Date('2026-09-08'),
+    });
+    const { service, pushNotifications } = makeService({ create });
+
+    await service.create(
+      { subcontractorId: 'sc1', siteId: 's1' } as never,
+      'u1',
+    );
+
+    expect(pushNotifications.sendToRole).not.toHaveBeenCalled();
+  });
+});
+
+// Regression guard for the two hand-synced "pending terms" definitions
+// (isPendingTerms — a predicate over one row — and countDraftPendingTerms —
+// the equivalent Prisma `where` clause): both are documented to express the
+// same five conditions independently, with no shared implementation (a
+// shared implementation would force countDraftPendingTerms into an
+// in-memory filter instead of a DB-side COUNT). This test is what actually
+// catches drift between them if a future edit touches one and not the
+// other — replicates the where-clause's OR conditions in plain JS and
+// checks agreement against the private isPendingTerms() predicate across a
+// representative table of shapes.
+describe('SiteContractsService — isPendingTerms / countDraftPendingTerms agreement', () => {
+  function matchesCountDraftPendingTermsWhere(contract: {
+    status: string;
+    workCategory: string | null;
+    rateType: string | null;
+    startDate: Date | null;
+    fixedAmount: Prisma.Decimal | null;
+    rate: Prisma.Decimal | null;
+  }): boolean {
+    if (contract.status !== 'DRAFT') return false;
+    return (
+      contract.workCategory === null ||
+      contract.rateType === null ||
+      contract.startDate === null ||
+      (contract.rateType === 'FIXED_COST' && contract.fixedAmount === null) ||
+      (contract.rateType !== 'FIXED_COST' &&
+        contract.rateType !== null &&
+        contract.rate === null)
+    );
+  }
+
+  const SHAPES = [
+    LIVE_DRAFT_MISSING_TERMS,
+    LIVE_DRAFT_COMPLETE_TERMS,
+    { ...LIVE_DRAFT_MISSING_TERMS, status: 'ACTIVE' },
+    {
+      ...LIVE_DRAFT_MISSING_TERMS,
+      workCategory: 'Earthwork',
+      rateType: 'PER_TRIP',
+      startDate: new Date('2026-09-08'),
+      rate: null,
+    },
+    {
+      ...LIVE_DRAFT_MISSING_TERMS,
+      workCategory: 'Earthwork',
+      rateType: 'FIXED_COST',
+      startDate: new Date('2026-09-08'),
+      fixedAmount: null,
+    },
+    {
+      ...LIVE_DRAFT_MISSING_TERMS,
+      workCategory: 'Earthwork',
+      rateType: 'FIXED_COST',
+      startDate: new Date('2026-09-08'),
+      fixedAmount: new Prisma.Decimal(50000),
+    },
+  ];
+
+  it.each(SHAPES.map((shape, i) => [i, shape] as const))(
+    "shape %i: isPendingTerms() agrees with countDraftPendingTerms()'s where-clause",
+    (_i, shape) => {
+      const { service } = makeService({});
+      // isPendingTerms is intentionally private — this is the one place
+      // that reaches past that to keep the two definitions honest.
+      const actual = (
+        service as unknown as {
+          isPendingTerms: (c: typeof shape) => boolean;
+        }
+      ).isPendingTerms(shape);
+      expect(actual).toBe(matchesCountDraftPendingTermsWhere(shape));
+    },
+  );
 });
 
 describe('SiteContractsService.list', () => {

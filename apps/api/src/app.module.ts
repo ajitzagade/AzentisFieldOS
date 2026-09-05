@@ -23,10 +23,12 @@ import { ReportsModule } from './reports/reports.module';
 import { UsersModule } from './users/users.module';
 import { AuditModule } from './audit/audit.module';
 import { SearchModule } from './search/search.module';
+import { PushNotificationsModule } from './push-notifications/push-notifications.module';
 
 @Module({
   imports: [
     PrismaModule,
+    PushNotificationsModule,
     AuthModule,
     SitesModule,
     DsrModule,

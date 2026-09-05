@@ -34,6 +34,10 @@
  * per-request Clerk bearer token, so the foreground online-event drain
  * (lib/dsr-sync.ts) stays the cross-platform mechanism. This SW does not touch
  * the offline DSR queue at all.
+ *
+ * Web Push: `push`/`notificationclick` below are unrelated to the caching
+ * tiers above — a push event carries its own payload (title/body/url) sent
+ * by apps/api at send time, it doesn't fetch or cache anything.
  */
 
 const CACHE_NAME = "azentis-shell-v1";
@@ -141,4 +145,49 @@ self.addEventListener("fetch", (event) => {
   // Any other same-origin GET — RSC route payloads (GET /sites?_rsc=<hash>,
   // header `RSC: 1`) and any other dynamic GET — is NetworkOnly. No respondWith:
   // the browser performs its normal network fetch and nothing is cached.
+});
+
+// Payload shape is the PushPayload apps/api's PushNotificationsService sends
+// (title/body/optional url) — see apps/api/src/push-notifications. A push
+// with no parseable JSON body is dropped rather than shown with placeholder
+// text, since there is nothing true to say about it.
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    return;
+  }
+  if (!payload || !payload.title) return;
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body ?? "",
+      icon: "/icons/icon-192",
+      badge: "/icons/icon-192",
+      data: { url: payload.url ?? "/" },
+    }),
+  );
+});
+
+// Focuses an already-open tab on the target page rather than opening a
+// duplicate one — falls back to opening a new window only when no matching
+// tab is currently open.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url ?? "/";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (new URL(client.url).pathname === targetUrl && "focus" in client) {
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    }),
+  );
 });

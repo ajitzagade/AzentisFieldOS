@@ -33,7 +33,8 @@ describeIfDb('Stock reconciliation (integration)', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.onModuleInit();
-    purchases = new PurchasesService(prisma);
+    const pushNotifications = { sendToRole: () => Promise.resolve(undefined) };
+    purchases = new PurchasesService(prisma, pushNotifications as never);
     movements = new MovementsService(prisma);
     consumption = new ConsumptionService(prisma);
     returnWastage = new ReturnWastageService(prisma);

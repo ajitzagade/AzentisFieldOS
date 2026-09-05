@@ -13,6 +13,7 @@ import {
 import { Prisma, type SiteContract } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeSiteContractAmounts } from './site-contracts.computed';
+import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 
 export interface SiteContractsListQuery {
   siteId?: string;
@@ -27,7 +28,10 @@ export interface SiteContractsListQuery {
 // atomic-one-time-fill mechanism).
 @Injectable()
 export class SiteContractsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pushNotifications: PushNotificationsService,
+  ) {}
 
   // FR-60: every SiteContract this service returns carries its computed
   // amountPayable/outstandingAmount — a response-shaping step, never a
@@ -36,7 +40,30 @@ export class SiteContractsService {
     return { ...contract, ...computeSiteContractAmounts(contract) };
   }
 
-  async create(input: CreateSiteContractInput) {
+  // Same "pending terms" definition as countDraftPendingTerms below, just
+  // evaluated against one freshly-created row instead of queried — kept in
+  // sync deliberately (see that method's own comment) rather than issuing a
+  // second DB round-trip to re-derive the same fact.
+  private isPendingTerms(
+    contract: Pick<
+      SiteContract,
+      | 'status'
+      | 'workCategory'
+      | 'rateType'
+      | 'startDate'
+      | 'fixedAmount'
+      | 'rate'
+    >,
+  ): boolean {
+    if (contract.status !== 'DRAFT') return false;
+    if (!contract.workCategory || !contract.rateType || !contract.startDate)
+      return true;
+    if (contract.rateType === 'FIXED_COST')
+      return contract.fixedAmount === null;
+    return contract.rate === null;
+  }
+
+  async create(input: CreateSiteContractInput, createdByUserId?: string) {
     const subcontractor = await this.prisma.subcontractor.findUnique({
       where: { id: input.subcontractorId },
     });
@@ -51,6 +78,19 @@ export class SiteContractsService {
     }
 
     const contract = await this.prisma.siteContract.create({ data: input });
+
+    if (this.isPendingTerms(contract)) {
+      void this.pushNotifications.sendToRole(
+        'OWNER_ADMIN',
+        {
+          title: 'Site Contract needs terms',
+          body: `A new Site Contract at ${site.name} still needs its terms filled in.`,
+          url: `/sites/${site.id}/contracts/${contract.id}`,
+        },
+        createdByUserId,
+      );
+    }
+
     return this.withComputed(contract);
   }
 
@@ -241,6 +281,8 @@ export class SiteContractsService {
   // required field filled in (just hasn't been flipped to Active) does not
   // count here. `status: 'DRAFT'` already excludes Cancelled/Completed
   // contracts by construction (a single status field can't be both).
+  // Kept in sync with isPendingTerms() above by hand — same five conditions,
+  // expressed as a query instead of a predicate over one row.
   countDraftPendingTerms() {
     return this.prisma.siteContract.count({
       where: {

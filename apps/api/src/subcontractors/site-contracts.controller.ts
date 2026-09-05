@@ -18,6 +18,7 @@ import {
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import { SiteContractsService } from './site-contracts.service';
 
 // Every handler here is Owner/Admin-only (@UseGuards at controller level
@@ -33,8 +34,8 @@ export class SiteContractsController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(createSiteContractSchema))
-  create(@Body() body: CreateSiteContractInput) {
-    return this.siteContractsService.create(body);
+  create(@CurrentUser() user: AuthUser, @Body() body: CreateSiteContractInput) {
+    return this.siteContractsService.create(body, user.id);
   }
 
   // Read-only, open to both roles despite the class-level @Roles('OWNER_ADMIN')

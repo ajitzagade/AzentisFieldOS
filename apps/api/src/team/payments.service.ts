@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type {
@@ -15,6 +16,7 @@ import { dateRangeBounds } from '../common/date-range';
 import { paginationParams } from '../common/pagination';
 import { isSortOrder } from '../common/sort-order';
 import { decrementOutstandingBalanceWithFloorCheck } from './outstanding-balance';
+import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 
 const PAYMENT_SORT_FIELDS = [
   'payPeriod',
@@ -48,9 +50,14 @@ export interface PaymentsListQuery extends LabourReportFilters {
 // the request body.
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(PaymentsService.name);
 
-  async create(input: CreatePaymentInput) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pushNotifications: PushNotificationsService,
+  ) {}
+
+  async create(input: CreatePaymentInput, recordedByUserId?: string) {
     // The previously-linked Adjustment (if any) this correction is
     // replacing — needed so the balance is adjusted by the *delta*
     // between the old and new linked amount, not the new amount applied
@@ -83,8 +90,9 @@ export class PaymentsService {
       originalLinkedAdjustment = original.advanceAdjustments[0] ?? null;
     }
 
+    let paymentResult: Awaited<ReturnType<typeof this.prisma.payment.create>>;
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      paymentResult = await this.prisma.$transaction(async (tx) => {
         const netPayable =
           input.basePay +
           input.additionalAmount -
@@ -183,6 +191,37 @@ export class PaymentsService {
     } catch (error) {
       throw this.translateWriteError(error);
     }
+
+    // Outside the transaction — a push failure must never roll back a
+    // successfully recorded Payment. Corrections aren't a "new" payment
+    // event. excludeUserId: this create() is Owner/Admin-only, so without
+    // it the acting Owner would get a push confirming their own action.
+    // Wrapped in its own try/catch: this runs after the Payment already
+    // committed, so a transient failure here must never surface to the
+    // client as a failed submission.
+    if (!input.correctsId) {
+      try {
+        const teamMember = await this.prisma.teamMember.findUnique({
+          where: { id: input.teamMemberId },
+          select: { name: true },
+        });
+        void this.pushNotifications.sendToRole(
+          'OWNER_ADMIN',
+          {
+            title: 'Payment recorded',
+            body: `A payment was recorded for ${teamMember?.name ?? 'a Team Member'}.`,
+            url: `/payments/${paymentResult.id}`,
+          },
+          recordedByUserId,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to send 'Payment recorded' push for Payment ${paymentResult.id}: ${String(error)}`,
+        );
+      }
+    }
+
+    return paymentResult;
   }
 
   // AD-9/Epic 5 Story 5.2's confirmReceipt reasoning: a narrow, guarded,

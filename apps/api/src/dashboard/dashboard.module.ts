@@ -15,5 +15,9 @@ import { DashboardService } from './dashboard.service';
   imports: [TeamModule, SitesModule, InventoryModule],
   controllers: [DashboardController],
   providers: [DashboardService],
+  // Exported so the missing-report reminder cron (ReportsModule) reuses
+  // getToday()'s sitesMissingDsrToday set-difference rather than
+  // re-deriving "which Sites haven't reported" a second way.
+  exports: [DashboardService],
 })
 export class DashboardModule {}

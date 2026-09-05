@@ -8,7 +8,12 @@ function makeService(rows: unknown[]) {
   const findMany = vi.fn().mockResolvedValue(rows);
   const prisma = { dailySiteReport: { findMany } };
   const storage = {};
-  const service = new DsrService(prisma as never, storage as never);
+  const pushNotifications = {};
+  const service = new DsrService(
+    prisma as never,
+    storage as never,
+    pushNotifications as never,
+  );
   return { service, findMany };
 }
 
@@ -70,7 +75,12 @@ describe('DsrService.searchCandidates', () => {
     const count = vi.fn().mockResolvedValue(0);
     const prisma = { dailySiteReport: { findMany, count } };
     const storage = {};
-    const service = new DsrService(prisma as never, storage as never);
+    const pushNotifications = {};
+    const service = new DsrService(
+      prisma as never,
+      storage as never,
+      pushNotifications as never,
+    );
 
     await service.searchCandidates('slip hazard', ['superseded-dsr-1']);
 

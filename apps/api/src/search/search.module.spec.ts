@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { describe, expect, it } from 'vitest';
 import { PrismaModule } from '../prisma/prisma.module';
+import { PushNotificationsModule } from '../push-notifications/push-notifications.module';
 import { SearchController } from './search.controller';
 import { SearchModule } from './search.module';
 import { SearchService } from './search.service';
@@ -17,7 +18,7 @@ import { SearchService } from './search.service';
 describe('SearchModule (DI wiring)', () => {
   it('resolves every dependency SearchService/SearchController need', async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
-      imports: [PrismaModule, SearchModule],
+      imports: [PrismaModule, PushNotificationsModule, SearchModule],
     }).compile();
 
     expect(moduleRef.get(SearchService)).toBeInstanceOf(SearchService);

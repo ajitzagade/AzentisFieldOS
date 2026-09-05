@@ -33,18 +33,19 @@ describe('PaymentsController', () => {
     controller = module.get<PaymentsController>(PaymentsController);
   });
 
-  it('create delegates to PaymentsService.create with the validated body', async () => {
+  it('create delegates to PaymentsService.create with the validated body and the acting user id', async () => {
     const input = {
       teamMemberId: '11111111-1111-4111-8111-111111111111',
       basePay: 15000,
       additionalAmount: 0,
       deductions: 0,
     };
+    const user = { id: 'u1', role: 'OWNER_ADMIN' } as never;
     service.create.mockResolvedValue({ id: '1', ...input });
 
-    const result = await controller.create(input);
+    const result = await controller.create(user, input);
 
-    expect(service.create).toHaveBeenCalledWith(input);
+    expect(service.create).toHaveBeenCalledWith(input, 'u1');
     expect(result).toEqual({ id: '1', ...input });
   });
 

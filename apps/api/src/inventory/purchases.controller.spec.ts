@@ -41,7 +41,7 @@ describe('PurchasesController', () => {
     controller = module.get<PurchasesController>(PurchasesController);
   });
 
-  it('create delegates to PurchasesService.create with the validated body', async () => {
+  it('create delegates to PurchasesService.create with the validated body and the acting user id', async () => {
     const input = {
       vendorId: '11111111-1111-4111-8111-111111111111',
       materialSizeId: '22222222-2222-4222-8222-222222222222',
@@ -52,11 +52,12 @@ describe('PurchasesController', () => {
       paymentStatus: 'PAID' as const,
       purchasedAt: '2026-08-13',
     };
+    const user = { id: 'u1', role: 'OWNER_ADMIN' } as never;
     service.create.mockResolvedValue({ id: '1', ...input });
 
-    const result = await controller.create(input);
+    const result = await controller.create(user, input);
 
-    expect(service.create).toHaveBeenCalledWith(input);
+    expect(service.create).toHaveBeenCalledWith(input, 'u1');
     expect(result).toEqual({ id: '1', ...input });
   });
 

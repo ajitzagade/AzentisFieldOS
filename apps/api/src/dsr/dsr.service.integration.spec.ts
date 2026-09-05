@@ -38,6 +38,7 @@ describeIfDb('DsrService (integration)', () => {
   let vendorId: string;
   let categoryId: string;
   let testUserId: string;
+  let sendToRole: ReturnType<typeof vi.fn>;
 
   // Story 1.8: create/correct now take the authenticated user id explicitly
   // (threaded from req.user in the controller), instead of resolving a
@@ -59,7 +60,9 @@ describeIfDb('DsrService (integration)', () => {
         .fn()
         .mockResolvedValue('https://cloudinary.example/thumb'),
     } as unknown as StorageService;
-    service = new DsrService(prisma, storage);
+    sendToRole = vi.fn().mockResolvedValue(undefined);
+    const pushNotifications = { sendToRole };
+    service = new DsrService(prisma, storage, pushNotifications as never);
 
     const user = await prisma.user.create({
       data: {
@@ -199,6 +202,8 @@ describeIfDb('DsrService (integration)', () => {
   });
 
   it('upserts a second submission for the same Site/date instead of duplicating it (story 3.2: retried offline sync must be idempotent)', async () => {
+    const callsBefore = sendToRole.mock.calls.length;
+
     const first = await create({
       siteId,
       reportDate: '2026-08-11',
@@ -229,6 +234,10 @@ describeIfDb('DsrService (integration)', () => {
       where: { siteId, reportDate: new Date('2026-08-11') },
     });
     expect(rows).toHaveLength(1);
+
+    // The retried/edited resubmission must not re-notify Owner/Admin — only
+    // the first submission for a Site/date fires "Daily Report submitted".
+    expect(sendToRole.mock.calls.length - callsBefore).toBe(1);
   });
 
   it('upserts a Consumption/RmcEntry/Expense by clientGeneratedId instead of duplicating it on a retried sync', async () => {

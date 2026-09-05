@@ -6,10 +6,12 @@ import { PurchasesService } from './purchases.service';
 function makeService(overrides: {
   purchaseCreate?: ReturnType<typeof vi.fn>;
   purchaseFindUnique?: ReturnType<typeof vi.fn>;
+  siteFindUnique?: ReturnType<typeof vi.fn>;
   godownStockUpsert?: ReturnType<typeof vi.fn>;
   siteStockUpsert?: ReturnType<typeof vi.fn>;
   purchaseUpdateMany?: ReturnType<typeof vi.fn>;
   purchaseCount?: ReturnType<typeof vi.fn>;
+  sendToRole?: ReturnType<typeof vi.fn>;
 }) {
   const purchaseCreate =
     overrides.purchaseCreate ?? vi.fn().mockResolvedValue({ id: 'p1' });
@@ -18,6 +20,11 @@ function makeService(overrides: {
   const siteStockUpsert =
     overrides.siteStockUpsert ?? vi.fn().mockResolvedValue({});
   const purchaseFindUnique = overrides.purchaseFindUnique ?? vi.fn();
+  const siteFindUnique =
+    overrides.siteFindUnique ??
+    vi.fn().mockResolvedValue({ name: 'Test Site' });
+  const sendToRole =
+    overrides.sendToRole ?? vi.fn().mockResolvedValue(undefined);
 
   const tx = {
     purchase: { create: purchaseCreate },
@@ -35,11 +42,15 @@ function makeService(overrides: {
       updateMany: purchaseUpdateMany,
       count: purchaseCount,
     },
+    site: { findUnique: siteFindUnique },
     $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(tx)),
   };
 
   const service = new PurchasesService(
     prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+    { sendToRole } as unknown as ConstructorParameters<
+      typeof PurchasesService
+    >[1],
   );
 
   return {
@@ -50,6 +61,8 @@ function makeService(overrides: {
     siteStockUpsert,
     purchaseUpdateMany,
     purchaseCount,
+    siteFindUnique,
+    sendToRole,
   };
 }
 
@@ -103,6 +116,76 @@ describe('PurchasesService.create', () => {
       create: { siteId: 'site1', materialSizeId: 'ms1', quantity: 100 },
     });
     expect(godownStockUpsert).not.toHaveBeenCalled();
+  });
+
+  // D7: a Supervisor's inward entry with no rate/totalAmount/paymentStatus —
+  // this is the primary event-driven push trigger this service adds.
+  it("sends a 'Purchase needs pricing' push when a fresh Purchase has a null totalAmount", async () => {
+    const unpriced = {
+      vendorId: siteInput.vendorId,
+      materialSizeId: siteInput.materialSizeId,
+      destination: siteInput.destination,
+      quantity: siteInput.quantity,
+      purchasedAt: siteInput.purchasedAt,
+      siteId: siteInput.siteId,
+    };
+    const purchaseCreate = vi.fn().mockResolvedValue({
+      id: 'p1',
+      siteId: 'site1',
+      totalAmount: null,
+    });
+    const siteFindUnique = vi
+      .fn()
+      .mockResolvedValue({ name: 'NH-48 Widening' });
+    const sendToRole = vi.fn().mockResolvedValue(undefined);
+    const { service } = makeService({
+      purchaseCreate,
+      siteFindUnique,
+      sendToRole,
+    });
+
+    await service.create(unpriced, 'u1');
+
+    expect(sendToRole).toHaveBeenCalledWith(
+      'OWNER_ADMIN',
+      {
+        title: 'Purchase needs pricing',
+        body: 'A Purchase at NH-48 Widening is waiting for pricing.',
+        url: '/movements/purchases/p1/pricing',
+      },
+      'u1',
+    );
+  });
+
+  it("does not send a 'Purchase needs pricing' push for a correction of an already-unpriced Purchase", async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      materialSizeId: 'ms1',
+      destination: 'GODOWN',
+      siteId: null,
+    });
+    const purchaseCreate = vi.fn().mockResolvedValue({
+      id: 'p2',
+      siteId: null,
+      totalAmount: null,
+    });
+    const sendToRole = vi.fn().mockResolvedValue(undefined);
+    const { service } = makeService({
+      purchaseFindUnique,
+      purchaseCreate,
+      sendToRole,
+    });
+
+    await service.create({
+      ...godownInput,
+      rate: undefined,
+      totalAmount: undefined,
+      paymentStatus: undefined,
+      correctsId: 'orig',
+      reason: 'Recount',
+    });
+
+    expect(sendToRole).not.toHaveBeenCalled();
   });
 
   it('rejects a correctsId that does not reference an existing Purchase', async () => {
@@ -183,6 +266,9 @@ describe('PurchasesService.findOne', () => {
     const prisma = { purchase: { findUnique } };
     return new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
   }
 
@@ -205,6 +291,9 @@ describe('PurchasesService.listByVendor', () => {
     const prisma = { purchase: { findMany } };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
 
     const result = await service.listByVendor('v1');
@@ -236,6 +325,9 @@ describe('PurchasesService.summaryForVendor', () => {
     const prisma = { purchase: { aggregate } };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
 
     const result = await service.summaryForVendor('v1');
@@ -255,6 +347,9 @@ describe('PurchasesService.summaryForVendor', () => {
     const prisma = { purchase: { aggregate } };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
 
     const result = await service.summaryForVendor('v1');
@@ -276,6 +371,9 @@ describe('PurchasesService.summaryForVendors', () => {
     const prisma = { purchase: { groupBy } };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
 
     const result = await service.summaryForVendors(['v1', 'v2']);
@@ -292,6 +390,9 @@ describe('PurchasesService.summaryForVendors', () => {
     const prisma = { purchase: { groupBy } };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
 
     const result = await service.summaryForVendors(['v1', 'v2']);
@@ -307,6 +408,9 @@ describe('PurchasesService.summaryForVendors', () => {
     const prisma = { purchase: { groupBy } };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
 
     const result = await service.summaryForVendors([]);
@@ -328,6 +432,9 @@ describe('PurchasesService.summaryForVendors', () => {
       const prisma = { purchase: { groupBy } };
       const service = new PurchasesService(
         prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+        {
+          sendToRole: () => Promise.resolve(undefined),
+        } as unknown as ConstructorParameters<typeof PurchasesService>[1],
       );
 
       await service.summaryForVendors(['v1', 'v2']);
@@ -365,6 +472,9 @@ describe('PurchasesService.outstandingAcrossVendors', () => {
     const prisma = { purchase: { aggregate } };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
 
     const result = await service.outstandingAcrossVendors();
@@ -384,6 +494,9 @@ describe('PurchasesService.outstandingAcrossVendors', () => {
     const prisma = { purchase: { aggregate } };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
 
     const result = await service.outstandingAcrossVendors();
@@ -404,6 +517,9 @@ describe('PurchasesService.countThisMonth', () => {
     const prisma = { purchase: { count } };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
 
     const result = await service.countThisMonth();
@@ -503,6 +619,9 @@ describe('PurchasesService.list', () => {
     const prisma = { purchase: { findMany } };
     return new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
   }
 
@@ -572,6 +691,9 @@ describe('PurchasesService.searchCandidates', () => {
     const prisma = { purchase: { findMany, count } };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
 
     const result = await service.searchCandidates('cement');

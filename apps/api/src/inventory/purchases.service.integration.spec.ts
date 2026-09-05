@@ -24,7 +24,8 @@ describeIfDb('PurchasesService (integration)', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.onModuleInit();
-    service = new PurchasesService(prisma);
+    const pushNotifications = { sendToRole: () => Promise.resolve(undefined) };
+    service = new PurchasesService(prisma, pushNotifications as never);
 
     const site = await prisma.site.create({
       data: { name: 'Test Purchase Site', location: 'Test Location' },

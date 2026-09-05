@@ -4,6 +4,7 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { StorageModule } from '../storage/storage.module';
 import { TeamModule } from '../team/team.module';
 import { AssetsModule } from '../assets/assets.module';
+import { DashboardModule } from '../dashboard/dashboard.module';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 import { SiteInventoryReportsService } from './site-inventory-reports.service';
@@ -18,6 +19,8 @@ import { NotificationSettingsController } from './notification-settings.controll
 import { NotificationSettingsService } from './notification-settings.service';
 import { ReportSchedulesController } from './report-schedules.controller';
 import { ReportSchedulesService } from './report-schedules.service';
+import { MissingReportRemindersController } from './missing-report-reminders.controller';
+import { MissingReportRemindersService } from './missing-report-reminders.service';
 import {
   EMAIL_SENDER,
   WHATSAPP_SENDER,
@@ -43,12 +46,14 @@ import {
     StorageModule,
     TeamModule,
     AssetsModule,
+    DashboardModule,
   ],
   controllers: [
     ReportsController,
     BrandingConfigController,
     NotificationSettingsController,
     ReportSchedulesController,
+    MissingReportRemindersController,
   ],
   providers: [
     ReportsService,
@@ -61,6 +66,7 @@ import {
     FinancialReportsService,
     ReportCompilerService,
     ReportDeliveryService,
+    MissingReportRemindersService,
     { provide: EMAIL_SENDER, useClass: ResendEmailSender },
     { provide: WHATSAPP_SENDER, useClass: NotConfiguredWhatsAppSender },
   ],
