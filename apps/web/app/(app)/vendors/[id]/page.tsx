@@ -49,6 +49,17 @@ interface VendorWasteDisposal {
   site: { id: string; name: string };
 }
 
+// Feature 2026-09-06: an advance paid to a HIRED Waste Disposal Vendor
+// ahead of the trip's own invoice/payment — a separate ledger row from
+// WasteDisposal.paymentStatus (that tracks the trip's own total).
+interface VendorAdvance {
+  id: string;
+  amount: string;
+  paymentMethod: string | null;
+  givenAt: string;
+  wasteDisposal: { id: string; wasteType: string } | null;
+}
+
 async function getVendor(id: string): Promise<Vendor | null> {
   const res = await authedFetch(`/vendors/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
@@ -73,6 +84,14 @@ async function getVendorWasteDisposals(id: string): Promise<VendorWasteDisposal[
   const res = await authedFetch(`/waste-disposals?vendorId=${id}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Vendor waste disposals (${res.status})`);
+  }
+  return res.json();
+}
+
+async function getVendorAdvances(id: string): Promise<VendorAdvance[]> {
+  const res = await authedFetch(`/vendor-advances?vendorId=${id}`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load Vendor advances (${res.status})`);
   }
   return res.json();
 }
@@ -197,6 +216,27 @@ const wasteDisposalMobileCard: DataTableMobileCard<VendorWasteDisposal> = {
   omitHeaders: ["Date"],
 };
 
+const advanceColumns: DataTableColumn<VendorAdvance>[] = [
+  {
+    header: "Amount",
+    align: "right",
+    cell: (row) => (
+      <span className="font-semibold text-gold-700 tabular-nums">₹{Number(row.amount).toLocaleString("en-IN")}</span>
+    ),
+  },
+  {
+    header: "For trip",
+    cell: (row) => row.wasteDisposal?.wasteType ?? <span className="text-ink-500">—</span>,
+  },
+  { header: "Payment Method", cell: (row) => row.paymentMethod ?? <span className="text-ink-500">—</span> },
+  { header: "Date", cell: (row) => <span className="text-ink-500">{formatDate(row.givenAt)}</span> },
+];
+
+const advanceMobileCard: DataTableMobileCard<VendorAdvance> = {
+  primary: (row) => formatDate(row.givenAt),
+  omitHeaders: ["Date"],
+};
+
 export default async function VendorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const vendor = await getVendor(id);
@@ -205,9 +245,10 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
     notFound();
   }
 
-  const [purchases, wasteDisposals, summary, viewerRole] = await Promise.all([
+  const [purchases, wasteDisposals, advances, summary, viewerRole] = await Promise.all([
     getVendorPurchases(id),
     getVendorWasteDisposals(id),
+    getVendorAdvances(id),
     getVendorPurchaseSummarySafe(id),
     currentRole(),
   ]);
@@ -344,6 +385,18 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
                 message: "No Waste Disposal trips recorded yet for this Vendor.",
               }
             : { status: "success", rows: wasteDisposals }
+        }
+      />
+
+      <div className="mt-8 mb-4 text-section-header text-ink-900">Vendor Advances</div>
+      <DataTable
+        columns={advanceColumns}
+        mobileCard={advanceMobileCard}
+        rowKey={(row) => row.id}
+        state={
+          advances.length === 0
+            ? { status: "empty", icon: <ClipboardIcon />, message: "No advances recorded yet for this Vendor." }
+            : { status: "success", rows: advances }
         }
       />
     </>

@@ -727,6 +727,7 @@ model Vendor {
   purchases      Purchase[]
   rmcEntries     RmcEntry[]
   wasteDisposals WasteDisposal[]
+  vendorAdvances VendorAdvance[]
 }
 
 model ExpenseCategory {
@@ -815,9 +816,37 @@ model WasteDisposal {
   correctsId       String?
   reason           String? // required when correctsId is set
 
+  vendorAdvances VendorAdvance[]
+
   // whereFor() filters by siteId and/or vendorId, always orders by
   // disposedAt desc.
   @@index([siteId, disposedAt])
+}
+
+// Append-only (AD-9). An advance paid to a HIRED Waste Disposal Vendor
+// before the trip's own invoice/payment is settled — a distinct concept
+// from WasteDisposal.paymentStatus (that tracks the trip's own total;
+// this is money handed over ahead of it). Always created inline from the
+// Waste Disposal entry that occasioned it (wasteDisposalId), never a
+// standalone flow — unlike Advance/AdvanceAdjustment, there is no
+// materialized Outstanding Balance to keep in sync here (bug fix
+// 2026-09-06).
+model VendorAdvance {
+  id               String         @id @default(uuid(7))
+  vendorId         String
+  vendor           Vendor         @relation(fields: [vendorId], references: [id])
+  wasteDisposalId  String?
+  wasteDisposal    WasteDisposal? @relation(fields: [wasteDisposalId], references: [id])
+  amount           Decimal
+  paymentMethod    String?
+  givenAt          DateTime
+  createdAt        DateTime       @default(now())
+  correctsId       String?
+  correctionReason String? // required when correctsId is set
+
+  // Vendor detail page's Vendor Advances section filters by vendorId,
+  // always orders by givenAt desc.
+  @@index([vendorId, givenAt])
 }
 
 // ---------- Branding & Automated Report Delivery (FR-32, FR-33) ----------

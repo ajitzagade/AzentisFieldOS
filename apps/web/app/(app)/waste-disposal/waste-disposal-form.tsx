@@ -7,6 +7,7 @@ import {
   ConfirmDialogRow,
   formValue,
   useSubmitConfirmation,
+  amountInWords,
   Button,
   BuildingIcon,
   CalendarIcon,
@@ -23,6 +24,7 @@ import {
   TextField,
   TextareaField,
   TruckIcon,
+  WalletIcon,
 } from "@azentisfieldos/ui";
 import { useClientValidation } from "../../../lib/use-client-validation";
 import { usePreventFormResetOnError } from "../../../lib/use-prevent-form-reset-on-error";
@@ -125,6 +127,11 @@ export function WasteDisposalForm({
   const [tripCount, setTripCount] = useState("");
   const [ratePerTrip, setRatePerTrip] = useState(initial?.ratePerTrip ?? "");
   const [otherCharges, setOtherCharges] = useState("");
+  const [includeAdvance, setIncludeAdvance] = useState(false);
+  // null = follow the trip's own computed Total live; set once the user
+  // types their own figure — same manualTotal pattern as Purchase's Total
+  // Amount field.
+  const [manualAdvanceAmount, setManualAdvanceAmount] = useState<string | null>(null);
 
   const machineryId = equipmentValue.startsWith("machinery:") ? equipmentValue.slice(10) : "";
   const vehicleId = equipmentValue.startsWith("vehicle:") ? equipmentValue.slice(8) : "";
@@ -139,6 +146,11 @@ export function WasteDisposalForm({
     Number.isFinite(trips) && Number.isFinite(rate) && Number.isFinite(other) && tripCount !== ""
       ? trips * rate + other
       : null;
+
+  // The advance defaults to the same trips × rate the trip's own Total
+  // derives from — an advance is rarely more than the trip itself — until
+  // the user types their own figure.
+  const advanceAmount = manualAdvanceAmount ?? (computedTotal === null ? "" : String(computedTotal));
 
   const correcting = mode === "correct";
 
@@ -230,7 +242,14 @@ export function WasteDisposalForm({
           onChange={(e) => {
             const next = e.target.value === "OWN" ? "OWN" : "HIRED";
             setOwnership(next);
-            if (next === "OWN") setVendorId("");
+            if (next === "OWN") {
+              setVendorId("");
+              // Review finding (2026-09-06): otherwise switching HIRED →
+              // OWN → HIRED left the advance checkbox stuck checked with a
+              // stale manually-typed amount from before the round-trip.
+              setIncludeAdvance(false);
+              setManualAdvanceAmount(null);
+            }
           }}
           options={[
             { value: "HIRED", label: "Hired (third party)" },
@@ -346,6 +365,9 @@ export function WasteDisposalForm({
               {computedTotal === null ? "—" : `₹${computedTotal.toLocaleString("en-IN")}`}
             </span>{" "}
             <span className="text-caption text-ink-500">(trips × rate + other charges, computed automatically)</span>
+            {computedTotal !== null && computedTotal > 0 ? (
+              <span className="block text-caption text-ink-500">{amountInWords(computedTotal)}</span>
+            ) : null}
           </p>
         ) : null}
       </Card>
@@ -384,6 +406,46 @@ export function WasteDisposalForm({
           error={fieldError("notes")}
         />
       </Card>
+
+      {!correcting && ownership === "HIRED" ? (
+        <Card className="mb-4">
+          <input type="hidden" name="includeAdvance" value={includeAdvance ? "true" : "false"} />
+          <label className="mb-3 flex items-center gap-2 text-body-sm text-ink-900">
+            <input
+              type="checkbox"
+              checked={includeAdvance}
+              onChange={(e) => {
+                setIncludeAdvance(e.target.checked);
+                setManualAdvanceAmount(null);
+              }}
+              className="size-4 accent-accent-teal-700"
+            />
+            Give an advance to this Vendor for this trip
+          </label>
+
+          {includeAdvance ? (
+            <>
+              <AmountField
+                label="Advance amount"
+                name="advanceAmount"
+                required
+                value={advanceAmount}
+                onChange={(e) => setManualAdvanceAmount(e.target.value)}
+                hint="Defaults to the trip's own Total — trips × rate — edit if the advance differs"
+                error={fieldError("advanceAmount")}
+              />
+              <TextField
+                label="Payment Method"
+                name="advancePaymentMethod"
+                hint="Optional"
+                icon={<WalletIcon className="size-4" />}
+                placeholder="e.g. Cash, Bank Transfer"
+                error={fieldError("advancePaymentMethod")}
+              />
+            </>
+          ) : null}
+        </Card>
+      ) : null}
 
       {state.formError ? (
         <p role="alert" className="mb-4 text-caption text-danger-700">

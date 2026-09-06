@@ -39,7 +39,7 @@ const vendor = {
   materialsSupplied: ["Cement", "Steel", "Aggregates"],
 };
 
-function mockFetch(purchases: unknown[], wasteDisposals: unknown[] = []) {
+function mockFetch(purchases: unknown[], wasteDisposals: unknown[] = [], advances: unknown[] = []) {
   global.fetch = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/purchases")) {
@@ -47,6 +47,9 @@ function mockFetch(purchases: unknown[], wasteDisposals: unknown[] = []) {
     }
     if (url.includes("/waste-disposals")) {
       return { ok: true, json: async () => wasteDisposals } as Response;
+    }
+    if (url.includes("/vendor-advances")) {
+      return { ok: true, json: async () => advances } as Response;
     }
     return { ok: true, json: async () => vendor } as Response;
   }) as unknown as typeof fetch;
@@ -151,6 +154,38 @@ describe("VendorDetailPage — Waste & Disposal History", () => {
     expect(screen.getAllByText("6")).toHaveLength(2);
     expect(screen.getAllByText("₹18,000")).toHaveLength(2);
     expect(screen.getAllByText("Unpaid")).toHaveLength(2);
+  });
+});
+
+// Feature 2026-09-06: an advance paid to a HIRED Waste Disposal Vendor
+// ahead of the trip's own invoice/payment — a separate ledger, previously
+// invisible on this page entirely.
+describe("VendorDetailPage — Vendor Advances", () => {
+  it("renders an explicit empty state, not a blank table, for a Vendor with no advances", async () => {
+    mockFetch([], [], []);
+
+    await renderDetailPage("v1");
+
+    expect(screen.getAllByText("No advances recorded yet for this Vendor.")).toHaveLength(2);
+  });
+
+  it("renders every advance with Amount, the trip it was for, Payment Method, and Date", async () => {
+    mockFetch([], [], [
+      {
+        id: "va1",
+        amount: "2000",
+        paymentMethod: "Cash",
+        givenAt: "2026-08-15T00:00:00Z",
+        wasteDisposal: { id: "wd1", wasteType: "Excavated earth / murum" },
+      },
+    ]);
+
+    await renderDetailPage("v1");
+
+    // Rendered once in the md+ table and once in the below-md mobile card.
+    expect(screen.getAllByText("₹2,000")).toHaveLength(2);
+    expect(screen.getAllByText("Excavated earth / murum")).toHaveLength(2);
+    expect(screen.getAllByText("Cash")).toHaveLength(2);
   });
 });
 

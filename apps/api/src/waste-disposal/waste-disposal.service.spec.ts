@@ -5,12 +5,17 @@ import { Prisma } from '../generated/prisma/client';
 import { WasteDisposalService } from './waste-disposal.service';
 
 function makeService() {
+  const wasteDisposal = {
+    create: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
+    findUnique: vi.fn().mockResolvedValue(null),
+  };
+  const vendorAdvance = { create: vi.fn() };
+  const tx = { wasteDisposal, vendorAdvance };
   const prisma = {
-    wasteDisposal: {
-      create: vi.fn(),
-      findMany: vi.fn().mockResolvedValue([]),
-      findUnique: vi.fn().mockResolvedValue(null),
-    },
+    wasteDisposal,
+    vendorAdvance,
+    $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(tx)),
   };
   const service = new WasteDisposalService(prisma as never);
   return { service, prisma };
@@ -113,6 +118,39 @@ describe('WasteDisposalService.create', () => {
         'user-1',
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  // Feature (2026-09-06): an advance to a hired disposal's Vendor is a
+  // separate VendorAdvance row, written in the same transaction.
+  describe('advance to the hired Vendor', () => {
+    it('creates a linked VendorAdvance when advance is given, dated the same as the disposal', async () => {
+      ctx.prisma.wasteDisposal.create.mockResolvedValue({
+        id: 'wd-1',
+        vendorId: HIRED_INPUT.vendorId,
+        disposedAt: HIRED_INPUT.disposedAt,
+      });
+
+      await ctx.service.create(
+        { ...HIRED_INPUT, advance: { amount: 2000, paymentMethod: 'Cash' } },
+        'user-1',
+      );
+
+      expect(ctx.prisma.vendorAdvance.create).toHaveBeenCalledWith({
+        data: {
+          vendorId: HIRED_INPUT.vendorId,
+          wasteDisposalId: 'wd-1',
+          amount: 2000,
+          paymentMethod: 'Cash',
+          givenAt: HIRED_INPUT.disposedAt,
+        },
+      });
+    });
+
+    it('creates no VendorAdvance when none is given', async () => {
+      await ctx.service.create(HIRED_INPUT, 'user-1');
+
+      expect(ctx.prisma.vendorAdvance.create).not.toHaveBeenCalled();
+    });
   });
 });
 

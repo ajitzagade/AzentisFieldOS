@@ -30,6 +30,16 @@ export const createWasteDisposalSchema = z
     disposedAt: z.coerce.date(),
     correctsId: z.uuid().optional(),
     reason: z.string().min(1).max(500).optional(),
+    // Feature (2026-09-06): an advance paid to the hired Vendor for this
+    // trip, before its own invoice/payment is settled — a separate
+    // VendorAdvance ledger row, not a WasteDisposal field itself. Omitting
+    // it is valid (most trips have no advance).
+    advance: z
+      .object({
+        amount: z.number().positive(),
+        paymentMethod: z.string().max(100).optional(),
+      })
+      .optional(),
   })
   .superRefine((data, ctx) => {
     // A register asset is one machine OR one vehicle, never both.
@@ -73,6 +83,26 @@ export const createWasteDisposalSchema = z
           message: "Payment status applies only to hired disposals",
         });
       }
+      if (data.advance) {
+        ctx.addIssue({
+          code: "custom",
+          // Review finding (2026-09-06): the problem is the ownership/Vendor
+          // pairing, not the amount value — a bare ["advance"] path avoids
+          // misattributing this to the amount field for any API caller
+          // that reaches this branch directly (the web form never shows
+          // the advance section for an OWN disposal).
+          path: ["advance"],
+          message: "An advance can only be given to a hired disposal's Vendor",
+        });
+      }
+    }
+
+    if (data.advance && data.correctsId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["advance"],
+        message: "An advance cannot be recorded on a correction",
+      });
     }
 
     if (data.correctsId) {

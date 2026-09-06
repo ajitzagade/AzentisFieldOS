@@ -90,16 +90,40 @@ export class WasteDisposalService {
       .mul(new Prisma.Decimal(input.ratePerTrip))
       .add(new Prisma.Decimal(input.otherCharges ?? 0));
 
+    // `advance` is a separate VendorAdvance row (its own table), not a
+    // WasteDisposal column — pulled out before spreading `input` into the
+    // create() call below so Prisma never sees an unrecognized key.
+    const { advance, ...disposalInput } = input;
+
     try {
-      return await this.prisma.wasteDisposal.create({
-        data: {
-          ...input,
-          otherCharges: input.otherCharges ?? 0,
-          totalAmount,
-          disposedAt: new Date(input.disposedAt),
-          recordedByUserId,
-        },
-        include: DISPOSAL_INCLUDE,
+      return await this.prisma.$transaction(async (tx) => {
+        const disposal = await tx.wasteDisposal.create({
+          data: {
+            ...disposalInput,
+            otherCharges: disposalInput.otherCharges ?? 0,
+            totalAmount,
+            disposedAt: new Date(disposalInput.disposedAt),
+            recordedByUserId,
+          },
+          include: DISPOSAL_INCLUDE,
+        });
+
+        if (advance) {
+          // createWasteDisposalSchema guarantees `advance` only ever
+          // arrives alongside a HIRED disposal, which itself requires
+          // vendorId — see that schema's own superRefine.
+          await tx.vendorAdvance.create({
+            data: {
+              vendorId: disposal.vendorId!,
+              wasteDisposalId: disposal.id,
+              amount: advance.amount,
+              paymentMethod: advance.paymentMethod,
+              givenAt: disposal.disposedAt,
+            },
+          });
+        }
+
+        return disposal;
       });
     } catch (error) {
       throw this.translateWriteError(error);

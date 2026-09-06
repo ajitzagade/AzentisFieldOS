@@ -18,6 +18,7 @@ import { SubcontractorsModule } from './subcontractors/subcontractors.module';
 import { RmcModule } from './rmc/rmc.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { WasteDisposalModule } from './waste-disposal/waste-disposal.module';
+import { VendorAdvancesModule } from './vendor-advances/vendor-advances.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportsModule } from './reports/reports.module';
 import { UsersModule } from './users/users.module';
@@ -42,6 +43,7 @@ import { PushNotificationsModule } from './push-notifications/push-notifications
     RmcModule,
     ExpensesModule,
     WasteDisposalModule,
+    VendorAdvancesModule,
     DashboardModule,
     ReportsModule,
     UsersModule,
