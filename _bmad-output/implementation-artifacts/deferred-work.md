@@ -367,3 +367,9 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: `_bmad-output/implementation-artifacts/spec-21-1-web-push-notifications.md`
   summary: The service worker's `showNotification` call uses the same full-color app icon for both `icon` and `badge` — a `badge` is meant to be a small monochrome silhouette for the Android status bar, and no such asset exists in this diff.
   evidence: Blind Hunter flagged this. Needs a real design asset to be created, not a code fix — out of scope for this review pass.
+
+## Deferred from: multi-goal split of Help & Guides annotated-screenshot intent (2026-09-06)
+
+- source_spec: none
+  summary: The Guide screenshot pipeline — an automated Playwright script that captures a real mobile+desktop screenshot per guide step (drawing the pulsing `accent-teal-700` highlight ring around the target field/button by CSS selector), plus wiring the captured images into `/help/[guideId]` with auto-device-match display. Fully specced in the UX spines (EXPERIENCE.md "Guide screenshot pipeline" row + DESIGN.md's Guide step annotation spec and ambient-pulse Do's/Don'ts carve-out, both updated 2026-09-06; approved mock at `ux-designs/ux-AzentisFieldOS-2026-08-12/mockups/25-help-guide-annotated-screenshot.html`).
+  evidence: Split from the combined "fix guide content + build screenshot pipeline" intent — the two are independently shippable (complete guide text is valuable with no screenshots; the pipeline's display logic doesn't depend on which guides have complete steps), and the pipeline is real new build tooling (capture script, per-step selector/route data, image storage strategy, responsive rendering) versus the content fix's pure data edits to `packages/shared/src/content/help-content.ts`. Content fix shipped first; guide step data should gain its per-step target-selector/route fields when this pipeline lands.
