@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ComboboxField, MapPinIcon } from "@azentisfieldos/ui";
+import { SiteQuickCreateModal } from "../sites/_components/site-quick-create-modal";
 
 // The single Site picker for entry forms (simplicity review 2026-09-01):
 // searchable (a company with many Sites should type, not scroll a native
@@ -75,23 +76,41 @@ export function SiteField({
   hintTone,
   onSiteChange,
 }: SiteFieldProps) {
+  // Owned locally (seeded from the prop, VendorField/purchase-form's same
+  // pattern) so a quick-created Site can be prepended and selected
+  // immediately, without every one of this component's ~10 call sites
+  // having to thread an onSiteCreated callback back up to their own state.
+  // Unlike Vendor/Material (always server-fetched before first render),
+  // several SiteField callers (e.g. dsr/new) fetch `sites` client-side after
+  // mount, starting from `[]` — so the prop must keep syncing in after the
+  // initial seed (React's documented "adjusting state when a prop changes"
+  // pattern) or a deep-linked/remembered Site can never resolve once the
+  // real list arrives.
+  const [siteOptions, setSiteOptions] = useState(sites);
+  const [prevSites, setPrevSites] = useState(sites);
+  if (sites !== prevSites) {
+    setPrevSites(sites);
+    setSiteOptions(sites);
+  }
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+
   // null = untouched; the remembered default only applies until the user
   // makes an explicit choice (including clearing the field).
   const [chosen, setChosen] = useState<string | null>(initialSiteId ?? null);
   const storedSite = useSyncExternalStore(subscribeToStorage, readStoredSite, () => null);
 
   const remembered =
-    remember && !initialSiteId && chosen === null && storedSite && sites.some((site) => site.id === storedSite)
+    remember && !initialSiteId && chosen === null && storedSite && siteOptions.some((site) => site.id === storedSite)
       ? storedSite
       : null;
   // A deep-linked/prefilled Site is trusted only once the options can vouch
-  // for it: while `sites` is still loading (empty) the candidate is kept, but
-  // against a LOADED list that doesn't contain it, a stale link must not
-  // leave the picker looking empty while the hidden input silently submits
-  // an invalid id.
+  // for it: while `siteOptions` is still loading (empty) the candidate is
+  // kept, but against a LOADED list that doesn't contain it, a stale link
+  // must not leave the picker looking empty while the hidden input silently
+  // submits an invalid id.
   const candidate = chosen ?? remembered ?? "";
-  const known = candidate !== "" && sites.some((site) => site.id === candidate);
-  const siteId = candidate === "" ? "" : known ? candidate : sites.length > 0 ? "" : candidate;
+  const known = candidate !== "" && siteOptions.some((site) => site.id === candidate);
+  const siteId = candidate === "" ? "" : known ? candidate : siteOptions.length > 0 ? "" : candidate;
 
   // Tell the parent when the remembered default kicks in (their dependent
   // state — stock hints, crew defaults — must see it like a user pick).
@@ -124,7 +143,7 @@ export function SiteField({
         required={required}
         disabled={disabled}
         icon={<MapPinIcon className="size-4" />}
-        options={sites.map((site) => ({ value: site.id, label: site.name }))}
+        options={siteOptions.map((site) => ({ value: site.id, label: site.name }))}
         value={siteId || null}
         onValueChange={handleChange}
         placeholder="Type a Site name…"
@@ -132,8 +151,19 @@ export function SiteField({
         hint={hint ?? (remembered ? "Remembered from your last entry" : undefined)}
         hintTone={hint ? hintTone : undefined}
         error={error}
+        onCreateNew={() => setQuickCreateOpen(true)}
+        createNewLabel="+ Add Site"
       />
       <input type="hidden" name={name} value={siteId} />
+      <SiteQuickCreateModal
+        open={quickCreateOpen}
+        onOpenChange={setQuickCreateOpen}
+        onSuccess={(site) => {
+          setSiteOptions((prev) => [site, ...prev]);
+          handleChange(site.id);
+          setQuickCreateOpen(false);
+        }}
+      />
     </>
   );
 }

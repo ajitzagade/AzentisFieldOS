@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createSiteAction } from "./actions";
+import { createSiteAction, createSiteQuickAction } from "./actions";
 
 const redirectMock = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
+
+const revalidatePathMock = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
@@ -10,6 +13,7 @@ const originalApiUrl = process.env.API_URL;
 beforeEach(() => {
   process.env.API_URL = "http://localhost:3001";
   redirectMock.mockClear();
+  revalidatePathMock.mockClear();
 });
 
 afterEach(() => {
@@ -35,7 +39,11 @@ describe("createSiteAction", () => {
   });
 
   it("posts the validated payload to the API and redirects to /sites on success", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "s1", name: "NH-48" }),
+    }) as unknown as typeof fetch;
 
     await createSiteAction({}, formData({ name: "NH-48", location: "Nashik", status: "ACTIVE" }));
 
@@ -68,5 +76,38 @@ describe("createSiteAction", () => {
     const result = await createSiteAction({}, formData({ name: "NH-48", location: "Nashik", status: "ACTIVE" }));
 
     expect(result.formError).toBe("Something went wrong creating the Site. Please try again.");
+  });
+});
+
+// Bug fix 2026-09-06: Site was the one master-data entity with no inline
+// "+ Add" quick-create, unlike Vendor/Material/Team Member/Subcontractor —
+// this is the Server Action every SiteField picker's modal calls.
+describe("createSiteQuickAction", () => {
+  it("returns { success, id, name } instead of redirecting, and revalidates every Site-picker route", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "site-1", name: "NH-48 Widening" }),
+    }) as unknown as typeof fetch;
+
+    const result = await createSiteQuickAction(
+      {},
+      formData({ name: "NH-48 Widening", location: "Nashik", status: "ACTIVE" }),
+    );
+
+    expect(result).toEqual({ success: true, id: "site-1", name: "NH-48 Widening" });
+    expect(redirectMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).toHaveBeenCalledWith("/sites");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dsr/new");
+  });
+
+  it("returns the same per-field errors as the full form on invalid input, without calling the API", async () => {
+    global.fetch = vi.fn();
+
+    const result = await createSiteQuickAction({}, formData({ name: "", location: "Nashik", status: "ACTIVE" }));
+
+    expect(result.errors?.name).toBeDefined();
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });

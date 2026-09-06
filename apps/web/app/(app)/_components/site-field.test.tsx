@@ -1,6 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const createSiteQuickActionMock = vi.fn();
+vi.mock("../sites/new/actions", () => ({
+  createSiteQuickAction: (...args: unknown[]) => createSiteQuickActionMock(...args),
+}));
+
 import { SiteField, clearRememberedSite } from "./site-field";
 
 // The device-remembered Site is this component's reason to exist (D5) — pin
@@ -18,6 +24,7 @@ function hiddenInput(container: HTMLElement, name = "siteId") {
 
 beforeEach(() => {
   window.localStorage.clear();
+  createSiteQuickActionMock.mockReset();
 });
 
 describe("SiteField", () => {
@@ -80,5 +87,27 @@ describe("SiteField", () => {
     window.localStorage.setItem(KEY, "site-1");
     clearRememberedSite();
     expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+});
+
+// Bug fix 2026-09-06: Site was the one master-data entity with no inline
+// "+ Add" quick-create, unlike Vendor/Material/Team Member/Subcontractor —
+// "Add site is not visible in the site drop downs if site is not available."
+describe("SiteField — quick-create", () => {
+  it("prepends and selects a quick-created Site without any parent-supplied options changing", async () => {
+    const user = userEvent.setup();
+    createSiteQuickActionMock.mockResolvedValue({ success: true, id: "site-9", name: "New Riverside Site" });
+    const { container } = render(<SiteField sites={sites} />);
+
+    await user.click(screen.getByLabelText("Site"));
+    await user.click(await screen.findByText("+ Add Site"));
+
+    const dialog = await screen.findByRole("dialog", { name: "Add Site" });
+    await user.type(within(dialog).getByLabelText("Name"), "New Riverside Site");
+    await user.type(within(dialog).getByLabelText("Location"), "Pune");
+    await user.click(within(dialog).getByRole("button", { name: "Create Site" }));
+
+    await waitFor(() => expect(hiddenInput(container)).toHaveValue("site-9"));
+    expect(screen.getByLabelText("Site")).toHaveValue("New Riverside Site");
   });
 });
