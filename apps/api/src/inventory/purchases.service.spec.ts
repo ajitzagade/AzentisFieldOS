@@ -317,7 +317,9 @@ function makeVendorSummaryPrisma(overrides: {
   const zero = () => Promise.resolve({ _sum: { totalAmount: null } });
   return {
     purchase: { aggregate: overrides.purchaseAggregate ?? vi.fn(zero) },
-    wasteDisposal: { aggregate: overrides.wasteDisposalAggregate ?? vi.fn(zero) },
+    wasteDisposal: {
+      aggregate: overrides.wasteDisposalAggregate ?? vi.fn(zero),
+    },
   };
 }
 
@@ -374,13 +376,22 @@ describe('PurchasesService.summaryForVendor', () => {
   it('includes an UNPAID WasteDisposal in notFullyPaidTotal even when every Purchase is fully paid', async () => {
     const purchaseAggregate = vi
       .fn()
-      .mockResolvedValueOnce({ _sum: { totalAmount: { toNumber: () => 50000 } } }) // totalThisYear
+      .mockResolvedValueOnce({
+        _sum: { totalAmount: { toNumber: () => 50000 } },
+      }) // totalThisYear
       .mockResolvedValueOnce({ _sum: { totalAmount: null } }); // notFullyPaid: no unpaid Purchases
     const wasteDisposalAggregate = vi
       .fn()
-      .mockResolvedValueOnce({ _sum: { totalAmount: { toNumber: () => 8000 } } }) // totalThisYear
-      .mockResolvedValueOnce({ _sum: { totalAmount: { toNumber: () => 8000 } } }); // notFullyPaid: one UNPAID disposal
-    const prisma = makeVendorSummaryPrisma({ purchaseAggregate, wasteDisposalAggregate });
+      .mockResolvedValueOnce({
+        _sum: { totalAmount: { toNumber: () => 8000 } },
+      }) // totalThisYear
+      .mockResolvedValueOnce({
+        _sum: { totalAmount: { toNumber: () => 8000 } },
+      }); // notFullyPaid: one UNPAID disposal
+    const prisma = makeVendorSummaryPrisma({
+      purchaseAggregate,
+      wasteDisposalAggregate,
+    });
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
       {
@@ -403,7 +414,9 @@ function makeVendorSummariesPrisma(overrides: {
   wasteDisposalGroupBy?: ReturnType<typeof vi.fn>;
 }) {
   return {
-    purchase: { groupBy: overrides.purchaseGroupBy ?? vi.fn().mockResolvedValue([]) },
+    purchase: {
+      groupBy: overrides.purchaseGroupBy ?? vi.fn().mockResolvedValue([]),
+    },
     wasteDisposal: {
       groupBy: overrides.wasteDisposalGroupBy ?? vi.fn().mockResolvedValue([]),
     },
@@ -457,7 +470,10 @@ describe('PurchasesService.summaryForVendors', () => {
   it('short-circuits an empty id list without querying the database', async () => {
     const purchaseGroupBy = vi.fn();
     const wasteDisposalGroupBy = vi.fn();
-    const prisma = makeVendorSummariesPrisma({ purchaseGroupBy, wasteDisposalGroupBy });
+    const prisma = makeVendorSummariesPrisma({
+      purchaseGroupBy,
+      wasteDisposalGroupBy,
+    });
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
       {
@@ -528,7 +544,10 @@ describe('PurchasesService.summaryForVendors', () => {
       .mockResolvedValueOnce([
         { vendorId: 'v1', _sum: { totalAmount: { toNumber: () => 6000 } } },
       ]); // notFullyPaid
-    const prisma = makeVendorSummariesPrisma({ purchaseGroupBy, wasteDisposalGroupBy });
+    const prisma = makeVendorSummariesPrisma({
+      purchaseGroupBy,
+      wasteDisposalGroupBy,
+    });
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
       {
@@ -538,7 +557,9 @@ describe('PurchasesService.summaryForVendors', () => {
 
     const result = await service.summaryForVendors(['v1']);
 
-    expect(result).toEqual({ v1: { totalThisYear: 6000, notFullyPaidTotal: 6000 } });
+    expect(result).toEqual({
+      v1: { totalThisYear: 6000, notFullyPaidTotal: 6000 },
+    });
   });
 });
 
@@ -589,7 +610,10 @@ describe('PurchasesService.outstandingAcrossVendors', () => {
     const wasteDisposalAggregate = vi
       .fn()
       .mockResolvedValue({ _sum: { totalAmount: { toNumber: () => 4200 } } });
-    const prisma = makeVendorSummaryPrisma({ purchaseAggregate, wasteDisposalAggregate });
+    const prisma = makeVendorSummaryPrisma({
+      purchaseAggregate,
+      wasteDisposalAggregate,
+    });
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
       {
