@@ -232,3 +232,31 @@
 @utility action-button-row {
   @apply flex flex-col gap-2 sm:flex-row sm:flex-wrap;
 }
+
+/* Guide-step screenshot highlight ring (DESIGN.md "Screenshot annotation",
+   2026-09-06): a 2px accent-teal-700 outline ring positioned 4px outside the
+   target element's edge on a Help & Guides screenshot, carrying a slow ~2s
+   opacity pulse. This is the system's one sanctioned ambient-loop animation
+   (DESIGN.md Do's/Don'ts) — a "look here" wayfinding aid on unfamiliar
+   content, deliberately outside the ≤160ms transition ceiling. Under
+   `prefers-reduced-motion: reduce` the ring stays visible but static. */
+@keyframes help-ring-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@utility help-screenshot-ring {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid var(--color-accent-teal-700);
+  border-radius: var(--radius-md);
+  opacity: 0.9;
+  @media (prefers-reduced-motion: no-preference) {
+    animation: help-ring-pulse 2s var(--ease-standard) infinite;
+  }
+}

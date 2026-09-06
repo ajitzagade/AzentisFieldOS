@@ -21,6 +21,7 @@
     "db:seed": "tsx infra/prisma/seed.ts",
     "db:seed:catalog": "tsx infra/prisma/seed-catalog.ts",
     "presentation:build": "tsx scripts/generate-presentation.mjs",
+    "help:screens": "playwright test --config=e2e/help-screens.config.ts",
     "test:e2e": "playwright test --config=e2e/playwright.config.ts",
     "test:e2e:ui": "playwright test --config=e2e/playwright.config.ts --ui",
     "test:e2e:report": "playwright show-report e2e/report"

@@ -1,0 +1,1387 @@
+{
+  "record-consumption": {
+    "0": {
+      "stepTitle": "Open Movements",
+      "mobile": {
+        "image": "/help-screens/record-consumption/0.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 16,
+          "y": 315,
+          "w": 227,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-consumption/0.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 1042,
+          "y": 98,
+          "w": 198,
+          "h": 40
+        }
+      }
+    },
+    "1": {
+      "stepTitle": "Site",
+      "mobile": {
+        "image": "/help-screens/record-consumption/1.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 190,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-consumption/1.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 137,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "2": {
+      "stepTitle": "Material / Size",
+      "mobile": {
+        "image": "/help-screens/record-consumption/2.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 270,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-consumption/2.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 217,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "3": {
+      "stepTitle": "Quantity",
+      "mobile": {
+        "image": "/help-screens/record-consumption/3.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 401,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-consumption/3.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 379,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "4": {
+      "stepTitle": "Consumption Date",
+      "mobile": {
+        "image": "/help-screens/record-consumption/4.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 401,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-consumption/4.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 379,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "5": {
+      "stepTitle": "Activity Reference",
+      "mobile": {
+        "image": "/help-screens/record-consumption/5.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 449,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-consumption/5.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 493,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "6": {
+      "stepTitle": "Notes",
+      "mobile": {
+        "image": "/help-screens/record-consumption/6.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 581,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-consumption/6.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 601,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "7": {
+      "stepTitle": "Record Consumption",
+      "mobile": {
+        "image": "/help-screens/record-consumption/7.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 16,
+          "y": 708,
+          "w": 196,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-consumption/7.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 288,
+          "y": 728,
+          "w": 196,
+          "h": 40
+        }
+      }
+    }
+  },
+  "create-site": {
+    "0": {
+      "stepTitle": "Open Sites",
+      "mobile": {
+        "image": "/help-screens/create-site/0.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 16,
+          "y": 236,
+          "w": 216,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/create-site/0.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 16,
+          "y": 188,
+          "w": 216,
+          "h": 40
+        }
+      }
+    },
+    "1": {
+      "stepTitle": "Add Site",
+      "mobile": {
+        "image": "/help-screens/create-site/1.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 261,
+          "y": 92,
+          "w": 113,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/create-site/1.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 1127,
+          "y": 39,
+          "w": 113,
+          "h": 40
+        }
+      }
+    },
+    "2": {
+      "stepTitle": "Name",
+      "mobile": {
+        "image": "/help-screens/create-site/2.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 190,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/create-site/2.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 137,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "3": {
+      "stepTitle": "Location",
+      "mobile": {
+        "image": "/help-screens/create-site/3.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 270,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/create-site/3.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 217,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "4": {
+      "stepTitle": "Status",
+      "mobile": {
+        "image": "/help-screens/create-site/4.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 350,
+          "w": 308,
+          "h": 41
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/create-site/4.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 297,
+          "w": 590,
+          "h": 41
+        }
+      }
+    },
+    "5": {
+      "stepTitle": "Contract reference",
+      "mobile": {
+        "image": "/help-screens/create-site/5.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 429,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/create-site/5.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 376,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "6": {
+      "stepTitle": "Description",
+      "mobile": {
+        "image": "/help-screens/create-site/6.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 537,
+          "w": 308,
+          "h": 90
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/create-site/6.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 484,
+          "w": 590,
+          "h": 90
+        }
+      }
+    },
+    "7": {
+      "stepTitle": "Create Site",
+      "mobile": {
+        "image": "/help-screens/create-site/7.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 670,
+          "w": 131,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/create-site/7.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 617,
+          "w": 131,
+          "h": 40
+        }
+      }
+    }
+  },
+  "record-purchase": {
+    "0": {
+      "stepTitle": "Open Movements",
+      "mobile": {
+        "image": "/help-screens/record-purchase/0.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 16,
+          "y": 399,
+          "w": 216,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/0.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 16,
+          "y": 351,
+          "w": 216,
+          "h": 40
+        }
+      }
+    },
+    "1": {
+      "stepTitle": "Start a new purchase",
+      "mobile": {
+        "image": "/help-screens/record-purchase/1.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 16,
+          "y": 402,
+          "w": 227,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/1.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 1070,
+          "y": 146,
+          "w": 170,
+          "h": 40
+        }
+      }
+    },
+    "2": {
+      "stepTitle": "Vendor",
+      "mobile": {
+        "image": "/help-screens/record-purchase/2.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 190,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/2.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 137,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "3": {
+      "stepTitle": "Material / Size",
+      "mobile": {
+        "image": "/help-screens/record-purchase/3.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 270,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/3.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 217,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "4": {
+      "stepTitle": "Destination",
+      "mobile": {
+        "image": "/help-screens/record-purchase/4.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 350,
+          "w": 308,
+          "h": 41
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/4.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 297,
+          "w": 590,
+          "h": 41
+        }
+      }
+    },
+    "5": {
+      "stepTitle": "Site",
+      "mobile": {
+        "image": "/help-screens/record-purchase/5.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 401,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/5.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 376,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "6": {
+      "stepTitle": "Quantity",
+      "mobile": {
+        "image": "/help-screens/record-purchase/6.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 401,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/6.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 379,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "7": {
+      "stepTitle": "Rate",
+      "mobile": {
+        "image": "/help-screens/record-purchase/7.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 401,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/7.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 379,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "8": {
+      "stepTitle": "Total Amount",
+      "mobile": {
+        "image": "/help-screens/record-purchase/8.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 401,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/8.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 411,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "9": {
+      "stepTitle": "Payment Status",
+      "mobile": {
+        "image": "/help-screens/record-purchase/9.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 451,
+          "w": 308,
+          "h": 41
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/9.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 491,
+          "w": 590,
+          "h": 41
+        }
+      }
+    },
+    "10": {
+      "stepTitle": "Purchase Date",
+      "mobile": {
+        "image": "/help-screens/record-purchase/10.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 531,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/10.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 571,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "11": {
+      "stepTitle": "Open More details",
+      "mobile": {
+        "image": "/help-screens/record-purchase/11.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 17,
+          "y": 631,
+          "w": 356,
+          "h": 61
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/11.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 289,
+          "y": 671,
+          "w": 638,
+          "h": 40
+        }
+      }
+    },
+    "12": {
+      "stepTitle": "Invoice / Challan No.",
+      "mobile": {
+        "image": "/help-screens/record-purchase/12.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 29,
+          "y": 401,
+          "w": 332,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/12.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 301,
+          "y": 379,
+          "w": 614,
+          "h": 42
+        }
+      }
+    },
+    "13": {
+      "stepTitle": "Challan Photo",
+      "mobile": {
+        "image": "/help-screens/record-purchase/13.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 101,
+          "y": 406,
+          "w": 145,
+          "h": 32
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/13.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 373,
+          "y": 384,
+          "w": 145,
+          "h": 32
+        }
+      }
+    },
+    "14": {
+      "stepTitle": "Delivery Location",
+      "mobile": {
+        "image": "/help-screens/record-purchase/14.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 29,
+          "y": 401,
+          "w": 332,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/14.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 301,
+          "y": 379,
+          "w": 614,
+          "h": 42
+        }
+      }
+    },
+    "15": {
+      "stepTitle": "Vehicle Details",
+      "mobile": {
+        "image": "/help-screens/record-purchase/15.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 29,
+          "y": 401,
+          "w": 332,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/15.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 301,
+          "y": 379,
+          "w": 614,
+          "h": 42
+        }
+      }
+    },
+    "16": {
+      "stepTitle": "Receiver Name",
+      "mobile": {
+        "image": "/help-screens/record-purchase/16.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 29,
+          "y": 473,
+          "w": 332,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/16.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 301,
+          "y": 379,
+          "w": 614,
+          "h": 42
+        }
+      }
+    },
+    "17": {
+      "stepTitle": "Notes",
+      "mobile": {
+        "image": "/help-screens/record-purchase/17.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 29,
+          "y": 605,
+          "w": 332,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/17.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 301,
+          "y": 379,
+          "w": 614,
+          "h": 42
+        }
+      }
+    },
+    "18": {
+      "stepTitle": "Record Purchase",
+      "mobile": {
+        "image": "/help-screens/record-purchase/18.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 16,
+          "y": 708,
+          "w": 170,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/record-purchase/18.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 288,
+          "y": 728,
+          "w": 170,
+          "h": 40
+        }
+      }
+    }
+  },
+  "give-advance": {
+    "0": {
+      "stepTitle": "Open Team & Labour",
+      "mobile": {
+        "image": "/help-screens/give-advance/0.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 16,
+          "y": 402,
+          "w": 216,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/give-advance/0.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 16,
+          "y": 380,
+          "w": 216,
+          "h": 40
+        }
+      }
+    },
+    "1": {
+      "stepTitle": "Open the worker",
+      "mobile": {
+        "image": "/help-screens/give-advance/1.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 33,
+          "y": 410,
+          "w": 324,
+          "h": 24
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/give-advance/1.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 289,
+          "y": 398,
+          "w": 131,
+          "h": 44
+        }
+      }
+    },
+    "2": {
+      "stepTitle": "Open the advance form",
+      "mobile": {
+        "image": "/help-screens/give-advance/2.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 206,
+          "y": 402,
+          "w": 168,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/give-advance/2.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 1072,
+          "y": 464,
+          "w": 168,
+          "h": 40
+        }
+      }
+    },
+    "3": {
+      "stepTitle": "Amount",
+      "mobile": {
+        "image": "/help-screens/give-advance/3.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 213,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/give-advance/3.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 160,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "4": {
+      "stepTitle": "Date",
+      "mobile": {
+        "image": "/help-screens/give-advance/4.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 293,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/give-advance/4.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 240,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "5": {
+      "stepTitle": "Reason",
+      "mobile": {
+        "image": "/help-screens/give-advance/5.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 439,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/give-advance/5.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 386,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "6": {
+      "stepTitle": "Payment Method",
+      "mobile": {
+        "image": "/help-screens/give-advance/6.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 571,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/give-advance/6.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 313,
+          "y": 494,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "7": {
+      "stepTitle": "Record Advance",
+      "mobile": {
+        "image": "/help-screens/give-advance/7.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 16,
+          "y": 698,
+          "w": 166,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/give-advance/7.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 288,
+          "y": 621,
+          "w": 166,
+          "h": 40
+        }
+      }
+    }
+  },
+  "submit-dsr": {
+    "0": {
+      "stepTitle": "Open today's report",
+      "mobile": {
+        "image": "/help-screens/submit-dsr/0.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 16,
+          "y": 333,
+          "w": 358,
+          "h": 77
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/submit-dsr/0.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 288,
+          "y": 192,
+          "w": 952,
+          "h": 77
+        }
+      }
+    },
+    "1": {
+      "stepTitle": "Site",
+      "mobile": {
+        "image": "/help-screens/submit-dsr/1.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 252,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/submit-dsr/1.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 469,
+          "y": 199,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "2": {
+      "stepTitle": "Date",
+      "mobile": {
+        "image": "/help-screens/submit-dsr/2.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 332,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/submit-dsr/2.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 469,
+          "y": 279,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "3": {
+      "stepTitle": "Work completed",
+      "mobile": {
+        "image": "/help-screens/submit-dsr/3.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 377,
+          "w": 308,
+          "h": 90
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/submit-dsr/3.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 469,
+          "y": 355,
+          "w": 590,
+          "h": 90
+        }
+      }
+    },
+    "4": {
+      "stepTitle": "Issues / blockers",
+      "mobile": {
+        "image": "/help-screens/submit-dsr/4.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 389,
+          "w": 308,
+          "h": 66
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/submit-dsr/4.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 469,
+          "y": 367,
+          "w": 590,
+          "h": 66
+        }
+      }
+    },
+    "5": {
+      "stepTitle": "Crew present today",
+      "mobile": {
+        "image": "/help-screens/submit-dsr/5.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 401,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/submit-dsr/5.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 469,
+          "y": 379,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "6": {
+      "stepTitle": "Materials consumed",
+      "mobile": {
+        "image": "/help-screens/submit-dsr/6.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 402,
+          "w": 143,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/submit-dsr/6.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 469,
+          "y": 380,
+          "w": 143,
+          "h": 40
+        }
+      }
+    },
+    "7": {
+      "stepTitle": "RMC (ready-mix concrete) used",
+      "mobile": {
+        "image": "/help-screens/submit-dsr/7.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 402,
+          "w": 177,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/submit-dsr/7.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 469,
+          "y": 380,
+          "w": 177,
+          "h": 40
+        }
+      }
+    },
+    "8": {
+      "stepTitle": "Expenses",
+      "mobile": {
+        "image": "/help-screens/submit-dsr/8.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 402,
+          "w": 145,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/submit-dsr/8.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 469,
+          "y": 380,
+          "w": 145,
+          "h": 40
+        }
+      }
+    },
+    "9": {
+      "stepTitle": "Equipment used today",
+      "mobile": {
+        "image": "/help-screens/submit-dsr/9.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 443,
+          "w": 308,
+          "h": 42
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/submit-dsr/9.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 469,
+          "y": 463,
+          "w": 590,
+          "h": 42
+        }
+      }
+    },
+    "10": {
+      "stepTitle": "Site Photos",
+      "mobile": {
+        "image": "/help-screens/submit-dsr/10.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 41,
+          "y": 603,
+          "w": 64,
+          "h": 64
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/submit-dsr/10.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 469,
+          "y": 623,
+          "w": 64,
+          "h": 64
+        }
+      }
+    },
+    "11": {
+      "stepTitle": "Submit Daily Report",
+      "mobile": {
+        "image": "/help-screens/submit-dsr/11.mobile.png",
+        "imageW": 390,
+        "imageH": 844,
+        "target": {
+          "x": 16,
+          "y": 708,
+          "w": 358,
+          "h": 40
+        }
+      },
+      "desktop": {
+        "image": "/help-screens/submit-dsr/11.desktop.png",
+        "imageW": 1280,
+        "imageH": 800,
+        "target": {
+          "x": 444,
+          "y": 728,
+          "w": 640,
+          "h": 40
+        }
+      }
+    }
+  }
+}
