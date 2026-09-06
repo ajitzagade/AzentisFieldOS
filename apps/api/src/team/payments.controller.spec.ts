@@ -39,6 +39,7 @@ describe('PaymentsController', () => {
       basePay: 15000,
       additionalAmount: 0,
       deductions: 0,
+      status: 'paid' as const,
     };
     const user = { id: 'u1', role: 'OWNER_ADMIN' } as never;
     service.create.mockResolvedValue({ id: '1', ...input });
@@ -119,6 +120,13 @@ describe('ZodValidationPipe(createPaymentSchema)', () => {
     };
     expect(result.additionalAmount).toBe(0);
     expect(result.deductions).toBe(0);
+  });
+
+  // Bug fix 2026-09-06: a Payment used to always start pending, needing a
+  // separate Mark Paid click for the common case.
+  it('defaults status to paid when omitted', () => {
+    const result = pipe.transform(base) as { status: string };
+    expect(result.status).toBe('paid');
   });
 
   it('strips a client-supplied netPayable — it is never part of the parsed output', () => {

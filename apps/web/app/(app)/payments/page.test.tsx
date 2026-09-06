@@ -147,15 +147,15 @@ describe("PaymentsPage", () => {
 
     await renderPaymentsPage();
 
-    expect(screen.getByRole("link", { name: /Record Payment/ })).toHaveAttribute("href", "/payments/new");
+    expect(screen.getByRole("link", { name: /Employee Payment/ })).toHaveAttribute("href", "/payments/new");
   });
 
-  it("hides Record Payment, Mark Paid, and Correct for SITE_SUPERVISOR", async () => {
+  it("hides Employee Payment, Mark Paid, and Correct for SITE_SUPERVISOR", async () => {
     mockFetchRouter({ payments: [payment], role: "SITE_SUPERVISOR" });
 
     await renderPaymentsPage();
 
-    expect(screen.queryByRole("link", { name: /^Record Payment/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Employee Payment/ })).not.toBeInTheDocument();
     expect(screen.queryAllByTestId("mark-paid-p1")).toHaveLength(0);
     expect(screen.queryByRole("link", { name: "Correct" })).not.toBeInTheDocument();
   });

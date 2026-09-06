@@ -58,7 +58,7 @@ export default async function NewPaymentPage() {
 
   return (
     <div className="max-w-160">
-      <h1 className="mb-1 text-page-title text-ink-900">Record Payment</h1>
+      <h1 className="mb-1 text-page-title text-ink-900">Employee Payment</h1>
       <p className="mb-6 text-body-sm text-ink-500">Base + Additional − Deductions − Advance Adjustment = Net Payable</p>
       <PaymentForm mode="new" teamMembers={teamMembers} advances={advanceOptions} />
     </div>

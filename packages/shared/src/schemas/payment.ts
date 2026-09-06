@@ -19,6 +19,11 @@ export const createPaymentSchema = z
     additionalAmount: z.number().nonnegative().default(0),
     deductions: z.number().nonnegative().default(0),
     payPeriod: z.string().max(100).optional(),
+    // Simplicity review (2026-09-06): a Payment is recorded as already
+    // Paid by default — the separate PATCH /payments/:id/mark-paid step
+    // (still available below) exists only for the rare case a payment is
+    // entered before the money actually moves.
+    status: z.enum(["pending", "paid"]).default("paid"),
     // FR-24: optional linked Adjustment — omitting it is valid, no warning.
     advanceAdjustment: z
       .object({

@@ -24,6 +24,7 @@ interface PaymentForCorrection {
   additionalAmount: string;
   deductions: string;
   payPeriod: string | null;
+  status: "pending" | "paid";
   teamMember: { id: string; name: string };
   advanceAdjustments: { advanceId: string; amount: string; note: string | null }[];
 }
@@ -86,6 +87,7 @@ export default async function CorrectPaymentPage({ params }: { params: Promise<{
     additionalAmount: payment.additionalAmount,
     deductions: payment.deductions,
     payPeriod: payment.payPeriod ?? undefined,
+    status: payment.status,
     advanceAdjustment: linkedAdjustment
       ? { advanceId: linkedAdjustment.advanceId, amount: linkedAdjustment.amount, note: linkedAdjustment.note ?? undefined }
       : undefined,

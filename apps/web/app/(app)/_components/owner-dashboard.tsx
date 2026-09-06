@@ -235,7 +235,7 @@ export async function OwnerDashboard() {
           </Link>
           <Link href="/payments/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <WalletIcon className="size-4" />
-            Record Payment
+            Employee Payment
           </Link>
           <AdvanceQuickEntryTrigger size="md" />
           <Link href="/movements/purchases/new" className={cn(buttonVariants({ variant: "secondary" }))}>

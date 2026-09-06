@@ -24,6 +24,7 @@ export function parseCreatePaymentForm(formData: FormData) {
     additionalAmount: formData.get("additionalAmount") ? Number(formData.get("additionalAmount")) : undefined,
     deductions: formData.get("deductions") ? Number(formData.get("deductions")) : undefined,
     payPeriod: formData.get("payPeriod") || undefined,
+    status: formData.get("status") || undefined,
     advanceAdjustment: includeAdjustment
       ? {
           advanceId: formData.get("advanceId"),

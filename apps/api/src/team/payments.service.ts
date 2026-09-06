@@ -68,6 +68,15 @@ export class PaymentsService {
       advanceId: string;
       amount: Prisma.Decimal;
     } | null = null;
+    // Review finding (2026-09-06): a correction must not silently re-stamp
+    // paidAt to "now" just because it re-enters status: 'paid' — that
+    // would overwrite the real historical pay date every time an
+    // unrelated field (e.g. deductions) is corrected on an already-paid
+    // Payment. Only a status that's genuinely transitioning to 'paid' for
+    // the first time gets a fresh stamp; a correction that keeps 'paid'
+    // inherits the original's real paidAt.
+    let originalPaidStatus: { status: string; paidAt: Date | null } | null =
+      null;
 
     if (input.correctsId) {
       const original = await this.prisma.payment.findUnique({
@@ -88,6 +97,10 @@ export class PaymentsService {
         );
       }
       originalLinkedAdjustment = original.advanceAdjustments[0] ?? null;
+      originalPaidStatus = {
+        status: original.status,
+        paidAt: original.paidAt,
+      };
     }
 
     let paymentResult: Awaited<ReturnType<typeof this.prisma.payment.create>>;
@@ -107,8 +120,13 @@ export class PaymentsService {
             deductions: input.deductions,
             payPeriod: input.payPeriod,
             netPayable,
-            status: 'pending',
-            paidAt: null,
+            status: input.status,
+            paidAt:
+              input.status !== 'paid'
+                ? null
+                : originalPaidStatus?.status === 'paid'
+                  ? originalPaidStatus.paidAt
+                  : new Date(),
             correctsId: input.correctsId,
             reason: input.reason,
           },

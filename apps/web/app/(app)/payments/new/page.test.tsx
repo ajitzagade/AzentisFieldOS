@@ -66,7 +66,7 @@ describe("NewPaymentPage", () => {
 
     await renderNewPaymentPage();
 
-    expect(screen.getByRole("heading", { name: "Record Payment" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Employee Payment" })).toBeInTheDocument();
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Team Member"), "ravi");
     expect(await screen.findByRole("option", { name: /Ravi Kumar/ })).toBeInTheDocument();

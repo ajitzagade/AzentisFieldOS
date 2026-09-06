@@ -340,7 +340,7 @@ describe("AppShell — Owner mobile quick-bar (Story 19.4)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Quick Add" }));
 
     expect(await screen.findByText("New Daily Report")).toBeInTheDocument();
-    expect(screen.getByText("Record Payment")).toBeInTheDocument();
+    expect(screen.getByText("Employee Payment")).toBeInTheDocument();
     expect(screen.getByText("Record Advance")).toBeInTheDocument();
     expect(screen.getByText("Add Purchase")).toBeInTheDocument();
   });

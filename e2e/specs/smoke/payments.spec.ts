@@ -9,7 +9,7 @@ test("Owner can record a Payment and it appears in the log", async ({ page }) =>
 
   await pickCombobox(page, "Team Member", TEAM_MEMBER_NAME);
   await page.getByLabel("Base Pay").fill("5000");
-  await page.getByRole("button", { name: "Record Payment" }).click();
+  await page.getByRole("button", { name: "Employee Payment" }).click();
 
   // FR-54: a Payment is money-bearing, held for re-verification.
   await expect(page.getByText("Record this Payment?")).toBeVisible();

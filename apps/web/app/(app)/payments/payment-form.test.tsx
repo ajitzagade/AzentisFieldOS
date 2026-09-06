@@ -27,7 +27,16 @@ describe("PaymentForm", () => {
     expect(screen.getByLabelText("Additional Amount")).toBeInTheDocument();
     expect(screen.getByLabelText("Deductions")).toBeInTheDocument();
     expect(screen.getByLabelText("Period")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Record Payment" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Employee Payment" })).toBeInTheDocument();
+  });
+
+  // Bug fix 2026-09-06: a Payment used to always start pending, needing a
+  // separate Mark Paid click for the common case — Payment Status is now a
+  // field on the form itself, defaulting to Paid.
+  it("defaults Payment Status to Paid", () => {
+    render(<PaymentForm mode="new" teamMembers={teamMembers} advances={advances} />);
+
+    expect(screen.getByLabelText("Payment Status")).toHaveValue("paid");
   });
 
   it("computes Net Payable live from Base Pay + Additional - Deductions with no Advance Adjustment (AC #1, #3)", async () => {

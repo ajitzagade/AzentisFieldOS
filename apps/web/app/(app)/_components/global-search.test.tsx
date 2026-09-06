@@ -490,13 +490,13 @@ describe("GlobalSearch", () => {
     expect(screen.getByText("Add Vendor")).toBeInTheDocument();
   });
 
-  it('matches "Record Payment" and navigates to /payments/new without opening the Advance modal', async () => {
+  it('matches "record payment" and navigates to /payments/new without opening the Advance modal', async () => {
     mockFetch(ALL_EMPTY);
     render(<Harness />);
 
     await openAndSearch("record payment");
 
-    fireEvent.click(await screen.findByText("Record Payment", {}, { timeout: 1000 }));
+    fireEvent.click(await screen.findByText("Employee Payment", {}, { timeout: 1000 }));
 
     expect(pushMock).toHaveBeenCalledWith("/payments/new");
     expect(createAdvanceQuickActionMock).not.toHaveBeenCalled();
@@ -513,13 +513,13 @@ describe("GlobalSearch", () => {
     expect(pushMock).toHaveBeenCalledWith("/movements?type=PURCHASE_PENDING_PRICING");
   });
 
-  it("hides owner-only curated Actions (Record Payment/Advance, Review & Price, Add Subcontractor, Open Settings) for SITE_SUPERVISOR", async () => {
+  it("hides owner-only curated Actions (Employee Payment, Record Advance, Review & Price, Add Subcontractor, Open Settings) for SITE_SUPERVISOR", async () => {
     mockFetch(ALL_EMPTY);
     render(<Harness role="SITE_SUPERVISOR" />);
 
     await openAndSearch("record");
 
-    expect(screen.queryByText("Record Payment")).not.toBeInTheDocument();
+    expect(screen.queryByText("Employee Payment")).not.toBeInTheDocument();
     expect(screen.queryByText("Record Advance")).not.toBeInTheDocument();
   });
 

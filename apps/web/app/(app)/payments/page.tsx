@@ -89,7 +89,7 @@ export default async function PaymentsPage({
         {canManagePayments ? (
           <Link href="/payments/new" className={cn(buttonVariants({ variant: "primary" }))}>
             <PlusIcon className="size-4" />
-            Record Payment
+            Employee Payment
           </Link>
         ) : null}
       </div>

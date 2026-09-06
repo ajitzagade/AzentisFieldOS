@@ -277,9 +277,10 @@ export const HELP_CONTENT = {
       whyUseIt: "So a worker's final pay always correctly subtracts what they already took as an advance — no manual subtraction, no arguments.",
       usedBy: ["OWNER_ADMIN"],
       howToUse: [
-        "Open Payments → Record Payment.",
+        "Open Payments → Employee Payment.",
         "Pick the worker and enter their wage for the period.",
         "If they have an outstanding advance, choose how much of it to deduct.",
+        "Payment Status defaults to Paid — switch it to Pending only if the money hasn't actually moved yet.",
         "Save.",
       ],
       afterSaving: "The system works out the final amount automatically: wage plus any extra, minus deductions, minus the advance taken. The worker's Outstanding Balance goes down by exactly the amount deducted.",
@@ -654,7 +655,7 @@ export interface SearchAction {
    * 19.1's modal) — apps/web's global-search.tsx branches on this. */
   href: string | null;
   /** True for actions whose write path is `@Roles('OWNER_ADMIN')`-gated
-   * server-side (Record Payment, Record Advance, Add Subcontractor,
+   * server-side (Employee Payment, Record Advance, Add Subcontractor,
    * Review & Price's pricing PATCH) or whose page is Owner-only (Open
    * Settings) — apps/web's global-search.tsx filters these out of the
    * palette for a Site Supervisor. Actions Supervisors can legitimately use
@@ -673,9 +674,9 @@ export const SEARCH_ACTIONS: SearchAction[] = [
   },
   {
     id: "record-payment",
-    title: "Record Payment",
+    title: "Employee Payment",
     description: "Pay a Team Member",
-    keywords: ["record payment", "pay", "salary", "wage payment"],
+    keywords: ["record payment", "employee payment", "pay", "salary", "wage payment"],
     href: "/payments/new",
     ownerOnly: true,
   },

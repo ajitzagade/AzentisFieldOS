@@ -67,6 +67,7 @@ const payment = {
   additionalAmount: "2000",
   deductions: "500",
   payPeriod: "1-15 Aug 2026",
+  status: "paid" as const,
   teamMember: { id: "tm1", name: "Ravi Kumar" },
   advanceAdjustments: [],
 };

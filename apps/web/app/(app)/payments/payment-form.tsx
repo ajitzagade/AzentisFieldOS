@@ -31,6 +31,7 @@ export interface PaymentFormInitialValues {
   additionalAmount?: string;
   deductions?: string;
   payPeriod?: string;
+  status?: "pending" | "paid";
   advanceAdjustment?: { advanceId: string; amount: string; note?: string };
 }
 
@@ -174,6 +175,18 @@ export function PaymentForm({
           defaultValue={initial?.payPeriod}
           error={errorFor("payPeriod")}
         />
+        <SelectField
+          label="Payment Status"
+          name="status"
+          required
+          icon={<WalletIcon className="size-4" />}
+          defaultValue={initial?.status ?? "paid"}
+          options={[
+            { value: "paid", label: "Paid" },
+            { value: "pending", label: "Pending" },
+          ]}
+          error={errorFor("status")}
+        />
       </Card>
 
       <Card className="mb-4">
@@ -235,7 +248,7 @@ export function PaymentForm({
         </p>
       ) : null}
 
-      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Payment"} correcting={mode === "correct"} />
+      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Employee Payment"} correcting={mode === "correct"} />
 
       <ConfirmDialog
         open={confirmation.open}

@@ -69,6 +69,7 @@ const baseInput = {
   basePay: 15000,
   additionalAmount: 2000,
   deductions: 500,
+  status: 'paid' as const,
 };
 
 describe('PaymentsService.create — netPayable computation (AC #1, #3)', () => {
@@ -107,6 +108,7 @@ describe('PaymentsService.create — netPayable computation (AC #1, #3)', () => 
       basePay: 10000,
       additionalAmount: 0,
       deductions: 0,
+      status: 'paid',
     });
 
     expect(paymentCreate).toHaveBeenCalledWith(
@@ -116,10 +118,29 @@ describe('PaymentsService.create — netPayable computation (AC #1, #3)', () => 
     );
   });
 
-  it('inserts the Payment with status pending and paidAt null', async () => {
+  // Bug fix 2026-09-06: a Payment used to always be inserted pending,
+  // needing a separate Mark Paid click for the common case — status now
+  // comes straight from the input (createPaymentSchema defaults it to
+  // 'paid'), and paidAt is stamped immediately whenever it's paid.
+  it('inserts the Payment as paid with paidAt stamped when status is paid', async () => {
     const { service, paymentCreate } = makeService({});
 
-    await service.create(baseInput);
+    await service.create({ ...baseInput, status: 'paid' });
+
+    expect(paymentCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'paid',
+          paidAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it('inserts the Payment with status pending and paidAt null when explicitly recorded as pending', async () => {
+    const { service, paymentCreate } = makeService({});
+
+    await service.create({ ...baseInput, status: 'pending' });
 
     expect(paymentCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -389,6 +410,64 @@ describe('PaymentsService.create — corrections', () => {
     await expect(
       service.create({ ...baseInput, correctsId: 'orig', reason: 'x' }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  // Review finding (2026-09-06): a correction must never silently reset
+  // an already-paid Payment's real historical paidAt just because an
+  // unrelated field (e.g. deductions) was corrected.
+  it('preserves the original paidAt when correcting an already-paid Payment that stays paid', async () => {
+    const originalPaidAt = new Date('2026-08-01T10:00:00Z');
+    const paymentFindUnique = vi.fn().mockResolvedValue({
+      id: 'p-orig',
+      teamMemberId: 'tm1',
+      status: 'paid',
+      paidAt: originalPaidAt,
+      advanceAdjustments: [],
+    });
+    const { service, paymentCreate } = makeService({ paymentFindUnique });
+
+    await service.create({
+      ...baseInput,
+      status: 'paid',
+      correctsId: 'p-orig',
+      reason: 'Deductions were wrong',
+    });
+
+    expect(paymentCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'paid',
+          paidAt: originalPaidAt,
+        }),
+      }),
+    );
+  });
+
+  it('stamps a fresh paidAt when a correction newly marks a previously-pending Payment as paid', async () => {
+    const paymentFindUnique = vi.fn().mockResolvedValue({
+      id: 'p-orig',
+      teamMemberId: 'tm1',
+      status: 'pending',
+      paidAt: null,
+      advanceAdjustments: [],
+    });
+    const { service, paymentCreate } = makeService({ paymentFindUnique });
+
+    await service.create({
+      ...baseInput,
+      status: 'paid',
+      correctsId: 'p-orig',
+      reason: 'Was marked pending in error',
+    });
+
+    expect(paymentCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'paid',
+          paidAt: expect.any(Date),
+        }),
+      }),
+    );
   });
 });
 
