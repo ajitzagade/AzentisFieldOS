@@ -308,9 +308,22 @@ describe('PurchasesService.listByVendor', () => {
   });
 });
 
+// Zero-by-default mocks for both models' aggregate calls, so a test only
+// needs to override the specific call(s) its scenario cares about.
+function makeVendorSummaryPrisma(overrides: {
+  purchaseAggregate?: ReturnType<typeof vi.fn>;
+  wasteDisposalAggregate?: ReturnType<typeof vi.fn>;
+}) {
+  const zero = () => Promise.resolve({ _sum: { totalAmount: null } });
+  return {
+    purchase: { aggregate: overrides.purchaseAggregate ?? vi.fn(zero) },
+    wasteDisposal: { aggregate: overrides.wasteDisposalAggregate ?? vi.fn(zero) },
+  };
+}
+
 describe('PurchasesService.summaryForVendor', () => {
-  it('computes totalThisYear and notFullyPaidTotal from separate aggregates', async () => {
-    const aggregate = vi
+  it('computes totalThisYear and notFullyPaidTotal from separate Purchase aggregates', async () => {
+    const purchaseAggregate = vi
       .fn<
         (args: {
           where: { vendorId: string; paymentStatus?: { not: string } };
@@ -322,7 +335,7 @@ describe('PurchasesService.summaryForVendor', () => {
       .mockResolvedValueOnce({
         _sum: { totalAmount: { toNumber: () => 12450 } },
       });
-    const prisma = { purchase: { aggregate } };
+    const prisma = makeVendorSummaryPrisma({ purchaseAggregate });
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
       {
@@ -333,18 +346,15 @@ describe('PurchasesService.summaryForVendor', () => {
     const result = await service.summaryForVendor('v1');
 
     expect(result).toEqual({ totalThisYear: 32600, notFullyPaidTotal: 12450 });
-    expect(aggregate.mock.calls[0]![0].where.vendorId).toBe('v1');
-    expect(aggregate.mock.calls[1]![0].where).toEqual({
+    expect(purchaseAggregate.mock.calls[0]![0].where.vendorId).toBe('v1');
+    expect(purchaseAggregate.mock.calls[1]![0].where).toEqual({
       vendorId: 'v1',
       paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
     });
   });
 
-  it('reports 0/0 for a Vendor with zero Purchases, not an error', async () => {
-    const aggregate = vi
-      .fn()
-      .mockResolvedValue({ _sum: { totalAmount: null } });
-    const prisma = { purchase: { aggregate } };
+  it('reports 0/0 for a Vendor with zero Purchases and zero WasteDisposals, not an error', async () => {
+    const prisma = makeVendorSummaryPrisma({});
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
       {
@@ -356,11 +366,53 @@ describe('PurchasesService.summaryForVendor', () => {
 
     expect(result).toEqual({ totalThisYear: 0, notFullyPaidTotal: 0 });
   });
+
+  // Bug fix 2026-09-06: a Vendor whose Purchases are all Paid must not read
+  // "Fully Paid" if a HIRED WasteDisposal against them is still UNPAID —
+  // this is the exact production bug reported ("waste and disposal records
+  // ... showing fully paid").
+  it('includes an UNPAID WasteDisposal in notFullyPaidTotal even when every Purchase is fully paid', async () => {
+    const purchaseAggregate = vi
+      .fn()
+      .mockResolvedValueOnce({ _sum: { totalAmount: { toNumber: () => 50000 } } }) // totalThisYear
+      .mockResolvedValueOnce({ _sum: { totalAmount: null } }); // notFullyPaid: no unpaid Purchases
+    const wasteDisposalAggregate = vi
+      .fn()
+      .mockResolvedValueOnce({ _sum: { totalAmount: { toNumber: () => 8000 } } }) // totalThisYear
+      .mockResolvedValueOnce({ _sum: { totalAmount: { toNumber: () => 8000 } } }); // notFullyPaid: one UNPAID disposal
+    const prisma = makeVendorSummaryPrisma({ purchaseAggregate, wasteDisposalAggregate });
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
+    );
+
+    const result = await service.summaryForVendor('v1');
+
+    expect(result).toEqual({ totalThisYear: 58000, notFullyPaidTotal: 8000 });
+    expect(wasteDisposalAggregate.mock.calls[1]![0].where).toEqual({
+      vendorId: 'v1',
+      paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
+    });
+  });
 });
 
+function makeVendorSummariesPrisma(overrides: {
+  purchaseGroupBy?: ReturnType<typeof vi.fn>;
+  wasteDisposalGroupBy?: ReturnType<typeof vi.fn>;
+}) {
+  return {
+    purchase: { groupBy: overrides.purchaseGroupBy ?? vi.fn().mockResolvedValue([]) },
+    wasteDisposal: {
+      groupBy: overrides.wasteDisposalGroupBy ?? vi.fn().mockResolvedValue([]),
+    },
+  };
+}
+
 describe('PurchasesService.summaryForVendors', () => {
-  it('computes a per-Vendor summary from two groupBy calls, not one aggregate per Vendor', async () => {
-    const groupBy = vi
+  it('computes a per-Vendor summary from Purchase groupBy calls, not one aggregate per Vendor', async () => {
+    const purchaseGroupBy = vi
       .fn()
       .mockResolvedValueOnce([
         { vendorId: 'v1', _sum: { totalAmount: { toNumber: () => 32600 } } },
@@ -368,7 +420,7 @@ describe('PurchasesService.summaryForVendors', () => {
       .mockResolvedValueOnce([
         { vendorId: 'v2', _sum: { totalAmount: { toNumber: () => 5000 } } },
       ]);
-    const prisma = { purchase: { groupBy } };
+    const prisma = makeVendorSummariesPrisma({ purchaseGroupBy });
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
       {
@@ -378,16 +430,15 @@ describe('PurchasesService.summaryForVendors', () => {
 
     const result = await service.summaryForVendors(['v1', 'v2']);
 
-    expect(groupBy).toHaveBeenCalledTimes(2);
+    expect(purchaseGroupBy).toHaveBeenCalledTimes(2);
     expect(result).toEqual({
       v1: { totalThisYear: 32600, notFullyPaidTotal: 0 },
       v2: { totalThisYear: 0, notFullyPaidTotal: 5000 },
     });
   });
 
-  it('returns a zeroed entry for every requested id with no matching Purchases, never omitting a row', async () => {
-    const groupBy = vi.fn().mockResolvedValue([]);
-    const prisma = { purchase: { groupBy } };
+  it('returns a zeroed entry for every requested id with no matching rows in either model, never omitting a row', async () => {
+    const prisma = makeVendorSummariesPrisma({});
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
       {
@@ -404,8 +455,9 @@ describe('PurchasesService.summaryForVendors', () => {
   });
 
   it('short-circuits an empty id list without querying the database', async () => {
-    const groupBy = vi.fn();
-    const prisma = { purchase: { groupBy } };
+    const purchaseGroupBy = vi.fn();
+    const wasteDisposalGroupBy = vi.fn();
+    const prisma = makeVendorSummariesPrisma({ purchaseGroupBy, wasteDisposalGroupBy });
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
       {
@@ -416,7 +468,8 @@ describe('PurchasesService.summaryForVendors', () => {
     const result = await service.summaryForVendors([]);
 
     expect(result).toEqual({});
-    expect(groupBy).not.toHaveBeenCalled();
+    expect(purchaseGroupBy).not.toHaveBeenCalled();
+    expect(wasteDisposalGroupBy).not.toHaveBeenCalled();
   });
 
   // Code review 2026-09-04: the tests above only assert call count and
@@ -424,12 +477,12 @@ describe('PurchasesService.summaryForVendors', () => {
   // vendorId scoping, the calendar-year boundary math, and the
   // UNPAID_OR_PARTIAL filter down, mirroring summaryForVendor's own
   // where-clause assertions above.
-  it('scopes both groupBy calls to the requested vendorIds, the calendar year, and UNPAID_OR_PARTIAL', async () => {
+  it('scopes both Purchase groupBy calls to the requested vendorIds, the calendar year, and UNPAID_OR_PARTIAL', async () => {
     vi.useFakeTimers();
     try {
       vi.setSystemTime(new Date(2026, 5, 15));
-      const groupBy = vi.fn().mockResolvedValue([]);
-      const prisma = { purchase: { groupBy } };
+      const purchaseGroupBy = vi.fn().mockResolvedValue([]);
+      const prisma = makeVendorSummariesPrisma({ purchaseGroupBy });
       const service = new PurchasesService(
         prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
         {
@@ -439,7 +492,7 @@ describe('PurchasesService.summaryForVendors', () => {
 
       await service.summaryForVendors(['v1', 'v2']);
 
-      expect(groupBy).toHaveBeenNthCalledWith(1, {
+      expect(purchaseGroupBy).toHaveBeenNthCalledWith(1, {
         by: ['vendorId'],
         where: {
           vendorId: { in: ['v1', 'v2'] },
@@ -450,7 +503,7 @@ describe('PurchasesService.summaryForVendors', () => {
         },
         _sum: { totalAmount: true },
       });
-      expect(groupBy).toHaveBeenNthCalledWith(2, {
+      expect(purchaseGroupBy).toHaveBeenNthCalledWith(2, {
         by: ['vendorId'],
         where: {
           vendorId: { in: ['v1', 'v2'] },
@@ -462,14 +515,39 @@ describe('PurchasesService.summaryForVendors', () => {
       vi.useRealTimers();
     }
   });
+
+  // Bug fix 2026-09-06 — same production bug as summaryForVendor's own
+  // test, exercised through the batch/list path the Vendors page uses.
+  it('merges an UNPAID WasteDisposal into notFullyPaidTotal even when the Vendor has no unpaid Purchases', async () => {
+    const purchaseGroupBy = vi.fn().mockResolvedValue([]); // no Purchases at all
+    const wasteDisposalGroupBy = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { vendorId: 'v1', _sum: { totalAmount: { toNumber: () => 6000 } } },
+      ]) // totalThisYear
+      .mockResolvedValueOnce([
+        { vendorId: 'v1', _sum: { totalAmount: { toNumber: () => 6000 } } },
+      ]); // notFullyPaid
+    const prisma = makeVendorSummariesPrisma({ purchaseGroupBy, wasteDisposalGroupBy });
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
+    );
+
+    const result = await service.summaryForVendors(['v1']);
+
+    expect(result).toEqual({ v1: { totalThisYear: 6000, notFullyPaidTotal: 6000 } });
+  });
 });
 
 describe('PurchasesService.outstandingAcrossVendors', () => {
-  it('sums the UNPAID/PARTIAL totalAmount across every Vendor via one aggregate, not a per-Vendor call', async () => {
-    const aggregate = vi
+  it('sums the UNPAID/PARTIAL totalAmount across every Vendor via one Purchase aggregate, not a per-Vendor call', async () => {
+    const purchaseAggregate = vi
       .fn()
       .mockResolvedValue({ _sum: { totalAmount: { toNumber: () => 15650 } } });
-    const prisma = { purchase: { aggregate } };
+    const prisma = makeVendorSummaryPrisma({ purchaseAggregate });
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
       {
@@ -480,18 +558,15 @@ describe('PurchasesService.outstandingAcrossVendors', () => {
     const result = await service.outstandingAcrossVendors();
 
     expect(result).toBe(15650);
-    expect(aggregate).toHaveBeenCalledTimes(1);
-    expect(aggregate).toHaveBeenCalledWith({
+    expect(purchaseAggregate).toHaveBeenCalledTimes(1);
+    expect(purchaseAggregate).toHaveBeenCalledWith({
       where: { paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
       _sum: { totalAmount: true },
     });
   });
 
-  it('returns 0 when no Purchase is UNPAID/PARTIAL, not an error', async () => {
-    const aggregate = vi
-      .fn()
-      .mockResolvedValue({ _sum: { totalAmount: null } });
-    const prisma = { purchase: { aggregate } };
+  it('returns 0 when no Purchase or WasteDisposal is UNPAID/PARTIAL, not an error', async () => {
+    const prisma = makeVendorSummaryPrisma({});
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
       {
@@ -502,6 +577,33 @@ describe('PurchasesService.outstandingAcrossVendors', () => {
     const result = await service.outstandingAcrossVendors();
 
     expect(result).toBe(0);
+  });
+
+  // Bug fix 2026-09-06: the Owner Dashboard's "Vendor Outstanding"/"Cash
+  // Tied Up" tiles must include unpaid WasteDisposal money too, not just
+  // unpaid Purchases.
+  it('includes UNPAID/PARTIAL WasteDisposal totalAmount alongside Purchase in the tenant-wide total', async () => {
+    const purchaseAggregate = vi
+      .fn()
+      .mockResolvedValue({ _sum: { totalAmount: { toNumber: () => 15650 } } });
+    const wasteDisposalAggregate = vi
+      .fn()
+      .mockResolvedValue({ _sum: { totalAmount: { toNumber: () => 4200 } } });
+    const prisma = makeVendorSummaryPrisma({ purchaseAggregate, wasteDisposalAggregate });
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
+    );
+
+    const result = await service.outstandingAcrossVendors();
+
+    expect(result).toBe(19850);
+    expect(wasteDisposalAggregate).toHaveBeenCalledWith({
+      where: { paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
+      _sum: { totalAmount: true },
+    });
   });
 });
 

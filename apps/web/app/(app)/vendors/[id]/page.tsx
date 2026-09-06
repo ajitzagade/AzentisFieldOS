@@ -30,6 +30,25 @@ interface VendorPurchase {
   materialSize: { label: string; material: { name: string; unit: { name: string } } };
 }
 
+// Bug fix 2026-09-06: a Vendor's HIRED waste-disposal trips carry the same
+// PAID/PARTIAL/UNPAID vocabulary as a Purchase and are real money owed to
+// this same Vendor, but this page used to only fetch/show Purchases —
+// GET /vendors/:id/purchase-summary's "Fully Paid" badge could read true
+// while an unpaid disposal against this Vendor was invisible here. Every
+// row GET /waste-disposals?vendorId=... returns is HIRED by construction
+// (only HIRED rows carry a vendorId at all), so paymentStatus is never
+// null in practice — the `| null` in the type is defensive, matching the
+// real API contract rather than assuming it.
+interface VendorWasteDisposal {
+  id: string;
+  wasteType: string;
+  tripCount: number;
+  totalAmount: string;
+  paymentStatus: "PAID" | "PARTIAL" | "UNPAID" | null;
+  disposedAt: string;
+  site: { id: string; name: string };
+}
+
 async function getVendor(id: string): Promise<Vendor | null> {
   const res = await authedFetch(`/vendors/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
@@ -43,6 +62,17 @@ async function getVendorPurchases(id: string): Promise<VendorPurchase[]> {
   const res = await authedFetch(`/vendors/${id}/purchases`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Vendor purchases (${res.status})`);
+  }
+  return res.json();
+}
+
+// Reuses the existing GET /waste-disposals?vendorId=... list endpoint (the
+// same one the Waste & Disposal module's own page calls) — no new API
+// surface needed.
+async function getVendorWasteDisposals(id: string): Promise<VendorWasteDisposal[]> {
+  const res = await authedFetch(`/waste-disposals?vendorId=${id}`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load Vendor waste disposals (${res.status})`);
   }
   return res.json();
 }
@@ -135,6 +165,38 @@ const purchaseMobileCard: DataTableMobileCard<VendorPurchase> = {
   omitHeaders: ["Date"],
 };
 
+// Every row here is HIRED by construction (see VendorWasteDisposal's own
+// comment) — no "Pricing pending" branch needed, unlike Purchase's D7 case.
+const wasteDisposalColumns: DataTableColumn<VendorWasteDisposal>[] = [
+  { header: "Site", cell: (row) => row.site.name },
+  { header: "Waste type", cell: (row) => row.wasteType },
+  { header: "Trips", align: "right", cell: (row) => <span className="tabular-nums">{row.tripCount}</span> },
+  {
+    header: "Amount",
+    align: "right",
+    cell: (row) => (
+      <span className="font-semibold text-gold-700 tabular-nums">
+        ₹{Number(row.totalAmount).toLocaleString("en-IN")}
+      </span>
+    ),
+  },
+  {
+    header: "Payment status",
+    cell: (row) => {
+      const badge = row.paymentStatus
+        ? (PAYMENT_STATUS_BADGE[row.paymentStatus] ?? { variant: "neutral" as const, label: row.paymentStatus })
+        : { variant: "neutral" as const, label: "—" };
+      return <Badge variant={badge.variant}>{badge.label}</Badge>;
+    },
+  },
+  { header: "Date", cell: (row) => <span className="text-ink-500">{formatDate(row.disposedAt)}</span> },
+];
+
+const wasteDisposalMobileCard: DataTableMobileCard<VendorWasteDisposal> = {
+  primary: (row) => formatDate(row.disposedAt),
+  omitHeaders: ["Date"],
+};
+
 export default async function VendorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const vendor = await getVendor(id);
@@ -143,17 +205,20 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
     notFound();
   }
 
-  const [purchases, summary, viewerRole] = await Promise.all([
+  const [purchases, wasteDisposals, summary, viewerRole] = await Promise.all([
     getVendorPurchases(id),
+    getVendorWasteDisposals(id),
     getVendorPurchaseSummarySafe(id),
     currentRole(),
   ]);
 
-  // The confirmation must surface live consequences: unpaid purchases
-  // disappear from Vendor Outstanding / Cash Tied Up with the Vendor.
+  // The confirmation must surface live consequences: unpaid purchases and
+  // waste-disposal trips both disappear from Vendor Outstanding / Cash Tied
+  // Up with the Vendor (summary.notFullyPaidTotal already merges both —
+  // see PurchasesService.summaryForVendor's 2026-09-06 bug-fix note).
   const deleteWarning =
     summary && summary.notFullyPaidTotal > 0
-      ? ` Note: ₹${summary.notFullyPaidTotal.toLocaleString("en-IN")} of purchases are not yet marked Paid — deleting this Vendor removes that amount from Vendor Outstanding and Cash Tied Up.`
+      ? ` Note: ₹${summary.notFullyPaidTotal.toLocaleString("en-IN")} of purchases/waste-disposal trips are not yet marked Paid — deleting this Vendor removes that amount from Vendor Outstanding and Cash Tied Up.`
       : "";
 
   return (
@@ -188,10 +253,13 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
 
         {/* The same figures the Vendors list computes per row (GET
             /vendors/:id/purchase-summary) — surfaced here too so opening a
-            Vendor never loses the money answer the list already gave. */}
+            Vendor never loses the money answer the list already gave. Both
+            totals merge Purchases and HIRED Waste Disposal trips (2026-09-06
+            bug fix) — "Payment status" reflects everything owed to this
+            Vendor, not Purchases alone. */}
         <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-8">
           <div>
-            <div className="mb-0.5 text-eyebrow uppercase text-ink-500">Total purchases (this year)</div>
+            <div className="mb-0.5 text-eyebrow uppercase text-ink-500">Total business (this year)</div>
             <div className="text-kpi-numeral tabular-nums text-ink-900">
               {summary === null ? (
                 <span className="text-ink-500">—</span>
@@ -260,6 +328,22 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
           purchases.length === 0
             ? { status: "empty", icon: <ClipboardIcon />, message: "No Purchases recorded yet for this Vendor." }
             : { status: "success", rows: purchases }
+        }
+      />
+
+      <div className="mt-8 mb-4 text-section-header text-ink-900">Waste &amp; Disposal History</div>
+      <DataTable
+        columns={wasteDisposalColumns}
+        mobileCard={wasteDisposalMobileCard}
+        rowKey={(row) => row.id}
+        state={
+          wasteDisposals.length === 0
+            ? {
+                status: "empty",
+                icon: <ClipboardIcon />,
+                message: "No Waste Disposal trips recorded yet for this Vendor.",
+              }
+            : { status: "success", rows: wasteDisposals }
         }
       />
     </>

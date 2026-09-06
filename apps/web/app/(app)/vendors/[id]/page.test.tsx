@@ -39,11 +39,14 @@ const vendor = {
   materialsSupplied: ["Cement", "Steel", "Aggregates"],
 };
 
-function mockFetch(purchases: unknown[]) {
+function mockFetch(purchases: unknown[], wasteDisposals: unknown[] = []) {
   global.fetch = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/purchases")) {
       return { ok: true, json: async () => purchases } as Response;
+    }
+    if (url.includes("/waste-disposals")) {
+      return { ok: true, json: async () => wasteDisposals } as Response;
     }
     return { ok: true, json: async () => vendor } as Response;
   }) as unknown as typeof fetch;
@@ -110,6 +113,44 @@ describe("VendorDetailPage", () => {
 
     await expect(renderDetailPage("missing-id")).rejects.toThrow("NEXT_NOT_FOUND");
     expect(notFoundMock).toHaveBeenCalled();
+  });
+});
+
+// Bug fix 2026-09-06: this Vendor's HIRED waste-disposal trips were
+// completely invisible on its own detail page (only Purchases were
+// fetched/shown) even though they carry real money owed to this same
+// Vendor — the exact production report was "waste and disposal records
+// are not properly visible in the vendor payments."
+describe("VendorDetailPage — Waste & Disposal History", () => {
+  it("renders an explicit empty state, not a blank table, for a Vendor with no Waste Disposal trips", async () => {
+    mockFetch([], []);
+
+    await renderDetailPage("v1");
+
+    expect(screen.getAllByText("No Waste Disposal trips recorded yet for this Vendor.")).toHaveLength(2);
+  });
+
+  it("renders every Waste Disposal trip with Site, Waste type, Trips, Amount, and Payment status", async () => {
+    mockFetch([], [
+      {
+        id: "wd1",
+        wasteType: "Excavated earth / murum",
+        tripCount: 6,
+        totalAmount: "18000",
+        paymentStatus: "UNPAID",
+        disposedAt: "2026-08-15T00:00:00Z",
+        site: { id: "s1", name: "NH-48 Widening" },
+      },
+    ]);
+
+    await renderDetailPage("v1");
+
+    // Rendered once in the md+ table and once in the below-md mobile card.
+    expect(screen.getAllByText("NH-48 Widening")).toHaveLength(2);
+    expect(screen.getAllByText("Excavated earth / murum")).toHaveLength(2);
+    expect(screen.getAllByText("6")).toHaveLength(2);
+    expect(screen.getAllByText("₹18,000")).toHaveLength(2);
+    expect(screen.getAllByText("Unpaid")).toHaveLength(2);
   });
 });
 

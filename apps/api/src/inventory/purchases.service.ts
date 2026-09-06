@@ -32,6 +32,16 @@ const UNPAID_OR_PARTIAL: Prisma.PurchaseWhereInput['paymentStatus'] = {
   in: ['UNPAID', 'PARTIAL'],
 };
 
+// WasteDisposal.paymentStatus uses the identical PAID/PARTIAL/UNPAID
+// vocabulary as Purchase.paymentStatus (see that model's own schema
+// comment) — a separate constant only because Prisma's generated
+// where-input types are per-model, not because the filter differs. Only
+// HIRED WasteDisposal rows ever carry a vendorId, so scoping by vendorId
+// already excludes OWN rows (which have neither vendorId nor
+// paymentStatus) without needing an explicit ownership filter.
+const WASTE_DISPOSAL_UNPAID_OR_PARTIAL: Prisma.WasteDisposalWhereInput['paymentStatus'] =
+  { in: ['UNPAID', 'PARTIAL'] };
+
 // FR-8: Owner/Admin records a Purchase into Godown or a Site directly.
 @Injectable()
 export class PurchasesService {
@@ -304,12 +314,24 @@ export class PurchasesService {
   // ("value of Purchases not marked PAID") rather than a claimed exact
   // amount due — this data model has no field tracking how much of a
   // PARTIAL Purchase has actually been paid.
+  //
+  // Bug fix (2026-09-06): this used to sum Purchase alone, so a Vendor with
+  // a fully-paid Purchase history but an UNPAID/PARTIAL HIRED WasteDisposal
+  // showed "Fully Paid" — WasteDisposal was added (Story on top of 9.2)
+  // with the exact same paid/unpaid vocabulary but never wired into this
+  // "money owed to this Vendor" total. Both totals now merge Purchase +
+  // WasteDisposal, since both are real amounts owed to the same Vendor.
   async summaryForVendor(vendorId: string) {
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 1);
     const nextYearStart = new Date(now.getFullYear() + 1, 0, 1);
 
-    const [thisYear, notFullyPaid] = await Promise.all([
+    const [
+      purchaseThisYear,
+      purchaseNotFullyPaid,
+      wasteDisposalThisYear,
+      wasteDisposalNotFullyPaid,
+    ] = await Promise.all([
       this.prisma.purchase.aggregate({
         where: { vendorId, purchasedAt: { gte: yearStart, lt: nextYearStart } },
         _sum: { totalAmount: true },
@@ -319,11 +341,23 @@ export class PurchasesService {
         where: { vendorId, paymentStatus: UNPAID_OR_PARTIAL },
         _sum: { totalAmount: true },
       }),
+      this.prisma.wasteDisposal.aggregate({
+        where: { vendorId, disposedAt: { gte: yearStart, lt: nextYearStart } },
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.wasteDisposal.aggregate({
+        where: { vendorId, paymentStatus: WASTE_DISPOSAL_UNPAID_OR_PARTIAL },
+        _sum: { totalAmount: true },
+      }),
     ]);
 
     return {
-      totalThisYear: thisYear._sum.totalAmount?.toNumber() ?? 0,
-      notFullyPaidTotal: notFullyPaid._sum.totalAmount?.toNumber() ?? 0,
+      totalThisYear:
+        (purchaseThisYear._sum.totalAmount?.toNumber() ?? 0) +
+        (wasteDisposalThisYear._sum.totalAmount?.toNumber() ?? 0),
+      notFullyPaidTotal:
+        (purchaseNotFullyPaid._sum.totalAmount?.toNumber() ?? 0) +
+        (wasteDisposalNotFullyPaid._sum.totalAmount?.toNumber() ?? 0),
     };
   }
 
@@ -331,10 +365,13 @@ export class PurchasesService {
   // summaryForVendor() once per row via HTTP (up to 25 concurrent round
   // trips just to open the tab) — the exact per-Vendor N+1 pattern
   // outstandingAcrossVendors() above was already introduced to avoid for
-  // the Dashboard. Two groupBy queries (not one per Vendor) computes every
+  // the Dashboard. Four groupBy queries (not one per Vendor) computes every
   // requested Vendor's summary in one DB round trip each; a Vendor with no
-  // matching Purchases in either group simply keeps its zeroed entry below,
-  // mirroring summaryForVendor's own `?? 0` fallback.
+  // matching rows in a given group simply keeps its zeroed entry below,
+  // mirroring summaryForVendor's own `?? 0` fallback. Same Purchase +
+  // WasteDisposal merge as summaryForVendor — see that method's 2026-09-06
+  // bug-fix note; `+=` (not `=`) below because a Vendor's totalThisYear can
+  // legitimately be touched by both groups.
   async summaryForVendors(
     vendorIds: string[],
   ): Promise<
@@ -355,7 +392,12 @@ export class PurchasesService {
     const yearStart = new Date(now.getFullYear(), 0, 1);
     const nextYearStart = new Date(now.getFullYear() + 1, 0, 1);
 
-    const [thisYearRows, notFullyPaidRows] = await Promise.all([
+    const [
+      purchaseThisYearRows,
+      purchaseNotFullyPaidRows,
+      wasteDisposalThisYearRows,
+      wasteDisposalNotFullyPaidRows,
+    ] = await Promise.all([
       this.prisma.purchase.groupBy({
         by: ['vendorId'],
         where: {
@@ -373,32 +415,73 @@ export class PurchasesService {
         },
         _sum: { totalAmount: true },
       }),
+      this.prisma.wasteDisposal.groupBy({
+        by: ['vendorId'],
+        where: {
+          vendorId: { in: vendorIds },
+          disposedAt: { gte: yearStart, lt: nextYearStart },
+        },
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.wasteDisposal.groupBy({
+        by: ['vendorId'],
+        where: {
+          vendorId: { in: vendorIds },
+          paymentStatus: WASTE_DISPOSAL_UNPAID_OR_PARTIAL,
+        },
+        _sum: { totalAmount: true },
+      }),
     ]);
 
-    for (const row of thisYearRows) {
-      summaries[row.vendorId]!.totalThisYear =
+    for (const row of purchaseThisYearRows) {
+      summaries[row.vendorId]!.totalThisYear +=
         row._sum.totalAmount?.toNumber() ?? 0;
     }
-    for (const row of notFullyPaidRows) {
-      summaries[row.vendorId]!.notFullyPaidTotal =
+    for (const row of purchaseNotFullyPaidRows) {
+      summaries[row.vendorId]!.notFullyPaidTotal +=
+        row._sum.totalAmount?.toNumber() ?? 0;
+    }
+    // WasteDisposal.vendorId is nullable at the schema level (null for OWN
+    // rows) even though the `vendorId: { in: vendorIds }` filter above can
+    // never actually return a null-vendorId row here — the guard is for
+    // TypeScript's benefit (groupBy's static return type), not a real
+    // runtime case.
+    for (const row of wasteDisposalThisYearRows) {
+      if (row.vendorId === null) continue;
+      summaries[row.vendorId]!.totalThisYear +=
+        row._sum.totalAmount?.toNumber() ?? 0;
+    }
+    for (const row of wasteDisposalNotFullyPaidRows) {
+      if (row.vendorId === null) continue;
+      summaries[row.vendorId]!.notFullyPaidTotal +=
         row._sum.totalAmount?.toNumber() ?? 0;
     }
     return summaries;
   }
 
   // Dashboard's "Vendor Outstanding" tile — the tenant-wide total of
-  // summaryForVendor()'s `notFullyPaidTotal`, computed with one DB-side
-  // aggregate instead of the Dashboard fetching every Vendor and firing one
+  // summaryForVendor()'s `notFullyPaidTotal`, computed with DB-side
+  // aggregates instead of the Dashboard fetching every Vendor and firing one
   // HTTP round trip per Vendor at summaryForVendor(). Same UNPAID_OR_PARTIAL
-  // definition, same D7 "unpriced Purchases aren't owed money yet" rule. No
-  // per-vendor breakdown is needed here, so this is a plain aggregate
-  // (mirroring summaryForVendor two methods up), not a groupBy.
+  // definition, same D7 "unpriced Purchases aren't owed money yet" rule, and
+  // the same Purchase + WasteDisposal merge as summaryForVendor (2026-09-06
+  // bug fix) — no per-vendor breakdown is needed here, so these are plain
+  // aggregates, not a groupBy.
   async outstandingAcrossVendors(): Promise<number> {
-    const result = await this.prisma.purchase.aggregate({
-      where: { paymentStatus: UNPAID_OR_PARTIAL },
-      _sum: { totalAmount: true },
-    });
-    return result._sum.totalAmount?.toNumber() ?? 0;
+    const [purchaseResult, wasteDisposalResult] = await Promise.all([
+      this.prisma.purchase.aggregate({
+        where: { paymentStatus: UNPAID_OR_PARTIAL },
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.wasteDisposal.aggregate({
+        where: { paymentStatus: WASTE_DISPOSAL_UNPAID_OR_PARTIAL },
+        _sum: { totalAmount: true },
+      }),
+    ]);
+    return (
+      (purchaseResult._sum.totalAmount?.toNumber() ?? 0) +
+      (wasteDisposalResult._sum.totalAmount?.toNumber() ?? 0)
+    );
   }
 
   // Story 19.2: the global Search palette's Purchase coverage — Purchase
