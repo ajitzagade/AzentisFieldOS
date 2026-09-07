@@ -45,6 +45,9 @@ export function StatTile({ icon, value, label, tint, href, className }: StatTile
   );
 
   if (href) {
+    // next/link's Link (not a plain <a>) so this navigates client-side
+    // instead of a full page reload; prefetch disabled for consistency
+    // with the other href-based primitives in this package.
     return (
       <Link href={href} prefetch={false} className={baseClass}>
         {content}

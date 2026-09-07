@@ -38,7 +38,7 @@ baseline_commit: '85d27189ea436b19ba1d028726e24af89809f7d9'
 **Dependency wiring**
 
 - `next` added as a `peerDependency` (matching `apps/web`'s exact `16.3.0` pin) rather than a regular `dependency`, since `packages/ui` is only ever consumed by `apps/web`'s own Next.js install, never bundled standalone.
-  [`package.json:19`](../../packages/ui/package.json#L19)
+  [`package.json:22`](../../packages/ui/package.json#L22)
 
 **Documentation**
 

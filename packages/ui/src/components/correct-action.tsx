@@ -22,6 +22,9 @@ export type CorrectActionProps = {
 export function CorrectAction({ icon, label = "Correct", href, onClick }: CorrectActionProps) {
   if (href) {
     return (
+      // next/link's Link (not a plain <a>) so this navigates client-side
+      // instead of a full page reload; prefetch disabled since a list can
+      // render many rows, each with its own Correct link.
       <Link
         href={href}
         prefetch={false}
