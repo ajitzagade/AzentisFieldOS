@@ -112,12 +112,24 @@ async function main() {
     bcrypt.hash(SUPERVISOR_PASSWORD, 10),
   ]);
 
-  await prisma.user.create({
+  const owner = await prisma.user.create({
     data: { name: "Priya Owner", email: OWNER_EMAIL, passwordHash: ownerHash, role: "OWNER_ADMIN" },
   });
   await prisma.user.create({
     data: { name: "Ramesh Yadav", email: SUPERVISOR_EMAIL, passwordHash: supervisorHash, role: "SITE_SUPERVISOR" },
   });
+
+  // Mirrors infra/prisma/seed.ts's own Story 14.4 default rows — every real
+  // tenant gets these three at provision time, so the e2e fixture set must
+  // too, or Settings' Notification Channels section (a real toggle-and-save
+  // flow, not just a "does it load" check) has nothing to render.
+  for (const setting of [
+    { channel: "EMAIL", enabled: true, recipientUserIds: [owner.id] },
+    { channel: "IN_APP", enabled: true, recipientUserIds: [] },
+    { channel: "WHATSAPP", enabled: false, recipientUserIds: [] },
+  ]) {
+    await prisma.notificationChannelSetting.create({ data: setting });
+  }
 
   await prisma.brandingConfig.create({ data: { tenantName: "AzentisFieldOS E2E" } });
 
