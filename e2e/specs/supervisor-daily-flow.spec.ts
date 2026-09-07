@@ -75,7 +75,10 @@ test.describe("Supervisor daily flow", () => {
     await expect(page.getByLabel("Payment Status")).not.toBeVisible();
     await expect(page.getByText(/Rates & amounts are entered by the office/)).toBeVisible();
 
-    await page.getByLabel("Vendor").selectOption({ label: VENDOR_NAME });
+    // Vendor is a searchable ComboboxField, not a native <select> — it was
+    // migrated off <select> when the inline "+ Add Vendor" quick-create
+    // shipped; this test was never updated to match.
+    await pickCombobox(page, "Vendor", VENDOR_NAME);
     await pickCombobox(page, "Material / Size", MATERIAL_NAME);
     await page.getByLabel(/Quantity/).fill("50");
 

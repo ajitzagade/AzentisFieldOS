@@ -39,7 +39,13 @@ test("recording a Waste Disposal with an advance to the hired Vendor shows it on
   await expect(page).toHaveURL(/\/vendors\/.+/);
 
   await expect(visibleText(page, "Vendor Advances")).toBeVisible();
-  await expect(visibleText(page, "₹1,500")).toBeVisible();
+  // VENDOR_NAME/SITE_NAME are shared fixtures reused across the whole
+  // suite — a bare page-wide "₹1,500" search can collide with an
+  // unrelated amount elsewhere on this Vendor's page from another test's
+  // data (Purchases/Waste Disposal history). "Cash" (this row's Payment
+  // Method) is unique to the Vendor Advances row, so scope through it.
+  const advanceRow = page.locator("tr, li").filter({ hasText: "Cash" }).and(page.locator(":visible"));
+  await expect(advanceRow.getByText("₹1,500")).toBeVisible();
   // "Excavated earth" also appears in the Waste & Disposal History table
   // above (the disposal's own Waste type column) — Payment Method is the
   // detail unique to the Vendor Advances row.

@@ -252,8 +252,15 @@ test.describe("Forgiving corrections", () => {
 
     // Unlike the delta-based corrections above, every field re-enters the
     // original's complete value — not a signed change.
-    await expect(page.getByLabel("Base Pay")).toHaveValue("5000");
-    await page.getByLabel("Base Pay").fill("5500");
+    //
+    // A known upstream @base-ui-components/react (1.0.0-rc.0, latest
+    // available) bug occasionally leaves an orphaned duplicate of a field
+    // in the DOM right after a confirm-dialog-close + toast + navigation
+    // sequence (its own bundled code logs "flushSync was called from
+    // inside a lifecycle method" when it happens) — .first() consistently
+    // lands on the live, React-controlled input in both confirmed repros.
+    await expect(page.getByLabel("Base Pay").first()).toHaveValue("5000");
+    await page.getByLabel("Base Pay").first().fill("5500");
     await page.getByLabel("Reason for this correction").fill("Base pay was understated — e2e");
     await page.getByRole("button", { name: "Submit Correction" }).click();
     await expect(page.getByText(/re-verify/)).toBeVisible();
