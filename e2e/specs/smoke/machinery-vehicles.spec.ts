@@ -18,3 +18,18 @@ test("Owner can register a Machine and it appears in the register", async ({ pag
   // both and throws a strict-mode ambiguity error.
   await expect(visibleText(page, name)).toBeVisible({ timeout: 10_000 });
 });
+
+// Machinery and Vehicles are two distinct registers sharing this one
+// module — the Machine test above doesn't exercise the Vehicle form at all.
+test("Owner can register a Vehicle and it appears in the register", async ({ page }) => {
+  await loginAsOwner(page);
+  await page.goto("/machinery-vehicles/vehicles/new");
+
+  const number = `E2E-${Date.now()}`;
+  await page.getByLabel("Number").fill(number);
+  await page.getByLabel("Type").selectOption({ label: "Truck" });
+  await page.getByRole("button", { name: "Register Vehicle" }).click();
+
+  await expect(page).toHaveURL(/\/machinery-vehicles$/);
+  await expect(visibleText(page, number)).toBeVisible({ timeout: 10_000 });
+});
