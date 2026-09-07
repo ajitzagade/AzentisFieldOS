@@ -14,7 +14,13 @@ test("Owner can change a Notification Channel setting and it persists", async ({
   // In-App, WhatsApp) — In-App is the middle row, not the last. Scope to
   // its own row div (className distinguishes it from the outer section
   // wrapper, which also contains the text "In-App" via this same row).
-  const inAppRow = page.locator("div.flex.flex-col.gap-3", { hasText: "In-App" });
+  //
+  // .first(): a known upstream @base-ui-components/react (1.0.0-rc.0,
+  // latest available) bug occasionally leaves an orphaned duplicate
+  // subtree in the DOM — here it's the whole row, not just one field, but
+  // the same fix applies: .first() lands on the live, React-controlled
+  // copy in every confirmed repro so far.
+  const inAppRow = page.locator("div.flex.flex-col.gap-3", { hasText: "In-App" }).first();
   const toggleButton = inAppRow.getByRole("button", { name: /^(Enable|Disable)$/ });
   const statusBadge = inAppRow.getByText(/^(Enabled|Disabled)$/);
   const saveButton = inAppRow.getByRole("button", { name: "Save" });

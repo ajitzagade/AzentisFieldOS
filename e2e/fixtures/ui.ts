@@ -6,7 +6,15 @@ import type { Page } from "@playwright/test";
 // native <select> for these — see packages/ui/src/components/combobox-field.tsx
 // and apps/web/app/(app)/_components/site-field.tsx.
 export async function pickCombobox(page: Page, label: string, optionText: string) {
-  const input = page.getByRole("combobox", { name: label });
+  // A known upstream @base-ui-components/react (1.0.0-rc.0, latest
+  // available) bug occasionally leaves an orphaned duplicate of a field in
+  // the DOM — .first() consistently lands on the live, React-controlled
+  // input in every confirmed repro so far. Fixed here (the single shared
+  // combobox helper) rather than at each call site, since filling the
+  // orphaned copy doesn't throw — it just never updates the real,
+  // React-driven filter, so the expected option never appears and the
+  // caller times out looking for it instead of getting a clear error.
+  const input = page.getByRole("combobox", { name: label }).first();
   await input.click();
   await input.fill(optionText.slice(0, Math.min(6, optionText.length)));
   await page.getByRole("option", { name: optionText, exact: false }).first().click();

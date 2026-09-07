@@ -36,8 +36,13 @@ test("a Vendor with a paid Purchase and an unpaid Waste Disposal trip is never s
   const wasteType = `Construction debris ${Date.now()}`;
   await page.goto("/waste-disposal/new");
   await pickCombobox(page, "Site", SITE_NAME);
-  await page.getByLabel("Waste / material type").fill(wasteType);
-  await page.getByLabel("Number of trips").fill("2");
+  // A known upstream @base-ui-components/react (1.0.0-rc.0, latest
+  // available) bug occasionally leaves an orphaned duplicate of a field in
+  // the DOM (any navigation, not just after a dialog/toast) — .first()
+  // consistently lands on the live, React-controlled input in every
+  // confirmed repro so far.
+  await page.getByLabel("Waste / material type").first().fill(wasteType);
+  await page.getByLabel("Number of trips").first().fill("2");
   await pickCombobox(page, "Party / Vendor", VENDOR_NAME);
   // A ₹0 trip would leave notFullyPaidTotal honestly at 0 regardless of
   // paymentStatus — Rate per trip must be nonzero for this to actually

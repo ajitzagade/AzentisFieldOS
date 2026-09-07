@@ -33,6 +33,11 @@ test("Owner can confirm receipt of a Godown-to-Site Movement", async ({ page }) 
   await page.getByLabel("Received Quantity").fill("10");
   await page.getByRole("button", { name: "Confirm Receipt" }).click();
 
-  await expect(page).toHaveURL(/\/movements\?flash=/);
+  // The redirect lands on /movements?flash=... but flash-toast.tsx's own
+  // effect strips the query param via router.replace() right after
+  // reading it — asserting the URL still carries ?flash= races that
+  // cleanup and only "worked" when the app was slow enough to lose it.
+  // The toast text below is the real, stable proof.
+  await expect(page).toHaveURL(/\/movements/);
   await expect(page.getByText("Receipt confirmed")).toBeVisible({ timeout: 10_000 });
 });

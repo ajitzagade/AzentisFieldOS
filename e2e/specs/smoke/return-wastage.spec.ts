@@ -10,7 +10,11 @@ test("Owner can record a Return/Wastage entry against existing Site Stock", asyn
   await page.goto("/movements/purchases/new");
   await pickCombobox(page, "Vendor", VENDOR_NAME);
   await pickCombobox(page, "Material / Size", MATERIAL_NAME);
-  await page.getByLabel("Destination").selectOption({ label: "Site" });
+  // A known upstream @base-ui-components/react (1.0.0-rc.0, latest
+  // available) bug occasionally leaves an orphaned duplicate of a field in
+  // the DOM — .first() consistently lands on the live, React-controlled
+  // input in every confirmed repro so far.
+  await page.getByLabel("Destination").first().selectOption({ label: "Site" });
   await pickCombobox(page, "Site", SITE_NAME);
   await page.getByLabel(/Quantity/).fill("100");
   await page.getByLabel("Rate").fill("100");
