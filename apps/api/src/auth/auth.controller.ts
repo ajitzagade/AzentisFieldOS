@@ -40,7 +40,12 @@ export class AuthController {
   // being traced back here. e2e/playwright.config.ts sets this env var high
   // for its own API process; nothing else should ever set it.
   @Public()
-  @Throttle({ default: { limit: Number(process.env.AUTH_LOGIN_RATE_LIMIT) || 5, ttl: 60_000 } })
+  @Throttle({
+    default: {
+      limit: Number(process.env.AUTH_LOGIN_RATE_LIMIT) || 5,
+      ttl: 60_000,
+    },
+  })
   @Post('login')
   login(@Body(new ZodValidationPipe(loginSchema)) body: LoginInput) {
     return this.authService.login(body);

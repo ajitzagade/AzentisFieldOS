@@ -43,7 +43,11 @@ import { AuthService } from './auth.service';
     // run already made). e2e/playwright.config.ts sets this env var high
     // for its own API process; nothing else should ever set it.
     ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60_000, limit: Number(process.env.DEFAULT_RATE_LIMIT) || 300 },
+      {
+        name: 'default',
+        ttl: 60_000,
+        limit: Number(process.env.DEFAULT_RATE_LIMIT) || 300,
+      },
     ]),
   ],
   controllers: [AuthController],
