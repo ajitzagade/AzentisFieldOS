@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { loginAsOwner } from "../../fixtures/auth";
-import { pickCombobox } from "../../fixtures/ui";
+import { pickCombobox, visibleText } from "../../fixtures/ui";
 
 test("Owner can create a Material and it appears in the catalog", async ({ page }) => {
   await loginAsOwner(page);
@@ -13,5 +13,8 @@ test("Owner can create a Material and it appears in the catalog", async ({ page 
   await page.getByRole("button", { name: "Create Material" }).click();
 
   await expect(page).toHaveURL(/\/materials$/);
-  await expect(page.getByText(name)).toBeVisible({ timeout: 10_000 });
+  // DataTable's mobileCard mode renders both a desktop and mobile copy of
+  // every row simultaneously (one CSS-hidden) — plain getByText() matches
+  // both and throws a strict-mode ambiguity error.
+  await expect(visibleText(page, name)).toBeVisible({ timeout: 10_000 });
 });
