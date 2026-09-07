@@ -74,6 +74,34 @@ export default defineConfig({
         PORT: String(API_PORT),
         JWT_SECRET: "e2e-local-secret-not-for-production-use",
         CORS_ORIGIN: WEB_BASE_URL,
+        // POST /auth/login's real brute-force guard (5/60s, AuthController)
+        // is exactly what a genuinely reproducing "sign-in timeout" flake
+        // traced back to (2026-09-07): every spec independently signs in
+        // for real (no shortcut), and a fast full-suite run legitimately
+        // makes 6+ login attempts inside one rolling 60s window from this
+        // one machine, tripping the same guard a real attacker would hit.
+        // High enough that this suite's own real login volume never gets
+        // near it; never set this outside a local/e2e API process.
+        AUTH_LOGIN_RATE_LIMIT: "1000",
+        // The generous global default (300 req/60s/IP, AuthModule) is a
+        // backstop against a misbehaving client, not a real attacker — but
+        // a fast full e2e run legitimately fires more than 300 real
+        // requests from this one machine inside a rolling 60s window
+        // (surfaced as "Failed to load /branding-config (429)" on
+        // /settings, which alone fires 10 concurrent requests on top of
+        // every earlier spec's own traffic). Never set this outside a
+        // local/e2e API process.
+        DEFAULT_RATE_LIMIT: "5000",
+        // PrismaService's default pool (5, apps/api/src/prisma/prisma.service.ts)
+        // is sized for many small concurrent Vercel Function instances each
+        // opening their own small pool, not one long-lived process serving
+        // this whole suite. /settings alone fires 10 concurrent DB-backed
+        // fetches in one Promise.all — comfortably fine in isolation, but a
+        // fast full-suite run fires specs in tight succession with no
+        // artificial slack between them, and 5 connections can genuinely
+        // run dry for a moment. Raised well past this suite's real peak
+        // concurrency; never set this outside a local/e2e API process.
+        DATABASE_POOL_MAX: "20",
       },
     },
     {

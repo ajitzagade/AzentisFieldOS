@@ -27,8 +27,20 @@ export class AuthController {
   // every real login attempt incremented the shared counter twice and
   // silently halved this limit to ~2-3 attempts (caught in code review,
   // see throttler.integration.spec.ts's real-controller regression test).
+  //
+  // AUTH_LOGIN_RATE_LIMIT overrides the 5 (defaulting to it when unset, so
+  // production/any environment without the var behaves exactly as before)
+  // — found 2026-09-07: e2e's own suite (every spec independently signs
+  // in, real flow, real HTTP, no shortcut) legitimately makes 6+ real
+  // login attempts from one machine inside a rolling 60s window on a fast
+  // run, tripping this same brute-force guard against itself. That surfaced
+  // as apps/web's generic "Something went wrong signing you in" (a 429
+  // maps to the same catch-all as a network failure — see
+  // map-login-error.ts) and read as e2e flakiness for a long time before
+  // being traced back here. e2e/playwright.config.ts sets this env var high
+  // for its own API process; nothing else should ever set it.
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle({ default: { limit: Number(process.env.AUTH_LOGIN_RATE_LIMIT) || 5, ttl: 60_000 } })
   @Post('login')
   login(@Body(new ZodValidationPipe(loginSchema)) body: LoginInput) {
     return this.authService.login(body);

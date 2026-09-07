@@ -32,7 +32,19 @@ import { AuthService } from './auth.service';
     // loop, a leaked token scripted in a tight loop). AuthController's own
     // @Throttle({ default: {...} }) overrides this same profile's limit
     // to something much stricter for just POST /auth/login.
-    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 300 }]),
+    // DEFAULT_RATE_LIMIT overrides the 300 (defaulting to it when unset —
+    // production/any environment without the var behaves exactly as
+    // before). Found 2026-09-07 alongside AuthController's own
+    // AUTH_LOGIN_RATE_LIMIT override: a fast full e2e run fires enough
+    // real requests from one machine to legitimately exceed even this
+    // generous backstop within a rolling 60s window (surfaced as a
+    // "Failed to load /branding-config (429)" — Settings alone fires 10
+    // concurrent requests, on top of everything every earlier spec in the
+    // run already made). e2e/playwright.config.ts sets this env var high
+    // for its own API process; nothing else should ever set it.
+    ThrottlerModule.forRoot([
+      { name: 'default', ttl: 60_000, limit: Number(process.env.DEFAULT_RATE_LIMIT) || 300 },
+    ]),
   ],
   controllers: [AuthController],
   providers: [AuthService],
