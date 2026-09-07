@@ -83,6 +83,17 @@ function NavLink({ item, active, onNavigate }: { item: NavItem; active: boolean;
     <Link
       href={item.href}
       onClick={onNavigate}
+      // Confirmed via direct reproduction (2026-09-07): every full sidebar
+      // render fires an RSC prefetch GET for every visible nav item (~12
+      // concurrent requests per page load), all of which the browser
+      // aborts on the next navigation before they resolve. Against a
+      // single local Node process this is real, sustained load — it
+      // correlates with "The destination stream closed early" server
+      // noise seen throughout the e2e run, and measurably eliminating it
+      // (confirmed before/after) let a full e2e run finish in ~2 minutes
+      // instead of ~16. The sidebar is present on every authenticated
+      // page, so this isn't optional prefetch a user benefits from.
+      prefetch={false}
       className={cn(
         "flex items-center gap-3 rounded-md px-3 py-2 text-body-sm font-medium transition-colors duration-(--default-transition-duration) ease-(--ease-standard)",
         active ? "bg-accent-teal-700 text-white" : "text-ink-on-accent/80 hover:bg-white/10 hover:text-ink-on-accent",
@@ -260,6 +271,7 @@ function SupervisorQuickBar({ pathname }: { pathname: string }) {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
+              prefetch={false}
               className={cn(
                 "flex min-h-14 flex-1 items-center justify-center text-caption transition-colors duration-(--default-transition-duration) ease-(--ease-standard) focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none",
                 active ? "font-semibold text-accent-teal-700" : "font-medium text-ink-500 hover:text-ink-700",
@@ -342,6 +354,7 @@ function OwnerQuickBar({
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
+                prefetch={false}
                 className={cn(
                   "flex min-h-14 flex-1 items-center justify-center text-caption font-medium text-ink-500 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:text-ink-700 focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none",
                   active && "font-semibold text-accent-teal-700 hover:text-accent-teal-700",
