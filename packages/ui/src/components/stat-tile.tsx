@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import Link from "next/link";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../lib/cn";
 
@@ -45,9 +46,9 @@ export function StatTile({ icon, value, label, tint, href, className }: StatTile
 
   if (href) {
     return (
-      <a href={href} className={baseClass}>
+      <Link href={href} prefetch={false} className={baseClass}>
         {content}
-      </a>
+      </Link>
     );
   }
 

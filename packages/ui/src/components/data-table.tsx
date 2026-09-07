@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import Link from "next/link";
 import { cn } from "../lib/cn";
 
 // The single Data Table implementation (AD-5). Row-linking is deliberately
@@ -54,7 +55,10 @@ export interface DataTableProps<T> {
   /** Returns the destination for a row, or undefined for a row with no
    * detail surface to open. Rows without an href render with no
    * cursor-pointer and no link semantics at all — never an onClick
-   * substitute. */
+   * substitute. Rendered via next/link's Link (prefetch disabled: a table
+   * can have far more visible rows than a nav list, and each column's cell
+   * renders its own Link, so leaving default prefetch on would fire one
+   * background RSC request per visible cell). */
   rowHref?: (row: T) => string | undefined;
   className?: string;
   /** The currently active sort, if any. Omit entirely for an unsorted table. */
@@ -176,9 +180,13 @@ function DataTableCardList<T>({
                    so the full card is the link (same as the whole-row link on
                    desktop) while `action` stays a sibling — never an
                    interactive element nested inside another. */
-                <a href={href} className="min-w-0 flex-1 after:absolute after:inset-0 after:content-['']">
+                <Link
+                  href={href}
+                  prefetch={false}
+                  className="min-w-0 flex-1 after:absolute after:inset-0 after:content-['']"
+                >
                   {primary}
-                </a>
+                </Link>
               ) : (
                 <div className="min-w-0 flex-1">{primary}</div>
               )}
@@ -295,9 +303,9 @@ export function DataTable<T>({
                   {columns.map((column) =>
                     href ? (
                       <td key={column.header} className={cn(bodyCellClass(column.align), "p-0")}>
-                        <a href={href} className="block px-4 py-3">
+                        <Link href={href} prefetch={false} className="block px-4 py-3">
                           {column.cell(row)}
-                        </a>
+                        </Link>
                       </td>
                     ) : (
                       <td key={column.header} className={bodyCellClass(column.align)}>

@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import Link from "next/link";
 import { Button, buttonVariants, type ButtonProps } from "./button";
 import { cn } from "../lib/cn";
 
@@ -21,9 +22,14 @@ export type CorrectActionProps = {
 export function CorrectAction({ icon, label = "Correct", href, onClick }: CorrectActionProps) {
   if (href) {
     return (
-      <a href={href} aria-label={label} className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}>
+      <Link
+        href={href}
+        prefetch={false}
+        aria-label={label}
+        className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}
+      >
         {icon}
-      </a>
+      </Link>
     );
   }
 

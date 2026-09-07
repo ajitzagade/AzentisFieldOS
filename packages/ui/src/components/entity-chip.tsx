@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import Link from "next/link";
 import { cn } from "../lib/cn";
 
 // A navigable pill (Story 19.6's recently-viewed shortcuts) — shares
@@ -8,9 +9,9 @@ import { cn } from "../lib/cn";
 // SearchPalette/StatTile use for "opens a record" affordances) and a muted
 // entity-type suffix. Badge itself stays untouched (AD-5: one
 // implementation per primitive, extended by a sibling component, never a
-// mutation of the original). Kept prop-driven with a plain `<a>` (like
-// StatTile's own `href` — this package has no next/navigation dependency),
-// so apps/web's Next.js router still owns actual client-side navigation.
+// mutation of the original). Kept prop-driven, href-based (like StatTile's
+// own `href`) rather than an onClick + router.push, so right-click/middle-
+// click "open in new tab" and copy-link still work.
 export interface EntityChipProps {
   href: string;
   /** Icon rendered in the pill's tinted tile — caller-supplied, matching
@@ -24,8 +25,9 @@ export interface EntityChipProps {
 
 export function EntityChip({ href, icon, name, typeLabel, className }: EntityChipProps) {
   return (
-    <a
+    <Link
       href={href}
+      prefetch={false}
       className={cn(
         "inline-flex shrink-0 items-center gap-2 rounded-full border border-border-hairline bg-surface-1 py-1 pr-3 pl-1 text-caption transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-surface-2 focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none",
         className,
@@ -39,6 +41,6 @@ export function EntityChip({ href, icon, name, typeLabel, className }: EntityChi
       </span>
       <span className="max-w-40 truncate font-medium text-ink-900">{name}</span>
       <span className="shrink-0 text-ink-500">· {typeLabel}</span>
-    </a>
+    </Link>
   );
 }
