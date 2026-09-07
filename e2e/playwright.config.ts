@@ -29,6 +29,19 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    // Real root cause of a long-standing sign-in flakiness class (found
+    // 2026-09-07): PwaClient (apps/web/app/pwa-client.tsx) only registers
+    // the offline service worker in production builds — its own comment
+    // already flags this as "caching friction" to avoid in dev/test. That
+    // protection only worked by accident, because e2e ran `next dev`
+    // (NODE_ENV !== "production") until now; switching to a real
+    // production build + `next start` (below) to remove Turbopack's
+    // dev-mode cold-compile flakiness activated the SW for the first time
+    // in e2e, and its install/claim races were themselves hanging
+    // navigation's "load" event unpredictably. Block service workers
+    // browser-side instead of threading a test-only env var through
+    // production app code.
+    serviceWorkers: "block",
   },
   projects: [
     {
@@ -64,16 +77,27 @@ export default defineConfig({
       },
     },
     {
-      command: `pnpm --filter @azentisfieldos/web exec next dev -p ${WEB_PORT}`,
+      // A real production build + `next start`, not `next dev` — Turbopack
+      // dev mode compiles each route on first hit, and a long sequential
+      // suite hitting 20+ never-before-compiled routes back to back could
+      // push a single compile past the sign-in wait's timeout (the exact
+      // flakiness class documented in fixtures/auth.ts). A build takes
+      // ~10s for this app and removes that failure mode entirely — every
+      // route is already compiled before the first test runs.
+      command: `pnpm --filter @azentisfieldos/web build && pnpm --filter @azentisfieldos/web exec next start -p ${WEB_PORT}`,
       url: `${WEB_BASE_URL}/sign-in`,
       cwd: REPO_ROOT,
       reuseExistingServer: false,
-      timeout: 120_000,
+      timeout: 180_000,
       stdout: "pipe",
       stderr: "pipe",
       env: {
         ...process.env,
         API_URL: API_BASE_URL,
+        // Next.js inlines NEXT_PUBLIC_* vars at BUILD time, not runtime —
+        // this must be set for the `build` half of the command above, not
+        // just the `start` half, or the client bundle would bake in the
+        // wrong API origin.
         NEXT_PUBLIC_API_URL: API_BASE_URL,
       },
     },

@@ -12,9 +12,12 @@ async function signIn(page: Page, email: string, password: string) {
   // Both landing surfaces (Supervisor Home / Owner Dashboard) render the
   // "Today" or "Dashboard" heading once signed in — wait for navigation off
   // /sign-in rather than a specific heading, since the two roles differ.
-  // Generous timeout: Next dev (Turbopack) compiles each route on first
-  // visit, and a long smoke-test run hitting many never-before-compiled
-  // routes back to back can occasionally push a single compile past 15s.
+  // Generous timeout kept even though playwright.config.ts now runs a real
+  // production build + `next start` (not `next dev`) — every route is
+  // already compiled before the first test runs, so this used to
+  // occasionally need the full 30s on a long run hitting many
+  // never-before-compiled routes; it shouldn't anymore, but a slow CI
+  // runner is still a real possibility worth some headroom for.
   await page.waitForURL((url) => !url.pathname.startsWith("/sign-in"), { timeout: 30_000 });
 }
 
