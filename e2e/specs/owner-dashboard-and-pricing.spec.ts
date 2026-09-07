@@ -21,7 +21,10 @@ test.describe("Owner Dashboard & D7 pricing queue", () => {
     // 1. Supervisor records Material Received with no pricing.
     await loginAsSupervisor(page);
     await page.goto("/movements/purchases/new");
-    await page.getByLabel("Vendor").selectOption({ label: VENDOR_NAME });
+    // Vendor is a searchable ComboboxField, not a native <select> — it was
+    // migrated off <select> when the inline "+ Add Vendor" quick-create
+    // shipped; this test was never updated to match.
+    await pickCombobox(page, "Vendor", VENDOR_NAME);
     await pickCombobox(page, "Material / Size", MATERIAL_NAME);
     await page.getByLabel(/Quantity/).fill("80");
     await page.getByRole("button", { name: "Record Purchase" }).click();
@@ -46,8 +49,11 @@ test.describe("Owner Dashboard & D7 pricing queue", () => {
     await loginAsOwner(page);
     await expect(page.getByText(/inward .* waiting for pricing/)).toBeVisible();
     await page.getByRole("link", { name: "Add Pricing" }).first().click();
+    // Wait for the navigation to actually land before branching on
+    // page.url() — checking it synchronously right after .click() races
+    // the client-side navigation and can read a stale URL.
+    await page.waitForURL(/\/movements(\/purchases\/.+\/pricing|\?type=PURCHASE_PENDING_PRICING)/);
     if (!/\/movements\/purchases\/.+\/pricing/.test(page.url())) {
-      await expect(page).toHaveURL(/\/movements\?type=PURCHASE_PENDING_PRICING/);
       await page.getByRole("link", { name: "Add Pricing" }).first().click();
     }
 
@@ -71,7 +77,10 @@ test.describe("Owner Dashboard & D7 pricing queue", () => {
     // multiple places (year total, outstanding, the row itself) — never
     // the ₹0 this fix banned.
     await page.goto("/vendors");
-    await page.getByText(VENDOR_NAME).click();
+    // DataTable's mobileCard mode renders both a desktop and mobile copy of
+    // every row simultaneously (one CSS-hidden) — .first() avoids a
+    // strict-mode ambiguity on the row link.
+    await page.getByRole("link", { name: VENDOR_NAME }).first().click();
     await expect(page.getByText("₹31,200").first()).toBeVisible();
     await expect(page.getByText("₹0", { exact: true })).not.toBeVisible();
   });
