@@ -34,8 +34,17 @@ test("recording a Waste Disposal with an advance to the hired Vendor shows it on
   await page.getByRole("button", { name: "Record Disposal" }).click();
   await expect(page.getByText("Disposal recorded")).toBeVisible({ timeout: 10_000 });
 
+  // A plain row click now opens the summary side panel in place (Vendor &
+  // Subcontractor detail side panel feature) rather than navigating — the
+  // full page (with its Vendor Advances section, asserted below) is still
+  // one "View full details" click away.
   await page.goto("/vendors");
-  await page.getByRole("link", { name: VENDOR_NAME }).click();
+  // DataTable's mobileCard mode renders both a desktop and mobile copy of
+  // every row simultaneously (one CSS-hidden) — .first() avoids a
+  // strict-mode ambiguity on the row link.
+  await page.getByRole("link", { name: VENDOR_NAME }).first().click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("link", { name: /View full details/ }).click();
   await expect(page).toHaveURL(/\/vendors\/.+/);
 
   await expect(visibleText(page, "Vendor Advances")).toBeVisible();

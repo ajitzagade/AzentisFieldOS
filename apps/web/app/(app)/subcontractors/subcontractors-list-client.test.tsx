@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { VendorsListClient, type VendorRow } from "./vendors-list-client";
+import { SubcontractorsListClient } from "./subcontractors-list-client";
+import type { Subcontractor } from "./page";
 
 const setQuery = vi.fn();
 const setPage = vi.fn();
@@ -36,15 +37,14 @@ vi.mock("../../../lib/use-authed-fetch", () => ({
   useAuthedFetch: () => authedFetchMock,
 }));
 
-const vendor: VendorRow = {
-  id: "v1",
-  name: "Anand RMC Suppliers",
+const subcontractor: Subcontractor = {
+  id: "s1",
+  name: "Sharma Excavation Works",
   contactPerson: null,
   phone: "9876543210",
   email: null,
   address: null,
-  materialsSupplied: [],
-  summary: null,
+  workCategories: [],
 };
 
 beforeEach(() => {
@@ -56,15 +56,15 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function renderClient(overrides: Partial<Parameters<typeof VendorsListClient>[0]> = {}) {
-  return render(<VendorsListClient rows={[vendor]} total={1} page={1} pageSize={25} {...overrides} />);
+function renderClient(overrides: Partial<Parameters<typeof SubcontractorsListClient>[0]> = {}) {
+  return render(<SubcontractorsListClient rows={[subcontractor]} total={1} page={1} pageSize={25} {...overrides} />);
 }
 
-describe("VendorsListClient", () => {
+describe("SubcontractorsListClient", () => {
   it("renders every row in the desktop table and as a mobile card", () => {
     renderClient();
     // Once in the md+ table row, once as the below-md card's primary line.
-    expect(screen.getAllByText("Anand RMC Suppliers")).toHaveLength(2);
+    expect(screen.getAllByText("Sharma Excavation Works")).toHaveLength(2);
   });
 
   it("renders the previously-clipping Phone column as a card label/value row below md, unchanged in the desktop table", () => {
@@ -82,10 +82,10 @@ describe("VendorsListClient", () => {
     vi.useFakeTimers();
     try {
       renderClient();
-      fireEvent.change(screen.getByLabelText("Search"), { target: { value: "anand" } });
+      fireEvent.change(screen.getByLabelText("Search"), { target: { value: "sharma" } });
       expect(setQuery).not.toHaveBeenCalled();
       vi.advanceTimersByTime(400);
-      expect(setQuery).toHaveBeenCalledWith("anand");
+      expect(setQuery).toHaveBeenCalledWith("sharma");
     } finally {
       vi.useRealTimers();
     }
@@ -96,65 +96,64 @@ describe("VendorsListClient", () => {
     expect(screen.getByText("Showing 1–25 of 60")).toBeInTheDocument();
   });
 
-  it("shows the zero-Vendors-ever empty state with no active search", () => {
+  it("shows the zero-Subcontractors-ever empty state with no active search", () => {
     renderClient({ rows: [], total: 0 });
-    expect(screen.getAllByText("No Vendors yet.")).toHaveLength(2);
+    expect(screen.getAllByText("No Subcontractors yet.")).toHaveLength(2);
   });
 
   it("shows the no-matches empty state with Clear filters when a search is active", () => {
     hookState = { q: "nonexistent" };
     renderClient({ rows: [], total: 0 });
-    expect(screen.getAllByText("No Vendors match your search.")).toHaveLength(2);
+    expect(screen.getAllByText("No Subcontractors match your search.")).toHaveLength(2);
     fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]!);
     expect(clearAll).toHaveBeenCalledOnce();
   });
 
-  it("links each row to the Vendor detail route", () => {
+  it("links each row to the Subcontractor detail route", () => {
     renderClient();
-    expect(within(screen.getByRole("table")).getByText("Anand RMC Suppliers").closest("a")).toHaveAttribute(
-      "href",
-      "/vendors/v1",
-    );
+    expect(
+      within(screen.getByRole("table")).getByText("Sharma Excavation Works").closest("a"),
+    ).toHaveAttribute("href", "/subcontractors/s1");
   });
 
   it("calls setSort with the column's sortKey when a sortable header is clicked", () => {
     renderClient();
-    fireEvent.click(screen.getByRole("button", { name: /^Vendor/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Name/ }));
     expect(setSort).toHaveBeenCalledWith("name");
   });
 
   describe("detail panel", () => {
     it("opens the panel (via panel.open) on a plain left-click, instead of navigating", () => {
       renderClient();
-      const link = within(screen.getByRole("table")).getByText("Anand RMC Suppliers").closest("a") as HTMLAnchorElement;
+      const link = within(screen.getByRole("table")).getByText("Sharma Excavation Works").closest("a") as HTMLAnchorElement;
       const notPrevented = fireEvent.click(link);
       expect(notPrevented).toBe(false);
-      expect(panelOpen).toHaveBeenCalledWith("v1");
+      expect(panelOpen).toHaveBeenCalledWith("s1");
     });
 
-    it("fetches and renders the Vendor's contact/address/materials fields when the panel is open", async () => {
-      panelId = "v1";
+    it("fetches and renders the Subcontractor's contact/address/work-category fields when the panel is open", async () => {
+      panelId = "s1";
       authedFetchMock.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => ({
-          id: "v1",
-          name: "Anand RMC Suppliers",
-          contactPerson: "Ravi Kumar",
+          id: "s1",
+          name: "Sharma Excavation Works",
+          contactPerson: "Meena Shah",
           phone: "9876543210",
-          email: "ravi@example.com",
+          email: "meena@example.com",
           address: "Plot 12, MIDC",
-          materialsSupplied: ["Cement"],
+          workCategories: ["Excavation"],
         }),
       });
 
       renderClient();
 
-      expect(await screen.findByText("Ravi Kumar")).toBeInTheDocument();
+      expect(await screen.findByText("Meena Shah")).toBeInTheDocument();
       expect(screen.getByText("Plot 12, MIDC")).toBeInTheDocument();
-      expect(screen.getByText("Cement")).toBeInTheDocument();
+      expect(screen.getByText("Excavation")).toBeInTheDocument();
       const detailLink = screen.getByRole("link", { name: /View full details/ });
-      expect(detailLink).toHaveAttribute("href", "/vendors/v1");
+      expect(detailLink).toHaveAttribute("href", "/subcontractors/s1");
       fireEvent.click(detailLink);
       expect(panelClose).toHaveBeenCalled();
     });
@@ -165,33 +164,33 @@ describe("VendorsListClient", () => {
 
       renderClient();
 
-      expect(await screen.findByText("This Vendor could not be found.")).toBeInTheDocument();
+      expect(await screen.findByText("This Subcontractor could not be found.")).toBeInTheDocument();
     });
 
     it("shows an error state with a working retry on a fetch failure", async () => {
-      panelId = "v1";
+      panelId = "s1";
       authedFetchMock.mockResolvedValueOnce({ ok: false, status: 500 });
 
       renderClient();
 
-      expect(await screen.findByText("Couldn't load this Vendor.")).toBeInTheDocument();
+      expect(await screen.findByText("Couldn't load this Subcontractor.")).toBeInTheDocument();
 
       authedFetchMock.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({
-          id: "v1",
-          name: "Anand RMC Suppliers",
-          contactPerson: "Ravi Kumar",
+          id: "s1",
+          name: "Sharma Excavation Works",
+          contactPerson: "Meena Shah",
           phone: null,
           email: null,
           address: null,
-          materialsSupplied: [],
+          workCategories: [],
         }),
       });
       fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
-      expect(await screen.findByText("Ravi Kumar")).toBeInTheDocument();
+      expect(await screen.findByText("Meena Shah")).toBeInTheDocument();
     });
   });
 });

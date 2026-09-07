@@ -1,6 +1,7 @@
-import { type ReactNode } from "react";
+import { type MouseEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "../lib/cn";
+import { isPlainLeftClick } from "../lib/is-plain-left-click";
 
 // The single Data Table implementation (AD-5). Row-linking is deliberately
 // an accessor prop (rowHref), never onClick + cursor-pointer styling — a
@@ -60,6 +61,16 @@ export interface DataTableProps<T> {
    * renders its own Link, so leaving default prefetch on would fire one
    * background RSC request per visible cell). */
   rowHref?: (row: T) => string | undefined;
+  /** Opt-in, coexists with `rowHref`: called with the row when its `Link`
+   * receives a plain primary-button click with no modifier key — that click
+   * also gets `preventDefault()`d, so the row-open behavior becomes
+   * "run this instead of navigating" rather than a second, competing
+   * action. Modifier-click (Cmd/Ctrl/Shift/Alt) and any non-primary button
+   * are left alone so the real `href` still navigates (new tab, etc.) — the
+   * `Link` stays authoritative for accessibility/right-click/no-JS, this is
+   * a client-side enhancement on top of it, never a replacement. Omit it
+   * and every row behaves exactly as it did before this prop existed. */
+  onRowClick?: (row: T) => void;
   className?: string;
   /** The currently active sort, if any. Omit entirely for an unsorted table. */
   sort?: { key: string; order: "asc" | "desc" };
@@ -95,6 +106,22 @@ function bodyCellClass(align: DataTableColumn<unknown>["align"]) {
 
 const cardSurfaceClass = "bg-surface-1 border border-border-hairline rounded-lg shadow-2";
 
+// Shared by both the desktop row Link and the mobile card's stretched Link:
+// a plain primary-button, no-modifier click on the row's real href is
+// intercepted and handed to `onRowClick` instead of navigating; anything
+// else (modifier-click, middle/right click, or no `onRowClick` at all)
+// leaves the Link's default browser behavior untouched.
+function handleRowLinkClick<T>(
+  event: MouseEvent<HTMLAnchorElement>,
+  row: T,
+  onRowClick: ((row: T) => void) | undefined,
+) {
+  if (!onRowClick) return;
+  if (!isPlainLeftClick(event)) return;
+  event.preventDefault();
+  onRowClick(row);
+}
+
 /** The below-`md` card rendering of a DataTable (AD-5/AD-6): a semantic list
  * whose items mirror the table's rows — same columns, same state machine
  * (pulsing card skeletons while loading, the shared empty/error panels
@@ -104,6 +131,7 @@ function DataTableCardList<T>({
   state,
   rowKey,
   rowHref,
+  onRowClick,
   mobileCard,
   className,
 }: {
@@ -111,6 +139,7 @@ function DataTableCardList<T>({
   state: DataTableState<T>;
   rowKey: (row: T) => string;
   rowHref?: (row: T) => string | undefined;
+  onRowClick?: (row: T) => void;
   mobileCard: DataTableMobileCard<T>;
   className?: string;
 }) {
@@ -183,6 +212,16 @@ function DataTableCardList<T>({
                 <Link
                   href={href}
                   prefetch={false}
+                  // Only attached when a caller actually passes onRowClick:
+                  // DataTable itself carries no "use client" directive (some
+                  // call sites — e.g. a Site Contracts table rendered
+                  // straight from an async Server Component page — render it
+                  // there), and an unconditional inline onClick here would
+                  // hand a Server Component-rendered Link a function prop
+                  // even when nothing is listening, which Next.js's RSC
+                  // boundary rejects outright ("Event handlers cannot be
+                  // passed to Client Component props").
+                  onClick={onRowClick ? (event) => handleRowLinkClick(event, row, onRowClick) : undefined}
                   className="min-w-0 flex-1 after:absolute after:inset-0 after:content-['']"
                 >
                   {primary}
@@ -221,6 +260,7 @@ export function DataTable<T>({
   state,
   rowKey,
   rowHref,
+  onRowClick,
   className,
   sort,
   onSortChange,
@@ -303,7 +343,14 @@ export function DataTable<T>({
                   {columns.map((column) =>
                     href ? (
                       <td key={column.header} className={cn(bodyCellClass(column.align), "p-0")}>
-                        <Link href={href} prefetch={false} className="block px-4 py-3">
+                        <Link
+                          href={href}
+                          prefetch={false}
+                          // See the mobile-card Link above for why this is
+                          // conditional, not always-on.
+                          onClick={onRowClick ? (event) => handleRowLinkClick(event, row, onRowClick) : undefined}
+                          className="block px-4 py-3"
+                        >
                           {column.cell(row)}
                         </Link>
                       </td>
@@ -335,6 +382,7 @@ export function DataTable<T>({
         state={state}
         rowKey={rowKey}
         rowHref={rowHref}
+        onRowClick={onRowClick}
         mobileCard={mobileCard}
         className={className}
       />

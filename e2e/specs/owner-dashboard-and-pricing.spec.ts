@@ -76,11 +76,17 @@ test.describe("Owner Dashboard & D7 pricing queue", () => {
     // 4. The Vendor's page shows the real computed amount (80 × ₹390) in
     // multiple places (year total, outstanding, the row itself) — never
     // the ₹0 this fix banned.
+    // A plain row click now opens the summary side panel in place (Vendor &
+    // Subcontractor detail side panel feature) rather than navigating —
+    // panel v1 excludes stat tiles, so the year-total assertion below needs
+    // the full page, one "View full details" click away.
     await page.goto("/vendors");
     // DataTable's mobileCard mode renders both a desktop and mobile copy of
     // every row simultaneously (one CSS-hidden) — .first() avoids a
     // strict-mode ambiguity on the row link.
     await page.getByRole("link", { name: VENDOR_NAME }).first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("link", { name: /View full details/ }).click();
     await expect(page.getByText("₹31,200").first()).toBeVisible();
     await expect(page.getByText("₹0", { exact: true })).not.toBeVisible();
   });

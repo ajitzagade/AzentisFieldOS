@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DataTable, type DataTableColumn } from "./data-table";
 
@@ -64,6 +64,74 @@ describe("DataTable", () => {
     expect(screen.getByText("Cement").closest("a")).toBeNull();
     const row = screen.getByText("Cement").closest("tr") as HTMLElement;
     expect(row.className).not.toContain("cursor-pointer");
+  });
+
+  describe("onRowClick", () => {
+    it("a plain click calls onRowClick with the row and prevents navigation, when rowHref is also set", () => {
+      const onRowClick = vi.fn();
+      render(
+        <DataTable
+          columns={columns}
+          rowKey={(r) => r.id}
+          state={{ status: "success", rows }}
+          rowHref={(r) => `/materials/${r.id}`}
+          onRowClick={onRowClick}
+        />,
+      );
+      const link = screen.getByText("Cement").closest("a") as HTMLAnchorElement;
+      const notPrevented = fireEvent.click(link);
+      expect(notPrevented).toBe(false);
+      expect(onRowClick).toHaveBeenCalledOnce();
+      expect(onRowClick).toHaveBeenCalledWith(rows[0]);
+    });
+
+    it("a modifier-click (e.g. ctrl/cmd) is left alone so the real href still navigates", () => {
+      const onRowClick = vi.fn();
+      render(
+        <DataTable
+          columns={columns}
+          rowKey={(r) => r.id}
+          state={{ status: "success", rows }}
+          rowHref={(r) => `/materials/${r.id}`}
+          onRowClick={onRowClick}
+        />,
+      );
+      const link = screen.getByText("Cement").closest("a") as HTMLAnchorElement;
+      const notPrevented = fireEvent.click(link, { ctrlKey: true });
+      expect(notPrevented).toBe(true);
+      expect(onRowClick).not.toHaveBeenCalled();
+    });
+
+    it("a non-primary-button click (e.g. middle click) is left alone so the real href still navigates", () => {
+      const onRowClick = vi.fn();
+      render(
+        <DataTable
+          columns={columns}
+          rowKey={(r) => r.id}
+          state={{ status: "success", rows }}
+          rowHref={(r) => `/materials/${r.id}`}
+          onRowClick={onRowClick}
+        />,
+      );
+      const link = screen.getByText("Cement").closest("a") as HTMLAnchorElement;
+      const notPrevented = fireEvent.click(link, { button: 1 });
+      expect(notPrevented).toBe(true);
+      expect(onRowClick).not.toHaveBeenCalled();
+    });
+
+    it("a call site that omits onRowClick navigates exactly as it did before (byte-for-byte unaffected)", () => {
+      render(
+        <DataTable
+          columns={columns}
+          rowKey={(r) => r.id}
+          state={{ status: "success", rows }}
+          rowHref={(r) => `/materials/${r.id}`}
+        />,
+      );
+      const link = screen.getByText("Cement").closest("a") as HTMLAnchorElement;
+      const notPrevented = fireEvent.click(link);
+      expect(notPrevented).toBe(true);
+    });
   });
 
   it("renders skeleton rows matching the column count while loading", () => {
@@ -232,6 +300,45 @@ describe("DataTable", () => {
       // The action link is a sibling, never a descendant, of the card link.
       expect(cardLink.querySelector("a")).toBeNull();
       expect(card.querySelector('a[href="/materials/1/correct"]')).not.toBeNull();
+    });
+
+    it("a plain click on the card's stretched link calls onRowClick and prevents navigation", () => {
+      const onRowClick = vi.fn();
+      const { container } = render(
+        <DataTable
+          columns={columns}
+          rowKey={(r) => r.id}
+          state={{ status: "success", rows }}
+          rowHref={(r) => `/materials/${r.id}`}
+          onRowClick={onRowClick}
+          mobileCard={mobileCard}
+        />,
+      );
+      const card = container.querySelector("li") as HTMLElement;
+      const cardLink = card.querySelector('a[href="/materials/1"]') as HTMLAnchorElement;
+      const notPrevented = fireEvent.click(cardLink);
+      expect(notPrevented).toBe(false);
+      expect(onRowClick).toHaveBeenCalledOnce();
+      expect(onRowClick).toHaveBeenCalledWith(rows[0]);
+    });
+
+    it("a modifier-click on the card's stretched link is left alone so the real href still navigates", () => {
+      const onRowClick = vi.fn();
+      const { container } = render(
+        <DataTable
+          columns={columns}
+          rowKey={(r) => r.id}
+          state={{ status: "success", rows }}
+          rowHref={(r) => `/materials/${r.id}`}
+          onRowClick={onRowClick}
+          mobileCard={mobileCard}
+        />,
+      );
+      const card = container.querySelector("li") as HTMLElement;
+      const cardLink = card.querySelector('a[href="/materials/1"]') as HTMLAnchorElement;
+      const notPrevented = fireEvent.click(cardLink, { metaKey: true });
+      expect(notPrevented).toBe(true);
+      expect(onRowClick).not.toHaveBeenCalled();
     });
 
     it("renders pulsing card skeletons, not a table skeleton, for the mobile loading state", () => {
