@@ -25,4 +25,19 @@ export class DashboardController {
   getSitesPreview() {
     return this.dashboardService.getSitesPreview();
   }
+
+  // Command Center redesign (2026-09-08): today's activity per Site plus
+  // the Godown's received-only bucket, for the "Site operations" table.
+  // No @Roles, matching the rest of this controller.
+  @Get('site-breakdown')
+  getSiteBreakdown() {
+    return this.dashboardService.getSiteBreakdown();
+  }
+
+  // Command Center redesign (2026-09-08): the 7-day series behind the
+  // band's sparklines (sites reporting / labour working / expenses).
+  @Get('trends')
+  getTrends() {
+    return this.dashboardService.getTrends();
+  }
 }

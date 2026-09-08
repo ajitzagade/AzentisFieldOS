@@ -1,0 +1,417 @@
+<!--
+  Owner Dashboard redesign — v2 "Crafted" (2026-09-08)
+  Response to Ajit's rejection of directions A/B/C as "AI generated".
+  Register: experienced-designer editorial. Structure from whitespace + hairline
+  rules, not card grids. One confident color-blocked panel (navy Money rail).
+  Dot+text status, no pastel pills. No annotation chrome anywhere in the art.
+
+  Extension decisions over DESIGN.md tokens (for promotion if picked):
+  1. Open-layout rule: sections separated by 1px hairline rules + 56px rhythm,
+     not boxed cards. Cards reserved for the Money rail + nothing else.
+  2. Navy Money rail: #16273E panel, radius 14, light ink from the dark-surface
+     token set, gold-700-dark #E3B24B for rupee figures, inner rules #2C405C.
+  3. Metrics strip: numerals 30px/700/-0.02em tabular, set directly on paper,
+     clusters divided by 1px hairlines, labels 12px sentence case (not eyebrow).
+  4. Status = 6px dot + plain text in the status color; never a filled pill.
+  5. Attention band: gold-100 wash @ 45% + 3px warning-700 left rule; rows
+     divided by hairline; action = teal text-link, not a button per row.
+  6. Chart recipe: past days #BFE0DB, today #00968A, 20px bars, 4px top round,
+     hairline grid + dotted daily-average line, labels only on max + today.
+  7. Composition bar (on navy): #4FB8AE / #E3B24B / #9DB4E0, 2px gaps, 8px tall.
+  8. Delta text: 12px "+6 vs 7-day avg" in success-700/danger-700, arrows only
+     when a real trend series exists — no delta invented for untracked figures.
+  Data: shared dataset, .working/redesign-brief-2026-09-08.md. All figures
+  reconcile (labour 24+18=42 · ₹9,880+₹6,320+₹2,250=₹18,450 · tied-up sums).
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dashboard — AzentisFieldOS</title>
+<style>
+  :root{
+    --paper:#FBFAF7; --white:#FFFFFF; --wash:#F3F1EA;
+    --hairline:#E4E0D3; --strong:#D2CBB8;
+    --ink9:#1B2430; --ink7:#3E4757; --ink5:#6B7280;
+    --teal9:#0B3B3E; --teal7:#0F5257; --teal6:#14666C; --teal1:#E4EFEE;
+    --navy:#16273E; --navy-in:#1E3149; --navy-rule:#2C405C;
+    --inkd9:#F1EEE4; --inkd7:#C7CCD6; --inkd5:#8D95A3;
+    --gold7:#96700F; --goldd:#E3B24B; --gold1:#FBF0DA;
+    --ok:#1E6B45; --warn:#8A5A12; --bad:#A32E2E;
+    --chart:#00968A; --chart-past:#BFE0DB;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#EAE6DA;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink9);-webkit-font-smoothing:antialiased;padding:36px 24px}
+  .tn{font-variant-numeric:tabular-nums}
+
+  /* browser frame */
+  .frame{max-width:1460px;margin:0 auto;background:var(--paper);border-radius:12px;overflow:hidden;box-shadow:0 24px 60px -24px rgba(27,36,48,.35),0 2px 8px rgba(27,36,48,.08)}
+  .chrome{display:flex;align-items:center;gap:16px;background:#F3F1EA;border-bottom:1px solid var(--hairline);padding:11px 18px}
+  .dots span{display:inline-block;width:11px;height:11px;border-radius:50%;background:#D8D2C2;margin-right:6px}
+  .url{flex:0 1 460px;margin:0 auto;background:var(--white);border:1px solid var(--hairline);border-radius:999px;font-size:12.5px;color:var(--ink5);text-align:center;padding:5px 16px}
+
+  .shell{display:flex;min-height:1560px}
+
+  /* ── sidebar ─────────────────────────────────────────── */
+  .side{width:228px;flex:none;background:var(--white);border-right:1px solid var(--hairline);padding:22px 14px 18px;display:flex;flex-direction:column}
+  .brand{display:flex;align-items:center;gap:10px;padding:0 10px 20px}
+  .brand .mark{width:30px;height:30px;border-radius:8px;background:var(--teal7);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+  .brand b{font-size:14.5px;font-weight:650;letter-spacing:-.01em}
+  .nav a{display:block;font-size:13.5px;font-weight:500;color:var(--ink7);text-decoration:none;padding:7px 10px;border-radius:8px;margin-bottom:1px}
+  .nav a.on{background:var(--teal1);color:var(--teal9);font-weight:650}
+  .nav .grp{font-size:10.5px;font-weight:650;letter-spacing:.09em;color:#A9A390;margin:18px 10px 6px}
+  .side .foot{margin-top:auto;border-top:1px solid var(--hairline);padding-top:12px}
+  .side .foot a{display:block;font-size:13px;color:var(--ink5);text-decoration:none;padding:6px 10px}
+  .me{display:flex;gap:9px;align-items:center;padding:10px 10px 0}
+  .me .av{width:28px;height:28px;border-radius:50%;background:var(--teal1);color:var(--teal9);font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .me small{display:block;font-size:11px;color:var(--ink5)}
+  .me b{font-size:12.5px;font-weight:600}
+
+  /* ── content ─────────────────────────────────────────── */
+  .main{flex:1;padding:40px 48px 56px;min-width:0}
+
+  .hd{display:flex;align-items:flex-end;justify-content:space-between;gap:24px}
+  .hd .date{font-size:12.5px;font-weight:500;color:var(--ink5);margin-bottom:6px}
+  .hd h1{font-size:27px;font-weight:650;letter-spacing:-.015em}
+  .hd .sub{font-size:14px;color:var(--ink7);margin-top:7px}
+  .hd .sub a{color:var(--teal7);font-weight:600;text-decoration:none}
+  .acts{display:flex;align-items:center;gap:10px;padding-bottom:4px}
+  .hd .sub{white-space:nowrap}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;border-radius:10px;text-decoration:none;padding:9px 15px;white-space:nowrap}
+  .btn.p{background:var(--teal7);color:#fff;box-shadow:0 1px 2px rgba(11,59,62,.35)}
+  .btn.q{color:var(--ink7);border:1px solid var(--strong);background:var(--white);padding:8px 13px}
+  .search{display:inline-flex;align-items:center;gap:26px;font-size:13px;color:var(--ink5);border:1px solid var(--hairline);background:var(--white);border-radius:10px;padding:8px 10px 8px 13px}
+  .search kbd{font-family:inherit;font-size:11px;color:var(--ink5);border:1px solid var(--hairline);border-radius:5px;padding:1px 5px;background:var(--paper)}
+
+  .recent{display:flex;gap:8px;align-items:baseline;font-size:12.5px;color:var(--ink5);margin-top:14px}
+  .recent a{color:var(--ink7);font-weight:550;text-decoration:none;border-bottom:1px solid var(--strong);padding-bottom:1px}
+  .recent i{font-style:normal;color:#B9B29C}
+
+  /* attention band */
+  .attn{margin-top:30px;background:rgba(251,240,218,.45);border-left:3px solid var(--warn);border-radius:0 10px 10px 0}
+  .attn .row{display:flex;align-items:baseline;gap:14px;padding:13px 20px;border-top:1px solid rgba(210,203,184,.5)}
+  .attn .row:first-child{border-top:0}
+  .attn .txt{flex:1;font-size:14px;color:var(--ink7)}
+  .attn .txt b{color:var(--ink9);font-weight:650}
+  .attn .txt small{display:block;font-size:12.5px;color:var(--ink5);margin-top:2px}
+  .attn a.go{font-size:13px;font-weight:650;color:var(--teal7);text-decoration:none;white-space:nowrap}
+
+  /* section marker */
+  .sec{display:flex;align-items:center;gap:14px;margin:52px 0 0}
+  .sec h2{font-size:11.5px;font-weight:650;letter-spacing:.09em;color:var(--ink5)}
+  .sec .rule{flex:1;height:1px;background:var(--hairline)}
+  .sec a{font-size:13px;font-weight:600;color:var(--teal7);text-decoration:none}
+
+  /* metrics strip */
+  .strip{display:flex;margin-top:24px}
+  .m{flex:1;padding:2px 26px;border-left:1px solid var(--hairline)}
+  .m:first-child{border-left:0;padding-left:0}
+  .m .v{font-size:30px;font-weight:700;letter-spacing:-.02em}
+  .m .v small{font-size:15px;font-weight:600;color:var(--ink5);letter-spacing:0}
+  .m .v.gold{color:var(--gold7)}
+  .m .l{font-size:12.5px;color:var(--ink5);margin-top:5px}
+  .m .d{font-size:12px;font-weight:600;margin-top:7px}
+  .d.up{color:var(--ok)} .d.dn{color:var(--bad)} .d.fl{color:var(--ink5);font-weight:500}
+
+  /* asymmetric grid */
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) 344px;gap:44px;margin-top:26px;align-items:start}
+
+  /* site table */
+  table{width:100%;border-collapse:collapse}
+  th{font-size:11px;font-weight:650;letter-spacing:.07em;color:var(--ink5);text-align:left;padding:0 14px 9px 0;border-bottom:1px solid var(--strong)}
+  th.r,td.r{text-align:right;padding-right:0;padding-left:14px}
+  td{padding:14px 14px 14px 0;border-bottom:1px solid var(--hairline);font-size:14px;vertical-align:top}
+  td .site{font-weight:650}
+  td .loc{font-size:12px;color:var(--ink5);margin-top:2px}
+  .st{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:550}
+  .st::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+  .st.ok{color:var(--ok)} .st.warn{color:var(--warn)} .st.mut{color:var(--ink5)}
+  .st time{font-weight:500;color:var(--ink5);font-size:12.5px;margin-left:2px}
+  td .nudge{display:block;font-size:12.5px;font-weight:600;color:var(--teal7);text-decoration:none;margin-top:3px}
+  td.num{font-weight:600} td .rs{color:var(--gold7);font-weight:650}
+  td.mut{color:#B9B29C}
+  tr.total td{border-bottom:0;border-top:2px solid var(--strong);padding-top:12px;font-weight:700;font-size:13.5px}
+  tr.total td:first-child{font-weight:650;color:var(--ink5);font-size:12.5px}
+
+  .lowstock{margin-top:22px;font-size:13px;color:var(--ink7);display:flex;justify-content:space-between;align-items:baseline;gap:18px}
+  .lowstock b{color:var(--warn);font-weight:650}
+  .lowstock a{color:var(--teal7);font-weight:600;text-decoration:none;white-space:nowrap}
+  .lowstock i{font-style:normal;color:#B9B29C;margin:0 7px}
+
+  /* chart */
+  .chart{margin-top:54px}
+  .chart .cap{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .chart .cap h3{font-size:14.5px;font-weight:650}
+  .chart .cap span{font-size:12px;color:var(--ink5)}
+  .chart svg text{font-family:inherit}
+
+  /* money rail */
+  .rail{background:var(--navy);border-radius:14px;padding:26px 24px 22px;color:var(--inkd7);box-shadow:0 16px 36px -16px rgba(22,39,62,.55)}
+  .rail .tag{font-size:11px;font-weight:650;letter-spacing:.09em;color:var(--inkd5)}
+  .rail .hero{margin-top:14px}
+  .rail .hero .v{font-size:31px;font-weight:700;letter-spacing:-.02em;color:var(--goldd)}
+  .rail .hero .l{font-size:13px;color:var(--inkd7);margin-top:4px}
+  .comp{display:flex;gap:2px;height:8px;border-radius:4px;overflow:hidden;margin-top:16px}
+  .comp i{display:block}
+  .keys{margin-top:12px}
+  .key{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;padding:3px 0}
+  .key .k{display:inline-flex;align-items:center;gap:8px;color:var(--inkd7)}
+  .key .k::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--sw);flex:none}
+  .key .a{color:var(--inkd9);font-weight:600}
+  .rail .ledger{border-top:1px solid var(--navy-rule);margin-top:18px;padding-top:6px}
+  .line{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:11px 0;border-top:1px solid var(--navy-in)}
+  .line:first-child{border-top:0}
+  .line .k{font-size:13px;color:var(--inkd7)}
+  .line .k small{display:block;font-size:11.5px;color:var(--inkd5);margin-top:2px}
+  .line .a{font-size:14.5px;font-weight:650;color:var(--inkd9);white-space:nowrap}
+  .line .a.gold{color:var(--goldd)}
+  .line a{color:#4FB8AE;text-decoration:none;font-weight:600;font-size:12.5px}
+  .rail .pend{border-top:1px solid var(--navy-rule);margin-top:6px;padding-top:14px;font-size:12.5px;color:var(--inkd7)}
+  .rail .pend b{color:var(--goldd);font-weight:650}
+  .rail .pend a{color:#4FB8AE;font-weight:650;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="chrome"><span class="dots"><span></span><span></span><span></span></span><span class="url">app.azentisfieldos.in</span><span style="width:47px"></span></div>
+  <div class="shell">
+
+    <aside class="side">
+      <div class="brand"><span class="mark">A</span><b>AzentisFieldOS</b></div>
+      <nav class="nav">
+        <a class="on" href="#">Dashboard</a>
+        <a href="#">Sites</a>
+        <a href="#">Daily Report</a>
+        <div class="grp">STOCK</div>
+        <a href="#">Inventory</a>
+        <a href="#">Movements</a>
+        <a href="#">Materials</a>
+        <a href="#">Waste &amp; Disposal</a>
+        <div class="grp">PEOPLE</div>
+        <a href="#">Team &amp; Labour</a>
+        <a href="#">Payments</a>
+        <div class="grp">MONEY</div>
+        <a href="#">Vendors</a>
+        <a href="#">Subcontractors</a>
+        <a href="#">Expenses</a>
+        <a href="#">RMC</a>
+        <div class="grp">MACHINERY</div>
+        <a href="#">Machinery &amp; Vehicles</a>
+        <div class="grp">INSIGHTS</div>
+        <a href="#">Reports</a>
+      </nav>
+      <div class="foot">
+        <a href="#">Help &amp; Guides</a>
+        <a href="#">Settings</a>
+        <div class="me"><span class="av">AS</span><span><b>Ajit Sandeep</b><small>Owner · Admin</small></span></div>
+      </div>
+    </aside>
+
+    <main class="main">
+
+      <div class="hd">
+        <div>
+          <div class="date">Monday, 8 September 2026</div>
+          <h1>Good morning, Ajit</h1>
+          <div class="sub">3 of 4 sites have reported so far — <a href="#">Riverside Villas</a> is still pending.</div>
+        </div>
+        <div class="acts">
+          <a class="btn q" href="#">Record Payment</a>
+          <a class="btn q" href="#">Record Advance</a>
+          <a class="btn q" href="#">Add Purchase</a>
+          <span class="search">Search <kbd>⌘K</kbd></span>
+          <a class="btn p" href="#">+&nbsp; New Daily Report</a>
+        </div>
+      </div>
+
+      <div class="recent">
+        Recently viewed
+        <a href="#">Prakash Jadhav</a><i>·</i>
+        <a href="#">Cement OPC 53</a><i>·</i>
+        <a href="#">Sunrise Heights — Phase 2</a><i>·</i>
+        <a href="#">Sagar Traders</a>
+      </div>
+
+      <div class="attn">
+        <div class="row">
+          <div class="txt"><b>Riverside Villas</b> hasn’t submitted today’s Daily Report.
+            <small>Labour, materials and expenses at Wagholi are missing from today’s figures below.</small></div>
+          <a class="go" href="#">View Site →</a>
+        </div>
+        <div class="row">
+          <div class="txt"><b>3 inward entries</b> are waiting for pricing.
+            <small>Excluded from every money figure until priced — vendor dues are under-counted.</small></div>
+          <a class="go" href="#">Add Pricing →</a>
+        </div>
+        <div class="row">
+          <div class="txt"><b>1 Site Contract</b> is still in Draft without commercial terms.
+            <small>Its payables can’t accrue until the terms are set.</small></div>
+          <a class="go" href="#">Review Subcontractors →</a>
+        </div>
+      </div>
+
+      <div class="sec"><h2>TODAY ACROSS SITES</h2><div class="rule"></div></div>
+
+      <div class="strip">
+        <div class="m">
+          <div class="v tn">42</div>
+          <div class="l">Labour working</div>
+          <div class="d up">▲ +6 vs 7-day average</div>
+        </div>
+        <div class="m">
+          <div class="v tn">3 <small>of 4</small></div>
+          <div class="l">Sites reporting</div>
+          <div class="d fl">1 still pending</div>
+        </div>
+        <div class="m">
+          <div class="v tn">5 <small>in</small> · 8 <small>out</small></div>
+          <div class="l">Material movements</div>
+          <div class="d fl">3 awaiting pricing</div>
+        </div>
+        <div class="m">
+          <div class="v tn">14 <small>m³</small></div>
+          <div class="l">RMC used</div>
+          <div class="d fl">across 2 pours</div>
+        </div>
+        <div class="m">
+          <div class="v tn">6</div>
+          <div class="l">Machinery in use</div>
+          <div class="d fl">all on active sites</div>
+        </div>
+        <div class="m">
+          <div class="v gold tn">₹18,450</div>
+          <div class="l">Expenses recorded</div>
+          <div class="d fl">in line with daily average</div>
+        </div>
+      </div>
+
+      <div class="cols">
+        <div>
+          <div class="sec" style="margin-top:50px"><h2>SITE BY SITE</h2><div class="rule"></div><a href="#">All sites →</a></div>
+          <table style="margin-top:20px">
+            <thead>
+              <tr><th style="width:31%">SITE</th><th>TODAY’S DAILY REPORT</th><th class="r">LABOUR</th><th class="r">IN</th><th class="r">OUT</th><th class="r">EXPENSES</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div class="site">Sunrise Heights — Phase 2</div><div class="loc">Baner · Active</div></td>
+                <td><span class="st ok">Submitted<time>9:42 AM</time></span></td>
+                <td class="r num tn">24</td><td class="r num tn">2</td><td class="r num tn">4</td>
+                <td class="r num tn"><span class="rs">₹9,880</span></td>
+              </tr>
+              <tr>
+                <td><div class="site">Kharadi Warehouse</div><div class="loc">Kharadi · Active</div></td>
+                <td><span class="st ok">Submitted<time>10:15 AM</time></span></td>
+                <td class="r num tn">18</td><td class="r num tn">2</td><td class="r num tn">3</td>
+                <td class="r num tn"><span class="rs">₹6,320</span></td>
+              </tr>
+              <tr>
+                <td><div class="site">Riverside Villas</div><div class="loc">Wagholi · Active</div></td>
+                <td><span class="st warn">No report yet</span><a class="nudge" href="#">View Site →</a></td>
+                <td class="r mut">—</td><td class="r mut">—</td><td class="r mut">—</td><td class="r mut">—</td>
+              </tr>
+              <tr>
+                <td><div class="site">MIDC Factory Shed</div><div class="loc">Bhosari · On Hold</div></td>
+                <td><span class="st mut">On hold — no report expected</span></td>
+                <td class="r mut">—</td><td class="r mut">—</td><td class="r mut">—</td><td class="r mut">—</td>
+              </tr>
+              <tr>
+                <td><div class="site">Godown</div><div class="loc">Central stock point</div></td>
+                <td><span class="st ok">Submitted<time>8:55 AM</time></span></td>
+                <td class="r mut">—</td><td class="r num tn">1</td><td class="r num tn">1</td>
+                <td class="r num tn"><span class="rs">₹2,250</span></td>
+              </tr>
+              <tr class="total">
+                <td>TODAY, ALL SITES</td><td></td>
+                <td class="r tn">42</td><td class="r tn">5</td><td class="r tn">8</td>
+                <td class="r tn"><span class="rs">₹18,450</span></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p class="lowstock"><span><b>3 materials low</b> <i>·</i> Cement OPC 53 Grade — 12 bags <i>·</i> TMT Steel 12mm — 0.4&nbsp;T <i>·</i> River Sand — 2 brass</span> <a href="#">Inventory →</a></p>
+
+          <div class="chart">
+            <div class="cap"><h3>Spend, last 7 days</h3><span>expenses recorded per day · unpriced entries excluded</span></div>
+            <svg viewBox="0 0 640 196" width="100%" role="img" aria-label="Daily expenses, last seven days. Highest ₹32,000 on Thursday; today ₹18,450, close to the ₹18,600 daily average.">
+              <!-- grid -->
+              <line x1="46" y1="160" x2="640" y2="160" stroke="#D2CBB8" stroke-width="1"/>
+              <line x1="46" y1="116.3" x2="640" y2="116.3" stroke="#EAE6DA" stroke-width="1"/>
+              <line x1="46" y1="72.5" x2="640" y2="72.5" stroke="#EAE6DA" stroke-width="1"/>
+              <line x1="46" y1="28.8" x2="640" y2="28.8" stroke="#EAE6DA" stroke-width="1"/>
+              <text x="38" y="119.8" font-size="10.5" fill="#6B7280" text-anchor="end">10k</text>
+              <text x="38" y="76" font-size="10.5" fill="#6B7280" text-anchor="end">20k</text>
+              <text x="38" y="32.3" font-size="10.5" fill="#6B7280" text-anchor="end">30k</text>
+              <!-- average -->
+              <line x1="46" y1="78.5" x2="640" y2="78.5" stroke="#96700F" stroke-width="1" stroke-dasharray="1 4" stroke-linecap="round"/>
+              <text x="596" y="91" font-size="10.5" fill="#96700F" text-anchor="end">daily avg ₹18,600</text>
+              <!-- bars: Tue..Sun past, today teal -->
+              <path d="M116,72.1 h20 a4,4 0 0 1 4,4 V160 h-28 V76.1 a4,4 0 0 1 4,-4 Z" fill="#BFE0DB"/>
+              <path d="M198,98.4 h20 a4,4 0 0 1 4,4 V160 h-28 V102.4 a4,4 0 0 1 4,-4 Z" fill="#BFE0DB"/>
+              <path d="M280,24 h20 a4,4 0 0 1 4,4 V160 h-28 V28 a4,4 0 0 1 4,-4 Z" fill="#BFE0DB"/>
+              <path d="M362,111.5 h20 a4,4 0 0 1 4,4 V160 h-28 V115.5 a4,4 0 0 1 4,-4 Z" fill="#BFE0DB"/>
+              <path d="M444,59 h20 a4,4 0 0 1 4,4 V160 h-28 V63 a4,4 0 0 1 4,-4 Z" fill="#BFE0DB"/>
+              <path d="M526,129 h20 a4,4 0 0 1 4,4 V160 h-28 V133 a4,4 0 0 1 4,-4 Z" fill="#BFE0DB"/>
+              <path d="M608,83.3 h20 a4,4 0 0 1 4,4 V160 h-28 V87.3 a4,4 0 0 1 4,-4 Z" fill="#00968A"/>
+              <!-- selective labels -->
+              <text x="290" y="16" font-size="11" font-weight="600" fill="#3E4757" text-anchor="middle">₹32,000</text>
+              <text x="618" y="73" font-size="11" font-weight="600" fill="#3E4757" text-anchor="middle">₹18,450</text>
+              <!-- x labels -->
+              <text x="290" y="180" font-size="11" fill="#6B7280" text-anchor="middle">Thu</text>
+              <text x="126" y="180" font-size="11" fill="#6B7280" text-anchor="middle">Tue</text>
+              <text x="208" y="180" font-size="11" fill="#6B7280" text-anchor="middle">Wed</text>
+              <text x="372" y="180" font-size="11" fill="#6B7280" text-anchor="middle">Fri</text>
+              <text x="454" y="180" font-size="11" fill="#6B7280" text-anchor="middle">Sat</text>
+              <text x="536" y="180" font-size="11" fill="#6B7280" text-anchor="middle">Sun</text>
+              <text x="618" y="180" font-size="11" font-weight="650" fill="#1B2430" text-anchor="middle">Today</text>
+            </svg>
+          </div>
+        </div>
+
+        <aside class="rail">
+          <div class="tag">MONEY · ACROSS THE BUSINESS</div>
+          <div class="hero">
+            <div class="v tn">₹8,69,200</div>
+            <div class="l">tied up right now</div>
+          </div>
+          <div class="comp">
+            <i style="width:74.2%;background:#4FB8AE"></i>
+            <i style="width:24.2%;background:#E3B24B"></i>
+            <i style="flex:1;background:#9DB4E0"></i>
+          </div>
+          <div class="keys">
+            <div class="key" style="--sw:#4FB8AE"><span class="k">Vendor dues</span><span class="a tn">₹6,45,000</span></div>
+            <div class="key" style="--sw:#E3B24B"><span class="k">Subcontractor payables</span><span class="a tn">₹2,10,000</span></div>
+            <div class="key" style="--sw:#9DB4E0"><span class="k">Labour advances</span><span class="a tn">₹14,200</span></div>
+          </div>
+          <div class="ledger">
+            <div class="line">
+              <span class="k">Expenses this month<small>₹96,150 this week · largest — Diesel &amp; Fuel</small></span>
+              <span class="a gold tn">₹4,82,300</span>
+            </div>
+            <div class="line">
+              <span class="k">Vendor outstanding<small><a href="#">View Vendors →</a></small></span>
+              <span class="a tn">₹6,45,000</span>
+            </div>
+            <div class="line">
+              <span class="k">Owed to Subcontractors<small><a href="#">View Subcontractors →</a></small></span>
+              <span class="a tn">₹2,10,000</span>
+            </div>
+            <div class="line">
+              <span class="k">Advances outstanding<small>5 Team Members · <a href="#">Record Advance →</a></small></span>
+              <span class="a tn">₹14,200</span>
+            </div>
+            <div class="line">
+              <span class="k">Pending payments<small><a href="#">View Payments →</a></small></span>
+              <span class="a tn">4</span>
+            </div>
+          </div>
+          <div class="pend"><b>3 entries</b> awaiting pricing are not counted in any figure above. <a href="#">Add Pricing →</a></div>
+        </aside>
+      </div>
+
+    </main>
+  </div>
+</div>
+</body>
+</html>

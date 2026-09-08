@@ -2,7 +2,7 @@
 name: AzentisFieldOS
 description: Premium construction-contractor operations SaaS for Indian civil contractors. From-scratch design system realized as Tailwind v4 `@theme` tokens in `packages/ui` (architecture AD-4/AD-5) — this file is the single source of truth those tokens are generated from.
 status: final
-updated: 2026-09-06
+updated: 2026-09-08
 colors:
   surface-0: '#FBFAF7'
   surface-1: '#FFFFFF'
@@ -20,6 +20,11 @@ colors:
   accent-teal-100: '#E4EFEE'
   accent-navy-800: '#16273E'
   accent-navy-600: '#223A5E'
+  navy-panel: '#1E3149'
+  navy-panel-border: '#2C405C'
+  chart-teal: '#00968A'
+  chart-gold: '#C08420'
+  chart-blue: '#4A72B8'
   gold-700: '#96700F'
   gold-500: '#C7912B'
   gold-100: '#FBF0DA'
@@ -86,6 +91,11 @@ typography:
     letterSpacing: -0.015em
   kpi-numeral:
     fontSize: 38px
+    fontWeight: '700'
+    lineHeight: '1.1'
+    letterSpacing: -0.02em
+  kpi-compact:
+    fontSize: 26px
     fontWeight: '700'
     lineHeight: '1.1'
     letterSpacing: -0.02em
@@ -262,6 +272,9 @@ Rounded but not soft — `rounded.sm` (6px) for chips and small controls, `round
 - **Quick-entry modal** (e.g. Record Advance) — same modal chrome as the Search palette (`shadow-3`, `rounded.lg`), sized narrower (~420px) for a short form. Cancel/primary-submit pair bottom-right, same as every other form footer in the product.
 - **Owner mobile quick-bar** — fixed bottom bar, same chrome as the existing Supervisor bottom quick-bar (icon + micro-label per item, active state = color + weight + `aria-current`, never color alone). Its center item is a raised circular FAB (`accent-teal-700` fill, white icon, `shadow-2`, sits ~14px above the bar) rather than a fifth flat tab — visually marks it as the one item that opens an action sheet instead of navigating. **Both bottom bars** (2026-09-05 revision): the flat `border-t border-border-hairline` top edge is replaced by `shadow-(--shadow-bar-top)` — a new token, `shadow-2`'s exact values with the Y-offset negated so the shadow reads upward into the page instead of below the bar (this had been the one flat, hairline-only panel left in the system after the Elevation & Depth rule was applied everywhere else). The active tab additionally gets a soft `accent-teal-100` pill (`rounded.full`) behind its icon+label, sized to the content, not the full tap target — color alone no longer carries the active state.
 - **Recently-viewed chip** — a pill (`rounded.full`, `surface-1` background, `shadow-1`, `border-hairline`) in a horizontally-scrolling row: a small tinted icon circle (`accent-teal-100`/`accent-teal-700`, same family as entity search rows) plus a label and a muted `ink-500` type suffix (e.g. "· Site").
+- **Dashboard hero band (2026-09-08, Owner Dashboard only** — mockup `26-owner-dashboard-command-center.html`**)** — a full-width `accent-navy-800` band (subtle within-family vertical gradient permitted, `#1A2C47 → #16273E → #111D2F`) holding the date heading, the quick-actions bar, and the seven Today KPIs as compact panels (`navy-panel` fill, `navy-panel-border` 1px border, `rounded.lg`). On-navy text reuses the dark-surface ink tokens (`ink-900-dark` values / `ink-700-dark` / `ink-500-dark`); on-navy money figures use `gold-700-dark`. KPI numerals use `kpi-compact`. All on-navy text must hold WCAG AA against `navy-panel`. This band is the single sanctioned dark surface on a light page — do not repeat the treatment on other surfaces.
+- **Sparkline (dashboard KPI trend)** — inline SVG, single series only: 2px round-cap line, ~12% same-hue area wash, a ringed end dot (2px ring in the panel's own fill so it reads as a gap). On-navy: `accent-teal-700-dark` (#4FB8AE); on light surfaces: `chart-teal`. No legend, no axes, no per-point labels — a sparkline is trend shape, not a chart; anything needing values gets a real chart with a tooltip layer.
+- **Chart palette** — categorical series on light surfaces use `chart-teal → chart-gold → chart-blue` in that fixed order, never cycled, never reassigned when a filter changes the series count (CVD-validated 2026-09-08). UI accent tokens (`accent-teal-*`) are deliberately not used as data ink — too dark/gray on our surfaces. Status colors stay reserved for state, never series identity. Chart text always wears ink tokens, never the series color.
 
 ## Do's and Don'ts
 

@@ -51,6 +51,25 @@
   --warning-100: #FBF0DA;
   --gap-flag-border: #E8CC8F;
 
+  /* On-navy hero band (Owner Dashboard "Command Center", DESIGN.md
+     2026-09-08). Theme-constant like accent-navy-800 — the band is the one
+     sanctioned dark surface on a light page, so none of these get a `.dark`
+     override (they already are the dark-surface values). */
+  --navy-panel: #1E3149;
+  --navy-panel-border: #2C405C;
+  --ink-on-navy: #F1EEE4;
+  --ink-on-navy-muted: #C7CCD6;
+  --ink-on-navy-faint: #8D95A3;
+  --gold-on-navy: #E3B24B;
+  --sparkline-on-navy: #4FB8AE;
+
+  /* Chart palette — categorical data ink on light surfaces, fixed order
+     teal → gold → blue, CVD-validated (DESIGN.md 2026-09-08). Never reuse
+     UI accent tokens as data ink. Theme-constant. */
+  --chart-teal: #00968A;
+  --chart-gold: #C08420;
+  --chart-blue: #4A72B8;
+
   /* Shadow — light mode (DESIGN.md Elevation & Depth) */
   --shadow-1: 0 1px 3px rgba(27, 36, 48, 0.08), 0 1px 2px rgba(27, 36, 48, 0.05);
   --shadow-2: 0 6px 16px rgba(27, 36, 48, 0.1), 0 2px 5px rgba(27, 36, 48, 0.06);
@@ -129,6 +148,16 @@
   --color-warning-700: var(--warning-700);
   --color-warning-100: var(--warning-100);
   --color-gap-flag-border: var(--gap-flag-border);
+  --color-navy-panel: var(--navy-panel);
+  --color-navy-panel-border: var(--navy-panel-border);
+  --color-ink-on-navy: var(--ink-on-navy);
+  --color-ink-on-navy-muted: var(--ink-on-navy-muted);
+  --color-ink-on-navy-faint: var(--ink-on-navy-faint);
+  --color-gold-on-navy: var(--gold-on-navy);
+  --color-sparkline-on-navy: var(--sparkline-on-navy);
+  --color-chart-teal: var(--chart-teal);
+  --color-chart-gold: var(--chart-gold);
+  --color-chart-blue: var(--chart-blue);
 
   /* Shadow — same bridging pattern as color */
   --shadow-1: var(--shadow-1);
@@ -187,6 +216,13 @@
   --text-kpi-numeral--line-height: 1.1;
   --text-kpi-numeral--font-weight: 700;
   --text-kpi-numeral--letter-spacing: -0.02em;
+
+  /* Seven-across band stats (DESIGN.md `kpi-compact`, 2026-09-08) —
+     kpi-numeral's 38px is too heavy at 7-up. */
+  --text-kpi-compact: 26px;
+  --text-kpi-compact--line-height: 1.1;
+  --text-kpi-compact--font-weight: 700;
+  --text-kpi-compact--letter-spacing: -0.02em;
 
   /* Spacing — base unit; all spacing utilities derive from this. 4px base
      already matches DESIGN.md's spacing.1=4px..spacing.16=64px scale

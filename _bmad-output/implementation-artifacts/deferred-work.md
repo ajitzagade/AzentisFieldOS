@@ -430,3 +430,15 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: `_bmad-output/implementation-artifacts/spec-vendor-subcontractor-detail-side-panel.md`
   summary: The spec's own "Manual checks" item — confirming the panel doesn't visually collide with the mobile bottom quick-bar/`QuickAddSheet` on small viewports (both `fixed`-positioned) — was not actually performed (no real browser/viewport check), only reasoned about via reading CSS z-index values.
   evidence: Verification Gap review confirmed the z-index relationship looks correct on paper (`DetailPanel`'s backdrop/popup are `z-50`, `SupervisorQuickBar` is `z-30`, matching the existing mobile nav drawer's already-relied-upon stacking order) but flagged that this is a paper check, not a rendered one — the spec explicitly called for the latter.
+- source_spec: `_bmad-output/implementation-artifacts/spec-owner-dashboard-command-center.md`
+  summary: Web renders times/dates with hardcoded Asia/Kolkata while apps/api buckets days by the configurable APP_TIMEZONE — a non-IST tenant would see mismatched day windows vs displayed times.
+  evidence: site-operations-table.tsx submittedTime and owner-dashboard.tsx heading both pin "Asia/Kolkata" (pre-existing page convention); apps/api/src/dashboard/local-day.ts resolves APP_TIMEZONE per deployment.
+- source_spec: `_bmad-output/implementation-artifacts/spec-owner-dashboard-command-center.md`
+  summary: Decide whether cross-Site financial dashboard aggregates (/dashboard/site-breakdown, /dashboard/trends, and pre-existing /dashboard/today expensesToday) should be @Roles(OWNER_ADMIN)-scoped or stay role-open.
+  evidence: The dashboard controller has never carried @Roles (Supervisor Home consumes /dashboard/today), so the new endpoints match the existing posture — but EXPERIENCE.md's "trimming is de-emphasis, server guards are the boundary" line argues for an explicit product decision.
+- source_spec: `_bmad-output/implementation-artifacts/spec-owner-dashboard-command-center.md`
+  summary: supersededDsrIds() runs a full corrections scan per dashboard request (now 3 endpoints per page load) with an unbounded notIn list; window-scope it by reportDate or cache per-request.
+  evidence: Pre-existing helper design in apps/api/src/common/superseded-dsrs.ts; getToday, getSiteBreakdown, and getTrends each await their own scan.
+- source_spec: `_bmad-output/implementation-artifacts/spec-owner-dashboard-command-center.md`
+  summary: Same-day activity recorded against a Site that is then soft-deleted vanishes from the site-breakdown table while remaining in the band's global counts, breaking reconciliation for that rare day.
+  evidence: getSiteBreakdown buckets by the sitesService.list() roster; getToday counts purchases/consumption/expenses globally without a roster join.

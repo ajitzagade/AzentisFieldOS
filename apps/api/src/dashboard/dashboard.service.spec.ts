@@ -20,14 +20,47 @@ interface Overrides {
     byTeamMember: { teamMemberId: string; name: string }[];
   };
   pendingCount?: number;
+  // Command Center (2026-09-08) overrides.
+  supersededIds?: string[];
+  breakdownDsrRows?: { siteId: string; createdAt: Date }[];
+  workRows?: { siteId: string; teamMemberId: string }[];
+  purchaseGroups?: { siteId: string | null; _count: { _all: number } }[];
+  consumptionGroups?: { siteId: string; _count: { _all: number } }[];
+  expenseGroups?: { siteId: string; _sum: { amount: Prisma.Decimal | null } }[];
+  trendDsrRows?: { siteId: string; reportDate: Date }[];
+  trendWorkRows?: { teamMemberId: string; workDate: Date }[];
+  trendExpenseRows?: { amount: Prisma.Decimal; incurredAt: Date }[];
 }
 
 function makeService(overrides: Overrides = {}) {
-  const dailySiteReportFindMany = vi
-    .fn()
-    .mockResolvedValue(
-      (overrides.reportingSiteIds ?? []).map((siteId) => ({ siteId })),
-    );
+  // One mock serves four distinct call shapes: supersededDsrIds()'s
+  // correctsId scan, getToday's distinct-siteId reporting query,
+  // getSiteBreakdown's siteId+createdAt select, and getTrends's
+  // (siteId, reportDate) distinct — dispatched on the arguments.
+  const dailySiteReportFindMany = vi.fn(
+    (args?: {
+      where?: { correctsId?: unknown };
+      select?: { createdAt?: boolean };
+      distinct?: string[];
+    }) => {
+      if (args?.where?.correctsId) {
+        return Promise.resolve(
+          (overrides.supersededIds ?? []).map((correctsId) => ({
+            correctsId,
+          })),
+        );
+      }
+      if (args?.select?.createdAt) {
+        return Promise.resolve(overrides.breakdownDsrRows ?? []);
+      }
+      if (args?.distinct?.includes('reportDate')) {
+        return Promise.resolve(overrides.trendDsrRows ?? []);
+      }
+      return Promise.resolve(
+        (overrides.reportingSiteIds ?? []).map((siteId) => ({ siteId })),
+      );
+    },
+  );
   const purchaseCount = vi.fn().mockResolvedValue(overrides.purchaseCount ?? 0);
   const consumptionCount = vi
     .fn()
@@ -42,15 +75,41 @@ function makeService(overrides: Overrides = {}) {
     _sum: { amount: overrides.expenseSum ?? null },
   });
   const siteFindMany = vi.fn().mockResolvedValue(overrides.activeSites ?? []);
+  // getSiteBreakdown selects (siteId, teamMemberId); getTrends selects
+  // (teamMemberId, workDate).
+  const workRecordFindMany = vi.fn((args?: { select?: { siteId?: boolean } }) =>
+    Promise.resolve(
+      args?.select?.siteId
+        ? (overrides.workRows ?? [])
+        : (overrides.trendWorkRows ?? []),
+    ),
+  );
+  const purchaseGroupBy = vi
+    .fn()
+    .mockResolvedValue(overrides.purchaseGroups ?? []);
+  const consumptionGroupBy = vi
+    .fn()
+    .mockResolvedValue(overrides.consumptionGroups ?? []);
+  const expenseGroupBy = vi
+    .fn()
+    .mockResolvedValue(overrides.expenseGroups ?? []);
+  const expenseFindMany = vi
+    .fn()
+    .mockResolvedValue(overrides.trendExpenseRows ?? []);
 
   const prisma = {
     dailySiteReport: { findMany: dailySiteReportFindMany },
-    purchase: { count: purchaseCount },
-    consumption: { count: consumptionCount },
+    purchase: { count: purchaseCount, groupBy: purchaseGroupBy },
+    consumption: { count: consumptionCount, groupBy: consumptionGroupBy },
     rmcEntry: { aggregate: rmcAggregate },
     machinery: { count: machineryCount },
-    expense: { aggregate: expenseAggregate },
+    expense: {
+      aggregate: expenseAggregate,
+      groupBy: expenseGroupBy,
+      findMany: expenseFindMany,
+    },
     site: { findMany: siteFindMany },
+    workRecord: { findMany: workRecordFindMany },
   };
 
   const getTeamSummary = vi.fn().mockResolvedValue({
@@ -114,6 +173,11 @@ function makeService(overrides: Overrides = {}) {
     getOutstandingAdvances,
     countPending,
     siteFindMany,
+    workRecordFindMany,
+    purchaseGroupBy,
+    consumptionGroupBy,
+    expenseGroupBy,
+    expenseFindMany,
   };
 }
 
@@ -365,5 +429,344 @@ describe('DashboardService.getSitesPreview', () => {
   it('returns an empty preview for a Tenant with zero Sites (drives AC #1 whole-page empty state)', async () => {
     const { service } = makeService({ sitesList: [] });
     await expect(service.getSitesPreview()).resolves.toEqual([]);
+  });
+});
+
+describe('DashboardService.getSiteBreakdown', () => {
+  const roster = [
+    { id: 's1', name: 'NH-48 Widening', location: 'Nashik', status: 'ACTIVE' },
+    { id: 's2', name: 'Metro Depot', location: 'Pune', status: 'ACTIVE' },
+    { id: 's3', name: 'MIDC Shed', location: 'Bhosari', status: 'ON_HOLD' },
+    // Excluded from the operations view (spec amendment, review
+    // 2026-09-08): completed Sites accumulate forever and would bury the
+    // live rows in dashes.
+    {
+      id: 's4',
+      name: 'Old Handover Tower',
+      location: 'Wakad',
+      status: 'COMPLETED',
+    },
+  ];
+
+  it('buckets today per Site — report time, distinct labour, received, consumed, expenses — plus the Godown received bucket', async () => {
+    const { service } = makeService({
+      sitesList: roster,
+      breakdownDsrRows: [
+        { siteId: 's1', createdAt: new Date('2026-09-08T04:12:00.000Z') },
+      ],
+      workRows: [
+        { siteId: 's1', teamMemberId: 't1' },
+        { siteId: 's1', teamMemberId: 't2' },
+        { siteId: 's2', teamMemberId: 't3' },
+      ],
+      purchaseGroups: [
+        { siteId: 's1', _count: { _all: 2 } },
+        { siteId: null, _count: { _all: 1 } },
+      ],
+      consumptionGroups: [{ siteId: 's1', _count: { _all: 4 } }],
+      expenseGroups: [
+        { siteId: 's1', _sum: { amount: new Prisma.Decimal(9880) } },
+      ],
+    });
+
+    const result = await service.getSiteBreakdown();
+
+    expect(result).toEqual({
+      sites: [
+        {
+          id: 's1',
+          name: 'NH-48 Widening',
+          location: 'Nashik',
+          status: 'ACTIVE',
+          report: {
+            submitted: true,
+            submittedAt: '2026-09-08T04:12:00.000Z',
+          },
+          labour: 2,
+          received: 2,
+          consumed: 4,
+          expenses: 9880,
+        },
+        {
+          id: 's2',
+          name: 'Metro Depot',
+          location: 'Pune',
+          status: 'ACTIVE',
+          report: { submitted: false, submittedAt: null },
+          labour: 1,
+          received: 0,
+          consumed: 0,
+          expenses: 0,
+        },
+        {
+          id: 's3',
+          name: 'MIDC Shed',
+          location: 'Bhosari',
+          status: 'ON_HOLD',
+          report: { submitted: false, submittedAt: null },
+          labour: null,
+          received: 0,
+          consumed: 0,
+          expenses: 0,
+        },
+      ],
+      godown: { received: 1 },
+    });
+  });
+
+  it('keeps the original submission time when a correction DSR lands later the same day', async () => {
+    const { service } = makeService({
+      sitesList: [roster[0]!],
+      breakdownDsrRows: [
+        // orderBy createdAt asc — the query returns oldest first; the
+        // service must keep the first (original) row per Site.
+        { siteId: 's1', createdAt: new Date('2026-09-08T04:12:00.000Z') },
+        { siteId: 's1', createdAt: new Date('2026-09-08T09:30:00.000Z') },
+      ],
+    });
+
+    const result = await service.getSiteBreakdown();
+    expect(result.sites[0]?.report).toEqual({
+      submitted: true,
+      submittedAt: '2026-09-08T04:12:00.000Z',
+    });
+  });
+
+  it('reports null labour (never a fabricated 0) for a Site with no attended Work Record today', async () => {
+    const { service } = makeService({ sitesList: [roster[1]!] });
+    const result = await service.getSiteBreakdown();
+    expect(result.sites[0]?.labour).toBeNull();
+  });
+
+  it('excludes COMPLETED Sites but keeps ACTIVE and ON_HOLD rows', async () => {
+    const { service } = makeService({ sitesList: roster });
+    const result = await service.getSiteBreakdown();
+    expect(result.sites.map((site) => site.id)).toEqual(['s1', 's2', 's3']);
+    expect(result.sites.some((site) => site.status === 'COMPLETED')).toBe(
+      false,
+    );
+  });
+
+  it('counts a member attending two Sites once per Site — the global once-only figure is the band KPI, not a sum of these rows', async () => {
+    const { service } = makeService({
+      sitesList: roster,
+      workRows: [
+        // The distinct (siteId, teamMemberId) query yields one row per
+        // Site for the same member.
+        { siteId: 's1', teamMemberId: 't1' },
+        { siteId: 's2', teamMemberId: 't1' },
+      ],
+    });
+
+    const result = await service.getSiteBreakdown();
+
+    expect(result.sites.find((site) => site.id === 's1')?.labour).toBe(1);
+    expect(result.sites.find((site) => site.id === 's2')?.labour).toBe(1);
+    // Summing the rows would say 2; the true distinct headcount (1) is
+    // getToday's labourWorkingToday — which is why the frontend's totals
+    // row takes the band figure instead of summing.
+  });
+
+  it('buckets a null-siteId Purchase into the Godown, never into any Site row', async () => {
+    const { service } = makeService({
+      sitesList: roster,
+      purchaseGroups: [{ siteId: null, _count: { _all: 3 } }],
+    });
+
+    const result = await service.getSiteBreakdown();
+    expect(result.godown.received).toBe(3);
+    expect(result.sites.every((site) => site.received === 0)).toBe(true);
+  });
+
+  it('excludes superseded-DSR rows from consumed/expenses (AD-9 double-count guard)', async () => {
+    const { service, consumptionGroupBy, expenseGroupBy } = makeService({
+      sitesList: roster,
+      supersededIds: ['dsr-old'],
+    });
+
+    // Fixed now (2026-09-08 12:00 IST) so the day window is deterministic
+    // and the whole call shape can be pinned exactly.
+    await service.getSiteBreakdown(
+      new Date('2026-09-08T06:30:00.000Z'),
+      'Asia/Kolkata',
+    );
+
+    const dayRange = {
+      gte: new Date('2026-09-07T18:30:00.000Z'),
+      lt: new Date('2026-09-08T18:30:00.000Z'),
+    };
+    const currentRows = {
+      OR: [
+        { dailySiteReportId: null },
+        { dailySiteReportId: { notIn: ['dsr-old'] } },
+      ],
+    };
+    expect(consumptionGroupBy).toHaveBeenCalledWith({
+      by: ['siteId'],
+      where: { consumedAt: dayRange, ...currentRows },
+      _count: { _all: true },
+    });
+    expect(expenseGroupBy).toHaveBeenCalledWith({
+      by: ['siteId'],
+      where: { incurredAt: dayRange, ...currentRows },
+      _sum: { amount: true },
+    });
+  });
+
+  it('filters on the local-timezone day boundary, not naive UTC midnight', async () => {
+    const { service, workRecordFindMany, purchaseGroupBy } = makeService({
+      sitesList: roster,
+    });
+
+    // 2026-08-26T18:45:00Z is already 2026-08-27 00:15 in IST.
+    await service.getSiteBreakdown(
+      new Date('2026-08-26T18:45:00.000Z'),
+      'Asia/Kolkata',
+    );
+
+    expect(workRecordFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          workDate: new Date('2026-08-27T00:00:00.000Z'),
+          attended: true,
+        },
+      }),
+    );
+    expect(purchaseGroupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          purchasedAt: {
+            gte: new Date('2026-08-26T18:30:00.000Z'),
+            lt: new Date('2026-08-27T18:30:00.000Z'),
+          },
+        },
+      }),
+    );
+  });
+});
+
+describe('DashboardService.getTrends', () => {
+  // Fixed "now": 2026-09-08 12:00 IST (06:30 UTC).
+  const now = new Date('2026-09-08T06:30:00.000Z');
+  const tz = 'Asia/Kolkata';
+
+  it('returns 7 local days ending today, each bucketed from the full-window queries', async () => {
+    const { service, expenseFindMany } = makeService({
+      trendDsrRows: [
+        { siteId: 's1', reportDate: new Date('2026-09-08T00:00:00.000Z') },
+        { siteId: 's2', reportDate: new Date('2026-09-08T00:00:00.000Z') },
+        { siteId: 's1', reportDate: new Date('2026-09-06T00:00:00.000Z') },
+      ],
+      trendWorkRows: [
+        { teamMemberId: 't1', workDate: new Date('2026-09-08T00:00:00.000Z') },
+        { teamMemberId: 't2', workDate: new Date('2026-09-08T00:00:00.000Z') },
+        { teamMemberId: 't1', workDate: new Date('2026-09-02T00:00:00.000Z') },
+      ],
+      trendExpenseRows: [
+        // 2026-09-08 10:00 IST.
+        {
+          amount: new Prisma.Decimal(18450),
+          incurredAt: new Date('2026-09-08T04:30:00.000Z'),
+        },
+        // 2026-09-07 23:30 IST (18:00 UTC on the 7th) — previous local day.
+        {
+          amount: new Prisma.Decimal(8000),
+          incurredAt: new Date('2026-09-07T18:00:00.000Z'),
+        },
+      ],
+    });
+
+    const result = await service.getTrends(now, tz);
+
+    expect(result.days).toHaveLength(7);
+    expect(result.days.map((day) => day.date)).toEqual([
+      '2026-09-02',
+      '2026-09-03',
+      '2026-09-04',
+      '2026-09-05',
+      '2026-09-06',
+      '2026-09-07',
+      '2026-09-08',
+    ]);
+    expect(result.days[6]).toEqual({
+      date: '2026-09-08',
+      sitesReporting: 2,
+      labourWorking: 2,
+      expensesTotal: 18450,
+    });
+    expect(result.days[5]).toEqual({
+      date: '2026-09-07',
+      sitesReporting: 0,
+      labourWorking: 0,
+      expensesTotal: 8000,
+    });
+    expect(result.days[4]).toEqual({
+      date: '2026-09-06',
+      sitesReporting: 1,
+      labourWorking: 0,
+      expensesTotal: 0,
+    });
+    expect(result.days[0]).toEqual({
+      date: '2026-09-02',
+      sitesReporting: 0,
+      labourWorking: 1,
+      expensesTotal: 0,
+    });
+
+    // One full-window expense query bucketed in JS — never one per day.
+    expect(expenseFindMany).toHaveBeenCalledTimes(1);
+    expect(expenseFindMany).toHaveBeenCalledWith({
+      where: {
+        incurredAt: {
+          // 2026-09-02 00:00 IST .. 2026-09-09 00:00 IST, in UTC.
+          gte: new Date('2026-09-01T18:30:00.000Z'),
+          lt: new Date('2026-09-08T18:30:00.000Z'),
+        },
+        OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],
+      },
+      select: { amount: true, incurredAt: true },
+    });
+  });
+
+  it("ends the series on the local-timezone today, not UTC's", async () => {
+    const { service } = makeService();
+    // 18:45 UTC on the 26th is already the 27th in IST.
+    const result = await service.getTrends(
+      new Date('2026-08-26T18:45:00.000Z'),
+      tz,
+    );
+    expect(result.days[6]?.date).toBe('2026-08-27');
+    expect(result.days[0]?.date).toBe('2026-08-21');
+  });
+
+  it('excludes superseded-DSR expense rows from the trend totals', async () => {
+    const { service, expenseFindMany } = makeService({
+      supersededIds: ['dsr-old'],
+    });
+
+    await service.getTrends(now, tz);
+
+    expect(expenseFindMany).toHaveBeenCalledWith({
+      where: {
+        incurredAt: {
+          gte: new Date('2026-09-01T18:30:00.000Z'),
+          lt: new Date('2026-09-08T18:30:00.000Z'),
+        },
+        OR: [
+          { dailySiteReportId: null },
+          { dailySiteReportId: { notIn: ['dsr-old'] } },
+        ],
+      },
+      select: { amount: true, incurredAt: true },
+    });
+  });
+
+  it('counts a Site reporting once per day even when a correction adds a second DSR row', async () => {
+    const { service, dailySiteReportFindMany } = makeService();
+    await service.getTrends(now, tz);
+    // The distinct (siteId, reportDate) query is what collapses corrections.
+    expect(dailySiteReportFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ distinct: ['siteId', 'reportDate'] }),
+    );
   });
 });

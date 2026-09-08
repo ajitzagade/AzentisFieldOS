@@ -29,7 +29,13 @@ interface TeamMemberOption {
 // `size` defaults to "sm" (the Outstanding Advances card's compact action
 // slot); Story 19.3's header quick-actions row passes "md" to match its
 // sibling default-size buttons instead of looking visibly smaller.
-export function AdvanceQuickEntryTrigger({ size = "sm" }: { size?: "sm" | "md" } = {}) {
+// `className` is a pass-through to the trigger Button so the Command Center
+// band can restyle it on-navy (className overrides on the shared Button —
+// never a new Button variant for one surface).
+export function AdvanceQuickEntryTrigger({
+  size = "sm",
+  className,
+}: { size?: "sm" | "md"; className?: string } = {}) {
   const [open, setOpen] = useState(false);
   // Bumped every time the modal is freshly opened so AdvanceQuickEntryModal
   // remounts (key={formKey}) — its internal useActionState/selection state
@@ -96,7 +102,7 @@ export function AdvanceQuickEntryTrigger({ size = "sm" }: { size?: "sm" | "md" }
 
   return (
     <>
-      <Button type="button" variant="secondary" size={size} onClick={handleOpen}>
+      <Button type="button" variant="secondary" size={size} onClick={handleOpen} className={className}>
         <WalletIcon className="size-4" />
         Record Advance
       </Button>

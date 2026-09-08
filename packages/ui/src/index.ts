@@ -6,6 +6,7 @@ export * from "./components/badge";
 export * from "./components/data-table";
 export * from "./components/pagination";
 export * from "./components/stat-tile";
+export * from "./components/sparkline";
 export * from "./components/gap-flag";
 export * from "./components/gap-flag-list";
 export * from "./components/help-bubble";

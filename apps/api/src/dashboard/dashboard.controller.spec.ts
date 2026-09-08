@@ -9,6 +9,8 @@ describe('DashboardController', () => {
     getToday: ReturnType<typeof vi.fn>;
     getOverall: ReturnType<typeof vi.fn>;
     getSitesPreview: ReturnType<typeof vi.fn>;
+    getSiteBreakdown: ReturnType<typeof vi.fn>;
+    getTrends: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -16,6 +18,8 @@ describe('DashboardController', () => {
       getToday: vi.fn(),
       getOverall: vi.fn(),
       getSitesPreview: vi.fn(),
+      getSiteBreakdown: vi.fn(),
+      getTrends: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -69,5 +73,45 @@ describe('DashboardController', () => {
 
     await expect(controller.getSitesPreview()).resolves.toBe(payload);
     expect(service.getSitesPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it('GET /dashboard/site-breakdown delegates to DashboardService.getSiteBreakdown', async () => {
+    const payload = {
+      sites: [
+        {
+          id: 's1',
+          name: 'NH-48 Widening',
+          location: 'Nashik',
+          status: 'ACTIVE',
+          report: { submitted: true, submittedAt: '2026-09-08T04:12:00.000Z' },
+          labour: 24,
+          received: 2,
+          consumed: 4,
+          expenses: 9880,
+        },
+      ],
+      godown: { received: 1 },
+    };
+    service.getSiteBreakdown.mockResolvedValue(payload);
+
+    await expect(controller.getSiteBreakdown()).resolves.toBe(payload);
+    expect(service.getSiteBreakdown).toHaveBeenCalledTimes(1);
+  });
+
+  it('GET /dashboard/trends delegates to DashboardService.getTrends', async () => {
+    const payload = {
+      days: [
+        {
+          date: '2026-09-08',
+          sitesReporting: 3,
+          labourWorking: 42,
+          expensesTotal: 18450,
+        },
+      ],
+    };
+    service.getTrends.mockResolvedValue(payload);
+
+    await expect(controller.getTrends()).resolves.toBe(payload);
+    expect(service.getTrends).toHaveBeenCalledTimes(1);
   });
 });

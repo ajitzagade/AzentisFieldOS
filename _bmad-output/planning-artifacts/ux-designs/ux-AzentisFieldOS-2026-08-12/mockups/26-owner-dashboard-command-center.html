@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction A — Command Center · Owner Dashboard redesign · AzentisFieldOS</title>
+<style>
+/* =====================================================================
+   DIRECTION A — COMMAND CENTER · extension decisions beyond DESIGN.md
+   (candidates for token promotion; everything else uses DESIGN.md verbatim)
+   =====================================================================
+   1. NAVY HERO BAND — full-bleed cockpit band behind the page header,
+      quick actions, and Today pulse. Gradient stays inside the navy
+      family: 165deg, #1A2C47 0% → accent-navy-800 #16273E 55% → #111D2F
+      100%. Proposed tokens: navy-band-hi #1A2C47, navy-band-lo #111D2F.
+   2. ON-NAVY TEXT MAPPING — text on the band reuses the existing
+      dark-surface ink tokens: values/headings ink-900-dark #F1EEE4 (or
+      #FFFFFF for the page title), supporting text ink-700-dark #C7CCD6,
+      muted ink-500-dark #8D95A3. All pairs ≥ AA on #16273E.
+   3. ON-NAVY RAISED PANEL — KPI cells use SOLID equivalents of a white
+      6%/12% wash so sparkline surface-rings can match exactly:
+      panel #1E3149, panel-border #2C405C, hover-border #3A4F6C.
+   4. ON-NAVY MONEY — money on the band uses gold-700-dark #E3B24B
+      (7.6:1 on #16273E); gold-700 #96700F is reserved for light surfaces.
+   5. ON-NAVY SECONDARY BUTTON / SEARCH CHIP — transparent fill,
+      1px #3A4F6C border, ink-900-dark text; kbd hint in a #2C405C keycap.
+   6. SPARKLINE TREATMENT (single series, no legend, no axes) — 2px
+      accent-teal-700-dark #4FB8AE line, round join/cap; area wash same
+      hue at 12% opacity; today's point = r4 dot with a 2px surface ring
+      in the panel color (#1E3149). Values live in the KPI numeral +
+      hover tooltip, never printed on points.
+   7. ELEVATION RECIPE — shadow-1: 0 1px 2px rgba(27,36,48,.06);
+      shadow-2: 0 1px 2px rgba(27,36,48,.05), 0 10px 28px -14px
+      rgba(27,36,48,.20). Band underside: 0 14px 34px -18px
+      rgba(11,20,33,.55). Replaces the current flat borderline-only cards.
+   8. SEVERITY EDGE — attention-queue rows carry a 3px inset left edge:
+      rank 1 warning-700, rank 2 gold-500, rank 3 accent-navy-600 — plus
+      a rank numeral chip. Edges rank urgency; they are not series colors.
+   9. CASH TIED UP EMPHASIS CARD — surface-1 card with a 3px gold-500 top
+      edge and a gold-100 → transparent wash (top 56px). One per view.
+  10. KPI-COMPACT TYPE STEP — 26px / 700 / -0.02em / lh 1.1 for the
+      seven-across band stats (kpi-numeral 38px is too heavy at 7-up).
+      Proportional figures on these; tabular-nums only in table columns
+      and on money text per the money-text token.
+  11. ANNOTATION TAG (mockup-only, never ships) — 10.5px dashed-border
+      chip in ink-500 marking behavior a static page can't show.
+   ===================================================================== */
+
+:root{
+  --surface-0:#FBFAF7; --surface-1:#FFFFFF; --surface-2:#F3F1EA; --surface-3:#EAE6DA;
+  --border-hairline:#E4E0D3; --border-strong:#D2CBB8;
+  --ink-900:#1B2430; --ink-700:#3E4757; --ink-500:#6B7280; --ink-on-accent:#F7F5EE;
+  --teal-900:#0B3B3E; --teal-700:#0F5257; --teal-600:#14666C; --teal-100:#E4EFEE;
+  --navy-800:#16273E; --navy-600:#223A5E;
+  --gold-700:#96700F; --gold-500:#C7912B; --gold-100:#FBF0DA;
+  --success-700:#1E6B45; --success-100:#E4F3EA;
+  --danger-700:#A32E2E; --danger-100:#FBE7E5;
+  --warning-700:#8A5A12; --warning-100:#FBF0DA;
+  /* extensions (see block above) */
+  --band-hi:#1A2C47; --band-lo:#111D2F;
+  --band-ink-hi:#F1EEE4; --band-ink-mid:#C7CCD6; --band-ink-lo:#8D95A3;
+  --band-panel:#1E3149; --band-panel-border:#2C405C; --band-panel-border-hi:#3A4F6C;
+  --band-gold:#E3B24B; --band-teal:#4FB8AE;
+  --shadow-1:0 1px 2px rgba(27,36,48,.06);
+  --shadow-2:0 1px 2px rgba(27,36,48,.05),0 10px 28px -14px rgba(27,36,48,.20);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--surface-3);color:var(--ink-900);
+  font-size:15px;line-height:1.55;padding:24px 16px 64px;}
+
+/* ---- rationale strip (mockup meta, not product UI) ---- */
+.rationale{max-width:1360px;margin:0 auto 20px;background:var(--surface-1);
+  border:1px solid var(--border-strong);border-left:4px solid var(--teal-700);
+  border-radius:10px;padding:12px 16px;font-size:13.5px;color:var(--ink-700);box-shadow:var(--shadow-1);}
+.rationale b{color:var(--ink-900)}
+
+/* ---- browser frame ---- */
+.frame{max-width:1360px;margin:0 auto;border-radius:14px;overflow:hidden;
+  border:1px solid var(--border-strong);box-shadow:0 24px 60px -24px rgba(27,36,48,.35);background:var(--surface-0);}
+.chrome{display:flex;align-items:center;gap:12px;background:var(--surface-2);
+  border-bottom:1px solid var(--border-hairline);padding:10px 14px;}
+.dots{display:flex;gap:6px}
+.dots span{width:11px;height:11px;border-radius:9999px;background:var(--border-strong)}
+.urlbar{flex:1;max-width:420px;margin:0 auto;background:var(--surface-1);
+  border:1px solid var(--border-hairline);border-radius:9999px;padding:4px 14px;
+  font-size:12.5px;color:var(--ink-500);text-align:center;}
+.urlbar b{color:var(--ink-700);font-weight:500}
+
+/* ---- app shell ---- */
+.shell{display:flex;min-height:900px;background:var(--surface-0)}
+.rail{width:64px;flex:none;background:var(--surface-1);border-right:1px solid var(--border-hairline);
+  display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;}
+.brand{width:36px;height:36px;border-radius:10px;background:var(--teal-700);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;margin-bottom:10px;}
+.rail a{display:flex;align-items:center;justify-content:center;width:40px;height:40px;
+  border-radius:10px;color:var(--ink-500);}
+.rail a.active{background:var(--teal-100);color:var(--teal-700)}
+.rail svg{width:20px;height:20px}
+.rail .spacer{flex:1}
+.main{flex:1;min-width:0}
+
+/* ---- navy hero band ---- */
+.band{background:linear-gradient(165deg,var(--band-hi) 0%,var(--navy-800) 55%,var(--band-lo) 100%);
+  padding:28px 32px 26px;box-shadow:0 14px 34px -18px rgba(11,20,33,.55);position:relative;}
+.band-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px;}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;line-height:1.4}
+.band .eyebrow{color:var(--band-teal)}
+.band h1{font-size:28px;font-weight:650;letter-spacing:-.015em;line-height:1.2;color:#fff;margin-top:4px;}
+.band .sub{font-size:13.5px;color:var(--band-ink-mid);margin-top:4px}
+
+.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:10px;font-size:13.5px;
+  font-weight:600;padding:9px 14px;line-height:1;white-space:nowrap;text-decoration:none;border:1px solid transparent;}
+.btn svg{width:15px;height:15px}
+.btn-primary{background:var(--teal-700);color:#fff}
+.btn-band-secondary{background:transparent;border-color:var(--band-panel-border-hi);color:var(--band-ink-hi)}
+.searchchip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--band-panel-border-hi);
+  border-radius:10px;padding:8px 12px;font-size:13.5px;color:var(--band-ink-lo);}
+.searchchip kbd{font-family:var(--font);font-size:11px;font-weight:600;color:var(--band-ink-mid);
+  background:var(--band-panel-border);border-radius:6px;padding:2px 6px;line-height:1.3;}
+
+.pulse-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;}
+.pulse-head .eyebrow{color:var(--band-ink-lo)}
+.kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:12px}
+.kpi{background:var(--band-panel);border:1px solid var(--band-panel-border);border-radius:10px;
+  padding:14px 14px 12px;display:flex;flex-direction:column;gap:6px;min-height:118px;}
+.kpi .label{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--band-ink-mid);line-height:1.4;}
+.kpi .value{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.1;color:#fff;}
+.kpi .value small{font-size:14px;font-weight:600;color:var(--band-ink-mid);letter-spacing:0}
+.kpi .value.money{color:var(--band-gold);font-variant-numeric:tabular-nums;font-weight:600}
+.kpi .note{font-size:11.5px;color:var(--band-ink-lo);line-height:1.35;margin-top:auto}
+.kpi .spark{margin-top:auto}
+.kpi .spark svg{display:block;width:100%;height:32px}
+
+/* ---- annotation tags (mockup-only) ---- */
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:500;color:var(--ink-500);
+  border:1px dashed var(--border-strong);border-radius:9999px;padding:2px 9px;line-height:1.5;background:var(--surface-1);white-space:nowrap;}
+.tag::before{content:"";width:5px;height:5px;border-radius:9999px;background:var(--ink-500);flex:none}
+.tag.on-band{background:transparent;border-color:var(--band-panel-border-hi);color:var(--band-ink-lo)}
+.tag.on-band::before{background:var(--band-ink-lo)}
+
+/* ---- paper content ---- */
+.content{padding:28px 32px 40px;display:flex;flex-direction:column;gap:28px;max-width:1304px;}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+.section-head h2{font-size:21px;font-weight:650;letter-spacing:-.005em;line-height:1.3;display:flex;align-items:center;gap:10px;}
+.count-pill{font-size:12.5px;font-weight:600;background:var(--warning-100);color:var(--warning-700);
+  border-radius:9999px;padding:2px 10px;line-height:1.5;}
+.ghostlink{display:inline-flex;align-items:center;gap:4px;font-size:13.5px;font-weight:600;
+  color:var(--teal-700);text-decoration:none;}
+.ghostlink svg{width:14px;height:14px}
+
+.card{background:var(--surface-1);border:1px solid var(--border-hairline);border-radius:14px;box-shadow:var(--shadow-2);}
+
+/* attention queue */
+.queue{overflow:hidden}
+.q-row{display:flex;align-items:center;gap:16px;padding:14px 18px 14px 15px;border-left:3px solid transparent;}
+.q-row + .q-row{border-top:1px solid var(--border-hairline)}
+.q-row.sev-1{border-left-color:var(--warning-700)}
+.q-row.sev-2{border-left-color:var(--gold-500)}
+.q-row.sev-3{border-left-color:var(--navy-600)}
+.q-rank{width:26px;height:26px;flex:none;border-radius:9999px;background:var(--surface-2);
+  border:1px solid var(--border-strong);display:flex;align-items:center;justify-content:center;
+  font-size:12.5px;font-weight:650;color:var(--ink-700);}
+.q-msg{flex:1;font-size:15px;color:var(--ink-900)}
+.q-msg b{font-weight:650}
+.q-msg .why{display:block;font-size:12.5px;color:var(--ink-500);margin-top:1px}
+.btn-sm{padding:7px 12px;font-size:12.5px;border-radius:10px}
+.btn-secondary{background:var(--surface-1);color:var(--ink-900);border-color:var(--border-strong)}
+
+/* site operations table */
+table{width:100%;border-collapse:collapse}
+thead th{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-500);
+  text-align:left;padding:12px 16px;border-bottom:1px solid var(--border-hairline);background:var(--surface-2);}
+thead th.num, td.num{text-align:right}
+tbody td{padding:13px 16px;border-bottom:1px solid var(--border-hairline);font-size:13.5px;color:var(--ink-900);vertical-align:middle;}
+tbody tr:last-child td{border-bottom:1px solid var(--border-hairline)}
+td.num{font-variant-numeric:tabular-nums}
+td .site-name{font-weight:650;font-size:13.5px}
+td .site-loc{font-size:12.5px;color:var(--ink-500);margin-top:1px}
+.dash{color:var(--ink-500)}
+.money{color:var(--gold-700);font-weight:600;font-variant-numeric:tabular-nums}
+tr.row-warn td{background:var(--warning-100)}
+tr.row-warn td:first-child{box-shadow:inset 3px 0 0 var(--warning-700)}
+tr.row-muted td{color:var(--ink-500)}
+tr.row-muted td .site-name{color:var(--ink-700)}
+tfoot td{padding:11px 16px;font-size:12.5px;font-weight:600;color:var(--ink-700);background:var(--surface-2);
+  border-top:1px solid var(--border-hairline);font-variant-numeric:tabular-nums;}
+tfoot td.money{color:var(--gold-700)}
+
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:9999px;font-size:12px;font-weight:600;
+  padding:3px 10px;line-height:1.5;white-space:nowrap;}
+.chip::before{content:"";width:6px;height:6px;border-radius:9999px;background:currentColor;flex:none}
+.chip-success{background:var(--success-100);color:var(--success-700)}
+.chip-warning{background:var(--warning-100);color:var(--warning-700)}
+.chip-warning.strong{background:#F5E3BC}
+.chip-neutral{background:var(--surface-2);color:var(--ink-700)}
+.chip .t{font-weight:500;color:inherit;opacity:.85}
+
+/* inventory strip */
+.inv{display:flex;align-items:center;gap:14px;padding:12px 18px;flex-wrap:wrap}
+.inv .lead{font-size:13.5px;font-weight:650;color:var(--warning-700);display:flex;align-items:center;gap:8px;white-space:nowrap;}
+.inv .lead svg{width:16px;height:16px}
+.inv-item{font-size:12.5px;color:var(--ink-700);background:var(--surface-2);border:1px solid var(--border-hairline);
+  border-radius:9999px;padding:3px 11px;white-space:nowrap;}
+.inv-item b{font-weight:650;color:var(--ink-900)}
+.inv .ghostlink{margin-left:auto}
+
+/* money strip */
+.moneygrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.mcard{position:relative;background:var(--surface-1);border:1px solid var(--border-hairline);
+  border-radius:14px;box-shadow:var(--shadow-2);padding:16px 18px;display:flex;flex-direction:column;gap:6px;}
+.mcard .label{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-500);}
+.mcard .value{font-size:30px;font-weight:600;letter-spacing:-.015em;line-height:1.15;
+  color:var(--gold-700);font-variant-numeric:tabular-nums;}
+.mcard .meta{font-size:12.5px;color:var(--ink-700);line-height:1.45}
+.mcard .meta .pending{color:var(--warning-700);font-weight:600}
+.mcard .ghostlink{margin-top:auto;font-size:12.5px}
+.mcard.hero{border-top:3px solid var(--gold-500);
+  background:linear-gradient(180deg,var(--gold-100) 0,rgba(251,240,218,0) 56px),var(--surface-1);}
+.mcard.hero .value{font-size:34px;font-weight:650}
+
+/* recently viewed + degraded inset */
+.tail{display:flex;gap:16px;align-items:stretch;flex-wrap:wrap}
+.recent{flex:1;min-width:520px}
+.recent .chips{display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px 16px}
+.rchip{display:inline-flex;align-items:center;gap:8px;background:var(--surface-1);border:1px solid var(--border-strong);
+  border-radius:9999px;padding:6px 13px;font-size:13.5px;font-weight:500;color:var(--ink-900);text-decoration:none;box-shadow:var(--shadow-1);}
+.rchip .kind{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-500);}
+.rchip svg{width:14px;height:14px;color:var(--teal-700)}
+.recent .section-head{margin-bottom:0;padding:14px 18px 0}
+.inset{width:340px;flex:none;background:var(--surface-2);border:1px dashed var(--border-strong);
+  border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+.inset .mini{background:var(--surface-1);border:1px solid var(--border-hairline);border-radius:10px;
+  padding:12px 14px;box-shadow:var(--shadow-1);}
+.inset .mini .label{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-500);}
+.inset .mini .value{font-size:26px;font-weight:600;color:var(--ink-500);line-height:1.2;margin-top:2px}
+.inset .mini .meta{font-size:12.5px;color:var(--ink-500);margin-top:2px}
+</style>
+</head>
+<body>
+
+<div class="rationale">
+  <b>Direction A — Command Center.</b> A mission-control cockpit: the whole "today" pulse condenses into one deep-navy
+  instrument band — date, quick actions, and seven KPIs with 7-day trend — so the Owner reads the day in one glance
+  instead of scanning a wall of identical white tiles. Below it, warm paper carries what the flat dashboard never had:
+  a ranked "needs your attention" queue, a per-site operations table, and a money strip that leads to one Cash Tied Up number.
+</div>
+
+<div class="frame">
+  <div class="chrome">
+    <div class="dots"><span></span><span></span><span></span></div>
+    <div class="urlbar"><b>app.azentisfieldos.in</b>/</div>
+    <div style="width:47px"></div>
+  </div>
+
+  <div class="shell">
+    <!-- collapsed sidebar rail — Dashboard active -->
+    <nav class="rail" aria-label="Primary">
+      <div class="brand" title="AzentisFieldOS">A</div>
+      <a class="active" href="#" title="Dashboard" aria-current="page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      </a>
+      <a href="#" title="Daily Reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/></svg>
+      </a>
+      <a href="#" title="Sites">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      </a>
+      <a href="#" title="Movements">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 8.3L12 13l8.7-4.7"/><path d="M12 22V13"/></svg>
+      </a>
+      <a href="#" title="Team">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </a>
+      <a href="#" title="Payments">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg>
+      </a>
+      <a href="#" title="Expenses">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+      </a>
+      <a href="#" title="Inventory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/></svg>
+      </a>
+      <a href="#" title="Subcontractors">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
+      </a>
+      <div class="spacer"></div>
+      <a href="#" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.01a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/></svg>
+      </a>
+    </nav>
+
+    <main class="main">
+
+      <!-- ============ NAVY HERO BAND ============ -->
+      <header class="band">
+        <div class="band-top">
+          <div>
+            <div class="eyebrow">Owner Dashboard</div>
+            <h1>Monday, 8 September 2026</h1>
+            <p class="sub">Overview across all sites — 4 Sites + Godown</p>
+          </div>
+          <div class="actions">
+            <a class="btn btn-primary" href="#">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              New Daily Report
+            </a>
+            <a class="btn btn-band-secondary" href="#">Employee Payment</a>
+            <a class="btn btn-band-secondary" href="#">Record Advance</a>
+            <a class="btn btn-band-secondary" href="#">Add Purchase</a>
+            <span class="searchchip">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              Search
+              <kbd>⌘K</kbd>
+            </span>
+          </div>
+        </div>
+
+        <div class="pulse-head">
+          <div class="eyebrow">Today's pulse</div>
+          <span class="tag on-band">sparklines: last 7 days · hover shows tooltip with day values</span>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi">
+            <div class="label">Sites Reporting</div>
+            <div class="value">3 <small>of 4</small></div>
+            <div class="spark" aria-label="Sites reporting, last 7 days: 4, 4, 3, 4, 4, 2, 3">
+              <svg viewBox="0 0 110 34" preserveAspectRatio="none" role="img" aria-hidden="true">
+                <path d="M4,4 L20.5,4 L37,16 L53.5,4 L70,4 L86.5,28 L103,16 L103,33 L4,33 Z" fill="#4FB8AE" opacity="0.12"/>
+                <polyline points="4,4 20.5,4 37,16 53.5,4 70,4 86.5,28 103,16" fill="none" stroke="#4FB8AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="103" cy="16" r="4" fill="#4FB8AE" stroke="#1E3149" stroke-width="2"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi">
+            <div class="label">Labour Working</div>
+            <div class="value">42</div>
+            <div class="spark" aria-label="Labour working, last 7 days: 38, 41, 35, 44, 40, 12, 42">
+              <svg viewBox="0 0 110 34" preserveAspectRatio="none" role="img" aria-hidden="true">
+                <path d="M4,8.5 L20.5,6.3 L37,10.8 L53.5,4 L70,7 L86.5,28 L103,5.5 L103,33 L4,33 Z" fill="#4FB8AE" opacity="0.12"/>
+                <polyline points="4,8.5 20.5,6.3 37,10.8 53.5,4 70,7 86.5,28 103,5.5" fill="none" stroke="#4FB8AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="103" cy="5.5" r="4" fill="#4FB8AE" stroke="#1E3149" stroke-width="2"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi">
+            <div class="label">Materials Received</div>
+            <div class="value">5</div>
+            <div class="note">3 awaiting pricing</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Materials Consumed</div>
+            <div class="value">8</div>
+            <div class="note">across 3 reporting sites</div>
+          </div>
+          <div class="kpi">
+            <div class="label">RMC Used</div>
+            <div class="value">14 <small>m³</small></div>
+            <div class="note">ready-mix concrete</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Machinery In Use</div>
+            <div class="value">6</div>
+            <div class="note">on active sites</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Expenses Today</div>
+            <div class="value money">₹18,450</div>
+            <div class="spark" aria-label="Daily expenses, last 7 days: 21,000; 15,000; 32,000; 12,000; 24,000; 8,000; 18,450 rupees">
+              <svg viewBox="0 0 110 34" preserveAspectRatio="none" role="img" aria-hidden="true">
+                <path d="M4,15 L20.5,21 L37,4 L53.5,24 L70,12 L86.5,28 L103,17.6 L103,33 L4,33 Z" fill="#4FB8AE" opacity="0.12"/>
+                <polyline points="4,15 20.5,21 37,4 53.5,24 70,12 86.5,28 103,17.6" fill="none" stroke="#4FB8AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="103" cy="17.6" r="4" fill="#4FB8AE" stroke="#1E3149" stroke-width="2"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- ============ WARM PAPER CONTENT ============ -->
+      <div class="content">
+
+        <!-- Needs your attention -->
+        <section>
+          <div class="section-head">
+            <h2>Needs your attention <span class="count-pill">3</span></h2>
+            <span class="tag">each flag inline &amp; individually actionable · 3+ missing-report flags fold behind a defaults-open summary</span>
+          </div>
+          <div class="card queue">
+            <div class="q-row sev-1">
+              <span class="q-rank">1</span>
+              <p class="q-msg"><b>Riverside Villas</b> has not submitted a Daily Report yet today.
+                <span class="why">Wagholi · Active · last report yesterday</span></p>
+              <a class="btn btn-primary btn-sm" href="#">View Site</a>
+            </div>
+            <div class="q-row sev-2">
+              <span class="q-rank">2</span>
+              <p class="q-msg"><b>3 inward entries</b> are waiting for pricing.
+                <span class="why">Recorded at the gate without rate — excluded from money figures until priced</span></p>
+              <a class="btn btn-primary btn-sm" href="#">Add Pricing</a>
+            </div>
+            <div class="q-row sev-3">
+              <span class="q-rank">3</span>
+              <p class="q-msg"><b>1 Site Contract</b> is still Draft, missing commercial terms.
+                <span class="why">No payable can accrue until terms are set</span></p>
+              <a class="btn btn-primary btn-sm" href="#">Review Subcontractors</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Per-site operations table -->
+        <section>
+          <div class="section-head">
+            <h2>Site operations — today</h2>
+            <a class="ghostlink" href="#">View all sites
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+            </a>
+          </div>
+          <div class="card" style="overflow:hidden">
+            <table>
+              <thead>
+                <tr>
+                  <th>Site</th>
+                  <th>Status</th>
+                  <th>Today's Daily Report</th>
+                  <th class="num">Labour</th>
+                  <th class="num">Received</th>
+                  <th class="num">Consumed</th>
+                  <th class="num">Expenses today</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><div class="site-name">Sunrise Heights — Phase 2</div><div class="site-loc">Baner</div></td>
+                  <td><span class="chip chip-success">Active</span></td>
+                  <td><span class="chip chip-success">Submitted <span class="t">9:42 AM</span></span></td>
+                  <td class="num">24</td>
+                  <td class="num">2</td>
+                  <td class="num">4</td>
+                  <td class="num money">₹9,880</td>
+                </tr>
+                <tr>
+                  <td><div class="site-name">Kharadi Warehouse</div><div class="site-loc">Kharadi</div></td>
+                  <td><span class="chip chip-success">Active</span></td>
+                  <td><span class="chip chip-success">Submitted <span class="t">10:15 AM</span></span></td>
+                  <td class="num">18</td>
+                  <td class="num">2</td>
+                  <td class="num">3</td>
+                  <td class="num money">₹6,320</td>
+                </tr>
+                <tr class="row-warn">
+                  <td><div class="site-name">Riverside Villas</div><div class="site-loc">Wagholi</div></td>
+                  <td><span class="chip chip-success">Active</span></td>
+                  <td><span class="chip chip-warning strong">No Daily Report yet today</span></td>
+                  <td class="num dash">—</td>
+                  <td class="num dash">—</td>
+                  <td class="num dash">—</td>
+                  <td class="num dash">—</td>
+                </tr>
+                <tr class="row-muted">
+                  <td><div class="site-name">MIDC Factory Shed</div><div class="site-loc">Bhosari</div></td>
+                  <td><span class="chip chip-warning">On Hold</span></td>
+                  <td><span class="dash">—</span></td>
+                  <td class="num dash">—</td>
+                  <td class="num dash">—</td>
+                  <td class="num dash">—</td>
+                  <td class="num dash">—</td>
+                </tr>
+                <tr>
+                  <td><div class="site-name">Godown</div><div class="site-loc">Central stock point</div></td>
+                  <td><span class="chip chip-neutral">Stock</span></td>
+                  <td><span class="chip chip-success">Submitted <span class="t">8:55 AM</span></span></td>
+                  <td class="num dash">—</td>
+                  <td class="num">1</td>
+                  <td class="num">1</td>
+                  <td class="num money">₹2,250</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="3">Today across all sites</td>
+                  <td class="num">42</td>
+                  <td class="num">5</td>
+                  <td class="num">8</td>
+                  <td class="num money">₹18,450</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+
+        <!-- Inventory low-stock strip -->
+        <section>
+          <div class="card inv">
+            <span class="lead">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              3 materials low
+            </span>
+            <span class="inv-item"><b>Cement OPC 53 Grade</b> — 12 bags left</span>
+            <span class="inv-item"><b>TMT Steel 12mm</b> — 0.4 T</span>
+            <span class="inv-item"><b>River Sand</b> — 2 brass</span>
+            <a class="ghostlink" href="#">View Inventory
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+            </a>
+          </div>
+        </section>
+
+        <!-- Money strip -->
+        <section>
+          <div class="section-head">
+            <h2>Money</h2>
+          </div>
+          <div class="moneygrid">
+            <div class="mcard">
+              <div class="label">Expenses This Month</div>
+              <div class="value">₹4,82,300</div>
+              <p class="meta">₹96,150 this week — largest: Diesel &amp; Fuel</p>
+              <a class="ghostlink" href="#">View Expenses
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+              </a>
+            </div>
+            <div class="mcard">
+              <div class="label">Vendor Outstanding</div>
+              <div class="value">₹6,45,000</div>
+              <p class="meta">Purchases not yet marked Paid, across all Vendors · <span class="pending">excludes 3 entries pending pricing</span></p>
+              <a class="ghostlink" href="#">View Vendors
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+              </a>
+            </div>
+            <div class="mcard">
+              <div class="label">Outstanding to Subcontractors</div>
+              <div class="value">₹2,10,000</div>
+              <p class="meta">Across every Site Contract's payable minus paid</p>
+              <a class="ghostlink" href="#">View Subcontractors
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+              </a>
+            </div>
+            <div class="mcard hero">
+              <div class="label">Cash Tied Up</div>
+              <div class="value">₹8,69,200</div>
+              <p class="meta">Vendor dues ₹6,45,000 + Outstanding Advances ₹14,200 (5 Team Members) + Subcontractor payables ₹2,10,000 · 4 Pending Payments</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Recently viewed + degraded-state inset -->
+        <div class="tail">
+          <section class="card recent">
+            <div class="section-head">
+              <h2 style="font-size:17px">Recently viewed</h2>
+              <span class="tag">device-local jump chips (localStorage)</span>
+            </div>
+            <div class="chips">
+              <a class="rchip" href="#">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                <span class="kind">Team</span> Prakash Jadhav
+              </a>
+              <a class="rchip" href="#">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 8.3L12 13l8.7-4.7"/><path d="M12 22V13"/></svg>
+                <span class="kind">Material</span> Cement OPC 53
+              </a>
+              <a class="rchip" href="#">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <span class="kind">Site</span> Sunrise Heights — Phase 2
+              </a>
+              <a class="rchip" href="#">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-4h6v4"/></svg>
+                <span class="kind">Vendor</span> Sagar Traders
+              </a>
+            </div>
+          </section>
+
+          <aside class="inset">
+            <span class="tag">state variant — transient read failure on one Money card. Honest "—", never ₹0 or NaN; the rest of the page still renders.</span>
+            <div class="mini">
+              <div class="label">Vendor Outstanding</div>
+              <div class="value">—</div>
+              <div class="meta">Couldn't load right now</div>
+            </div>
+          </aside>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction B — Morning Briefing · Owner Dashboard redesign</title>
+<style>
+/* ============================================================================
+   DIRECTION B — MORNING BRIEFING · Owner Dashboard redesign (2026-09-08)
+   All base values from DESIGN.md frontmatter (colors / type / radius / spacing).
+
+   NEW VISUAL DECISIONS — extensions to the token system, for later promotion
+   into DESIGN.md if this direction is picked:
+
+   1. page-wash-warm — a very subtle warm gradient wash on the page canvas:
+      linear-gradient(180deg, rgba(251,240,218,.55) 0%, rgba(251,240,218,0) 340px)
+      layered over surface-0 (#FBFAF7). It is gold-100 at 55% fading to nothing;
+      the canvas token underneath is unchanged. Candidate token: `page-wash-warm`.
+
+   2. shadow-2-warm — the briefing card shadow recipe. Extends shadow-2 with a
+      warm, wide ambient pass so cards read as paper lifted off warm paper:
+      `0 1px 2px rgba(27,36,48,.05), 0 10px 28px rgba(150,112,15,.08)`.
+      Hover pair `shadow-2-warm-hover`:
+      `0 2px 4px rgba(27,36,48,.06), 0 16px 40px rgba(150,112,15,.12)` + translateY(-2px).
+      (rgba base 150,112,15 = gold-700.)
+
+   3. delta-chip — vs-yesterday delta chip on KPI cells. Pill (rounded.full),
+      caption size 12px/600, arrow glyph + text (never color alone):
+      · direction is favourable  → success-100 bg / success-700 text
+      · direction is unfavourable → danger-100 bg / danger-700 text
+      · direction not meaningful, or no change → surface-2 bg / ink-500 text
+      "Favourable" = direction × whether up is good for that metric, NOT up=green.
+
+   4. priority-stack — the "N things need you" hero treatment. Rank numeral
+      22px/700 warning-700 inside a 36px warning-100 disc; card body stays calm
+      surface-1 with a 3px warm left rule in #E8CC8F (reuses the existing
+      gap-flag border token); one-line "why it matters" in ink-700; exactly one
+      primary action per item. Warning-toned, never danger, never a red wall.
+
+   5. kpi-band — the seven Today KPIs share ONE card (surface-1, shadow-2-warm)
+      as columns divided by border-hairline rules, instead of seven separate
+      tiles. Composition change only; cell anatomy = caption label, numeral,
+      delta-chip, optional sparkline.
+
+   6. chart-palette usage — single-series charts use the validated categorical
+      slot 1 teal #00968A for marks only (never text): 7-day spend bars render
+      prior days in the de-emphasis tint #BADED9 (slot-1 teal mixed to the
+      surface) and TODAY in full #00968A, with one selective direct label on
+      today only; sparklines are 2px #00968A lines with an 8px end-dot wearing
+      a 2px surface ring. Status tokens are never used as series colors.
+      Categorical order teal #00968A → gold #C08420 → blue #4A72B8 is fixed.
+
+   7. annotation-tag — mockup-only spec notes (dashed hairline pill, 10.5px,
+      ink-500). Not a product component; strip before any build.
+   ========================================================================== */
+
+:root{
+  --surface-0:#FBFAF7; --surface-1:#FFFFFF; --surface-2:#F3F1EA; --surface-3:#EAE6DA;
+  --border-hairline:#E4E0D3; --border-strong:#D2CBB8;
+  --ink-900:#1B2430; --ink-700:#3E4757; --ink-500:#6B7280; --ink-on-accent:#F7F5EE;
+  --teal-900:#0B3B3E; --teal-700:#0F5257; --teal-600:#14666C; --teal-100:#E4EFEE;
+  --navy-800:#16273E; --navy-600:#223A5E;
+  --gold-700:#96700F; --gold-500:#C7912B; --gold-100:#FBF0DA;
+  --success-700:#1E6B45; --success-100:#E4F3EA;
+  --danger-700:#A32E2E; --danger-100:#FBE7E5;
+  --warning-700:#8A5A12; --warning-100:#FBF0DA; --gapflag-border:#E8CC8F;
+  --chart-teal:#00968A; --chart-teal-dim:#BADED9; --chart-gold:#C08420; --chart-blue:#4A72B8;
+  --r-sm:6px; --r-md:10px; --r-lg:14px; --r-xl:20px; --r-full:9999px;
+  --shadow-1:0 1px 2px rgba(27,36,48,.06), 0 1px 1px rgba(27,36,48,.04);
+  --shadow-2:0 4px 12px rgba(27,36,48,.08), 0 2px 4px rgba(27,36,48,.04);
+  --shadow-3:0 12px 32px rgba(27,36,48,.14), 0 4px 8px rgba(27,36,48,.06);
+  --shadow-2-warm:0 1px 2px rgba(27,36,48,.05), 0 10px 28px rgba(150,112,15,.08);
+  --shadow-2-warm-hover:0 2px 4px rgba(27,36,48,.06), 0 16px 40px rgba(150,112,15,.12);
+  --font:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--surface-2);color:var(--ink-900);
+  padding:40px 24px 72px;display:flex;flex-direction:column;align-items:center;gap:20px;
+  -webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+ul{list-style:none}
+.num{font-variant-numeric:tabular-nums lining-nums}
+.money{color:var(--gold-700);font-weight:600;font-variant-numeric:tabular-nums lining-nums}
+
+/* ---- rationale strip (mockup chrome, not product UI) ---- */
+.rationale{width:1360px;max-width:100%;background:var(--navy-800);color:var(--ink-on-accent);
+  border-radius:var(--r-lg);padding:18px 24px;font-size:13.5px;line-height:1.55;box-shadow:var(--shadow-2)}
+.rationale strong{color:#fff}
+.rationale .dir{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.05em;
+  text-transform:uppercase;background:var(--teal-600);color:#fff;border-radius:var(--r-full);
+  padding:3px 10px;margin-right:10px;vertical-align:1px}
+
+/* ---- browser frame ---- */
+.frame{width:1360px;max-width:100%;background:var(--surface-1);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-3);overflow:hidden;border:1px solid var(--border-hairline)}
+.chrome{height:44px;display:flex;align-items:center;gap:16px;padding:0 16px;
+  background:var(--surface-1);border-bottom:1px solid var(--border-hairline)}
+.chrome .dots{display:flex;gap:7px}
+.chrome .dots i{width:11px;height:11px;border-radius:50%;background:var(--surface-3);display:block}
+.chrome .url{flex:0 1 460px;margin:0 auto;background:var(--surface-2);border-radius:var(--r-full);
+  height:28px;display:flex;align-items:center;justify-content:center;gap:6px;
+  font-size:12.5px;font-weight:500;color:var(--ink-700)}
+.chrome .url svg{width:11px;height:11px;stroke:var(--ink-500)}
+.chrome .spacer{width:47px}
+
+/* ---- app shell ---- */
+.app{display:flex;align-items:stretch;min-height:1450px}
+.sidebar{width:248px;flex:0 0 248px;background:var(--navy-800);color:var(--ink-on-accent);
+  padding:20px 14px 18px;display:flex;flex-direction:column;font-size:13.5px}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 8px 18px}
+.brand .mark{width:30px;height:30px;border-radius:8px;background:var(--teal-600);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff}
+.brand b{display:block;font-size:14.5px;font-weight:650;letter-spacing:-.005em;color:#fff}
+.brand span{display:block;font-size:11px;color:rgba(247,245,238,.55)}
+.nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-md);
+  color:rgba(247,245,238,.78);font-weight:500;margin-bottom:2px}
+.nav a svg{width:15px;height:15px;stroke:currentColor;stroke-width:1.7;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;flex:0 0 15px;opacity:.9}
+.nav a.active{background:var(--teal-700);color:#fff;font-weight:600}
+.nav .group{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  color:rgba(247,245,238,.42);padding:16px 10px 6px}
+.side-foot{margin-top:auto;border-top:1px solid rgba(247,245,238,.12);padding-top:12px}
+.side-user{display:flex;align-items:center;gap:10px;padding:8px 10px}
+.side-user .av{width:30px;height:30px;border-radius:50%;background:var(--navy-600);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:650;color:#fff}
+.side-user b{display:block;font-size:13px;font-weight:600;color:#fff}
+.side-user span{display:block;font-size:11px;color:rgba(247,245,238,.55)}
+
+/* ---- main canvas: surface-0 + NEW warm page wash (decision #1) ---- */
+.main{flex:1;min-width:0;background:
+  linear-gradient(180deg, rgba(251,240,218,.55) 0%, rgba(251,240,218,0) 340px),
+  var(--surface-0);
+  padding:36px 40px 56px}
+.content{max-width:1240px;margin:0 auto}
+
+/* ---- greeting header ---- */
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--ink-500);line-height:1.4}
+h1.greeting{font-size:28px;font-weight:650;line-height:1.2;letter-spacing:-.015em;
+  color:var(--ink-900);margin-top:6px}
+.greet-sub{font-size:15px;line-height:1.55;color:var(--ink-700);margin-top:6px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-md);
+  font-size:13.5px;font-weight:600;padding:9px 16px;line-height:1;cursor:default;white-space:nowrap}
+.btn svg{width:14px;height:14px;stroke:currentColor;stroke-width:1.9;fill:none;
+  stroke-linecap:round;stroke-linejoin:round}
+.btn-primary{background:var(--teal-700);color:#fff}
+.btn-secondary{background:var(--surface-1);color:var(--ink-900);border:1px solid var(--border-strong)}
+.btn-ghost{background:transparent;color:var(--teal-700);padding:6px 8px}
+.btn-sm{font-size:12.5px;padding:7px 13px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:20px}
+.search-chip{margin-left:auto;display:inline-flex;align-items:center;gap:8px;
+  background:var(--surface-1);border:1px solid var(--border-hairline);border-radius:var(--r-full);
+  padding:8px 8px 8px 14px;font-size:13.5px;color:var(--ink-500);box-shadow:var(--shadow-1)}
+.search-chip svg{width:14px;height:14px;stroke:var(--ink-500);stroke-width:1.9;fill:none;
+  stroke-linecap:round;stroke-linejoin:round}
+.search-chip kbd{font-family:var(--font);font-size:11px;font-weight:600;color:var(--ink-700);
+  background:var(--surface-2);border:1px solid var(--border-hairline);border-radius:5px;padding:2px 6px}
+
+/* recently viewed */
+.recents{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:16px}
+.recents .lbl{font-size:12.5px;font-weight:500;color:var(--ink-500);margin-right:2px}
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface-1);
+  border:1px solid var(--border-hairline);border-radius:var(--r-full);padding:5px 12px 5px 6px;
+  font-size:12.5px;font-weight:500;color:var(--ink-700);box-shadow:var(--shadow-1)}
+.chip .k{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  border-radius:var(--r-full);padding:3px 8px}
+.chip .k.team{background:var(--teal-100);color:var(--teal-700)}
+.chip .k.mat{background:var(--surface-3);color:var(--ink-700)}
+.chip .k.site{background:var(--success-100);color:var(--success-700)}
+.chip .k.vendor{background:var(--gold-100);color:var(--gold-700)}
+
+/* annotation tags — mockup-only (decision #7) */
+.note{display:inline-flex;align-items:center;gap:5px;border:1px dashed var(--border-strong);
+  border-radius:var(--r-full);padding:3px 10px;font-size:10.5px;font-weight:500;
+  color:var(--ink-500);background:rgba(255,255,255,.6);vertical-align:2px}
+
+/* section headers */
+.sec{margin-top:44px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sec h2{font-size:21px;font-weight:650;line-height:1.3;letter-spacing:-.005em;color:var(--ink-900);margin-top:4px}
+.sec .sub{font-size:13.5px;color:var(--ink-500);margin-top:3px}
+
+/* ---- HERO: priority stack (decision #4) ---- */
+.stack{margin-top:18px;display:flex;flex-direction:column;gap:14px}
+.pcard{background:var(--surface-1);border:1px solid var(--border-hairline);
+  border-left:3px solid var(--gapflag-border);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-2-warm);padding:20px 24px;display:flex;align-items:center;gap:20px}
+.pcard .rank{flex:0 0 36px;width:36px;height:36px;border-radius:var(--r-full);
+  background:var(--warning-100);color:var(--warning-700);display:flex;align-items:center;
+  justify-content:center;font-size:22px;font-weight:700;line-height:1}
+.pcard .body{flex:1;min-width:0}
+.pcard h3{font-size:17px;font-weight:650;line-height:1.4;color:var(--ink-900)}
+.pcard .why{font-size:13.5px;line-height:1.5;color:var(--ink-700);margin-top:3px}
+.pcard .act{flex:0 0 auto}
+
+/* ---- Today KPI band (decision #5) ---- */
+.kpi-band{margin-top:18px;background:var(--surface-1);border:1px solid var(--border-hairline);
+  border-radius:var(--r-lg);box-shadow:var(--shadow-2-warm);
+  display:grid;grid-template-columns:repeat(7,1fr)}
+.kpi{padding:20px 18px 18px;border-left:1px solid var(--border-hairline);min-width:0}
+.kpi:first-child{border-left:none}
+.kpi .lbl{font-size:12.5px;font-weight:500;line-height:1.35;color:var(--ink-500);min-height:36px}
+.kpi .val{font-size:27px;font-weight:700;line-height:1.1;letter-spacing:-.02em;
+  color:var(--ink-900);margin-top:8px;font-variant-numeric:tabular-nums lining-nums}
+.kpi .val small{font-size:15px;font-weight:600;color:var(--ink-700);letter-spacing:0}
+.kpi .val.money-val{color:var(--gold-700)}
+.kpi .spark{margin-top:10px;display:block}
+
+/* delta chips (decision #3) */
+.delta{display:inline-flex;align-items:center;gap:4px;border-radius:var(--r-full);
+  font-size:12px;font-weight:600;padding:3px 9px;margin-top:9px;white-space:nowrap;
+  font-variant-numeric:tabular-nums lining-nums}
+.delta .arr{font-size:10px;line-height:1}
+.delta.up-good{background:var(--success-100);color:var(--success-700)}
+.delta.up-bad{background:var(--danger-100);color:var(--danger-700)}
+.delta.neutral{background:var(--surface-2);color:var(--ink-500)}
+
+/* ---- money story ---- */
+.money-grid{margin-top:18px;display:grid;grid-template-columns:1.08fr .92fr;gap:16px;align-items:stretch}
+.money-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:var(--surface-1);border:1px solid var(--border-hairline);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-2-warm);padding:20px 22px}
+.card .clbl{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;
+  letter-spacing:.03em;text-transform:uppercase;color:var(--ink-500)}
+.card .clbl svg{width:14px;height:14px;stroke:currentColor;stroke-width:1.7;fill:none;
+  stroke-linecap:round;stroke-linejoin:round}
+.card .cval{font-size:30px;font-weight:700;line-height:1.1;letter-spacing:-.02em;margin-top:10px;
+  font-variant-numeric:tabular-nums lining-nums;color:var(--gold-700)}
+.card .cmeta{font-size:13.5px;line-height:1.5;color:var(--ink-700);margin-top:6px}
+.card .clink{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;
+  color:var(--teal-700);margin-top:12px}
+.card .clink svg{width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none;
+  stroke-linecap:round;stroke-linejoin:round}
+.card.tied{background:linear-gradient(180deg, rgba(251,240,218,.5), rgba(251,240,218,0) 70%), var(--surface-1);
+  border-color:var(--gapflag-border)}
+.card.tied .cval{font-size:34px}
+
+/* degraded-state inset (required state variant) */
+.inset-variant{margin-top:14px;display:flex;align-items:center;gap:14px}
+.mini-card{background:var(--surface-1);border:1px solid var(--border-hairline);
+  border-radius:var(--r-md);box-shadow:var(--shadow-1);padding:12px 16px;width:250px}
+.mini-card .clbl{font-size:11px}
+.mini-card .cval{font-size:21px;margin-top:6px;color:var(--ink-500);font-weight:700}
+.mini-card .cmeta{font-size:12px;margin-top:3px;color:var(--ink-500)}
+
+/* chart card */
+.chart-card{display:flex;flex-direction:column}
+.chart-card .chead{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.chart-card h3{font-size:17px;font-weight:650;line-height:1.4;color:var(--ink-900)}
+.chart-card .csub{font-size:12.5px;color:var(--ink-500);margin-top:2px}
+.chart-card svg{width:100%;height:auto;margin-top:14px;display:block}
+.chart-card text{font-family:var(--font)}
+.chart-foot{margin-top:auto;padding-top:10px;font-size:12.5px;color:var(--ink-500)}
+
+/* also-on-the-books ledger line */
+.books{margin-top:16px;background:var(--surface-1);border:1px solid var(--border-hairline);
+  border-radius:var(--r-lg);box-shadow:var(--shadow-1);padding:14px 22px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 28px;font-size:13.5px;color:var(--ink-700)}
+.books b{font-weight:650;color:var(--ink-900)}
+.books .low{display:inline-flex;align-items:center;gap:6px}
+.books .dot{width:7px;height:7px;border-radius:50%;background:var(--warning-700);flex:0 0 7px}
+
+/* ---- site health cards ---- */
+.sites-grid{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.site-card{background:var(--surface-1);border:1px solid var(--border-hairline);
+  border-radius:var(--r-lg);box-shadow:var(--shadow-2-warm);padding:20px 22px}
+.site-card .top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.site-card h3{font-size:17px;font-weight:650;line-height:1.4;color:var(--ink-900)}
+.site-card .loc{display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500;
+  color:var(--ink-500);margin-top:3px}
+.site-card .loc svg{width:12px;height:12px;stroke:currentColor;stroke-width:1.8;fill:none;
+  stroke-linecap:round;stroke-linejoin:round}
+.badge{display:inline-flex;align-items:center;border-radius:var(--r-full);
+  font-size:11px;font-weight:600;letter-spacing:.03em;padding:4px 11px;white-space:nowrap}
+.badge.success{background:var(--success-100);color:var(--success-700)}
+.badge.warning{background:var(--warning-100);color:var(--warning-700)}
+.badge.neutral{background:var(--surface-3);color:var(--ink-700)}
+.report-state{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13.5px;font-weight:500;color:var(--ink-700)}
+.report-state .st{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+.report-state .st.ok{background:var(--success-700)}
+.report-state .st.warn{background:var(--warning-700)}
+.report-state .st.idle{background:var(--border-strong)}
+.facts{display:flex;gap:0;margin-top:14px;border-top:1px solid var(--border-hairline);padding-top:14px}
+.fact{flex:1;border-left:1px solid var(--border-hairline);padding-left:16px}
+.fact:first-child{border-left:none;padding-left:0}
+.fact .fv{font-size:19px;font-weight:700;letter-spacing:-.01em;color:var(--ink-900);
+  font-variant-numeric:tabular-nums lining-nums}
+.fact .fv.dash{color:var(--ink-500)}
+.fact .fl{font-size:11.5px;font-weight:500;color:var(--ink-500);margin-top:2px}
+.site-card.missing{background:linear-gradient(180deg, rgba(251,240,218,.65), rgba(251,240,218,.15)), var(--surface-1);
+  border-color:var(--gapflag-border)}
+.site-card .foot-act{margin-top:12px}
+</style>
+</head>
+<body>
+
+<!-- ======================= RATIONALE (mockup chrome) ======================= -->
+<div class="rationale">
+  <span class="dir">Direction B · Morning Briefing</span>
+  <strong>A calm chief-of-staff read of the morning</strong> — the page greets, then leads with the
+  three decisions that actually need Ajit, before any number is shown. It fixes the flat dashboard two ways:
+  warm editorial hierarchy with layered soft shadows replaces the uniform wall of white tiles, and every raw
+  count now carries context — a vs-yesterday delta, a 7-day spend shape, and a per-site health read — so the
+  page answers "so what?" instead of just reciting totals.
+</div>
+
+<!-- ============================ BROWSER FRAME ============================= -->
+<div class="frame">
+  <div class="chrome">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <div class="url">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      app.azentisfieldos.in/
+    </div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="app">
+
+    <!-- ============================ SIDEBAR ============================ -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="mark">A</div>
+        <div><b>AzentisFieldOS</b><span>Field operations</span></div>
+      </div>
+      <nav class="nav">
+        <a class="active" href="#"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>Dashboard</a>
+        <a href="#"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Sites</a>
+        <a href="#"><svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>Daily Report</a>
+        <div class="group">Stock</div>
+        <a href="#"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7l8.7 5 8.7-5"/><path d="M12 22V12"/></svg>Inventory</a>
+        <a href="#"><svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Movements</a>
+        <a href="#"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Materials</a>
+        <a href="#"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Waste &amp; Disposal</a>
+        <div class="group">People</div>
+        <a href="#"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Team &amp; Labour</a>
+        <a href="#"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>Payments</a>
+        <div class="group">Money</div>
+        <a href="#"><svg viewBox="0 0 24 24"><path d="M4 22V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v18"/><path d="M2 22h20"/><path d="M9 22v-4h6v4"/><path d="M9 6h1M14 6h1M9 10h1M14 10h1M9 14h1M14 14h1"/></svg>Vendors</a>
+        <a href="#"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Subcontractors</a>
+        <a href="#"><svg viewBox="0 0 24 24"><path d="M4 2h16v20l-2-1-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 8h8"/><path d="M8 12h8"/></svg>Expenses</a>
+        <a href="#"><svg viewBox="0 0 24 24"><path d="M12 2.7s6.5 7 6.5 11.3a6.5 6.5 0 0 1-13 0C5.5 9.7 12 2.7 12 2.7z"/></svg>RMC</a>
+        <div class="group">Machinery &amp; Vehicles</div>
+        <a href="#"><svg viewBox="0 0 24 24"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Machinery &amp; Vehicles</a>
+        <div class="group">Reports</div>
+        <a href="#"><svg viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>Reports</a>
+      </nav>
+      <div class="side-foot">
+        <nav class="nav">
+          <a href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Help &amp; Guides</a>
+          <a href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>Settings</a>
+        </nav>
+        <div class="side-user">
+          <div class="av">AJ</div>
+          <div><b>Ajit</b><span>Owner / Admin</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============================== MAIN ============================== -->
+    <main class="main">
+      <div class="content">
+
+        <!-- Greeting header -->
+        <div class="eyebrow">Monday, 8 September 2026 · Across all sites</div>
+        <h1 class="greeting">Good morning, Ajit — here&rsquo;s where things stand.</h1>
+        <p class="greet-sub">3 of 4 sites have reported so far. Three items are waiting on you — everything else is moving on its own.</p>
+
+        <!-- Quick actions -->
+        <div class="actions">
+          <span class="btn btn-primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New Daily Report</span>
+          <span class="btn btn-secondary"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>Employee Payment</span>
+          <span class="btn btn-secondary"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/><path d="M17 15h3"/></svg>Record Advance</span>
+          <span class="btn btn-secondary"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7l8.7 5 8.7-5"/><path d="M12 22V12"/></svg>Add Purchase</span>
+          <span class="search-chip"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Search anything&hellip;<kbd>&#8984;K</kbd></span>
+        </div>
+
+        <!-- Recently viewed -->
+        <div class="recents">
+          <span class="lbl">Recently viewed</span>
+          <span class="chip"><span class="k team">Team</span>Prakash Jadhav</span>
+          <span class="chip"><span class="k mat">Material</span>Cement OPC 53</span>
+          <span class="chip"><span class="k site">Site</span>Sunrise Heights — Phase 2</span>
+          <span class="chip"><span class="k vendor">Vendor</span>Sagar Traders</span>
+          <span class="note">device-local · last 4 opened records</span>
+        </div>
+
+        <!-- ================= HERO: priority stack ================= -->
+        <div class="sec">
+          <div>
+            <div class="eyebrow">First things first</div>
+            <h2>3 things need you</h2>
+          </div>
+          <span class="note">ranked · each deep-links to its fix · at 3+ missing-report items they fold behind a defaults-open summary</span>
+        </div>
+        <div class="stack">
+          <div class="pcard">
+            <div class="rank num">1</div>
+            <div class="body">
+              <h3>Riverside Villas has not submitted a Daily Report yet today.</h3>
+              <p class="why">Until it&rsquo;s in, today&rsquo;s labour, materials and expenses at Wagholi are invisible in every figure below.</p>
+            </div>
+            <div class="act"><span class="btn btn-primary btn-sm"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>View Site</span></div>
+          </div>
+          <div class="pcard">
+            <div class="rank num">2</div>
+            <div class="body">
+              <h3>3 inward entries are waiting for pricing.</h3>
+              <p class="why">Unpriced entries are excluded from every money figure — spend and vendor dues below are under-counted until you price them.</p>
+            </div>
+            <div class="act"><span class="btn btn-primary btn-sm"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>Add Pricing</span></div>
+          </div>
+          <div class="pcard">
+            <div class="rank num">3</div>
+            <div class="body">
+              <h3>1 Site Contract is still Draft, missing commercial terms.</h3>
+              <p class="why">Work can begin against terms nobody has agreed — its payables can&rsquo;t be tracked until the contract is finalised.</p>
+            </div>
+            <div class="act"><span class="btn btn-primary btn-sm"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Review Subcontractors</span></div>
+          </div>
+        </div>
+
+        <!-- ================= Today KPI band ================= -->
+        <div class="sec">
+          <div>
+            <div class="eyebrow">The day so far</div>
+            <h2>Today across your sites</h2>
+          </div>
+          <span class="note">deltas compare against yesterday&rsquo;s end-of-day rollup</span>
+        </div>
+        <div class="kpi-band">
+          <div class="kpi">
+            <div class="lbl">Sites Reporting Today</div>
+            <div class="val num">3</div>
+            <span class="delta up-good"><span class="arr">&#9650;</span>+1 vs yesterday</span>
+            <svg class="spark" width="96" height="32" viewBox="0 0 96 32" role="img" aria-label="Sites reporting, last 7 days">
+              <polyline points="4,4 18.7,4 33.3,16 48,4 62.7,4 77.3,28 92,16" fill="none" stroke="#00968A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="92" cy="16" r="4" fill="#00968A" stroke="#FFFFFF" stroke-width="2"/>
+            </svg>
+          </div>
+          <div class="kpi">
+            <div class="lbl">Labour Working Today</div>
+            <div class="val num">42</div>
+            <span class="delta up-good"><span class="arr">&#9650;</span>+30 vs yesterday</span>
+            <svg class="spark" width="96" height="32" viewBox="0 0 96 32" role="img" aria-label="Labour working, last 7 days">
+              <polyline points="4,8.5 18.7,6.3 33.3,10.8 48,4 62.7,7 77.3,28 92,5.5" fill="none" stroke="#00968A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="92" cy="5.5" r="4" fill="#00968A" stroke="#FFFFFF" stroke-width="2"/>
+            </svg>
+          </div>
+          <div class="kpi">
+            <div class="lbl">Materials Received Today</div>
+            <div class="val num">5</div>
+            <span class="delta neutral"><span class="arr">&ndash;</span>no change</span>
+          </div>
+          <div class="kpi">
+            <div class="lbl">Materials Consumed Today</div>
+            <div class="val num">8</div>
+            <span class="delta neutral"><span class="arr">&ndash;</span>no change</span>
+          </div>
+          <div class="kpi">
+            <div class="lbl">RMC Used Today</div>
+            <div class="val num">14 <small>m&sup3;</small></div>
+            <span class="delta neutral"><span class="arr">&#9660;</span>2 m&sup3; vs yesterday</span>
+          </div>
+          <div class="kpi">
+            <div class="lbl">Machinery In Use</div>
+            <div class="val num">6</div>
+            <span class="delta neutral"><span class="arr">&ndash;</span>no change</span>
+          </div>
+          <div class="kpi">
+            <div class="lbl">Expenses Today</div>
+            <div class="val num money-val">&#8377;18,450</div>
+            <span class="delta up-bad"><span class="arr">&#9650;</span>&#8377;10,450 vs yesterday</span>
+          </div>
+        </div>
+
+        <!-- ================= Money story ================= -->
+        <div class="sec">
+          <div>
+            <div class="eyebrow">The money story</div>
+            <h2>Money</h2>
+            <div class="sub">Unpriced inward entries are excluded from every figure here — they surface as item 2 above, never as &#8377;0.</div>
+          </div>
+        </div>
+        <div class="money-grid">
+          <div class="money-cards">
+            <div class="card">
+              <div class="clbl"><svg viewBox="0 0 24 24"><path d="M4 2h16v20l-2-1-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 8h8"/><path d="M8 12h8"/></svg>Expenses This Month</div>
+              <div class="cval">&#8377;4,82,300</div>
+              <p class="cmeta">&#8377;96,150 this week — largest: Diesel &amp; Fuel</p>
+              <span class="clink">View Expenses<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
+            </div>
+            <div class="card">
+              <div class="clbl"><svg viewBox="0 0 24 24"><path d="M4 22V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v18"/><path d="M2 22h20"/><path d="M9 22v-4h6v4"/></svg>Vendor Outstanding</div>
+              <div class="cval">&#8377;6,45,000</div>
+              <p class="cmeta">Purchases not yet marked Paid, across all Vendors</p>
+              <span class="clink">View Vendors<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
+            </div>
+            <div class="card">
+              <div class="clbl"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Outstanding to Subcontractors</div>
+              <div class="cval">&#8377;2,10,000</div>
+              <p class="cmeta">Across every Site Contract&rsquo;s payable minus paid</p>
+              <span class="clink">View Subcontractors<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
+            </div>
+            <div class="card tied">
+              <div class="clbl"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>Cash Tied Up</div>
+              <div class="cval">&#8377;8,69,200</div>
+              <p class="cmeta">Vendor dues + Labour advances + Subcontractor payables still outstanding</p>
+            </div>
+          </div>
+          <div class="card chart-card">
+            <div class="chead">
+              <div>
+                <h3>Daily spend, last 7 days</h3>
+                <div class="csub">All sites · expenses recorded per day</div>
+              </div>
+            </div>
+            <!-- Single series: no legend. Prior days in de-emphasis teal, today in
+                 full teal #00968A; one selective direct label on today only.
+                 Solid hairline grid, one axis, clean rounded ticks. -->
+            <svg viewBox="0 0 460 190" role="img" aria-label="Bar chart of daily expenses over the last 7 days: Tuesday 21,000; Wednesday 15,000; Thursday 32,000; Friday 12,000; Saturday 24,000; Sunday 8,000; today 18,450 rupees.">
+              <!-- gridlines: solid hairlines, one shade off surface -->
+              <line x1="54" y1="160" x2="450" y2="160" stroke="#E4E0D3" stroke-width="1"/>
+              <line x1="54" y1="116" x2="450" y2="116" stroke="#EFECE2" stroke-width="1"/>
+              <line x1="54" y1="72"  x2="450" y2="72"  stroke="#EFECE2" stroke-width="1"/>
+              <line x1="54" y1="29"  x2="450" y2="29"  stroke="#EFECE2" stroke-width="1"/>
+              <!-- y ticks -->
+              <text x="46" y="163" text-anchor="end" font-size="10.5" fill="#6B7280">0</text>
+              <text x="46" y="119" text-anchor="end" font-size="10.5" fill="#6B7280">10,000</text>
+              <text x="46" y="75"  text-anchor="end" font-size="10.5" fill="#6B7280">20,000</text>
+              <text x="46" y="32"  text-anchor="end" font-size="10.5" fill="#6B7280">30,000</text>
+              <!-- bars: 20px wide (≤24), 4px rounded data-end, square baseline -->
+              <path d="M72,160 L72,72 Q72,68 76,68 L88,68 Q92,68 92,72 L92,160 Z" fill="#BADED9"/>
+              <path d="M129,160 L129,98 Q129,94 133,94 L145,94 Q149,94 149,98 L149,160 Z" fill="#BADED9"/>
+              <path d="M185,160 L185,24 Q185,20 189,20 L201,20 Q205,20 205,24 L205,160 Z" fill="#BADED9"/>
+              <path d="M242,160 L242,111 Q242,107 246,107 L258,107 Q262,107 262,111 L262,160 Z" fill="#BADED9"/>
+              <path d="M299,160 L299,59 Q299,55 303,55 L315,55 Q319,55 319,59 L319,160 Z" fill="#BADED9"/>
+              <path d="M355,160 L355,129 Q355,125 359,125 L371,125 Q375,125 375,129 L375,160 Z" fill="#BADED9"/>
+              <path d="M412,160 L412,83 Q412,79 416,79 L428,79 Q432,79 432,83 L432,160 Z" fill="#00968A"/>
+              <!-- selective direct label: today only -->
+              <text x="422" y="70" text-anchor="middle" font-size="12" font-weight="600" fill="#1B2430">&#8377;18,450</text>
+              <!-- x labels -->
+              <text x="82"  y="177" text-anchor="middle" font-size="10.5" fill="#6B7280">Tue</text>
+              <text x="139" y="177" text-anchor="middle" font-size="10.5" fill="#6B7280">Wed</text>
+              <text x="195" y="177" text-anchor="middle" font-size="10.5" fill="#6B7280">Thu</text>
+              <text x="252" y="177" text-anchor="middle" font-size="10.5" fill="#6B7280">Fri</text>
+              <text x="309" y="177" text-anchor="middle" font-size="10.5" fill="#6B7280">Sat</text>
+              <text x="365" y="177" text-anchor="middle" font-size="10.5" fill="#6B7280">Sun</text>
+              <text x="422" y="177" text-anchor="middle" font-size="10.5" font-weight="600" fill="#3E4757">Today</text>
+            </svg>
+            <div class="chart-foot">Sunday ran light, as usual. This week is tracking at <span class="money num">&#8377;96,150</span>. <span class="note">hover a bar for its exact day &amp; value · table view available</span></div>
+          </div>
+        </div>
+
+        <!-- Degraded-state variant (required) -->
+        <div class="inset-variant">
+          <div class="mini-card">
+            <div class="clbl">Vendor Outstanding</div>
+            <div class="cval num">&mdash;</div>
+            <div class="cmeta">Couldn&rsquo;t load right now</div>
+          </div>
+          <span class="note">state variant — any money card whose read fails renders an honest &ldquo;&mdash;&rdquo;, never &#8377;0 or NaN; the rest of the page still loads</span>
+        </div>
+
+        <!-- Also on the books -->
+        <div class="books">
+          <span><b>Also on the books:</b></span>
+          <span class="num">Outstanding Advances <span class="money">&#8377;14,200</span> across 5 Team Members</span>
+          <span class="num">4 Pending Payments</span>
+          <span class="low"><span class="dot"></span><span class="num">3 materials low — Cement OPC 53 Grade (12 bags left) · TMT Steel 12mm (0.4 T) · River Sand (2 brass)</span></span>
+        </div>
+
+        <!-- ================= Site health ================= -->
+        <div class="sec">
+          <div>
+            <div class="eyebrow">Site by site</div>
+            <h2>How each site is doing</h2>
+          </div>
+          <span class="btn btn-ghost btn-sm">View all sites<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
+        </div>
+        <div class="sites-grid">
+
+          <div class="site-card">
+            <div class="top">
+              <div>
+                <h3>Sunrise Heights — Phase 2</h3>
+                <div class="loc"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Baner</div>
+              </div>
+              <span class="badge success">Active</span>
+            </div>
+            <div class="report-state"><span class="st ok"></span>Daily Report submitted · 9:42 AM</div>
+            <div class="facts">
+              <div class="fact"><div class="fv num">24</div><div class="fl">Labour today</div></div>
+              <div class="fact"><div class="fv num money">&#8377;11,200</div><div class="fl">Expenses today</div></div>
+            </div>
+          </div>
+
+          <div class="site-card">
+            <div class="top">
+              <div>
+                <h3>Kharadi Warehouse</h3>
+                <div class="loc"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Kharadi</div>
+              </div>
+              <span class="badge success">Active</span>
+            </div>
+            <div class="report-state"><span class="st ok"></span>Daily Report submitted · 10:15 AM</div>
+            <div class="facts">
+              <div class="fact"><div class="fv num">18</div><div class="fl">Labour today</div></div>
+              <div class="fact"><div class="fv num money">&#8377;7,250</div><div class="fl">Expenses today</div></div>
+            </div>
+          </div>
+
+          <div class="site-card missing">
+            <div class="top">
+              <div>
+                <h3>Riverside Villas</h3>
+                <div class="loc"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Wagholi</div>
+              </div>
+              <span class="badge success">Active</span>
+            </div>
+            <div class="report-state"><span class="st warn"></span><span style="color:var(--warning-700);font-weight:600">No Daily Report yet today</span></div>
+            <div class="facts">
+              <div class="fact"><div class="fv dash">&mdash;</div><div class="fl">Labour today</div></div>
+              <div class="fact"><div class="fv dash">&mdash;</div><div class="fl">Expenses today</div></div>
+            </div>
+            <div class="foot-act"><span class="btn btn-secondary btn-sm"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>View Site</span> <span class="note">same gap as item 1 above — shown here in place, never a separate alerts screen</span></div>
+          </div>
+
+          <div class="site-card">
+            <div class="top">
+              <div>
+                <h3>MIDC Factory Shed</h3>
+                <div class="loc"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Bhosari</div>
+              </div>
+              <span class="badge warning">On Hold</span>
+            </div>
+            <div class="report-state"><span class="st idle"></span>No report expected — site on hold</div>
+            <div class="facts">
+              <div class="fact"><div class="fv dash">&mdash;</div><div class="fl">Labour today</div></div>
+              <div class="fact"><div class="fv dash">&mdash;</div><div class="fl">Expenses today</div></div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+</body>
+</html>
