@@ -69,6 +69,12 @@ export interface AppShellProps {
   // sign-in page's own fallback, since that page can't reach the
   // authenticated /branding-config endpoint before login.
   tenantName?: string;
+  // Same BrandingConfig row's logoUrl — null/unset renders the tenantName
+  // initial-avatar chip instead (this file's existing fallback). The three
+  // BrandingConfig colors are applied separately, as a CSS custom-property
+  // override on <html> in the root layout, not threaded as props here — see
+  // apps/web/app/layout.tsx for why that has to happen higher in the tree.
+  logoUrl?: string | null;
   children: ReactNode;
 }
 
@@ -111,6 +117,7 @@ function SidebarNav({
   pathname,
   role,
   tenantName,
+  logoUrl,
   onNavigate,
   pwaAvailable,
   onRequestInstall,
@@ -120,6 +127,7 @@ function SidebarNav({
   pathname: string;
   role: Role;
   tenantName: string;
+  logoUrl?: string | null;
   onNavigate?: () => void;
   pwaAvailable: boolean;
   onRequestInstall: () => void;
@@ -138,9 +146,16 @@ function SidebarNav({
   return (
     <>
       <div className="mb-6 flex items-center gap-2 px-2">
-        <div className="flex size-8 items-center justify-center rounded-md bg-accent-teal-700 text-body-sm font-bold text-white">
-          {tenantName[0]}
-        </div>
+        {logoUrl ? (
+          <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white p-1">
+            {/* eslint-disable-next-line @next/next/no-img-element -- runtime tenant logo, not a build-time asset */}
+            <img src={logoUrl} alt="" className="size-full object-contain" />
+          </div>
+        ) : (
+          <div className="flex size-8 items-center justify-center rounded-md bg-accent-teal-700 text-body-sm font-bold text-white">
+            {tenantName[0]}
+          </div>
+        )}
         <div className="text-card-title font-semibold tracking-tight">{tenantName}</div>
       </div>
 
@@ -406,11 +421,13 @@ function SidebarShell({
   pathname,
   role,
   tenantName,
+  logoUrl,
   children,
 }: {
   pathname: string;
   role: Role;
   tenantName: string;
+  logoUrl?: string | null;
   children: ReactNode;
 }) {
   const [navOpen, setNavOpen] = useState(false);
@@ -464,6 +481,7 @@ function SidebarShell({
             pathname={pathname}
             role={role}
             tenantName={tenantName}
+            logoUrl={logoUrl}
             pwaAvailable={pwaInstall.available}
             onRequestInstall={() => setInstallDialogOpen(true)}
             onOpenSearch={() => search.setOpen(true)}
@@ -523,6 +541,7 @@ function SidebarShell({
                 pathname={pathname}
                 role={role}
                 tenantName={tenantName}
+                logoUrl={logoUrl}
                 onNavigate={() => setNavOpen(false)}
                 pwaAvailable={pwaInstall.available}
                 onRequestInstall={() => setInstallDialogOpen(true)}
@@ -574,7 +593,7 @@ function SidebarShell({
   );
 }
 
-export function AppShell({ role, tenantName, children }: AppShellProps) {
+export function AppShell({ role, tenantName, logoUrl, children }: AppShellProps) {
   const pathname = usePathname();
   const resolvedTenantName = tenantName?.trim() || APP_DISPLAY_NAME;
 
@@ -585,7 +604,7 @@ export function AppShell({ role, tenantName, children }: AppShellProps) {
   // Action redirect carrying ?flash=) reports success through one channel.
   return (
     <ToastProvider>
-      <SidebarShell pathname={pathname} role={role} tenantName={resolvedTenantName}>
+      <SidebarShell pathname={pathname} role={role} tenantName={resolvedTenantName} logoUrl={logoUrl}>
         {children}
       </SidebarShell>
       <Toaster />

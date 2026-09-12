@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
 import { currentRole } from "@/lib/current-role";
-import { currentTenantName } from "@/lib/current-tenant-name";
+import { currentBranding } from "@/lib/current-branding";
 import { AppShell } from "./_components/app-shell";
 import AppLoading from "./loading";
 
@@ -10,10 +10,11 @@ import AppLoading from "./loading";
 // static APP_DISPLAY_NAME title once a session exists. Next generates
 // metadata independently of the body stream below, so this doesn't block it.
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: await currentTenantName() };
+  const branding = await currentBranding();
+  return { title: branding.tenantName };
 }
 
-// Perf review 2026-09-03: role/tenantName are `no-store` (deliberately —
+// Perf review 2026-09-03: role/branding are `no-store` (deliberately —
 // see Suspense boundary below, not caching, is the fix here), so this re-runs
 // on every navigation. Split into its own async component, wrapped in
 // <Suspense> below, so the server can start STREAMING (app)/loading.tsx's
@@ -23,9 +24,9 @@ export async function generateMetadata(): Promise<Metadata> {
 // skeleton) until both round-trips finished, which is exactly why every
 // tab open felt frozen rather than "loading."
 export async function AppShellWithChrome({ children }: { children: ReactNode }) {
-  const [role, tenantName] = await Promise.all([currentRole(), currentTenantName()]);
+  const [role, branding] = await Promise.all([currentRole(), currentBranding()]);
   return (
-    <AppShell role={role} tenantName={tenantName}>
+    <AppShell role={role} tenantName={branding.tenantName} logoUrl={branding.logoUrl}>
       {children}
     </AppShell>
   );
