@@ -770,3 +770,81 @@ describe('DashboardService.getTrends', () => {
     );
   });
 });
+
+// Perf consolidation (2026-09-18): the additive endpoint that folds the five
+// dashboard-owned reads into one round trip. These tests pin the two things
+// that could regress: the once-only superseded-DSR scan, and the degradation
+// contract (core reads propagate their failures; the two additive sections
+// isolate to null on their own failure).
+describe('DashboardService.getCommandCenter', () => {
+  it('composes all five dashboard-owned sections into one response', async () => {
+    const { service } = makeService({
+      reportingSiteIds: ['s1'],
+      todaysWorkingHeadcount: 4,
+      activeSitesList: [{ id: 's1', name: 'Site One' }],
+      sitesList: [
+        { id: 's1', name: 'Site One', location: 'Pune', status: 'ACTIVE' },
+      ],
+      pendingCount: 2,
+    });
+
+    const result = await service.getCommandCenter();
+
+    expect(result.today.sitesReportingToday).toBe(1);
+    expect(result.today.labourWorkingToday).toBe(4);
+    expect(result.overall.activeSites.count).toBe(1);
+    expect(result.overall.pendingPayments.count).toBe(2);
+    expect(result.sitesPreview).toHaveLength(1);
+    // Additive sections present (their own tests cover the shapes in depth).
+    expect(result.trends).not.toBeNull();
+    expect(result.siteBreakdown).not.toBeNull();
+  });
+
+  it('runs the superseded-DSR scan exactly once for the whole aggregate', async () => {
+    const { service, dailySiteReportFindMany } = makeService({
+      supersededIds: ['corrected-1'],
+    });
+
+    await service.getCommandCenter();
+
+    // getToday/getSiteBreakdown/getTrends each used to re-run this scan; the
+    // aggregate now computes it once and threads it in. The scan is the only
+    // call carrying a `where.correctsId` clause.
+    const scanCalls = dailySiteReportFindMany.mock.calls.filter(
+      (call) => (call[0] as { where?: { correctsId?: unknown } })?.where?.correctsId,
+    );
+    expect(scanCalls).toHaveLength(1);
+  });
+
+  it('isolates a failing trends read to null without losing the core tiles', async () => {
+    const { service } = makeService({ reportingSiteIds: ['s1'] });
+    vi.spyOn(service, 'getTrends').mockRejectedValue(new Error('trends down'));
+
+    const result = await service.getCommandCenter();
+
+    expect(result.trends).toBeNull();
+    // Core Today figure still resolved — the failure didn't cost the tiles.
+    expect(result.today.sitesReportingToday).toBe(1);
+  });
+
+  it('isolates a failing site-breakdown read to null without losing the core tiles', async () => {
+    const { service } = makeService({ reportingSiteIds: ['s1'] });
+    vi.spyOn(service, 'getSiteBreakdown').mockRejectedValue(
+      new Error('breakdown down'),
+    );
+
+    const result = await service.getCommandCenter();
+
+    expect(result.siteBreakdown).toBeNull();
+    expect(result.today.sitesReportingToday).toBe(1);
+  });
+
+  it('rejects the whole request when a core read (overall) fails', async () => {
+    const { service } = makeService();
+    vi.spyOn(service, 'getOverall').mockRejectedValue(new Error('overall down'));
+
+    // Same outcome as the pre-consolidation core read failing: the page
+    // error-bounds rather than rendering a half-populated dashboard.
+    await expect(service.getCommandCenter()).rejects.toThrow('overall down');
+  });
+});

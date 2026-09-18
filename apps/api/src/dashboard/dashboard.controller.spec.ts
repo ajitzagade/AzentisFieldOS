@@ -11,6 +11,7 @@ describe('DashboardController', () => {
     getSitesPreview: ReturnType<typeof vi.fn>;
     getSiteBreakdown: ReturnType<typeof vi.fn>;
     getTrends: ReturnType<typeof vi.fn>;
+    getCommandCenter: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -20,6 +21,7 @@ describe('DashboardController', () => {
       getSitesPreview: vi.fn(),
       getSiteBreakdown: vi.fn(),
       getTrends: vi.fn(),
+      getCommandCenter: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -113,5 +115,33 @@ describe('DashboardController', () => {
 
     await expect(controller.getTrends()).resolves.toBe(payload);
     expect(service.getTrends).toHaveBeenCalledTimes(1);
+  });
+
+  it('GET /dashboard/command-center delegates to DashboardService.getCommandCenter', async () => {
+    const payload = {
+      today: {
+        sitesReportingToday: 2,
+        labourWorkingToday: 42,
+        materialsReceivedToday: 6,
+        materialsConsumedToday: 18,
+        rmcUsedTodayM3: 42,
+        machineryInUse: 8,
+        expensesToday: 86400,
+        sitesMissingDsrToday: [],
+      },
+      overall: {
+        activeSites: { count: 2, names: ['NH-48 Widening', 'Metro Depot'] },
+        inventory: { lowStockCount: 3 },
+        outstandingAdvances: { total: 314200, teamMemberCount: 9 },
+        pendingPayments: { count: 4 },
+      },
+      sitesPreview: [],
+      trends: null,
+      siteBreakdown: null,
+    };
+    service.getCommandCenter.mockResolvedValue(payload);
+
+    await expect(controller.getCommandCenter()).resolves.toBe(payload);
+    expect(service.getCommandCenter).toHaveBeenCalledTimes(1);
   });
 });

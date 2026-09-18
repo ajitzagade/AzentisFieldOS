@@ -78,6 +78,20 @@ interface TrendDay {
   expensesTotal: number;
 }
 
+// GET /dashboard/command-center (perf 2026-09-18) — the five dashboard-owned
+// reads in one round trip. trends/siteBreakdown are nullable (additive
+// context, degraded server-side on their own failure); today/overall/
+// sitesPreview are always present (a failure of any rejects the whole
+// request, error-bounding the page exactly as the three separate core reads
+// did before). Mirrors DashboardService.CommandCenter.
+interface CommandCenter {
+  today: TodayActivity;
+  overall: OverallRollup;
+  sitesPreview: SitePreview[];
+  trends: { days: TrendDay[] } | null;
+  siteBreakdown: SiteBreakdown | null;
+}
+
 // GET /stock/low-stock (Story 5.7's existing endpoint) — quantities travel
 // as strings (Decimal-safe), formatted here for display.
 interface LowStockMaterial {
@@ -134,21 +148,23 @@ const onNavyGhostClass =
 
 export async function OwnerDashboard() {
   const [
-    today,
-    overall,
-    sitesPreview,
+    commandCenter,
     rawExpenseSummary,
     rawVendorOutstanding,
     pendingPricingCount,
     subcontractorOutstandingSummary,
     draftPendingTermsCount,
-    rawTrends,
-    siteBreakdown,
     rawLowStock,
   ] = await Promise.all([
-    getJSON<TodayActivity>("/dashboard/today"),
-    getJSON<OverallRollup>("/dashboard/overall"),
-    getJSON<SitePreview[]>("/dashboard/sites-preview"),
+    // Perf consolidation (2026-09-18): the five dashboard-owned reads
+    // (today/overall/sites-preview/trends/site-breakdown) in ONE round trip.
+    // The degradation contract is unchanged — it now lives server-side: a
+    // core failure (today/overall/sitesPreview) rejects this request and
+    // error-bounds the page, while trends/siteBreakdown come back null on
+    // their own failure. The six reads below stay separate because other
+    // epics own them (and /expenses/summary, /stock/low-stock are shared with
+    // the Expenses and Inventory pages).
+    getJSON<CommandCenter>("/dashboard/command-center"),
     getJSONSafe<ExpenseSummary>("/expenses/summary"),
     // Vendor money outstanding — one DB-side groupBy aggregate
     // (PurchasesService.outstandingAcrossVendors), not one HTTP round trip
@@ -161,13 +177,13 @@ export async function OwnerDashboard() {
     // degrades-to-null-silently pattern as the Vendor/D7 reads above.
     getJSONSafe<{ totalOutstanding: number }>("/site-contracts/outstanding-summary"),
     getJSONSafe<number>("/site-contracts/count/draft-pending-terms"),
-    // Command Center additions — both additive context: a failed trends
-    // read drops the sparklines, a failed breakdown read degrades the Site
-    // operations table to its shared error state; nothing else moves.
-    getJSONSafe<{ days: TrendDay[] }>("/dashboard/trends"),
-    getJSONSafe<SiteBreakdown>("/dashboard/site-breakdown"),
     getJSONSafe<LowStockMaterial[]>("/stock/low-stock"),
   ]);
+  // trends/siteBreakdown arrive null when their server-side computation failed
+  // (isolated in getCommandCenter): a null trends drops the sparklines, a null
+  // siteBreakdown degrades the Site operations table to its shared error
+  // state; nothing else moves.
+  const { today, overall, sitesPreview, trends: rawTrends, siteBreakdown } = commandCenter;
   // Story 19.5: only fire the extra read when it can actually be used —
   // exactly one pending Purchase. >1 or 0 skip it entirely and the gap-flag
   // (which doesn't render at all for 0) falls back to the filtered list.

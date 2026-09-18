@@ -83,23 +83,42 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+// Hover/focus/touch-intent prefetch (Next 16's recommended answer to the
+// "too many prefetches" tradeoff — see node_modules/next/dist/docs/01-app/
+// 02-guides/prefetching.md, "Hover-triggered prefetch"). `prefetch={false}`
+// disables prefetch entirely so the destination's full RSC round-trip only
+// begins on click; `prefetch={null}` restores default prefetching (which,
+// for these dynamic routes, fetches only the cheap shell up to the shared
+// (app)/loading.tsx boundary, not the data-heavy page). We start at `false`
+// and flip to `null` the moment a user signals intent, so navigation feels
+// instant without the original problem this replaced: a full sidebar render
+// used to fire an RSC prefetch for every one of the ~12 visible nav items on
+// every page load (all aborted on the next nav — real sustained load that,
+// when removed, cut a full e2e run from ~16 min to ~2). Intent-gating keeps
+// that win — only the link a user actually reaches for is ever prefetched,
+// never all 12 in the viewport — while restoring perceived nav speed.
+function useIntentPrefetch() {
+  const [intent, setIntent] = useState(false);
+  const arm = () => setIntent(true);
+  return {
+    prefetch: intent ? null : (false as const),
+    onPointerEnter: arm,
+    onFocus: arm,
+    onTouchStart: arm,
+  };
+}
+
 function NavLink({ item, active, onNavigate }: { item: NavItem; active: boolean; onNavigate?: () => void }) {
   const Icon = item.icon;
+  const { prefetch, onPointerEnter, onFocus, onTouchStart } = useIntentPrefetch();
   return (
     <Link
       href={item.href}
       onClick={onNavigate}
-      // Confirmed via direct reproduction (2026-09-07): every full sidebar
-      // render fires an RSC prefetch GET for every visible nav item (~12
-      // concurrent requests per page load), all of which the browser
-      // aborts on the next navigation before they resolve. Against a
-      // single local Node process this is real, sustained load — it
-      // correlates with "The destination stream closed early" server
-      // noise seen throughout the e2e run, and measurably eliminating it
-      // (confirmed before/after) let a full e2e run finish in ~2 minutes
-      // instead of ~16. The sidebar is present on every authenticated
-      // page, so this isn't optional prefetch a user benefits from.
-      prefetch={false}
+      prefetch={prefetch}
+      onPointerEnter={onPointerEnter}
+      onFocus={onFocus}
+      onTouchStart={onTouchStart}
       className={cn(
         "flex items-center gap-3 rounded-md px-3 py-2 text-body-sm font-medium transition-colors duration-(--default-transition-duration) ease-(--ease-standard)",
         active ? "bg-accent-teal-700 text-white" : "text-ink-on-accent/80 hover:bg-white/10 hover:text-ink-on-accent",
@@ -107,6 +126,38 @@ function NavLink({ item, active, onNavigate }: { item: NavItem; active: boolean;
     >
       <Icon className="size-4 shrink-0" />
       {item.label}
+    </Link>
+  );
+}
+
+// A mobile quick-bar link with the same intent-prefetch behaviour as NavLink.
+// Extracted into its own component (rather than inlined in the quick-bars'
+// .map) because useIntentPrefetch is a hook and can't be called inside a loop
+// callback. aria-current/active styling stay the caller's responsibility via
+// `className`; this only owns the prefetch-intent wiring.
+function QuickBarLink({
+  href,
+  active,
+  className,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  className: string;
+  children: ReactNode;
+}) {
+  const { prefetch, onPointerEnter, onFocus, onTouchStart } = useIntentPrefetch();
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      prefetch={prefetch}
+      onPointerEnter={onPointerEnter}
+      onFocus={onFocus}
+      onTouchStart={onTouchStart}
+      className={className}
+    >
+      {children}
     </Link>
   );
 }
@@ -282,11 +333,10 @@ function SupervisorQuickBar({ pathname }: { pathname: string }) {
           const Icon = item.icon;
           const active = isActive(pathname, item.href);
           return (
-            <Link
+            <QuickBarLink
               key={item.href}
               href={item.href}
-              aria-current={active ? "page" : undefined}
-              prefetch={false}
+              active={active}
               className={cn(
                 "flex min-h-14 flex-1 items-center justify-center text-caption transition-colors duration-(--default-transition-duration) ease-(--ease-standard) focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none",
                 active ? "font-semibold text-accent-teal-700" : "font-medium text-ink-500 hover:text-ink-700",
@@ -301,7 +351,7 @@ function SupervisorQuickBar({ pathname }: { pathname: string }) {
                 <Icon className="size-5" />
                 {item.label}
               </span>
-            </Link>
+            </QuickBarLink>
           );
         })}
       </div>
@@ -365,11 +415,10 @@ function OwnerQuickBar({
             const Icon = item.icon;
             const active = isActive(pathname, item.href);
             return (
-              <Link
+              <QuickBarLink
                 key={item.href}
                 href={item.href}
-                aria-current={active ? "page" : undefined}
-                prefetch={false}
+                active={active}
                 className={cn(
                   "flex min-h-14 flex-1 items-center justify-center text-caption font-medium text-ink-500 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:text-ink-700 focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none",
                   active && "font-semibold text-accent-teal-700 hover:text-accent-teal-700",
@@ -384,7 +433,7 @@ function OwnerQuickBar({
                   <Icon className="size-5" />
                   {item.label}
                 </span>
-              </Link>
+              </QuickBarLink>
             );
           })}
 

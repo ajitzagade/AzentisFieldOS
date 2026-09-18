@@ -40,4 +40,12 @@ export class DashboardController {
   getTrends() {
     return this.dashboardService.getTrends();
   }
+
+  // Perf consolidation (2026-09-18): the Owner dashboard's five dashboard-owned
+  // reads in a single round trip (see DashboardService.getCommandCenter). The
+  // five individual endpoints above remain for their other consumers.
+  @Get('command-center')
+  getCommandCenter() {
+    return this.dashboardService.getCommandCenter();
+  }
 }
