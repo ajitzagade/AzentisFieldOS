@@ -3,6 +3,7 @@ import { dateRangeBounds } from '../common/date-range';
 import {
   currentDsrRowsWhere,
   supersededDsrIds,
+  SUBMITTED_DSR_WHERE,
 } from '../common/superseded-dsrs';
 import type { PrismaService } from '../prisma/prisma.service';
 
@@ -95,7 +96,8 @@ export async function getSiteActivityFeed(
       include: { vendor: true },
     }),
     prisma.dailySiteReport.findMany({
-      where: { siteId, reportDate: bounds },
+      // spec-dsr-drafts: a private DRAFT never appears in the activity feed.
+      where: { siteId, reportDate: bounds, ...SUBMITTED_DSR_WHERE },
       include: { submittedBy: true, photos: true },
     }),
     prisma.machineryMovementLog.findMany({

@@ -1,5 +1,6 @@
 import type { PhotoGalleryItem, ReportDateRange } from '@azentisfieldos/shared';
 import { dateRangeBounds } from '../common/date-range';
+import { SUBMITTED_DSR_WHERE } from '../common/superseded-dsrs';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { StorageService } from '../storage/storage.service';
 
@@ -21,7 +22,12 @@ export async function getSitePhotoGallery(
 ): Promise<PhotoGalleryItem[]> {
   const bounds = dateRangeBounds(range.from, range.to);
   const photos = await prisma.photo.findMany({
-    where: { dailySiteReport: { siteId, reportDate: bounds } },
+    // spec-dsr-drafts: a draft's photos attach to its DRAFT parent row (the
+    // FK is non-nullable) and stay hidden from the gallery until Finalize —
+    // filter them out here by the parent DSR's status.
+    where: {
+      dailySiteReport: { siteId, reportDate: bounds, ...SUBMITTED_DSR_WHERE },
+    },
     include: { dailySiteReport: true, uploadedBy: true },
     orderBy: [
       { dailySiteReport: { reportDate: 'desc' } },

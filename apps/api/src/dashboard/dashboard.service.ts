@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   currentDsrRowsWhere,
   supersededDsrIds,
+  SUBMITTED_DSR_WHERE,
 } from '../common/superseded-dsrs';
 import { SitesService } from '../sites/sites.service';
 import type { Site } from '../generated/prisma/client';
@@ -129,8 +130,9 @@ export class DashboardService {
       activeSites,
     ] = await Promise.all([
       // COUNT(DISTINCT siteId) on DailySiteReport where reportDate = today.
+      // spec-dsr-drafts: a DRAFT never counts toward "Sites Reporting".
       this.prisma.dailySiteReport.findMany({
-        where: { reportDate: dateOnly },
+        where: { reportDate: dateOnly, ...SUBMITTED_DSR_WHERE },
         distinct: ['siteId'],
         select: { siteId: true },
       }),
@@ -272,7 +274,7 @@ export class DashboardService {
       // time — a later correction row must not restate when the Site
       // actually reported.
       this.prisma.dailySiteReport.findMany({
-        where: { reportDate: dateOnly },
+        where: { reportDate: dateOnly, ...SUBMITTED_DSR_WHERE },
         select: { siteId: true, createdAt: true },
         orderBy: { createdAt: 'asc' },
       }),
@@ -381,7 +383,10 @@ export class DashboardService {
       // One row per (Site, day) that reported — corrections collapse via
       // the same distinct the Sites Reporting tile uses.
       this.prisma.dailySiteReport.findMany({
-        where: { reportDate: { gte: first.dateOnly, lte: last.dateOnly } },
+        where: {
+          reportDate: { gte: first.dateOnly, lte: last.dateOnly },
+          ...SUBMITTED_DSR_WHERE,
+        },
         select: { siteId: true, reportDate: true },
         distinct: ['siteId', 'reportDate'],
       }),

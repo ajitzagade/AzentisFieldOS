@@ -282,9 +282,13 @@ describe('DashboardService.getToday', () => {
     );
 
     // reportDate (a @db.Date column) is matched against the *local* date.
+    // spec-dsr-drafts: a DRAFT never counts toward "Sites Reporting".
     expect(dailySiteReportFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { reportDate: new Date('2026-08-27T00:00:00.000Z') },
+        where: {
+          reportDate: new Date('2026-08-27T00:00:00.000Z'),
+          status: 'SUBMITTED',
+        },
       }),
     );
     // DateTime columns are filtered on [IST-midnight, next-IST-midnight) in UTC.
@@ -613,6 +617,25 @@ describe('DashboardService.getSiteBreakdown', () => {
     });
   });
 
+  it("excludes DRAFT reports from the per-Site 'report submitted' state (spec-dsr-drafts)", async () => {
+    const { service, dailySiteReportFindMany } = makeService({
+      sitesList: roster,
+    });
+
+    await service.getSiteBreakdown(
+      new Date('2026-09-08T06:30:00.000Z'),
+      'Asia/Kolkata',
+    );
+
+    // A DRAFT must never make a Site show as "reported today" — the query
+    // filters status:'SUBMITTED'. This fails if the draft filter is dropped.
+    expect(dailySiteReportFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'SUBMITTED' }) as object,
+      }),
+    );
+  });
+
   it('filters on the local-timezone day boundary, not naive UTC midnight', async () => {
     const { service, workRecordFindMany, purchaseGroupBy } = makeService({
       sitesList: roster,
@@ -767,6 +790,18 @@ describe('DashboardService.getTrends', () => {
     // The distinct (siteId, reportDate) query is what collapses corrections.
     expect(dailySiteReportFindMany).toHaveBeenCalledWith(
       expect.objectContaining({ distinct: ['siteId', 'reportDate'] }),
+    );
+  });
+
+  it('excludes DRAFT reports from the Sites-Reporting trend (spec-dsr-drafts)', async () => {
+    const { service, dailySiteReportFindMany } = makeService();
+    await service.getTrends(now, tz);
+    // A DRAFT must never appear in the 7-day Sites-Reporting series — the
+    // query filters status:'SUBMITTED'. Fails if the draft filter is dropped.
+    expect(dailySiteReportFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'SUBMITTED' }) as object,
+      }),
     );
   });
 });

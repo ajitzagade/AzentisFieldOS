@@ -31,6 +31,8 @@ describe('DsrService.listBySiteInRange (FR-42)', () => {
             gte: new Date('2026-08-01T00:00:00.000Z'),
             lt: new Date('2026-09-01T00:00:00.000Z'),
           },
+          // spec-dsr-drafts: Site Reports show SUBMITTED only.
+          status: 'SUBMITTED',
         },
         orderBy: { reportDate: 'desc' },
       }),
@@ -44,7 +46,7 @@ describe('DsrService.listBySiteInRange (FR-42)', () => {
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { siteId: 'site1', reportDate: undefined },
+        where: { siteId: 'site1', reportDate: undefined, status: 'SUBMITTED' },
       }),
     );
   });
@@ -86,6 +88,8 @@ describe('DsrService.searchCandidates', () => {
 
     const expectedWhere = {
       id: { notIn: ['superseded-dsr-1'] },
+      // spec-dsr-drafts: a private DRAFT never surfaces in global search.
+      status: 'SUBMITTED',
       OR: [
         { site: { name: { contains: 'slip hazard', mode: 'insensitive' } } },
         {

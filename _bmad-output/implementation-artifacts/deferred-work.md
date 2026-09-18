@@ -442,3 +442,9 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: `_bmad-output/implementation-artifacts/spec-owner-dashboard-command-center.md`
   summary: Same-day activity recorded against a Site that is then soft-deleted vanishes from the site-breakdown table while remaining in the band's global counts, breaking reconciliation for that rare day.
   evidence: getSiteBreakdown buckets by the sitesService.list() roster; getToday counts purchases/consumption/expenses globally without a roster join.
+- source_spec: `_bmad-output/implementation-artifacts/spec-dsr-drafts.md`
+  summary: Dedicated "My Drafts" browsing/management screen — a cross-Site/date list of a supervisor's open Daily Report drafts with per-row resume/edit/discard, plus a Supervisor Home "continue draft" entry point.
+  evidence: Split from the DSR-drafts backbone spec (2026-09-18) to keep that spec under the 1600-token guideline. The backbone still ships resume + Save Draft + Finalize + Discard directly on the DSR form for the picked (site,date); this deferred goal is the fuller list-management UI on top.
+- source_spec: `_bmad-output/implementation-artifacts/spec-dsr-drafts.md`
+  summary: Ability to REMOVE a photo already staged into a saved draft before finalizing (resumed draft photos arrive with file undefined and can be retried but not detached).
+  evidence: Surfaced by the DSR-drafts adversarial review (2026-09-18); out of the backbone scope and a natural fit for the deferred "My Drafts" management UI.

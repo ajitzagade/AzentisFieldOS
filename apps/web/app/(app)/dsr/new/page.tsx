@@ -73,9 +73,37 @@ interface EquipmentRow {
 
 interface PhotoItem {
   localId: string;
-  file: File;
+  // Absent for a photo resumed from a saved draft — it already lives on the
+  // server (attached to the draft row), so there is nothing to (re-)upload.
+  file?: File;
   previewUrl: string;
   status: "pending" | "uploading" | "uploaded" | "failed";
+}
+
+// spec-dsr-drafts: the resume payload from GET /dsr/draft — narrative +
+// equipmentUsed from columns, sub-records rehydrated from draftContent, plus
+// any photos already attached to the draft row (gallery-hidden until Finalize).
+interface DraftResponse {
+  id: string;
+  workCompleted: string | null;
+  issuesBlockers: string | null;
+  workRecords: { teamMemberId: string; attended: boolean }[];
+  consumptions: {
+    clientGeneratedId?: string;
+    materialSizeId: string;
+    quantity: number;
+    activityReference?: string;
+  }[];
+  rmcEntries: {
+    clientGeneratedId?: string;
+    vendorId: string;
+    quantityM3: number;
+    grade: string;
+    ratePerM3: number;
+  }[];
+  expenses: { clientGeneratedId?: string; categoryId: string; amount: number; description?: string }[];
+  equipmentUsed: EquipmentRow[];
+  photos: { id: string; url: string }[];
 }
 
 function todayDate() {
@@ -139,6 +167,23 @@ function NewDsrForm() {
   const [dailySiteReportId, setDailySiteReportId] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
+  // spec-dsr-drafts: the id of the persisted DRAFT for the current
+  // (site,date), set once Save Draft succeeds or an existing draft is resumed
+  // on mount. Its presence flips the primary action from the one-shot
+  // "Submit Daily Report" to "Finalize Report" (+ Discard), since a one-shot
+  // submit alongside a live draft would create a duplicate SUBMITTED row.
+  // Declared above the render-phase reset below, which clears it on a
+  // site/date change.
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
+  // Review item 11: true when the form was pre-filled from a resumed draft, so
+  // a banner can tell the Supervisor they're continuing saved work, not
+  // starting fresh. Review item 7: Discard runs behind a confirm and is
+  // disabled while its DELETE is in flight (no double-delete).
+  const [isResumedDraft, setIsResumedDraft] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
+
   // A staged photo belongs to whichever Site/date it was captured under —
   // changing either invalidates the DSR id photos would otherwise upload
   // against, so start over rather than risk attaching a photo to the wrong
@@ -151,6 +196,11 @@ function NewDsrForm() {
     setPhotoResetKey(submissionKey);
     setPhotos([]);
     setDailySiteReportId(null);
+    // The draft is keyed per (site,date) too — the resume effect below
+    // re-resolves it for the newly-picked pair.
+    setDraftId(null);
+    setDraftSaved(false);
+    setIsResumedDraft(false);
   }
 
   const [error, setError] = useState<string | null>(null);
@@ -206,16 +256,97 @@ function NewDsrForm() {
     };
   }, [authedFetch]);
 
-  // AC #1: crew checklist pre-populated from the Site's most recent prior
-  // attendance ("yesterday" = last day this Site had any, not date - 1).
+  // spec-dsr-drafts: rehydrate the form from a resumed draft. Crew names
+  // aren't stored in draftContent, so they're re-resolved from the loaded
+  // reference data (falling back to a generic label until it arrives).
+  // Declared before the resume effect that calls it (React-compiler lint).
+  function prefillFromDraft(draft: DraftResponse) {
+    setDraftId(draft.id);
+    setIsResumedDraft(true);
+    setDailySiteReportId(draft.id);
+    setDraftSaved(false);
+    setWorkCompleted(draft.workCompleted ?? "");
+    setIssuesBlockers(draft.issuesBlockers ?? "");
+    setCrew(
+      draft.workRecords.map((w) => ({
+        teamMemberId: w.teamMemberId,
+        name: reference.teamMemberOptions.find((o) => o.value === w.teamMemberId)?.label,
+        attended: w.attended,
+      })),
+    );
+    setConsumptions(
+      draft.consumptions.map((c) => ({
+        clientGeneratedId: c.clientGeneratedId ?? crypto.randomUUID(),
+        materialSizeId: c.materialSizeId,
+        quantity: String(c.quantity),
+        activityReference: c.activityReference ?? "",
+      })),
+    );
+    setRmcEntries(
+      draft.rmcEntries.map((r) => ({
+        clientGeneratedId: r.clientGeneratedId ?? crypto.randomUUID(),
+        vendorId: r.vendorId,
+        quantityM3: String(r.quantityM3),
+        grade: r.grade,
+        ratePerM3: String(r.ratePerM3),
+      })),
+    );
+    setExpenses(
+      draft.expenses.map((e) => ({
+        clientGeneratedId: e.clientGeneratedId ?? crypto.randomUUID(),
+        categoryId: e.categoryId,
+        amount: String(e.amount),
+        description: e.description ?? "",
+      })),
+    );
+    setEquipmentUsed(draft.equipmentUsed ?? []);
+    setPhotos(
+      draft.photos.map((p) => ({ localId: p.id, previewUrl: p.url, status: "uploaded" as const })),
+    );
+  }
+
+  // spec-dsr-drafts: on picking a (site,date), first try to resume a persisted
+  // DRAFT for that pair — pre-filling the whole form (narrative + sub-records
+  // + already-attached photos) so re-entry can't double-count. Only when no
+  // draft exists do we fall back to AC #1's crew checklist pre-populated from
+  // the Site's most recent prior attendance ("yesterday" = last day this Site
+  // had any, not date - 1). One effect, so the crew-defaults fetch can never
+  // clobber a resumed draft's crew.
   useEffect(() => {
     if (!siteId || !reportDate) return;
-    authedFetch(`/dsr/defaults?siteId=${siteId}&date=${reportDate}`)
-      .then((res) => res.json())
-      .then((defaults: { teamMemberId: string; name: string }[]) => {
-        setCrew(defaults.map((d) => ({ teamMemberId: d.teamMemberId, name: d.name, attended: true })));
-      })
-      .catch(() => setCrew([]));
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await authedFetch(`/dsr/draft?siteId=${siteId}&date=${reportDate}`);
+        if (res.ok) {
+          const draft = (await res.json()) as DraftResponse | null;
+          if (!cancelled && draft) {
+            prefillFromDraft(draft);
+            return;
+          }
+        }
+      } catch {
+        // Fall through to crew defaults — a draft-fetch failure must never
+        // leave the form unusable.
+      }
+      if (cancelled) return;
+      try {
+        const res = await authedFetch(`/dsr/defaults?siteId=${siteId}&date=${reportDate}`);
+        const defaults = (await res.json()) as { teamMemberId: string; name: string }[];
+        if (!cancelled) {
+          setCrew(defaults.map((d) => ({ teamMemberId: d.teamMemberId, name: d.name, attended: true })));
+        }
+      } catch {
+        if (!cancelled) setCrew([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // prefillFromDraft is a stable closure over setters; intentionally omitted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteId, reportDate, authedFetch]);
 
   function toggleAttended(teamMemberId: string) {
@@ -248,13 +379,18 @@ function NewDsrForm() {
     setNewEquipmentId(null);
   }
 
-  async function uploadStagedPhoto(dsrId: string, localId: string, file: File) {
+  // Returns whether the upload landed — the caller (Finalize) needs to know so
+  // it can abort rather than finalize a report whose photo never reached the
+  // server (review item 7). The fire-and-forget callers ignore the result.
+  async function uploadStagedPhoto(dsrId: string, localId: string, file: File): Promise<boolean> {
     setPhotos((rows) => rows.map((p) => (p.localId === localId ? { ...p, status: "uploading" } : p)));
     try {
       await uploadPhoto(authedFetch, dsrId, file);
       setPhotos((rows) => rows.map((p) => (p.localId === localId ? { ...p, status: "uploaded" } : p)));
+      return true;
     } catch {
       setPhotos((rows) => rows.map((p) => (p.localId === localId ? { ...p, status: "failed" } : p)));
+      return false;
     }
   }
 
@@ -272,7 +408,7 @@ function NewDsrForm() {
     // away instead of waiting for another Submit click.
     if (dailySiteReportId) {
       for (const photo of newPhotos) {
-        void uploadStagedPhoto(dailySiteReportId, photo.localId, photo.file);
+        if (photo.file) void uploadStagedPhoto(dailySiteReportId, photo.localId, photo.file);
       }
     }
   }
@@ -287,8 +423,190 @@ function NewDsrForm() {
 
   function retryPhoto(localId: string) {
     const photo = photos.find((p) => p.localId === localId);
-    if (!photo || !dailySiteReportId) return;
+    if (!photo || !photo.file || !dailySiteReportId) return;
     void uploadStagedPhoto(dailySiteReportId, photo.localId, photo.file);
+  }
+
+  // spec-dsr-drafts: the one construction of the report payload, shared by the
+  // one-shot Submit, Save Draft, and Finalize. Only complete sub-record rows
+  // are sent (a half-filled material row is dropped) — same rule the one-shot
+  // submit always used, so a draft never persists an unmaterialisable row.
+  function buildPayload(): CreateDsrInput {
+    return withClientGeneratedIds({
+      siteId,
+      reportDate,
+      workCompleted: workCompleted || undefined,
+      issuesBlockers: issuesBlockers || undefined,
+      workRecords: crew.map((c) => ({ teamMemberId: c.teamMemberId, attended: c.attended })),
+      consumptions: consumptions
+        .filter((c) => c.materialSizeId && c.quantity)
+        .map((c) => ({
+          clientGeneratedId: c.clientGeneratedId,
+          materialSizeId: c.materialSizeId!,
+          quantity: Number(c.quantity),
+          activityReference: c.activityReference || undefined,
+        })),
+      rmcEntries: rmcEntries
+        .filter((r) => r.vendorId && r.quantityM3 && r.grade && r.ratePerM3)
+        .map((r) => ({
+          clientGeneratedId: r.clientGeneratedId,
+          vendorId: r.vendorId!,
+          quantityM3: Number(r.quantityM3),
+          grade: r.grade,
+          ratePerM3: Number(r.ratePerM3),
+        })),
+      expenses: expenses
+        .filter((e) => e.categoryId && e.amount)
+        .map((e) => ({
+          clientGeneratedId: e.clientGeneratedId,
+          categoryId: e.categoryId!,
+          amount: Number(e.amount),
+          description: e.description || undefined,
+        })),
+      equipmentUsed,
+    });
+  }
+
+  // spec-dsr-drafts: Save Draft — persist progress with zero module side
+  // effects. Online-only (the offline queue can't mint an auth token); a
+  // failure surfaces inline rather than falling back to the device queue,
+  // which only ever carries a full SUBMITTED submission.
+  async function handleSaveDraft() {
+    if (!siteId) return;
+    setError(null);
+    setDraftSaved(false);
+    setIsSavingDraft(true);
+    try {
+      const res = await authedFetch(`/dsr/draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPayload()),
+      });
+      if (!res.ok) {
+        setError("Couldn't save this draft. Please try again.");
+        return;
+      }
+      const draft = (await res.json()) as { id: string };
+      setDraftId(draft.id);
+      setDailySiteReportId(draft.id);
+      setDraftSaved(true);
+      // Upload any staged photos not yet on the server against the draft row.
+      for (const photo of photos) {
+        if (photo.status !== "uploaded" && photo.file) {
+          void uploadStagedPhoto(draft.id, photo.localId, photo.file);
+        }
+      }
+    } catch {
+      setError("Couldn't save this draft — check your connection and try again.");
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }
+
+  // spec-dsr-drafts: Finalize — persist the latest form state to the draft,
+  // then flip it to SUBMITTED (materialising sub-records + applying stock once,
+  // server-side, atomically). Insufficient stock rolls the whole finalize back
+  // server-side and returns a clear error; the report stays a draft.
+  async function handleFinalize() {
+    if (!siteId) return;
+    setError(null);
+    setDraftSaved(false);
+    setIsSubmitting(true);
+    try {
+      // Save first so Finalize always operates on the freshest state, even if
+      // the user edited after their last explicit Save Draft.
+      const saveRes = await authedFetch(`/dsr/draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPayload()),
+      });
+      if (!saveRes.ok) {
+        setError("Couldn't save this report before finalizing. Please try again.");
+        return;
+      }
+      const saved = (await saveRes.json()) as { id: string };
+      setDraftId(saved.id);
+      setDailySiteReportId(saved.id);
+      // Any staged photos must be on the draft row before it's finalized, or
+      // they'd stay hidden. Await them, and abort the finalize if any fails —
+      // never silently finalize a report missing a photo the Supervisor added
+      // (review item 7). Wrapped in try/catch so a rejected upload surfaces as
+      // an inline error instead of hanging the button.
+      const pendingPhotos = photos.filter((p) => p.status !== "uploaded" && p.file);
+      if (pendingPhotos.length > 0) {
+        let uploadResults: boolean[];
+        try {
+          uploadResults = await Promise.all(
+            pendingPhotos.map((p) => uploadStagedPhoto(saved.id, p.localId, p.file!)),
+          );
+        } catch {
+          uploadResults = [false];
+        }
+        if (uploadResults.some((ok) => !ok)) {
+          setError("A photo couldn't be uploaded. Retry the failed photos, then finalize again.");
+          return;
+        }
+      }
+
+      const res = await authedFetch(`/dsr/${saved.id}/finalize`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const code = (body as { error?: { code?: string; message?: string } } | null)?.error;
+        setError(
+          code?.code === "INSUFFICIENT_STOCK"
+            ? (code.message ?? "Not enough Site Stock for a Material on this report.")
+            : ((body as { message?: string } | null)?.message ??
+                "Something went wrong finalizing this report. Please try again."),
+        );
+        return;
+      }
+      setDraftId(null);
+      setIsResumedDraft(false);
+      setSyncState("synced");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  // spec-dsr-drafts: Discard — hard-delete the draft and its hidden photos.
+  // Review item 7: behind an explicit confirm (it's irreversible) and disabled
+  // while its DELETE is in flight, so a double-tap can't fire two DELETEs.
+  async function handleDiscard() {
+    if (!draftId || isDiscarding) return;
+    const confirmed = window.confirm(
+      "Discard this draft? This permanently deletes it and any photos you added, and can't be undone.",
+    );
+    if (!confirmed) return;
+
+    setIsDiscarding(true);
+    setError(null);
+    try {
+      const res = await authedFetch(`/dsr/draft/${draftId}`, { method: "DELETE" });
+      if (!res.ok) {
+        setError("Couldn't discard this draft. Please try again.");
+        return;
+      }
+      // Reset the form to a clean slate for this (site,date).
+      setDraftId(null);
+      setIsResumedDraft(false);
+      setDraftSaved(false);
+      setDailySiteReportId(null);
+      setWorkCompleted("");
+      setIssuesBlockers("");
+      setCrew([]);
+      setConsumptions([]);
+      setRmcEntries([]);
+      setExpenses([]);
+      setEquipmentUsed([]);
+      for (const photo of photos) {
+        if (photo.file) URL.revokeObjectURL(photo.previewUrl);
+      }
+      setPhotos([]);
+    } catch {
+      setError("Couldn't discard this draft — check your connection and try again.");
+    } finally {
+      setIsDiscarding(false);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -297,39 +615,7 @@ function NewDsrForm() {
     setIsSubmitting(true);
 
     try {
-      const payload: CreateDsrInput = withClientGeneratedIds({
-        siteId,
-        reportDate,
-        workCompleted: workCompleted || undefined,
-        issuesBlockers: issuesBlockers || undefined,
-        workRecords: crew.map((c) => ({ teamMemberId: c.teamMemberId, attended: c.attended })),
-        consumptions: consumptions
-          .filter((c) => c.materialSizeId && c.quantity)
-          .map((c) => ({
-            clientGeneratedId: c.clientGeneratedId,
-            materialSizeId: c.materialSizeId!,
-            quantity: Number(c.quantity),
-            activityReference: c.activityReference || undefined,
-          })),
-        rmcEntries: rmcEntries
-          .filter((r) => r.vendorId && r.quantityM3 && r.grade && r.ratePerM3)
-          .map((r) => ({
-            clientGeneratedId: r.clientGeneratedId,
-            vendorId: r.vendorId!,
-            quantityM3: Number(r.quantityM3),
-            grade: r.grade,
-            ratePerM3: Number(r.ratePerM3),
-          })),
-        expenses: expenses
-          .filter((e) => e.categoryId && e.amount)
-          .map((e) => ({
-            clientGeneratedId: e.clientGeneratedId,
-            categoryId: e.categoryId!,
-            amount: Number(e.amount),
-            description: e.description || undefined,
-          })),
-        equipmentUsed,
-      });
+      const payload: CreateDsrInput = buildPayload();
 
       // Submitting never fails from the Supervisor's point of view (Task 1)
       // — a network failure, timeout, or 5xx falls back to the local queue
@@ -376,7 +662,7 @@ function NewDsrForm() {
       setDailySiteReportId(dsr.id);
       setSyncState("synced");
       for (const photo of photos) {
-        if (photo.status !== "uploaded") {
+        if (photo.status !== "uploaded" && photo.file) {
           void uploadStagedPhoto(dsr.id, photo.localId, photo.file);
         }
       }
@@ -395,6 +681,14 @@ function NewDsrForm() {
       </Link>
       <h1 className="mb-1 text-page-title text-ink-900">Daily Report</h1>
       <p className="mb-6 text-body-sm text-ink-500">Log today&apos;s activity in under 5 minutes.</p>
+
+      {/* Review item 11: continuing saved work, not a fresh form. */}
+      {isResumedDraft ? (
+        <p role="status" className="mb-6 flex items-center gap-2 rounded-md bg-surface-2 p-3 text-body-sm text-ink-700">
+          <RotateCcwIcon className="size-5 shrink-0 text-accent-teal-700" />
+          Continuing your saved draft — nothing is posted until you finalize.
+        </p>
+      ) : null}
 
       <form onSubmit={handleSubmit}>
         <Card className="mb-4">
@@ -783,6 +1077,14 @@ function NewDsrForm() {
             Synced
           </p>
         ) : null}
+        {/* spec-dsr-drafts: a draft is explicitly inert — spell out that nothing
+            reaches Inventory/Expenses/reports until Finalize. */}
+        {draftSaved ? (
+          <p role="status" className="mb-4 flex items-center gap-2 rounded-md bg-surface-2 p-3 text-body-sm text-ink-700">
+            <CheckCircleIcon className="size-5 shrink-0 text-success-700" />
+            Draft saved — nothing posts to Inventory, Expenses, or reports until you finalize
+          </p>
+        ) : null}
 
         {error ? (
           <p role="alert" className="mb-4 text-caption text-danger-700">
@@ -790,10 +1092,64 @@ function NewDsrForm() {
           </p>
         ) : null}
 
-        <Button type="submit" isLoading={isSubmitting} disabled={!siteId} className="w-full justify-center">
-          <CheckCircleIcon className="size-4" />
-          Submit Daily Report
-        </Button>
+        {/* spec-dsr-drafts: once a draft exists, the primary action is
+            Finalize (it flips DRAFT -> SUBMITTED, applying stock once); a
+            one-shot Submit alongside a live draft would create a duplicate
+            SUBMITTED row, so it's replaced. With no draft yet, the existing
+            offline-capable one-shot Submit is unchanged. */}
+        {draftId ? (
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              onClick={handleFinalize}
+              isLoading={isSubmitting}
+              disabled={!siteId || isDiscarding}
+              className="w-full justify-center"
+            >
+              <CheckCircleIcon className="size-4" />
+              Finalize Report
+            </Button>
+            <div className="action-button-row">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleSaveDraft}
+                isLoading={isSavingDraft}
+                disabled={!siteId || isDiscarding}
+                className="flex-1 justify-center"
+              >
+                Save Draft
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleDiscard}
+                isLoading={isDiscarding}
+                disabled={isDiscarding}
+                className="flex-1 justify-center"
+              >
+                Discard
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <Button type="submit" isLoading={isSubmitting} disabled={!siteId} className="w-full justify-center">
+              <CheckCircleIcon className="size-4" />
+              Submit Daily Report
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleSaveDraft}
+              isLoading={isSavingDraft}
+              disabled={!siteId}
+              className="w-full justify-center"
+            >
+              Save Draft
+            </Button>
+          </div>
+        )}
       </form>
 
       <TeamMemberQuickCreateModal

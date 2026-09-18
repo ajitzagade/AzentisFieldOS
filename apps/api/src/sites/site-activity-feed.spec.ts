@@ -133,6 +133,36 @@ describe('getSiteActivityFeed', () => {
     );
   });
 
+  it('excludes DRAFT reports from the activity feed — the DSR query filters status:SUBMITTED (spec-dsr-drafts)', async () => {
+    const dsrFindMany = vi.fn().mockResolvedValue([]);
+    const prisma = {
+      purchase: { findMany: emptyFindMany() },
+      movement: { findMany: emptyFindMany() },
+      consumption: { findMany: emptyFindMany() },
+      returnWastage: { findMany: emptyFindMany() },
+      workRecord: { findMany: emptyFindMany() },
+      expense: { findMany: emptyFindMany() },
+      rmcEntry: { findMany: emptyFindMany() },
+      dailySiteReport: { findMany: dsrFindMany },
+      machineryMovementLog: { findMany: emptyFindMany() },
+      vehicleMovementLog: { findMany: emptyFindMany() },
+      wasteDisposal: { findMany: emptyFindMany() },
+      siteContract: { findMany: emptyFindMany() },
+      subcontractorWorkEntry: { findMany: emptyFindMany() },
+      subcontractorPayment: { findMany: emptyFindMany() },
+    } as unknown as PrismaService;
+
+    await getSiteActivityFeed(prisma, 'site-1');
+
+    // A private DRAFT (and its photos) must never appear in the feed. Fails if
+    // the draft filter is dropped.
+    expect(dsrFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'SUBMITTED' }) as object,
+      }),
+    );
+  });
+
   it('includes Site Contract, Work Entry, and Subcontractor Payment events (Epic 18), filtered via the SiteContract relation', async () => {
     const siteContractFindMany = vi.fn().mockResolvedValue([
       {
