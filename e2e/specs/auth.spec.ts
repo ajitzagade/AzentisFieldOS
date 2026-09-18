@@ -31,7 +31,9 @@ test.describe("Sign in", () => {
     await fillField(page, "Email address", OWNER_EMAIL);
     await fillField(page, "Password", "definitely-wrong-password");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
+    // Scope to the populated alert — the Base UI hydration dup bug can leave a
+    // second empty role="alert" orphan that would trip strict mode.
+    await expect(page.getByRole("alert").filter({ hasText: /\S/ }).first()).toBeVisible();
     await expect(page).toHaveURL(/\/sign-in/);
   });
 
