@@ -1,13 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { loginAsOwner } from "../../fixtures/auth";
+import { fillField, selectField } from "../../fixtures/ui";
 
 test("Owner can record a Team Advance and the Outstanding Balance updates", async ({ page }) => {
   await loginAsOwner(page);
   await page.goto("/team/new");
 
   const memberName = `E2E Advance Member ${Date.now()}`;
-  await page.getByLabel("Name").fill(memberName);
-  await page.getByLabel("Employment Type").selectOption({ label: "Daily Wage" });
+  await fillField(page, "Name", memberName);
+  await selectField(page, "Employment Type", { label: "Daily Wage" });
   await page.getByRole("button", { name: "Create Team Member" }).click();
   await expect(page).toHaveURL(/\/team$/);
 
@@ -16,7 +17,7 @@ test("Owner can record a Team Advance and the Outstanding Balance updates", asyn
   await expect(page.getByText("₹0")).toBeVisible();
 
   await page.getByRole("link", { name: "Record Advance" }).click();
-  await page.getByLabel("Amount").fill("2000");
+  await fillField(page, "Amount", "2000");
   await page.getByRole("button", { name: "Record Advance" }).click();
   await expect(page.getByText("Record this Advance?")).toBeVisible();
   await page.getByRole("button", { name: "Confirm & Submit" }).click();

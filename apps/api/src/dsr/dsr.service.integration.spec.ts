@@ -18,6 +18,7 @@ import { ConsumptionService } from '../inventory/consumption.service';
 import { RmcService } from '../rmc/rmc.service';
 import { ExpensesService } from '../expenses/expenses.service';
 import { DsrService } from './dsr.service';
+import { getSitePhotoGallery } from '../sites/site-photo-gallery';
 import type { StorageService } from '../storage/storage.service';
 
 // Real integration test against a live Postgres instance (not a mocked
@@ -38,7 +39,9 @@ describeIfDb('DsrService (integration)', () => {
   let vendorId: string;
   let categoryId: string;
   let testUserId: string;
+  let otherUserId: string;
   let sendToRole: ReturnType<typeof vi.fn>;
+  let storage: StorageService;
 
   // Story 1.8: create/correct now take the authenticated user id explicitly
   // (threaded from req.user in the controller), instead of resolving a
@@ -55,7 +58,7 @@ describeIfDb('DsrService (integration)', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.onModuleInit();
-    const storage = {
+    storage = {
       getThumbnailUrl: vi
         .fn()
         .mockResolvedValue('https://cloudinary.example/thumb'),
@@ -73,6 +76,19 @@ describeIfDb('DsrService (integration)', () => {
       },
     });
     testUserId = user.id;
+
+    // spec-dsr-drafts (review item 2): a second author, so the drafts-are-
+    // private-per-supervisor tests can assert one Supervisor never sees or
+    // deletes another's draft for the same (site,date).
+    const otherUser = await prisma.user.create({
+      data: {
+        name: 'Other Supervisor',
+        email: `other-supervisor-${crypto.randomUUID()}@example.com`,
+        passwordHash: 'test-hash',
+        role: 'SITE_SUPERVISOR',
+      },
+    });
+    otherUserId = otherUser.id;
 
     const site = await prisma.site.create({
       data: { name: 'Test Site', location: 'Test Location' },
@@ -147,6 +163,8 @@ describeIfDb('DsrService (integration)', () => {
     await prisma.rmcEntry.deleteMany({ where: { siteId } });
     await prisma.consumption.deleteMany({ where: { siteId } });
     await prisma.workRecord.deleteMany({ where: { siteId } });
+    // spec-dsr-drafts: photos FK the DSR row — clear them before the parent.
+    await prisma.photo.deleteMany({ where: { dailySiteReport: { siteId } } });
     await prisma.dailySiteReport.deleteMany({ where: { siteId } });
     await prisma.siteStock.deleteMany({ where: { siteId } });
   });
@@ -156,6 +174,8 @@ describeIfDb('DsrService (integration)', () => {
     await prisma.rmcEntry.deleteMany({ where: { siteId } });
     await prisma.consumption.deleteMany({ where: { siteId } });
     await prisma.workRecord.deleteMany({ where: { siteId } });
+    // spec-dsr-drafts: photos FK the DSR row — clear them before the parent.
+    await prisma.photo.deleteMany({ where: { dailySiteReport: { siteId } } });
     await prisma.dailySiteReport.deleteMany({ where: { siteId } });
     await prisma.siteStock.deleteMany({ where: { siteId } });
     await prisma.teamMember.deleteMany({ where: { id: teamMemberId } });
@@ -174,7 +194,9 @@ describeIfDb('DsrService (integration)', () => {
     await prisma.vendor.deleteMany({ where: { id: vendorId } });
     await prisma.expenseCategory.deleteMany({ where: { id: categoryId } });
     await prisma.site.deleteMany({ where: { id: siteId } });
-    await prisma.user.deleteMany({ where: { id: testUserId } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [testUserId, otherUserId] } },
+    });
     await prisma.onModuleDestroy();
   });
 
@@ -938,5 +960,416 @@ describeIfDb('DsrService (integration)', () => {
       correct(original.id, payload, 'Second correction of the same report'),
     ).rejects.toThrow(ConflictException);
     expect(await siteStockQuantity()).toBe('88');
+  });
+
+  // ---------- spec-dsr-drafts: DRAFT | SUBMITTED lifecycle ----------
+
+  describe('drafts (deferred sync)', () => {
+    const draftInput = (reportDate: string, quantity = 50) => ({
+      siteId,
+      reportDate,
+      workCompleted: 'Draft in progress',
+      workRecords: [{ teamMemberId, attended: true }],
+      consumptions: [{ materialSizeId, quantity }],
+      rmcEntries: [{ vendorId, quantityM3: 3, grade: 'M25', ratePerM3: 5000 }],
+      expenses: [{ categoryId, amount: 700, description: 'Draft expense' }],
+      equipmentUsed: [],
+    });
+
+    const ledgerCounts = async () => ({
+      consumptions: await prisma.consumption.count({ where: { siteId } }),
+      expenses: await prisma.expense.count({ where: { siteId } }),
+      rmcEntries: await prisma.rmcEntry.count({ where: { siteId } }),
+      workRecords: await prisma.workRecord.count({ where: { siteId } }),
+    });
+
+    it('a DRAFT creates NO ledger rows and applies NO stock delta', async () => {
+      const { id } = await service.saveDraft(
+        draftInput('2026-09-01'),
+        testUserId,
+      );
+
+      expect(await ledgerCounts()).toEqual({
+        consumptions: 0,
+        expenses: 0,
+        rmcEntries: 0,
+        workRecords: 0,
+      });
+      // Stock untouched.
+      expect(await siteStockQuantity()).toBe('1000');
+      // The draft row exists but is DRAFT and holds its sub-records as JSON.
+      const row = await prisma.dailySiteReport.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(row.status).toBe('DRAFT');
+      expect(row.draftContent).not.toBeNull();
+    });
+
+    it('a DRAFT is excluded from the /daily-activity log', async () => {
+      await service.saveDraft(draftInput('2026-09-02'), testUserId);
+      const rows = await service.listByDate('2026-09-02');
+      expect(rows).toHaveLength(0);
+    });
+
+    it('resumes the persisted draft per (site,date) via getDraft', async () => {
+      const { id } = await service.saveDraft(
+        draftInput('2026-09-03', 40),
+        testUserId,
+      );
+      const draft = await service.getDraft(siteId, '2026-09-03', testUserId);
+      expect(draft?.id).toBe(id);
+      expect(draft?.consumptions).toHaveLength(1);
+      expect(draft?.consumptions[0]?.quantity).toBe(40);
+      expect(draft?.workRecords).toHaveLength(1);
+
+      // No draft for a different date → null (empty form).
+      expect(
+        await service.getDraft(siteId, '2026-09-30', testUserId),
+      ).toBeNull();
+    });
+
+    it('a repeated saveDraft upserts the single draft row (no fork)', async () => {
+      const first = await service.saveDraft(
+        draftInput('2026-09-04', 10),
+        testUserId,
+      );
+      const second = await service.saveDraft(
+        draftInput('2026-09-04', 25),
+        testUserId,
+      );
+      expect(second.id).toBe(first.id);
+      const rows = await prisma.dailySiteReport.findMany({
+        where: { siteId, reportDate: new Date('2026-09-04') },
+      });
+      expect(rows).toHaveLength(1);
+      const draft = await service.getDraft(siteId, '2026-09-04', testUserId);
+      expect(draft?.consumptions[0]?.quantity).toBe(25);
+    });
+
+    it('Finalize materialises sub-records, decrements stock exactly once, and reveals the report', async () => {
+      const { id } = await service.saveDraft(
+        draftInput('2026-09-05'),
+        testUserId,
+      );
+      const finalized = await service.finalizeDraft(id, testUserId);
+
+      expect(finalized.status).toBe('SUBMITTED');
+      expect(finalized.consumptions).toHaveLength(1);
+      expect(finalized.expenses).toHaveLength(1);
+      expect(finalized.rmcEntries).toHaveLength(1);
+      expect(finalized.workRecords).toHaveLength(1);
+      // draftContent cleared post-finalize.
+      const row = await prisma.dailySiteReport.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(row.draftContent).toBeNull();
+
+      expect(await ledgerCounts()).toEqual({
+        consumptions: 1,
+        expenses: 1,
+        rmcEntries: 1,
+        workRecords: 1,
+      });
+      // 1000 - 50, applied once.
+      expect(await siteStockQuantity()).toBe('950');
+      // Now visible in the /daily-activity log.
+      const rows = await service.listByDate('2026-09-05');
+      expect(rows).toHaveLength(1);
+    });
+
+    it('save → resume → Finalize decrements stock exactly once (reload no-double-count)', async () => {
+      const { id } = await service.saveDraft(
+        draftInput('2026-09-06', 30),
+        testUserId,
+      );
+      // Simulate a reload: re-read the draft, then finalize the SAME row.
+      const resumed = await service.getDraft(siteId, '2026-09-06', testUserId);
+      expect(resumed?.id).toBe(id);
+      await service.finalizeDraft(id, testUserId);
+
+      expect(await prisma.consumption.count({ where: { siteId } })).toBe(1);
+      expect(await siteStockQuantity()).toBe('970');
+    });
+
+    it('Finalize with insufficient stock rolls back entirely and stays DRAFT', async () => {
+      // Only 5 in stock, draft consumes 50.
+      await seedSiteStock(5);
+      const { id } = await service.saveDraft(
+        draftInput('2026-09-07', 50),
+        testUserId,
+      );
+
+      await expect(service.finalizeDraft(id, testUserId)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      // Nothing materialised, stock untouched, row still DRAFT.
+      expect(await ledgerCounts()).toEqual({
+        consumptions: 0,
+        expenses: 0,
+        rmcEntries: 0,
+        workRecords: 0,
+      });
+      expect(await siteStockQuantity()).toBe('5');
+      const row = await prisma.dailySiteReport.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(row.status).toBe('DRAFT');
+    });
+
+    it('Finalize on a non-draft (SUBMITTED) id is rejected with 409, no double sync', async () => {
+      const { id } = await service.saveDraft(
+        draftInput('2026-09-08'),
+        testUserId,
+      );
+      await service.finalizeDraft(id, testUserId);
+      expect(await siteStockQuantity()).toBe('950');
+
+      await expect(service.finalizeDraft(id, testUserId)).rejects.toThrow(
+        ConflictException,
+      );
+      // Stock unchanged — no second decrement.
+      expect(await siteStockQuantity()).toBe('950');
+      expect(await prisma.consumption.count({ where: { siteId } })).toBe(1);
+    });
+
+    it('Discard hard-deletes the draft and its photos; no ledger rows ever existed', async () => {
+      const { id } = await service.saveDraft(
+        draftInput('2026-09-09'),
+        testUserId,
+      );
+      const photo = await prisma.photo.create({
+        data: {
+          dailySiteReportId: id,
+          storageKey: 'dsr/draft/one.jpg',
+          uploadedByUserId: testUserId,
+        },
+      });
+
+      await service.deleteDraft(id, testUserId);
+
+      expect(
+        await prisma.dailySiteReport.findUnique({ where: { id } }),
+      ).toBeNull();
+      expect(
+        await prisma.photo.findUnique({ where: { id: photo.id } }),
+      ).toBeNull();
+      expect(await ledgerCounts()).toEqual({
+        consumptions: 0,
+        expenses: 0,
+        rmcEntries: 0,
+        workRecords: 0,
+      });
+      expect(await siteStockQuantity()).toBe('1000');
+    });
+
+    it('Discard refuses a SUBMITTED report (correct it instead)', async () => {
+      const submitted = await create({
+        siteId,
+        reportDate: '2026-09-10',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+      });
+      await expect(
+        service.deleteDraft(submitted.id, testUserId),
+      ).rejects.toThrow(ConflictException);
+      // Still there.
+      expect(
+        await prisma.dailySiteReport.findUnique({
+          where: { id: submitted.id },
+        }),
+      ).not.toBeNull();
+    });
+
+    it("a draft's photos are hidden from the Site gallery until Finalize", async () => {
+      const { id } = await service.saveDraft(
+        draftInput('2026-09-11'),
+        testUserId,
+      );
+      await prisma.photo.create({
+        data: {
+          dailySiteReportId: id,
+          storageKey: 'dsr/draft/gallery.jpg',
+          uploadedByUserId: testUserId,
+        },
+      });
+
+      // Hidden while DRAFT.
+      expect(await getSitePhotoGallery(prisma, storage, siteId)).toHaveLength(
+        0,
+      );
+
+      await service.finalizeDraft(id, testUserId);
+
+      // Revealed after Finalize.
+      const gallery = await getSitePhotoGallery(prisma, storage, siteId);
+      expect(gallery).toHaveLength(1);
+      expect(gallery[0]?.dailySiteReportId).toBe(id);
+    });
+
+    it('findOne treats a DRAFT as not-found (private, unmaterialised)', async () => {
+      const { id } = await service.saveDraft(
+        draftInput('2026-09-12'),
+        testUserId,
+      );
+      await expect(service.findOne(id)).rejects.toThrow(NotFoundException);
+    });
+
+    // ---------- review items 1, 2, 6, 8 ----------
+
+    it('saveDraft is blocked with 409 once a report is already SUBMITTED for that (site,date) — use Correct', async () => {
+      await create({
+        siteId,
+        reportDate: '2026-09-13',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+      });
+
+      await expect(
+        service.saveDraft(draftInput('2026-09-13'), testUserId),
+      ).rejects.toThrow(ConflictException);
+      // No draft row was created.
+      expect(
+        await service.getDraft(siteId, '2026-09-13', testUserId),
+      ).toBeNull();
+    });
+
+    it('finalize is rejected with 409 when a SUBMITTED original already exists for the (site,date)', async () => {
+      // A draft first (allowed — nothing submitted yet)...
+      const { id } = await service.saveDraft(
+        draftInput('2026-09-14', 10),
+        testUserId,
+      );
+      // ...then a one-shot SUBMITTED report lands for the same day (create()
+      // ignores the draft and inserts its own SUBMITTED row).
+      await create({
+        siteId,
+        reportDate: '2026-09-14',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+      });
+
+      await expect(service.finalizeDraft(id, testUserId)).rejects.toThrow(
+        ConflictException,
+      );
+      // The draft is untouched (still DRAFT) and materialised nothing.
+      const row = await prisma.dailySiteReport.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(row.status).toBe('DRAFT');
+      expect(await prisma.consumption.count({ where: { siteId } })).toBe(0);
+    });
+
+    it('drafts are private per supervisor — another author never sees or deletes them, and each author keeps their own', async () => {
+      const mine = await service.saveDraft(
+        draftInput('2026-09-15', 10),
+        testUserId,
+      );
+
+      // The other Supervisor sees no draft for this (site,date)...
+      expect(
+        await service.getDraft(siteId, '2026-09-15', otherUserId),
+      ).toBeNull();
+      // ...and cannot delete mine (private ⇒ not found to them).
+      await expect(service.deleteDraft(mine.id, otherUserId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(
+        await prisma.dailySiteReport.findUnique({ where: { id: mine.id } }),
+      ).not.toBeNull();
+
+      // The other author can hold their OWN draft for the same (site,date) —
+      // the partial unique index is per-author.
+      const theirs = await service.saveDraft(
+        draftInput('2026-09-15', 20),
+        otherUserId,
+      );
+      expect(theirs.id).not.toBe(mine.id);
+      expect(
+        (await service.getDraft(siteId, '2026-09-15', otherUserId))?.id,
+      ).toBe(theirs.id);
+      expect(
+        (await service.getDraft(siteId, '2026-09-15', testUserId))?.id,
+      ).toBe(mine.id);
+    });
+
+    it('finalize preserves the draft author, even when a different user finalizes it', async () => {
+      const { id } = await service.saveDraft(
+        draftInput('2026-09-16', 10),
+        otherUserId,
+      );
+      const finalized = await service.finalizeDraft(id, testUserId);
+      // The report is still attributed to whoever built the draft.
+      expect(finalized.submittedByUserId).toBe(otherUserId);
+    });
+
+    it('correct() refuses a DRAFT target — a draft cannot be corrected', async () => {
+      const { id } = await service.saveDraft(
+        draftInput('2026-09-17'),
+        testUserId,
+      );
+      await expect(
+        correct(
+          id,
+          {
+            siteId,
+            reportDate: '2026-09-17',
+            workRecords: [],
+            consumptions: [],
+            rmcEntries: [],
+            expenses: [],
+            equipmentUsed: [],
+          },
+          'Attempted correction of a draft',
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('finalize surfaces a friendly BadRequest when a referenced entity was deleted after save', async () => {
+      // A throwaway Vendor referenced only by this draft's RMC entry.
+      const tempVendor = await prisma.vendor.create({
+        data: { name: `Temp Vendor ${crypto.randomUUID()}` },
+      });
+      const { id } = await service.saveDraft(
+        {
+          siteId,
+          reportDate: '2026-09-18',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [
+            {
+              vendorId: tempVendor.id,
+              quantityM3: 2,
+              grade: 'M25',
+              ratePerM3: 5000,
+            },
+          ],
+          expenses: [],
+          equipmentUsed: [],
+        },
+        testUserId,
+      );
+      // The Vendor vanishes before finalize.
+      await prisma.vendor.delete({ where: { id: tempVendor.id } });
+
+      await expect(service.finalizeDraft(id, testUserId)).rejects.toThrow(
+        BadRequestException,
+      );
+      // Rolled back — still a draft, nothing materialised.
+      const row = await prisma.dailySiteReport.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(row.status).toBe('DRAFT');
+      expect(await prisma.rmcEntry.count({ where: { siteId } })).toBe(0);
+    });
   });
 });

@@ -5,14 +5,19 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreateDsrInput } from '@azentisfieldos/shared';
-import { Prisma } from '../generated/prisma/client';
+import {
+  saveDraftSchema,
+  type CreateDsrInput,
+  type SaveDraftInput,
+} from '@azentisfieldos/shared';
+import { DsrStatus, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { lockOnKey } from '../common/advisory-lock';
 import { dateRangeBounds } from '../common/date-range';
 import {
   currentDsrRowsWhere,
   supersededDsrIds,
+  SUBMITTED_DSR_WHERE,
 } from '../common/superseded-dsrs';
 import { applySiteStockDelta } from '../inventory/stock-delta';
 import { StorageService } from '../storage/storage.service';
@@ -87,6 +92,167 @@ export class DsrService {
     );
   }
 
+  // spec-dsr-drafts (AD-5): the single sub-record materialisation +
+  // SiteStock application path, shared by the one-shot submit (create) and
+  // Finalize (finalizeDraft) so the two can never drift on how stock is
+  // applied — the double-count bug class this feature exists to close. It
+  // creates the WorkRecord/Consumption/RmcEntry/Expense rows and applies the
+  // signed SiteStock delta, all inside the caller's transaction. The upsert
+  // -by-clientGeneratedId + signed-difference stock logic is preserved
+  // verbatim from create()'s original inline loops so a retried offline sync
+  // (AD-8) still drains stock exactly once.
+  private async materializeSubRecords(
+    tx: Prisma.TransactionClient,
+    dsrId: string,
+    input: CreateDsrInput,
+    reportDate: Date,
+    submittedByUserId: string,
+  ) {
+    for (const workRecord of this.sortedWorkRecords(input)) {
+      // assertNoDoubleBooking's own findFirst already found this
+      // person's existing row for this date (if any) — if it exists at
+      // all, the check above already confirmed it's at this Site (a
+      // different Site would have thrown), so it's exactly the row
+      // create/update below needs. No second query.
+      const existingWorkRecord = await this.assertNoDoubleBooking(
+        tx,
+        workRecord.teamMemberId,
+        reportDate,
+        input.siteId,
+      );
+
+      const workRecordData = {
+        attended: workRecord.attended,
+        hours: workRecord.hours,
+        overtimeHours: workRecord.overtimeHours,
+        dailySiteReportId: dsrId,
+      };
+      if (existingWorkRecord) {
+        await tx.workRecord.update({
+          where: { id: existingWorkRecord.id },
+          data: workRecordData,
+        });
+      } else {
+        await tx.workRecord.create({
+          data: {
+            teamMemberId: workRecord.teamMemberId,
+            siteId: input.siteId,
+            workDate: reportDate,
+            ...workRecordData,
+          },
+        });
+      }
+    }
+
+    for (const consumption of input.consumptions) {
+      const data = {
+        siteId: input.siteId,
+        materialSizeId: consumption.materialSizeId,
+        quantity: consumption.quantity,
+        activityReference: consumption.activityReference,
+        dailySiteReportId: dsrId,
+        recordedByUserId: submittedByUserId,
+        consumedAt: reportDate,
+      };
+      // FR-12: Consumption recorded through a DSR reduces Site Stock
+      // exactly like the standalone POST /consumption path — the DSR
+      // is an entry surface, never a stock-invisible silo. A retried
+      // sync's upsert (AD-8) must apply only the *difference* against
+      // the row it already wrote, or every retry would drain stock
+      // again.
+      const existing = consumption.clientGeneratedId
+        ? await tx.consumption.findUnique({
+            where: { clientGeneratedId: consumption.clientGeneratedId },
+          })
+        : null;
+      if (consumption.clientGeneratedId) {
+        await tx.consumption.upsert({
+          where: { clientGeneratedId: consumption.clientGeneratedId },
+          update: data,
+          create: {
+            ...data,
+            clientGeneratedId: consumption.clientGeneratedId,
+          },
+        });
+      } else {
+        await tx.consumption.create({ data });
+      }
+      if (existing && existing.materialSizeId !== consumption.materialSizeId) {
+        // The resubmission moved this row to a different Material —
+        // give the previously consumed Material back, then charge the
+        // new one in full.
+        await applySiteStockDelta(
+          tx,
+          existing.siteId,
+          existing.materialSizeId,
+          -existing.quantity.toNumber(),
+          'Not enough Site Stock for this Consumption.',
+        );
+        await applySiteStockDelta(
+          tx,
+          input.siteId,
+          consumption.materialSizeId,
+          consumption.quantity,
+          'Not enough Site Stock for this Consumption.',
+        );
+      } else {
+        await applySiteStockDelta(
+          tx,
+          input.siteId,
+          consumption.materialSizeId,
+          consumption.quantity - (existing?.quantity.toNumber() ?? 0),
+          'Not enough Site Stock for this Consumption.',
+        );
+      }
+    }
+
+    for (const rmc of input.rmcEntries) {
+      // Server-computed, never client-trusted.
+      const totalAmount = rmc.quantityM3 * rmc.ratePerM3;
+      const data = {
+        siteId: input.siteId,
+        vendorId: rmc.vendorId,
+        quantityM3: rmc.quantityM3,
+        grade: rmc.grade,
+        ratePerM3: rmc.ratePerM3,
+        totalAmount,
+        deliveredAt: reportDate,
+        dailySiteReportId: dsrId,
+      };
+      if (rmc.clientGeneratedId) {
+        await tx.rmcEntry.upsert({
+          where: { clientGeneratedId: rmc.clientGeneratedId },
+          update: data,
+          create: { ...data, clientGeneratedId: rmc.clientGeneratedId },
+        });
+      } else {
+        await tx.rmcEntry.create({ data });
+      }
+    }
+
+    for (const expense of input.expenses) {
+      const data = {
+        siteId: input.siteId,
+        categoryId: expense.categoryId,
+        amount: expense.amount,
+        description: expense.description,
+        paymentMethod: expense.paymentMethod,
+        personOrVendor: expense.personOrVendor,
+        dailySiteReportId: dsrId,
+        incurredAt: reportDate,
+      };
+      if (expense.clientGeneratedId) {
+        await tx.expense.upsert({
+          where: { clientGeneratedId: expense.clientGeneratedId },
+          update: data,
+          create: { ...data, clientGeneratedId: expense.clientGeneratedId },
+        });
+      } else {
+        await tx.expense.create({ data });
+      }
+    }
+  }
+
   // Story 1.8 (AC #1): `submittedByUserId` is the real authenticated user,
   // threaded in from the controller (req.user, set by ClerkAuthGuard) — no
   // longer a placeholder resolved inside the service.
@@ -107,8 +273,16 @@ export class DsrService {
         // duplicate" guarantee.
         await lockOnKey(tx, `dsr:${input.siteId}:${input.reportDate}`);
 
+        // spec-dsr-drafts: only ever fold into an existing SUBMITTED original
+        // — a DRAFT for this (site,date) is a separate, private row the
+        // one-shot submit must never merge into or overwrite.
         const existingOriginal = await tx.dailySiteReport.findFirst({
-          where: { siteId: input.siteId, reportDate, correctsId: null },
+          where: {
+            siteId: input.siteId,
+            reportDate,
+            correctsId: null,
+            ...SUBMITTED_DSR_WHERE,
+          },
         });
         isFirstSubmission = !existingOriginal;
 
@@ -136,152 +310,13 @@ export class DsrService {
               },
             });
 
-        for (const workRecord of this.sortedWorkRecords(input)) {
-          // assertNoDoubleBooking's own findFirst already found this
-          // person's existing row for this date (if any) — if it exists at
-          // all, the check above already confirmed it's at this Site (a
-          // different Site would have thrown), so it's exactly the row
-          // create/update below needs. No second query.
-          const existingWorkRecord = await this.assertNoDoubleBooking(
-            tx,
-            workRecord.teamMemberId,
-            reportDate,
-            input.siteId,
-          );
-
-          const workRecordData = {
-            attended: workRecord.attended,
-            hours: workRecord.hours,
-            overtimeHours: workRecord.overtimeHours,
-            dailySiteReportId: dsr.id,
-          };
-          if (existingWorkRecord) {
-            await tx.workRecord.update({
-              where: { id: existingWorkRecord.id },
-              data: workRecordData,
-            });
-          } else {
-            await tx.workRecord.create({
-              data: {
-                teamMemberId: workRecord.teamMemberId,
-                siteId: input.siteId,
-                workDate: reportDate,
-                ...workRecordData,
-              },
-            });
-          }
-        }
-
-        for (const consumption of input.consumptions) {
-          const data = {
-            siteId: input.siteId,
-            materialSizeId: consumption.materialSizeId,
-            quantity: consumption.quantity,
-            activityReference: consumption.activityReference,
-            dailySiteReportId: dsr.id,
-            recordedByUserId: submittedByUserId,
-            consumedAt: reportDate,
-          };
-          // FR-12: Consumption recorded through a DSR reduces Site Stock
-          // exactly like the standalone POST /consumption path — the DSR
-          // is an entry surface, never a stock-invisible silo. A retried
-          // sync's upsert (AD-8) must apply only the *difference* against
-          // the row it already wrote, or every retry would drain stock
-          // again.
-          const existing = consumption.clientGeneratedId
-            ? await tx.consumption.findUnique({
-                where: { clientGeneratedId: consumption.clientGeneratedId },
-              })
-            : null;
-          if (consumption.clientGeneratedId) {
-            await tx.consumption.upsert({
-              where: { clientGeneratedId: consumption.clientGeneratedId },
-              update: data,
-              create: {
-                ...data,
-                clientGeneratedId: consumption.clientGeneratedId,
-              },
-            });
-          } else {
-            await tx.consumption.create({ data });
-          }
-          if (
-            existing &&
-            existing.materialSizeId !== consumption.materialSizeId
-          ) {
-            // The resubmission moved this row to a different Material —
-            // give the previously consumed Material back, then charge the
-            // new one in full.
-            await applySiteStockDelta(
-              tx,
-              existing.siteId,
-              existing.materialSizeId,
-              -existing.quantity.toNumber(),
-              'Not enough Site Stock for this Consumption.',
-            );
-            await applySiteStockDelta(
-              tx,
-              input.siteId,
-              consumption.materialSizeId,
-              consumption.quantity,
-              'Not enough Site Stock for this Consumption.',
-            );
-          } else {
-            await applySiteStockDelta(
-              tx,
-              input.siteId,
-              consumption.materialSizeId,
-              consumption.quantity - (existing?.quantity.toNumber() ?? 0),
-              'Not enough Site Stock for this Consumption.',
-            );
-          }
-        }
-
-        for (const rmc of input.rmcEntries) {
-          // Server-computed, never client-trusted.
-          const totalAmount = rmc.quantityM3 * rmc.ratePerM3;
-          const data = {
-            siteId: input.siteId,
-            vendorId: rmc.vendorId,
-            quantityM3: rmc.quantityM3,
-            grade: rmc.grade,
-            ratePerM3: rmc.ratePerM3,
-            totalAmount,
-            deliveredAt: reportDate,
-            dailySiteReportId: dsr.id,
-          };
-          if (rmc.clientGeneratedId) {
-            await tx.rmcEntry.upsert({
-              where: { clientGeneratedId: rmc.clientGeneratedId },
-              update: data,
-              create: { ...data, clientGeneratedId: rmc.clientGeneratedId },
-            });
-          } else {
-            await tx.rmcEntry.create({ data });
-          }
-        }
-
-        for (const expense of input.expenses) {
-          const data = {
-            siteId: input.siteId,
-            categoryId: expense.categoryId,
-            amount: expense.amount,
-            description: expense.description,
-            paymentMethod: expense.paymentMethod,
-            personOrVendor: expense.personOrVendor,
-            dailySiteReportId: dsr.id,
-            incurredAt: reportDate,
-          };
-          if (expense.clientGeneratedId) {
-            await tx.expense.upsert({
-              where: { clientGeneratedId: expense.clientGeneratedId },
-              update: data,
-              create: { ...data, clientGeneratedId: expense.clientGeneratedId },
-            });
-          } else {
-            await tx.expense.create({ data });
-          }
-        }
+        await this.materializeSubRecords(
+          tx,
+          dsr.id,
+          input,
+          reportDate,
+          submittedByUserId,
+        );
 
         return tx.dailySiteReport.findUniqueOrThrow({
           where: { id: dsr.id },
@@ -302,25 +337,11 @@ export class DsrService {
       // a transient failure here (e.g. the site lookup) must never surface
       // to the client as a failed submission.
       if (isFirstSubmission) {
-        try {
-          const site = await this.prisma.site.findUnique({
-            where: { id: input.siteId },
-            select: { name: true },
-          });
-          void this.pushNotifications.sendToRole(
-            'OWNER_ADMIN',
-            {
-              title: 'Daily Report submitted',
-              body: `${site?.name ?? 'A Site'} submitted today's Daily Report.`,
-              url: `/daily-activity/${result.id}`,
-            },
-            submittedByUserId,
-          );
-        } catch (error) {
-          this.logger.warn(
-            `Failed to send 'Daily Report submitted' push for DSR ${result.id}: ${String(error)}`,
-          );
-        }
+        await this.notifyReportSubmitted(
+          result.id,
+          input.siteId,
+          submittedByUserId,
+        );
       }
 
       return result;
@@ -344,6 +365,366 @@ export class DsrService {
     }
   }
 
+  // spec-dsr-drafts (AD-5): the single "Daily Report submitted" push, shared
+  // by the one-shot submit and Finalize. Runs OUTSIDE the transaction and
+  // swallows its own failures — a push problem must never roll back or fail an
+  // already-committed report. Self-excluded when the actor is themselves an
+  // Owner/Admin (handled by PushNotificationsService.sendToRole).
+  private async notifyReportSubmitted(
+    dsrId: string,
+    siteId: string,
+    submittedByUserId: string,
+  ) {
+    try {
+      const site = await this.prisma.site.findUnique({
+        where: { id: siteId },
+        select: { name: true },
+      });
+      void this.pushNotifications.sendToRole(
+        'OWNER_ADMIN',
+        {
+          title: 'Daily Report submitted',
+          body: `${site?.name ?? 'A Site'} submitted today's Daily Report.`,
+          url: `/daily-activity/${dsrId}`,
+        },
+        submittedByUserId,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send 'Daily Report submitted' push for DSR ${dsrId}: ${String(error)}`,
+      );
+    }
+  }
+
+  // spec-dsr-drafts: the not-yet-materialised sub-records stored on a draft
+  // row's draftContent JSON column. Narrative fields + equipmentUsed live as
+  // real columns (they carry no side effects); only the ledger-bound
+  // sub-records are deferred here until Finalize.
+  private draftSubRecords(input: SaveDraftInput) {
+    return {
+      workRecords: input.workRecords,
+      consumptions: input.consumptions,
+      rmcEntries: input.rmcEntries,
+      expenses: input.expenses,
+    };
+  }
+
+  // spec-dsr-drafts: Save Draft. Upserts the caller's single private DRAFT row
+  // per (siteId, reportDate, author) — no ledger rows, no SiteStock delta. The
+  // narrative fields and equipmentUsed land on real columns; the sub-records
+  // are stored as draftContent JSON until Finalize materialises them. Same
+  // advisory lock create() takes, so a rapid double-save (or a save racing a
+  // finalize) can never fork into two DRAFT rows for the same (site,date,
+  // author) — a partial unique index backstops it too.
+  async saveDraft(input: SaveDraftInput, submittedByUserId: string) {
+    const reportDate = new Date(input.reportDate);
+    return this.prisma.$transaction(async (tx) => {
+      await lockOnKey(tx, `dsr:${input.siteId}:${input.reportDate}`);
+
+      // Review item 1: once a report is SUBMITTED for this (site,date), it is
+      // history — block a new draft rather than let a parallel editable copy
+      // shadow it. Changes go through Correct.
+      const alreadySubmitted = await tx.dailySiteReport.findFirst({
+        where: {
+          siteId: input.siteId,
+          reportDate,
+          correctsId: null,
+          ...SUBMITTED_DSR_WHERE,
+        },
+        select: { id: true },
+      });
+      if (alreadySubmitted) {
+        throw new ConflictException(
+          'A report is already submitted for this site and date — use Correct to change it.',
+        );
+      }
+
+      // Review item 2: drafts are private per supervisor — only the caller's
+      // own draft for this (site,date) is ever resumed or overwritten.
+      const existingDraft = await tx.dailySiteReport.findFirst({
+        where: {
+          siteId: input.siteId,
+          reportDate,
+          correctsId: null,
+          status: DsrStatus.DRAFT,
+          submittedByUserId,
+        },
+      });
+
+      const draftData = {
+        workCompleted: input.workCompleted,
+        workInProgress: input.workInProgress,
+        plannedWork: input.plannedWork,
+        issuesBlockers: input.issuesBlockers,
+        safetyObservations: input.safetyObservations,
+        notes: input.notes,
+        equipmentUsed: input.equipmentUsed,
+        draftContent: this.draftSubRecords(input) as Prisma.InputJsonValue,
+      };
+
+      const draft = existingDraft
+        ? await tx.dailySiteReport.update({
+            where: { id: existingDraft.id },
+            data: draftData,
+          })
+        : await tx.dailySiteReport.create({
+            data: {
+              siteId: input.siteId,
+              reportDate,
+              submittedByUserId,
+              status: DsrStatus.DRAFT,
+              ...draftData,
+            },
+          });
+
+      return { id: draft.id };
+    });
+  }
+
+  // spec-dsr-drafts: Resume. Returns the caller's own private DRAFT for a
+  // (siteId, date) so the entry form can pre-fill — narrative + equipmentUsed
+  // from columns, sub-records from draftContent, plus any photos already
+  // attached to the draft row (gallery-hidden until Finalize). Null when the
+  // caller has no draft (the form simply stays empty). Drafts are private per
+  // supervisor, so another user's draft for the same (site,date) is invisible
+  // here. Photos carry thumbnail URLs like findOne.
+  async getDraft(siteId: string, date: string, submittedByUserId: string) {
+    const draft = await this.prisma.dailySiteReport.findFirst({
+      where: {
+        siteId,
+        reportDate: new Date(date),
+        correctsId: null,
+        status: DsrStatus.DRAFT,
+        submittedByUserId,
+      },
+      include: { photos: true },
+    });
+    if (!draft) {
+      return null;
+    }
+
+    const content =
+      (draft.draftContent as {
+        workRecords?: CreateDsrInput['workRecords'];
+        consumptions?: CreateDsrInput['consumptions'];
+        rmcEntries?: CreateDsrInput['rmcEntries'];
+        expenses?: CreateDsrInput['expenses'];
+      } | null) ?? {};
+    const photos = await Promise.all(
+      draft.photos.map(async (photo) => ({
+        id: photo.id,
+        url: await this.storage.getThumbnailUrl(photo.storageKey),
+      })),
+    );
+
+    return {
+      id: draft.id,
+      siteId: draft.siteId,
+      reportDate: draft.reportDate.toISOString().slice(0, 10),
+      workCompleted: draft.workCompleted,
+      workInProgress: draft.workInProgress,
+      plannedWork: draft.plannedWork,
+      issuesBlockers: draft.issuesBlockers,
+      safetyObservations: draft.safetyObservations,
+      notes: draft.notes,
+      equipmentUsed: draft.equipmentUsed,
+      workRecords: content.workRecords ?? [],
+      consumptions: content.consumptions ?? [],
+      rmcEntries: content.rmcEntries ?? [],
+      expenses: content.expenses ?? [],
+      photos,
+    };
+  }
+
+  // spec-dsr-drafts: Discard. Hard-deletes the caller's own DRAFT row and its
+  // gallery-hidden photos (no ledger rows ever existed for a draft). Refuses a
+  // SUBMITTED id — a submitted report is history, corrected via
+  // POST /dsr/:id/correct, never deleted (AD-9).
+  //
+  // Review item 4: the authoritative status/owner check runs INSIDE a
+  // transaction holding the same dsr:site:date advisory lock a concurrent
+  // finalize would take, re-reading the row under the lock — so a Discard can
+  // never race a Finalize of the same draft (one blocks until the other
+  // commits, then sees the updated status). A preliminary read outside the
+  // lock only supplies the site/date needed to build the lock key.
+  async deleteDraft(id: string, submittedByUserId: string) {
+    const preliminary = await this.prisma.dailySiteReport.findUnique({
+      where: { id },
+      select: { siteId: true, reportDate: true },
+    });
+    if (!preliminary) {
+      throw new NotFoundException(`Daily Site Report ${id} not found`);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await lockOnKey(
+        tx,
+        `dsr:${preliminary.siteId}:${preliminary.reportDate.toISOString().slice(0, 10)}`,
+      );
+      const row = await tx.dailySiteReport.findUnique({
+        where: { id },
+        select: { status: true, submittedByUserId: true },
+      });
+      // Re-read inside the lock — the row (or its status) may have changed
+      // since the preliminary read above.
+      if (!row || row.submittedByUserId !== submittedByUserId) {
+        // Private per supervisor: another user's draft (or a vanished row) is
+        // simply "not found" to this caller — never revealed or deletable.
+        throw new NotFoundException(`Daily Site Report ${id} not found`);
+      }
+      if (row.status !== DsrStatus.DRAFT) {
+        throw new ConflictException(
+          'A submitted report cannot be discarded — correct it instead',
+        );
+      }
+      await tx.photo.deleteMany({ where: { dailySiteReportId: id } });
+      await tx.dailySiteReport.delete({ where: { id } });
+    });
+    return { id };
+  }
+
+  // spec-dsr-drafts: Finalize. Flips DRAFT -> SUBMITTED, materialises the
+  // deferred sub-records via the shared materializeSubRecords helper (so stock
+  // is applied by the exact same path as the one-shot submit — never a second
+  // copy), and clears draftContent — all in one transaction. Insufficient
+  // stock throws from applySiteStockDelta, rolling the whole finalize back so
+  // the report stays DRAFT with nothing materialised.
+  //
+  // Review items:
+  //  3 (TOCTOU): the authoritative `status === DRAFT` check runs AFTER the
+  //    advisory lock, re-reading the row under the lock — a preliminary read
+  //    only supplies the site/date for the lock key. So two concurrent
+  //    finalizes of the same draft can't both pass the check.
+  //  1: a finalize is refused (409) if a SUBMITTED original already exists for
+  //    this (site,date) — never a second submitted row for the same day.
+  //  2: submittedByUserId is preserved (the draft's author) — a finalize by
+  //    anyone never rewrites authorship; sub-records are attributed to the
+  //    author too.
+  //  6: the stored draftContent is re-parsed against the draft schema before
+  //    materialising, and a referenced-entity-deleted-since-save failure is
+  //    surfaced as a friendly BadRequest, never an opaque 500.
+  async finalizeDraft(id: string, actingUserId: string) {
+    const preliminary = await this.prisma.dailySiteReport.findUnique({
+      where: { id },
+      select: { siteId: true, reportDate: true },
+    });
+    if (!preliminary) {
+      throw new NotFoundException(`Daily Site Report ${id} not found`);
+    }
+    const reportDateStr = preliminary.reportDate.toISOString().slice(0, 10);
+
+    let authorUserId = actingUserId;
+    let siteId = preliminary.siteId;
+
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Lock FIRST, then re-read and check status under the lock (item 3).
+        await lockOnKey(tx, `dsr:${preliminary.siteId}:${reportDateStr}`);
+
+        const draft = await tx.dailySiteReport.findUnique({ where: { id } });
+        if (!draft) {
+          throw new NotFoundException(`Daily Site Report ${id} not found`);
+        }
+        if (draft.status !== DsrStatus.DRAFT) {
+          throw new ConflictException('This report has already been submitted');
+        }
+        authorUserId = draft.submittedByUserId; // item 2: preserve author.
+        siteId = draft.siteId;
+
+        // Item 1: never finalize a draft on top of an already-SUBMITTED report
+        // for the same (site,date) — that would create a duplicate submission.
+        const alreadySubmitted = await tx.dailySiteReport.findFirst({
+          where: {
+            siteId: draft.siteId,
+            reportDate: draft.reportDate,
+            correctsId: null,
+            ...SUBMITTED_DSR_WHERE,
+          },
+          select: { id: true },
+        });
+        if (alreadySubmitted) {
+          throw new ConflictException(
+            'A report is already submitted for this site and date — use Correct to change it.',
+          );
+        }
+
+        // Item 6: re-parse the stored sub-records against the draft schema —
+        // corrupt/stale draftContent must never reach materialisation as an
+        // opaque failure.
+        const content = (draft.draftContent as Prisma.JsonObject | null) ?? {};
+        const parsed = saveDraftSchema.safeParse({
+          siteId: draft.siteId,
+          reportDate: reportDateStr,
+          workCompleted: draft.workCompleted ?? undefined,
+          workInProgress: draft.workInProgress ?? undefined,
+          plannedWork: draft.plannedWork ?? undefined,
+          issuesBlockers: draft.issuesBlockers ?? undefined,
+          safetyObservations: draft.safetyObservations ?? undefined,
+          notes: draft.notes ?? undefined,
+          workRecords: content.workRecords ?? [],
+          consumptions: content.consumptions ?? [],
+          rmcEntries: content.rmcEntries ?? [],
+          expenses: content.expenses ?? [],
+          equipmentUsed: draft.equipmentUsed ?? [],
+        });
+        if (!parsed.success) {
+          throw new BadRequestException(
+            "This draft's saved data is no longer valid — edit the draft before finalizing.",
+          );
+        }
+        const input: CreateDsrInput = parsed.data;
+
+        await tx.dailySiteReport.update({
+          where: { id },
+          // Item 2: no submittedByUserId here — authorship is preserved.
+          data: {
+            status: DsrStatus.SUBMITTED,
+            draftContent: Prisma.DbNull,
+          },
+        });
+
+        await this.materializeSubRecords(
+          tx,
+          id,
+          input,
+          draft.reportDate,
+          authorUserId,
+        );
+
+        return tx.dailySiteReport.findUniqueOrThrow({
+          where: { id },
+          include: {
+            workRecords: true,
+            consumptions: true,
+            rmcEntries: true,
+            expenses: true,
+          },
+        });
+      });
+
+      // A finalize that reaches here is always the day's first submission (we
+      // 409 above if a SUBMITTED original already existed).
+      await this.notifyReportSubmitted(result.id, siteId, authorUserId);
+
+      return result;
+    } catch (error) {
+      // Item 6: a Material/Vendor/Category/Team Member referenced by the draft
+      // that was deleted after save trips a Prisma FK/record-not-found error —
+      // surface it as an actionable message, not a raw 500. Nest exceptions
+      // (INSUFFICIENT_STOCK BadRequest, the 409s above, NotFound) pass through
+      // unchanged.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2003' || error.code === 'P2025')
+      ) {
+        throw new BadRequestException(
+          'A referenced item was removed since this draft was saved — edit the draft before finalizing.',
+        );
+      }
+      throw error;
+    }
+  }
+
   // Story 3.5 (AD-9, FR-54): a correction is always a brand-new
   // DailySiteReport row, with its own brand-new nested rows — it never
   // updates the report it corrects or that report's own rows. AC #4: this
@@ -360,6 +741,12 @@ export class DsrService {
       where: { id: originalId },
     });
     if (!original) {
+      throw new NotFoundException(`Daily Site Report ${originalId} not found`);
+    }
+    // spec-dsr-drafts (review item 8): a DRAFT is private and unmaterialised —
+    // it can't be corrected (there is nothing submitted to supersede).
+    // Consistent with findOne hiding drafts: treat a draft target as absent.
+    if (original.status !== DsrStatus.SUBMITTED) {
       throw new NotFoundException(`Daily Site Report ${originalId} not found`);
     }
 
@@ -574,7 +961,8 @@ export class DsrService {
   // is the one nothing else's correctsId points at — the tip of the chain.
   async findCurrentForSiteAndDate(siteId: string, reportDate: Date) {
     const rows = await this.prisma.dailySiteReport.findMany({
-      where: { siteId, reportDate },
+      // spec-dsr-drafts: a private DRAFT is never "the current report".
+      where: { siteId, reportDate, ...SUBMITTED_DSR_WHERE },
     });
     if (rows.length === 0) return null;
     const correctedIds = new Set(
@@ -590,7 +978,8 @@ export class DsrService {
   // version of each Site/date's report is shown, never a superseded one.
   async listByDate(date: string) {
     const rows = await this.prisma.dailySiteReport.findMany({
-      where: { reportDate: new Date(date) },
+      // spec-dsr-drafts: the /daily-activity log shows SUBMITTED only.
+      where: { reportDate: new Date(date), ...SUBMITTED_DSR_WHERE },
       include: {
         site: { select: { id: true, name: true } },
         submittedBy: { select: { name: true } },
@@ -614,7 +1003,12 @@ export class DsrService {
   // new aggregation of its own.
   async listBySiteInRange(siteId: string, from?: string, to?: string) {
     const rows = await this.prisma.dailySiteReport.findMany({
-      where: { siteId, reportDate: dateRangeBounds(from, to) },
+      // spec-dsr-drafts: Site Reports show SUBMITTED only.
+      where: {
+        siteId,
+        reportDate: dateRangeBounds(from, to),
+        ...SUBMITTED_DSR_WHERE,
+      },
       include: {
         site: { select: { id: true, name: true } },
         submittedBy: { select: { name: true } },
@@ -647,6 +1041,8 @@ export class DsrService {
   }> {
     const where: Prisma.DailySiteReportWhereInput = {
       id: { notIn: superseded },
+      // spec-dsr-drafts: a private DRAFT never surfaces in global search.
+      ...SUBMITTED_DSR_WHERE,
       OR: [
         { site: { name: { contains: q, mode: 'insensitive' as const } } },
         {
@@ -693,7 +1089,11 @@ export class DsrService {
         photos: true,
       },
     });
-    if (!dsr) {
+    // spec-dsr-drafts: a DRAFT is private and unmaterialised — it is not a
+    // viewable report. The Resume path reads it through getDraft(); this
+    // public detail lookup treats it as absent (the /daily-activity/[id]
+    // page renders notFound()).
+    if (!dsr || dsr.status !== DsrStatus.SUBMITTED) {
       throw new NotFoundException(`Daily Site Report ${id} not found`);
     }
 

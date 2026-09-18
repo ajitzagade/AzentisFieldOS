@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { SUBMITTED_DSR_WHERE } from '../common/superseded-dsrs';
 
 // Story 13.1 (FR-32): compiles a DailyReport's `content` payload from a
 // DailySiteReport and its relations, plus the current BrandingConfig row.
@@ -95,7 +96,8 @@ export class ReportCompilerService {
   // pointing at it) is excluded, so we never compile a superseded DSR.
   async currentDsrsForDate(reportDate: Date): Promise<DsrForCompile[]> {
     const rows = await this.prisma.dailySiteReport.findMany({
-      where: { reportDate },
+      // spec-dsr-drafts: never compile a private DRAFT into a Daily Report.
+      where: { reportDate, ...SUBMITTED_DSR_WHERE },
       include: dsrCompileInclude,
       orderBy: { createdAt: 'desc' },
     });

@@ -1,4 +1,23 @@
-import { Prisma, type PrismaClient } from '../generated/prisma/client';
+import {
+  DsrStatus,
+  Prisma,
+  type PrismaClient,
+} from '../generated/prisma/client';
+
+// spec-dsr-drafts: a DRAFT DailySiteReport is private and unmaterialised — it
+// must never appear in any submitted-report read path (the Dashboard "Sites
+// Reporting" count, /daily-activity, the site photo gallery, the compiled
+// Daily Report, search). Every *direct* DailySiteReport read spreads this
+// fragment so the DRAFT/SUBMITTED gate lives in exactly one place, mirroring
+// how supersededDsrIds() below centralises the corrected-over exclusion.
+//
+// The DSR-nested ledger tables (Consumption/Expense/RmcEntry/WorkRecord) need
+// no equivalent draft filter: a draft materialises NO such rows (they live as
+// draftContent JSON until Finalize), so currentDsrRowsWhere() already excludes
+// them by construction. Photos are the one exception — the FK is non-nullable,
+// so a draft's photos attach to the draft row and are filtered at the gallery
+// by the parent DSR's status (see site-photo-gallery.ts).
+export const SUBMITTED_DSR_WHERE = { status: DsrStatus.SUBMITTED } as const;
 
 // A corrected Daily Site Report's nested sub-records (Consumption,
 // RmcEntry, Expense, WorkRecord) stay in the database untouched (AD-9) —

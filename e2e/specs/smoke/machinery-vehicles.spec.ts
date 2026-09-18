@@ -1,15 +1,15 @@
 import { expect, test } from "@playwright/test";
 import { loginAsOwner } from "../../fixtures/auth";
-import { visibleText } from "../../fixtures/ui";
+import { fillField, selectField, visibleText } from "../../fixtures/ui";
 
 test("Owner can register a Machine and it appears in the register", async ({ page }) => {
   await loginAsOwner(page);
   await page.goto("/machinery-vehicles/machinery/new");
 
   const name = `E2E Smoke Excavator ${Date.now()}`;
-  await page.getByLabel("Name").fill(name);
-  await page.getByLabel("Type").selectOption({ label: "Excavator" });
-  await page.getByLabel("Asset / Registration Number").fill(`REG-${Date.now()}`);
+  await fillField(page, "Name", name);
+  await selectField(page, "Type", { label: "Excavator" });
+  await fillField(page, "Asset / Registration Number", `REG-${Date.now()}`);
   await page.getByRole("button", { name: "Register Machine" }).click();
 
   await expect(page).toHaveURL(/\/machinery-vehicles$/);
@@ -26,8 +26,8 @@ test("Owner can register a Vehicle and it appears in the register", async ({ pag
   await page.goto("/machinery-vehicles/vehicles/new");
 
   const number = `E2E-${Date.now()}`;
-  await page.getByLabel("Number").fill(number);
-  await page.getByLabel("Type").selectOption({ label: "Truck" });
+  await fillField(page, "Number", number);
+  await selectField(page, "Type", { label: "Truck" });
   await page.getByRole("button", { name: "Register Vehicle" }).click();
 
   await expect(page).toHaveURL(/\/machinery-vehicles$/);

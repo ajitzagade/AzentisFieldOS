@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { loginAsSupervisor } from "../fixtures/auth";
 import { MATERIAL_NAME, SITE_NAME, VENDOR_NAME } from "../fixtures/test-users";
-import { pickCombobox, visibleText } from "../fixtures/ui";
+import { fillField, pickCombobox, visibleText } from "../fixtures/ui";
 
 // Drives the Site Supervisor's actual daily path exactly as a real user
 // would: sign in, land on the task-first Home, submit a Daily Report with
@@ -80,7 +80,7 @@ test.describe("Supervisor daily flow", () => {
     // shipped; this test was never updated to match.
     await pickCombobox(page, "Vendor", VENDOR_NAME);
     await pickCombobox(page, "Material / Size", MATERIAL_NAME);
-    await page.getByLabel(/Quantity/).fill("50");
+    await fillField(page, /Quantity/, "50");
 
     await page.getByRole("button", { name: "Record Purchase" }).click();
     // The redirect (not the transient flash toast, which can dismiss before

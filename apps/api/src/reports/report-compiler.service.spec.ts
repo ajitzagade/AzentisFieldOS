@@ -158,6 +158,21 @@ describe('ReportCompilerService.currentDsrsForDate (AC #4)', () => {
 
     expect(result.map((r) => r.id)).toEqual(['correction']);
   });
+
+  it('never compiles a DRAFT into the delivered report — the query filters status:SUBMITTED (spec-dsr-drafts)', async () => {
+    const dsrFindMany = vi.fn().mockResolvedValue([]);
+    const { service } = makeService({ dsrFindMany });
+
+    await service.currentDsrsForDate(new Date('2026-08-11T00:00:00.000Z'));
+
+    // The official Daily Report is delivered to owners — a private DRAFT must
+    // never leak into it. This assertion fails if the draft filter is dropped.
+    expect(dsrFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'SUBMITTED' }) as object,
+      }),
+    );
+  });
 });
 
 describe('ReportCompilerService.compile', () => {

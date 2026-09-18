@@ -1,14 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { loginAsOwner } from "../../fixtures/auth";
 import { SITE_NAME } from "../../fixtures/test-users";
-import { pickCombobox, visibleText } from "../../fixtures/ui";
+import { fillField, pickCombobox, selectField, visibleText } from "../../fixtures/ui";
 
 test("Owner can add a Subcontractor and it appears in the list", async ({ page }) => {
   await loginAsOwner(page);
   await page.goto("/subcontractors/new");
 
   const name = `E2E Smoke Subcontractor ${Date.now()}`;
-  await page.getByLabel("Name").fill(name);
+  await fillField(page, "Name", name);
   await page.getByRole("button", { name: "Create Subcontractor" }).click();
 
   await expect(page).toHaveURL(/\/subcontractors$/);
@@ -26,7 +26,7 @@ test("Owner can add a Site Contract, log Work, and record a Payment for a Subcon
   await page.goto("/subcontractors/new");
 
   const name = `E2E Contract Subcontractor ${Date.now()}`;
-  await page.getByLabel("Name").fill(name);
+  await fillField(page, "Name", name);
   await page.getByRole("button", { name: "Create Subcontractor" }).click();
   await expect(page).toHaveURL(/\/subcontractors$/);
 
@@ -45,10 +45,10 @@ test("Owner can add a Site Contract, log Work, and record a Payment for a Subcon
 
   await page.getByRole("link", { name: "Add Site Contract" }).click();
   await pickCombobox(page, "Site", SITE_NAME);
-  await page.getByLabel("Work category").fill("Excavation");
-  await page.getByLabel("Rate type").selectOption({ label: "Per Trip" });
-  await page.getByLabel(/Rate per trip/).fill("500");
-  await page.getByLabel("Status").selectOption({ label: "Active — engagement is live and billable" });
+  await fillField(page, "Work category", "Excavation");
+  await selectField(page, "Rate type", { label: "Per Trip" });
+  await fillField(page, /Rate per trip/, "500");
+  await selectField(page, "Status", { label: "Active — engagement is live and billable" });
   await page.getByRole("button", { name: "Save Site Contract" }).click();
 
   await expect(page).toHaveURL(/\/sites\/.+/);
@@ -59,14 +59,14 @@ test("Owner can add a Site Contract, log Work, and record a Payment for a Subcon
   await expect(page).toHaveURL(/\/sites\/.+\/contracts\/.+/);
 
   await page.getByRole("link", { name: "Log Work" }).click();
-  await page.getByLabel(/Quantity/).fill("4");
+  await fillField(page, /Quantity/, "4");
   await page.getByRole("button", { name: "Log Work" }).click();
 
   await expect(page).toHaveURL(/\/sites\/.+\/contracts\/.+/);
   await expect(page.getByText("Work Entry recorded")).toBeVisible({ timeout: 10_000 });
 
   await page.getByRole("link", { name: "Record Payment" }).click();
-  await page.getByLabel("Amount").fill("1500");
+  await fillField(page, "Amount", "1500");
   await page.getByRole("button", { name: "Record Payment" }).click();
 
   await expect(page).toHaveURL(/\/sites\/.+\/contracts\/.+/);
@@ -82,12 +82,8 @@ test("clicking a Subcontractor row opens the detail panel in place, and Escape c
   await page.goto("/subcontractors/new");
 
   const name = `E2E Panel Subcontractor ${Date.now()}`;
-  // A known upstream @base-ui-components/react (1.0.0-rc.0, latest
-  // available) bug occasionally leaves an orphaned duplicate of a field in
-  // the DOM — .first() consistently lands on the live, React-controlled
-  // input in every confirmed repro so far.
-  await page.getByLabel("Name").first().fill(name);
-  await page.getByLabel("Contact person").fill("Meena Shah");
+  await fillField(page, "Name", name);
+  await fillField(page, "Contact person", "Meena Shah");
   await page.getByRole("button", { name: "Create Subcontractor" }).click();
   await expect(page).toHaveURL(/\/subcontractors$/);
   await expect(visibleText(page, name)).toBeVisible({ timeout: 10_000 });

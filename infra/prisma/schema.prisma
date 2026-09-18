@@ -660,6 +660,19 @@ model RmcEntry {
 
 // ---------- Daily Site Report (FR-28..FR-31) ----------
 
+// spec-dsr-drafts: a DailySiteReport now has a DRAFT | SUBMITTED lifecycle.
+// A DRAFT is private, editable, discardable, and produces ZERO module side
+// effects — no Consumption/Expense/RmcEntry/WorkRecord row, no SiteStock
+// delta, photos hidden from the gallery. Only Finalize materialises the
+// sub-records (from draftContent), applies stock, and reveals photos. Every
+// submitted-report read path filters status = SUBMITTED (see
+// apps/api/src/common/superseded-dsrs.ts SUBMITTED_DSR_WHERE), mirroring how
+// supersededDsrIds() already excludes corrected-over reports.
+enum DsrStatus {
+  DRAFT
+  SUBMITTED
+}
+
 model DailySiteReport {
   id                String   @id @default(uuid(7))
   siteId            String
@@ -667,6 +680,15 @@ model DailySiteReport {
   reportDate        DateTime @db.Date
   submittedByUserId String
   submittedBy       User     @relation(fields: [submittedByUserId], references: [id])
+  // spec-dsr-drafts: SUBMITTED by default so the existing one-shot submit
+  // (create()) and every historical row keep their exact prior meaning.
+  status            DsrStatus @default(SUBMITTED)
+  // spec-dsr-drafts: while DRAFT, the not-yet-materialised sub-records
+  // (workRecords/consumptions/rmcEntries/expenses) live here as JSON rather
+  // than as real ledger rows — so a discarded draft never touches the
+  // append-only ledger and no read path needs per-row draft filtering.
+  // Cleared to null at Finalize once the rows are materialised.
+  draftContent      Json?
   workCompleted     String?
   workInProgress    String?
   plannedWork       String?
@@ -696,9 +718,19 @@ model DailySiteReport {
   reason     String? // required when correctsId is set
 
   @@index([siteId, reportDate])
+  // spec-dsr-drafts: getDraft() resolves a draft by (siteId, reportDate,
+  // status) and every submitted-report read path filters on status — this
+  // composite index covers both.
+  @@index([siteId, reportDate, status])
   // supersededDsrIds() (apps/api/src/common/superseded-dsrs.ts) scans this
   // column on nearly every read path across the system.
   @@index([correctsId])
+  // NOTE (spec-dsr-drafts): a PARTIAL UNIQUE index enforcing "one open DRAFT
+  // per (siteId, reportDate, submittedByUserId)" lives in migration
+  // 20260918100000_dsr_draft_private_unique_index and is intentionally NOT
+  // declared here — Prisma's schema language can't express a filtered/partial
+  // unique index. Like the pg_trgm GIN indexes, it must be applied with
+  // `migrate deploy`, never `migrate dev` (which would drift-drop it).
 }
 
 model Photo {

@@ -74,6 +74,35 @@ export const createDsrSchema = z.object({
 
 export type CreateDsrInput = z.infer<typeof createDsrSchema>;
 
+// spec-dsr-drafts (AD-7): the single validator for a Save Draft, imported by
+// both apps/api (source of truth) and apps/web (inline pre-submit errors). A
+// DRAFT is a partial, still-being-built report — the exact same field shape
+// as a full submission, but nothing beyond the (siteId, reportDate) it is
+// keyed on is required. The sub-record arrays already default to [] in
+// createDsrSchema, so a draft with no crew/materials/expenses yet validates
+// cleanly; each row that *is* present is still validated by its own schema,
+// so Finalize can materialise it straight from draftContent without
+// re-parsing. Kept as a distinct export (not an alias) so the draft and
+// submit shapes can diverge later without touching either call site.
+export const saveDraftSchema = createDsrSchema;
+
+export type SaveDraftInput = z.infer<typeof saveDraftSchema>;
+
+// spec-dsr-drafts (review, item 5): GET /dsr/draft query validation — siteId
+// required, date a valid ISO calendar day. Rejecting malformed input at the
+// controller keeps `new Date(undefined)`/`new Date("garbage")` from ever
+// reaching Prisma as an Invalid Date.
+export const getDraftQuerySchema = z.object({
+  siteId: z.uuid(),
+  date: z.iso.date(), // YYYY-MM-DD
+});
+
+export type GetDraftQuery = z.infer<typeof getDraftQuerySchema>;
+
+// spec-dsr-drafts (review, item 5): a draft id path param must be a real
+// uuid — a malformed id is a 400, never a value passed on to Prisma.
+export const draftIdParamSchema = z.uuid();
+
 // Story 3.5 (AD-9, FR-54): a correction submits the exact same field set as
 // a plain DSR — same reused shape, not a parallel one — plus a required
 // reason explaining what's being corrected and why.

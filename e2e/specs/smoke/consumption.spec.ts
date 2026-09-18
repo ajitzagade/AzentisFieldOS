@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { loginAsOwner } from "../../fixtures/auth";
 import { MATERIAL_NAME, SITE_NAME, VENDOR_NAME } from "../../fixtures/test-users";
-import { pickCombobox } from "../../fixtures/ui";
+import { fillField, pickCombobox, selectField } from "../../fixtures/ui";
 
 test("Owner can record Consumption against existing Site Stock", async ({ page }) => {
   await loginAsOwner(page);
@@ -10,17 +10,17 @@ test("Owner can record Consumption against existing Site Stock", async ({ page }
   await page.goto("/movements/purchases/new");
   await pickCombobox(page, "Vendor", VENDOR_NAME);
   await pickCombobox(page, "Material / Size", MATERIAL_NAME);
-  await page.getByLabel("Destination").selectOption({ label: "Site" });
+  await selectField(page, "Destination", { label: "Site" });
   await pickCombobox(page, "Site", SITE_NAME);
-  await page.getByLabel(/Quantity/).fill("100");
-  await page.getByLabel("Rate").fill("100");
+  await fillField(page, /Quantity/, "100");
+  await fillField(page, "Rate", "100");
   await page.getByRole("button", { name: "Record Purchase" }).click();
   await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
   await page.goto("/movements/consumption/new");
   await pickCombobox(page, "Site", SITE_NAME);
   await pickCombobox(page, "Material / Size", MATERIAL_NAME);
-  await page.getByLabel(/Quantity/).fill("10");
+  await fillField(page, /Quantity/, "10");
   await page.getByRole("button", { name: "Record Consumption" }).click();
 
   // Not asserting the URL's ?flash= query directly — the flash toast reads

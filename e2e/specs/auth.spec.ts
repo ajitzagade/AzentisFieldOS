@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { loginAsOwner, loginAsSupervisor } from "../fixtures/auth";
 import { OWNER_EMAIL } from "../fixtures/test-users";
 import { API_BASE_URL } from "../fixtures/constants";
+import { fillField } from "../fixtures/ui";
 
 test.describe("Sign in", () => {
   test("Owner/Admin signs in and lands on the cross-Site Dashboard", async ({ page }) => {
@@ -27,8 +28,8 @@ test.describe("Sign in", () => {
 
   test("wrong password shows an error and does not sign in", async ({ page }) => {
     await page.goto("/sign-in");
-    await page.getByLabel("Email address").fill(OWNER_EMAIL);
-    await page.getByLabel("Password").fill("definitely-wrong-password");
+    await fillField(page, "Email address", OWNER_EMAIL);
+    await fillField(page, "Password", "definitely-wrong-password");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByRole("alert")).toBeVisible();
     await expect(page).toHaveURL(/\/sign-in/);
