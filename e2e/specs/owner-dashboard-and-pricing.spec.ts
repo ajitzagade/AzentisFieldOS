@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { loginAsOwner, loginAsSupervisor } from "../fixtures/auth";
 import { MATERIAL_NAME, SITE_NAME, VENDOR_NAME } from "../fixtures/test-users";
-import { pickCombobox } from "../fixtures/ui";
+import { fillField, pickCombobox, selectField } from "../fixtures/ui";
 
 // D7's full loop: a Supervisor records an inward entry with no pricing, the
 // Owner sees it flagged and completes it. Self-contained (creates its own
@@ -26,7 +26,7 @@ test.describe("Owner Dashboard & D7 pricing queue", () => {
     // shipped; this test was never updated to match.
     await pickCombobox(page, "Vendor", VENDOR_NAME);
     await pickCombobox(page, "Material / Size", MATERIAL_NAME);
-    await page.getByLabel(/Quantity/).fill("80");
+    await fillField(page, /Quantity/, "80");
     await page.getByRole("button", { name: "Record Purchase" }).click();
     await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
@@ -61,9 +61,9 @@ test.describe("Owner Dashboard & D7 pricing queue", () => {
     await expect(page).toHaveURL(/\/movements\/purchases\/.+\/pricing/);
     await expect(page.getByText(/80 Bags/)).toBeVisible();
 
-    await page.getByLabel("Rate").fill("390");
+    await fillField(page, "Rate", "390");
     await expect(page.getByLabel("Total Amount")).not.toHaveValue("");
-    await page.getByLabel("Payment Status").selectOption({ label: "Unpaid" });
+    await selectField(page, "Payment Status", { label: "Unpaid" });
     await page.getByRole("button", { name: "Save Pricing" }).click();
 
     // FR-54 confirmation before the money write actually lands.

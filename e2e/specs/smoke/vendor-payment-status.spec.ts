@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { loginAsOwner } from "../../fixtures/auth";
 import { MATERIAL_NAME, SITE_NAME, VENDOR_NAME } from "../../fixtures/test-users";
-import { pickCombobox, visibleText } from "../../fixtures/ui";
+import { fillField, pickCombobox, visibleText } from "../../fixtures/ui";
 
 // Regression for a real production bug (2026-09-06): a Vendor with a
 // fully-paid Purchase but an unpaid/partial Waste Disposal trip showed as
@@ -20,8 +20,8 @@ test("a Vendor with a paid Purchase and an unpaid Waste Disposal trip is never s
   await page.goto("/movements/purchases/new");
   await pickCombobox(page, "Vendor", VENDOR_NAME);
   await pickCombobox(page, "Material / Size", MATERIAL_NAME);
-  await page.getByLabel(/Quantity/).fill("10");
-  await page.getByLabel("Rate").fill("100");
+  await fillField(page, /Quantity/, "10");
+  await fillField(page, "Rate", "100");
   await page.getByRole("button", { name: "Record Purchase" }).click();
   await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
@@ -47,7 +47,7 @@ test("a Vendor with a paid Purchase and an unpaid Waste Disposal trip is never s
   // A ₹0 trip would leave notFullyPaidTotal honestly at 0 regardless of
   // paymentStatus — Rate per trip must be nonzero for this to actually
   // reproduce "money owed" the way a real Unpaid disposal trip would.
-  await page.getByLabel("Rate per trip").fill("500");
+  await fillField(page, "Rate per trip", "500");
   await page.getByRole("button", { name: "Record Disposal" }).click();
   await expect(page.getByText("Disposal recorded")).toBeVisible({ timeout: 10_000 });
 

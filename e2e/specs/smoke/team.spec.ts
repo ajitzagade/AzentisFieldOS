@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { loginAsOwner } from "../../fixtures/auth";
-import { visibleText } from "../../fixtures/ui";
+import { selectField, visibleText } from "../../fixtures/ui";
 
 test("Owner can add a Team Member and they appear in the roster", async ({ page }) => {
   await loginAsOwner(page);
@@ -12,7 +12,7 @@ test("Owner can add a Team Member and they appear in the roster", async ({ page 
   // the DOM — .first() consistently lands on the live, React-controlled
   // input in every confirmed repro so far.
   await page.getByLabel("Name").first().fill(name);
-  await page.getByLabel("Employment Type").selectOption({ label: "Daily Wage" });
+  await selectField(page, "Employment Type", { label: "Daily Wage" });
   await page.getByRole("button", { name: "Create Team Member" }).click();
 
   await expect(page).toHaveURL(/\/team$/);

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { loginAsOwner } from "../../fixtures/auth";
 import { VENDOR_NAME } from "../../fixtures/test-users";
-import { pickCombobox } from "../../fixtures/ui";
+import { fillField, pickCombobox } from "../../fixtures/ui";
 
 // Regression for a real production bug (2026-09-06): "Add site is not
 // visible in the site drop downs if site is not available." Site was the
@@ -19,15 +19,15 @@ test("a brand-new Site can be added inline from a Site picker and is selected im
   await page.getByText("+ Add Site").click();
 
   const dialog = page.getByRole("dialog", { name: "Add Site" });
-  await dialog.getByLabel("Name").fill(siteName);
-  await dialog.getByLabel("Location").fill("Nashik, Maharashtra");
+  await fillField(page, "Name", siteName, dialog);
+  await fillField(page, "Location", "Nashik, Maharashtra", dialog);
   await dialog.getByRole("button", { name: "Create Site" }).click();
   await expect(dialog).not.toBeVisible({ timeout: 10_000 });
 
   await expect(page.getByRole("combobox", { name: "Site" })).toHaveValue(siteName);
 
-  await page.getByLabel("Waste / material type").fill("Excavated earth");
-  await page.getByLabel("Number of trips").fill("1");
+  await fillField(page, "Waste / material type", "Excavated earth");
+  await fillField(page, "Number of trips", "1");
   // Ownership defaults to "Hired", which requires a Party/Vendor.
   await pickCombobox(page, "Party / Vendor", VENDOR_NAME);
   await page.getByRole("button", { name: "Record Disposal" }).click();

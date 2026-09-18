@@ -1,13 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { loginAsOwner } from "../../fixtures/auth";
-import { visibleText } from "../../fixtures/ui";
+import { fillField, visibleText } from "../../fixtures/ui";
 
 test("Owner can add a Vendor and it appears in the list", async ({ page }) => {
   await loginAsOwner(page);
   await page.goto("/vendors/new");
 
   const name = `E2E Smoke Vendor ${Date.now()}`;
-  await page.getByLabel("Name").fill(name);
+  await fillField(page, "Name", name);
   await page.getByRole("button", { name: "Create Vendor" }).click();
 
   await expect(page).toHaveURL(/\/vendors$/);
