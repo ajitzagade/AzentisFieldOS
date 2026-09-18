@@ -134,17 +134,11 @@ function mockDashboard(overrides: {
           ? (overrides.pendingPricingPurchases ?? [])
           : url.includes("/site-contracts/count/draft-pending-terms")
             ? (overrides.draftPendingTerms ?? 0)
-            : url.includes("/dashboard/overall")
-              ? overall
-              : url.includes("/dashboard/sites-preview")
-                ? sitesPreview
-                : url.includes("/dashboard/site-breakdown")
-                  ? breakdown
-                  : url.includes("/dashboard/trends")
-                    ? trends
-                    : url.includes("/stock/low-stock")
-                      ? (overrides.lowStock ?? [])
-                      : today;
+            : url.includes("/dashboard/command-center")
+              ? { today, overall, sitesPreview, trends, siteBreakdown: breakdown }
+              : url.includes("/stock/low-stock")
+                ? (overrides.lowStock ?? [])
+                : today;
     return Promise.resolve({ ok: true, json: async () => body });
   }) as unknown as typeof fetch;
 }
@@ -190,10 +184,21 @@ describe("DashboardPage", () => {
       const url = String(input);
       if (url.includes("/users/me"))
         return Promise.resolve({ ok: true, json: async () => ({ role: "OWNER_ADMIN" }) });
-      if (url.includes("/dashboard/overall")) return Promise.resolve({ ok: true, json: async () => baseOverall });
-      if (url.includes("/dashboard/sites-preview"))
-        return Promise.resolve({ ok: true, json: async () => baseSitesPreview });
-      if (url.includes("/dashboard/today")) return Promise.resolve({ ok: true, json: async () => baseToday });
+      // The five dashboard-owned reads now arrive as one command-center
+      // response: the two additive sections come back null (their server-side
+      // computation failed) while the core tiles still resolve. Everything
+      // else (money summaries, low-stock) 500s and degrades to "—"/null.
+      if (url.includes("/dashboard/command-center"))
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            today: baseToday,
+            overall: baseOverall,
+            sitesPreview: baseSitesPreview,
+            trends: null,
+            siteBreakdown: null,
+          }),
+        });
       return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
     }) as unknown as typeof fetch;
 
@@ -458,16 +463,16 @@ describe("DashboardPage", () => {
   it("renders the Money strip — month expenses, vendor outstanding, Subcontractor outstanding, and the Cash Tied Up hero with advances and pending payments folded into it", async () => {
     global.fetch = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
-      const body = url.includes("/dashboard/overall")
-        ? baseOverall
-        : url.includes("/dashboard/sites-preview")
-          ? baseSitesPreview
-          : url.includes("/dashboard/site-breakdown")
-            ? baseBreakdown
-            : url.includes("/dashboard/trends")
-              ? baseTrends
-              : url.includes("/stock/low-stock")
-                ? []
+      const body = url.includes("/dashboard/command-center")
+        ? {
+            today: baseToday,
+            overall: baseOverall,
+            sitesPreview: baseSitesPreview,
+            trends: baseTrends,
+            siteBreakdown: baseBreakdown,
+          }
+        : url.includes("/stock/low-stock")
+          ? []
                 : url.includes("/expenses/summary")
                   ? { totalThisMonth: 250000, totalThisWeek: 40000, largestCategoryThisMonth: { name: "Diesel", total: 90000 } }
                   : url.includes("/purchases/outstanding-summary")
@@ -521,13 +526,20 @@ describe("DashboardPage", () => {
       // The role lookup must still succeed — a failed /users/me falls back to
       // the Supervisor Home, which is its own test below.
       if (url.includes("/users/me")) return Promise.resolve({ ok: true, json: async () => ({ role: "OWNER_ADMIN" }) });
-      if (url.includes("/dashboard/overall")) return Promise.resolve({ ok: true, json: async () => baseOverall });
-      if (url.includes("/dashboard/sites-preview"))
-        return Promise.resolve({ ok: true, json: async () => baseSitesPreview });
-      if (url.includes("/dashboard/site-breakdown"))
-        return Promise.resolve({ ok: true, json: async () => baseBreakdown });
-      if (url.includes("/dashboard/trends")) return Promise.resolve({ ok: true, json: async () => baseTrends });
-      if (url.includes("/dashboard/today")) return Promise.resolve({ ok: true, json: async () => baseToday });
+      // All five dashboard-owned sections succeed via the single command-center
+      // read; only the Money-row reads (expenses / purchases / site-contracts)
+      // below fail, so the band + Site operations table stay untouched.
+      if (url.includes("/dashboard/command-center"))
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            today: baseToday,
+            overall: baseOverall,
+            sitesPreview: baseSitesPreview,
+            trends: baseTrends,
+            siteBreakdown: baseBreakdown,
+          }),
+        });
       return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
     }) as unknown as typeof fetch;
 

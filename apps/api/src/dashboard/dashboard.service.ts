@@ -82,6 +82,21 @@ export interface Trends {
   days: TrendDay[];
 }
 
+// Perf consolidation (2026-09-18): the five dashboard-owned reads the Owner
+// landing needs, in one response. `trends`/`siteBreakdown` are nullable for
+// the same reason the web fetched them with a degrade-to-null helper — they
+// are additive context whose failure must never cost the core Today/Overall
+// tiles. `today`/`overall`/`sitesPreview` are non-null: a failure in any of
+// them rejects the whole request (the page error-bounds, exactly as it did
+// when they were three separate core reads).
+export interface CommandCenter {
+  today: TodayActivity;
+  overall: OverallRollup;
+  sitesPreview: SitePreview[];
+  trends: Trends | null;
+  siteBreakdown: SiteBreakdown | null;
+}
+
 const TREND_DAYS = 7;
 
 // A handful of the most-recently-created Sites for the Dashboard card grid;
@@ -108,14 +123,18 @@ export class DashboardService {
   async getToday(
     now: Date = new Date(),
     timeZone: string = resolveAppTimeZone(),
+    supersededIds?: string[],
   ): Promise<TodayActivity> {
     const { dateOnly, startUtc, endUtc } = localDayRange(now, timeZone);
     const dayRange = { gte: startUtc, lt: endUtc };
     // A corrected DSR's original sub-rows stay in the ledger (AD-9) —
     // count only the current version's rows, or every corrected report
     // inflates today's tiles (same rule as ConsumptionService.list).
+    // `supersededIds` is threaded in by getCommandCenter so the aggregate
+    // runs this full-table scan once, not once per method; every standalone
+    // caller (and every test) omits it and computes it inline, unchanged.
     const currentRows = currentDsrRowsWhere(
-      await supersededDsrIds(this.prisma),
+      supersededIds ?? (await supersededDsrIds(this.prisma)),
     );
 
     const [
@@ -183,6 +202,44 @@ export class DashboardService {
     };
   }
 
+  // Perf consolidation (2026-09-18): composes the five dashboard-owned reads
+  // into ONE response so the Owner dashboard makes a single round trip instead
+  // of five, and the superseded-DSR full-table scan runs once (threaded into
+  // the three methods that need it) instead of three times. Purely additive:
+  // /dashboard/{today,overall,sites-preview,trends,site-breakdown} all still
+  // exist for their other consumers (supervisor-home reads /dashboard/today
+  // standalone; the low-stock/expense-summary reads the Owner page also makes
+  // stay separate because other epics/pages own them).
+  //
+  // Degradation: today/overall/sitesPreview stay core — a failure in any of
+  // them rejects this request and error-bounds the page, exactly as a failing
+  // core read did when they were separate. trends/siteBreakdown isolate to
+  // null on a failure *within* their own computation (the getJSONSafe
+  // behaviour, preserved). The one narrowing vs five separate requests: an
+  // endpoint-level failure (e.g. an unrelated 500) now drops the additive
+  // sections alongside the core ones rather than only the failed section — an
+  // accepted trade for the single round trip, since the realistic per-section
+  // failures stay isolated.
+  async getCommandCenter(): Promise<CommandCenter> {
+    // One clock + timezone snapshot for the whole aggregate: getToday,
+    // getTrends and getSiteBreakdown otherwise each read their own new Date(),
+    // which across a local-midnight boundary could compute different day
+    // windows and disagree. Pinning one `now`/`timeZone` keeps the composed
+    // sections describing the same day — the invariant getToday documents.
+    const now = new Date();
+    const timeZone = resolveAppTimeZone();
+    const superseded = await supersededDsrIds(this.prisma);
+    const [today, overall, sitesPreview, trends, siteBreakdown] =
+      await Promise.all([
+        this.getToday(now, timeZone, superseded),
+        this.getOverall(),
+        this.getSitesPreview(),
+        this.getTrends(now, timeZone, superseded).catch(() => null),
+        this.getSiteBreakdown(now, timeZone, superseded).catch(() => null),
+      ]);
+    return { today, overall, sitesPreview, trends, siteBreakdown };
+  }
+
   // Story 12.2 (FR-34, AC #2): a pure composition layer. Every figure is a
   // direct call into the epic that owns it — SitesService (Epic 2),
   // StockService.getLowStockMaterials (Epic 5 Story 5.7),
@@ -244,11 +301,13 @@ export class DashboardService {
   async getSiteBreakdown(
     now: Date = new Date(),
     timeZone: string = resolveAppTimeZone(),
+    supersededIds?: string[],
   ): Promise<SiteBreakdown> {
     const { dateOnly, startUtc, endUtc } = localDayRange(now, timeZone);
     const dayRange = { gte: startUtc, lt: endUtc };
+    // See getToday: threaded in by getCommandCenter to dedupe the scan.
     const currentRows = currentDsrRowsWhere(
-      await supersededDsrIds(this.prisma),
+      supersededIds ?? (await supersededDsrIds(this.prisma)),
     );
 
     const [
@@ -359,6 +418,7 @@ export class DashboardService {
   async getTrends(
     now: Date = new Date(),
     timeZone: string = resolveAppTimeZone(),
+    supersededIds?: string[],
   ): Promise<Trends> {
     // Walk back day by day from today's window: the instant just before a
     // day's startUtc always belongs to the previous local day, whatever the
@@ -373,8 +433,9 @@ export class DashboardService {
     const first = ranges[0]!;
     const last = ranges[ranges.length - 1]!;
 
+    // See getToday: threaded in by getCommandCenter to dedupe the scan.
     const currentRows = currentDsrRowsWhere(
-      await supersededDsrIds(this.prisma),
+      supersededIds ?? (await supersededDsrIds(this.prisma)),
     );
 
     const [dsrRows, workRows, expenseRows] = await Promise.all([
