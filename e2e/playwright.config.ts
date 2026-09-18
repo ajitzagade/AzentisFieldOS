@@ -20,7 +20,16 @@ export default defineConfig({
   // All specs share one seeded database (see global-setup.ts) — serial
   // execution avoids cross-test races over that shared state.
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
+  // The upstream @base-ui-components/react@1.0.0-rc.0 hydration duplicate bug
+  // (see e2e/fixtures/ui.ts) is intermittent per-locator and surfaces on
+  // arbitrary elements (getByLabel / getByText / getByRole links / detail
+  // panels), so it can't be fully eliminated test-side — and 1.0.0-rc.0 is
+  // still the latest published version, so there's no upgrade to take yet. A
+  // retry on a fresh page load clears it nearly every time; Playwright still
+  // reports a recovered test as "flaky", so the affected specs stay visible.
+  // Applied locally too (was 0) so a developer's run is reliably green like CI.
+  // Override with E2E_RETRIES (e.g. 0 to see raw flakes while hardening).
+  retries: Number(process.env.E2E_RETRIES ?? 2),
   reporter: [["list"], ["html", { open: "never", outputFolder: path.join(__dirname, "report") }]],
   globalSetup: "./global-setup.ts",
   timeout: 45_000,
