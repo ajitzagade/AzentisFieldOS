@@ -25,12 +25,8 @@ test("clicking a Vendor row opens the detail panel in place, and Escape closes i
   await page.goto("/vendors/new");
 
   const name = `E2E Panel Vendor ${Date.now()}`;
-  // .first(): a known upstream Base UI bug (see f665717) can leave an
-  // orphaned duplicate form field in the DOM right after a dialog-close +
-  // navigation sequence — the preceding spec's panel "View full details"
-  // click is exactly that pattern.
-  await page.getByLabel("Name").first().fill(name);
-  await page.getByLabel("Contact person").first().fill("Ravi Kumar");
+  await fillField(page, "Name", name);
+  await fillField(page, "Contact person", "Ravi Kumar");
   await page.getByRole("button", { name: "Create Vendor" }).click();
   await expect(page).toHaveURL(/\/vendors$/);
   await expect(visibleText(page, name)).toBeVisible({ timeout: 10_000 });

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { loginAsOwner } from "../../fixtures/auth";
 import { MATERIAL_NAME, SITE_NAME, VENDOR_NAME } from "../../fixtures/test-users";
-import { fillField, pickCombobox } from "../../fixtures/ui";
+import { fillField, pickCombobox, selectField } from "../../fixtures/ui";
 
 test("Owner can record a Return/Wastage entry against existing Site Stock", async ({ page }) => {
   await loginAsOwner(page);
@@ -10,11 +10,7 @@ test("Owner can record a Return/Wastage entry against existing Site Stock", asyn
   await page.goto("/movements/purchases/new");
   await pickCombobox(page, "Vendor", VENDOR_NAME);
   await pickCombobox(page, "Material / Size", MATERIAL_NAME);
-  // A known upstream @base-ui-components/react (1.0.0-rc.0, latest
-  // available) bug occasionally leaves an orphaned duplicate of a field in
-  // the DOM — .first() consistently lands on the live, React-controlled
-  // input in every confirmed repro so far.
-  await page.getByLabel("Destination").first().selectOption({ label: "Site" });
+  await selectField(page, "Destination", { label: "Site" });
   await pickCombobox(page, "Site", SITE_NAME);
   await fillField(page, /Quantity/, "100");
   await fillField(page, "Rate", "100");

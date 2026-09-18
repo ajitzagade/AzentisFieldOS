@@ -82,11 +82,7 @@ test("clicking a Subcontractor row opens the detail panel in place, and Escape c
   await page.goto("/subcontractors/new");
 
   const name = `E2E Panel Subcontractor ${Date.now()}`;
-  // A known upstream @base-ui-components/react (1.0.0-rc.0, latest
-  // available) bug occasionally leaves an orphaned duplicate of a field in
-  // the DOM — .first() consistently lands on the live, React-controlled
-  // input in every confirmed repro so far.
-  await page.getByLabel("Name").first().fill(name);
+  await fillField(page, "Name", name);
   await fillField(page, "Contact person", "Meena Shah");
   await page.getByRole("button", { name: "Create Subcontractor" }).click();
   await expect(page).toHaveURL(/\/subcontractors$/);
