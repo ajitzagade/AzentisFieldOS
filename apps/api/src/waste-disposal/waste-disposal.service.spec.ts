@@ -10,7 +10,10 @@ function makeService() {
     findMany: vi.fn().mockResolvedValue([]),
     findUnique: vi.fn().mockResolvedValue(null),
   };
-  const vendorAdvance = { create: vi.fn() };
+  const vendorAdvance = {
+    create: vi.fn(),
+    groupBy: vi.fn().mockResolvedValue([]),
+  };
   const tx = { wasteDisposal, vendorAdvance };
   const prisma = {
     wasteDisposal,
@@ -229,11 +232,137 @@ describe('WasteDisposalService.summary', () => {
   });
 });
 
+// Feature (2026-09-19): list rows carry the trip's settlement position —
+// advances already handed to the Vendor and what is still pending — so no
+// screen has to detour to the Vendor page for that answer.
+describe('WasteDisposalService.list — advance/pending settlement figures', () => {
+  const hiredRoot = {
+    id: 'wd-1',
+    correctsId: null,
+    vendorId: 'v-1',
+    ownership: 'HIRED',
+    totalAmount: new Prisma.Decimal(3000),
+    paymentStatus: 'UNPAID',
+    createdAt: new Date('2026-09-01'),
+  };
+
+  type SettledRow = {
+    id: string;
+    advanceTotal: Prisma.Decimal | null;
+    pendingAmount: Prisma.Decimal | null;
+  };
+
+  it('attaches advanceTotal and pendingAmount = bill − advances on a HIRED root', async () => {
+    ctx.prisma.wasteDisposal.findMany.mockResolvedValueOnce([hiredRoot]);
+    ctx.prisma.vendorAdvance.groupBy.mockResolvedValue([
+      { wasteDisposalId: 'wd-1', _sum: { amount: new Prisma.Decimal(1000) } },
+    ]);
+
+    const rows = (await ctx.service.list()) as SettledRow[];
+
+    expect(rows[0]!.advanceTotal!.toNumber()).toBe(1000);
+    expect(rows[0]!.pendingAmount!.toNumber()).toBe(2000);
+  });
+
+  it('a HIRED root with no advances pends its full bill', async () => {
+    ctx.prisma.wasteDisposal.findMany.mockResolvedValueOnce([hiredRoot]);
+
+    const rows = (await ctx.service.list()) as SettledRow[];
+
+    expect(rows[0]!.advanceTotal!.toNumber()).toBe(0);
+    expect(rows[0]!.pendingAmount!.toNumber()).toBe(3000);
+  });
+
+  it('OWN rows have no settlement position (nulls, and no advance query at all)', async () => {
+    ctx.prisma.wasteDisposal.findMany.mockResolvedValueOnce([
+      {
+        ...hiredRoot,
+        id: 'wd-own',
+        vendorId: null,
+        ownership: 'OWN',
+        paymentStatus: null,
+      },
+    ]);
+
+    const rows = (await ctx.service.list()) as SettledRow[];
+
+    expect(rows[0]!.advanceTotal).toBeNull();
+    expect(rows[0]!.pendingAmount).toBeNull();
+    expect(ctx.prisma.vendorAdvance.groupBy).not.toHaveBeenCalled();
+  });
+
+  it('folds a signed correction delta into the root pending; the correction row itself gets nulls', async () => {
+    const correction = {
+      ...hiredRoot,
+      id: 'wd-2',
+      correctsId: 'wd-1',
+      totalAmount: new Prisma.Decimal(-900),
+      paymentStatus: null,
+      createdAt: new Date('2026-09-02'),
+    };
+    ctx.prisma.wasteDisposal.findMany
+      .mockResolvedValueOnce([hiredRoot, correction]) // the list query
+      .mockResolvedValueOnce([correction]); // correction-chain walk, then default []
+    ctx.prisma.vendorAdvance.groupBy.mockResolvedValue([
+      { wasteDisposalId: 'wd-1', _sum: { amount: new Prisma.Decimal(1000) } },
+    ]);
+
+    const rows = (await ctx.service.list()) as SettledRow[];
+
+    const root = rows.find((r) => r.id === 'wd-1')!;
+    expect(root.pendingAmount!.toNumber()).toBe(1100); // 3000 − 900 − 1000
+    const correctionRow = rows.find((r) => r.id === 'wd-2')!;
+    expect(correctionRow.advanceTotal).toBeNull();
+    expect(correctionRow.pendingAmount).toBeNull();
+  });
+
+  it('a later correction carrying PAID zeroes the pending (the correction form is how UNPAID becomes PAID)', async () => {
+    const paidCorrection = {
+      ...hiredRoot,
+      id: 'wd-2',
+      correctsId: 'wd-1',
+      totalAmount: new Prisma.Decimal(0),
+      paymentStatus: 'PAID',
+      createdAt: new Date('2026-09-02'),
+    };
+    ctx.prisma.wasteDisposal.findMany
+      .mockResolvedValueOnce([hiredRoot])
+      .mockResolvedValueOnce([paidCorrection]);
+    ctx.prisma.vendorAdvance.groupBy.mockResolvedValue([
+      { wasteDisposalId: 'wd-1', _sum: { amount: new Prisma.Decimal(1000) } },
+    ]);
+
+    const rows = (await ctx.service.list()) as SettledRow[];
+
+    expect(rows[0]!.pendingAmount!.toNumber()).toBe(0);
+  });
+});
+
 describe('WasteDisposalService.findOne', () => {
   it('404s for an unknown id', async () => {
     await expect(ctx.service.findOne('ghost')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('carries the same settlement figures the list computes', async () => {
+    ctx.prisma.wasteDisposal.findUnique.mockResolvedValue({
+      id: 'wd-1',
+      correctsId: null,
+      vendorId: 'v-1',
+      ownership: 'HIRED',
+      totalAmount: new Prisma.Decimal(3000),
+      paymentStatus: 'UNPAID',
+      createdAt: new Date('2026-09-01'),
+    });
+    ctx.prisma.vendorAdvance.groupBy.mockResolvedValue([
+      { wasteDisposalId: 'wd-1', _sum: { amount: new Prisma.Decimal(500) } },
+    ]);
+
+    const disposal = await ctx.service.findOne('wd-1');
+
+    expect(disposal.advanceTotal!.toNumber()).toBe(500);
+    expect(disposal.pendingAmount!.toNumber()).toBe(2500);
   });
 });
 

@@ -44,6 +44,12 @@ interface VendorWasteDisposal {
   wasteType: string;
   tripCount: number;
   totalAmount: string;
+  // Per-record settlement (2026-09-19): advances already handed to this
+  // Vendor for the trip and what is still pending — null on correction
+  // rows (their money folds into the root entry's figures).
+  advanceTotal: string | null;
+  pendingAmount: string | null;
+  correctsId: string | null;
   paymentStatus: "PAID" | "PARTIAL" | "UNPAID" | null;
   disposedAt: string;
   site: { id: string; name: string };
@@ -184,11 +190,42 @@ const purchaseMobileCard: DataTableMobileCard<VendorPurchase> = {
   omitHeaders: ["Date"],
 };
 
+// "—" for rows with no settlement position (correction rows) and for a
+// plain ₹0 advance — same rendering as the Waste & Disposal module's list,
+// so a trip reads identically on both screens.
+function renderAdvance(advanceTotal: string | null) {
+  const advance = advanceTotal === null ? 0 : Number(advanceTotal);
+  if (advance === 0) return <span className="text-ink-500">—</span>;
+  return <span className="tabular-nums">₹{advance.toLocaleString("en-IN")}</span>;
+}
+
+function renderPending(pendingAmount: string | null) {
+  if (pendingAmount === null) return <span className="text-ink-500">—</span>;
+  const pending = Number(pendingAmount);
+  if (pending < 0) {
+    return (
+      <span className="font-semibold text-success-700 tabular-nums">
+        Advance ₹{Math.abs(pending).toLocaleString("en-IN")}
+      </span>
+    );
+  }
+  if (pending === 0) return <span className="font-semibold text-success-700 tabular-nums">₹0</span>;
+  return <span className="font-semibold text-warning-700 tabular-nums">₹{pending.toLocaleString("en-IN")}</span>;
+}
+
 // Every row here is HIRED by construction (see VendorWasteDisposal's own
 // comment) — no "Pricing pending" branch needed, unlike Purchase's D7 case.
 const wasteDisposalColumns: DataTableColumn<VendorWasteDisposal>[] = [
   { header: "Site", cell: (row) => row.site.name },
-  { header: "Waste type", cell: (row) => row.wasteType },
+  {
+    header: "Waste type",
+    cell: (row) => (
+      <span className="flex items-center gap-1.5">
+        {row.wasteType}
+        {row.correctsId ? <Badge variant="warning">Correction</Badge> : null}
+      </span>
+    ),
+  },
   { header: "Trips", align: "right", cell: (row) => <span className="tabular-nums">{row.tripCount}</span> },
   {
     header: "Amount",
@@ -199,6 +236,8 @@ const wasteDisposalColumns: DataTableColumn<VendorWasteDisposal>[] = [
       </span>
     ),
   },
+  { header: "Advance", align: "right", cell: (row) => renderAdvance(row.advanceTotal) },
+  { header: "Pending", align: "right", cell: (row) => renderPending(row.pendingAmount) },
   {
     header: "Payment status",
     cell: (row) => {
@@ -262,6 +301,14 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
       ? ` Note: ₹${summary.notFullyPaidTotal.toLocaleString("en-IN")} of purchases/waste-disposal trips are not yet marked Paid — deleting this Vendor removes that amount from Vendor Outstanding and Cash Tied Up.`
       : "";
 
+  // Sum of every advance handed to this Vendor (the same rows the Vendor
+  // Advances table below lists) — shown in the header so the money picture
+  // is complete in one glance. Deliberately NOT netted into
+  // notFullyPaidTotal above: which trip each advance covers is settled
+  // per-record (the Pending column in Waste & Disposal History), not by a
+  // vendor-level subtraction.
+  const totalAdvancesGiven = advances.reduce((sum, advance) => sum + Number(advance.amount), 0);
+
   return (
     <>
       <RecordRecentlyViewed type="vendor" id={vendor.id} name={vendor.name} />
@@ -324,6 +371,17 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
               </div>
             )}
           </div>
+          {totalAdvancesGiven > 0 ? (
+            <div>
+              <div className="mb-0.5 text-eyebrow uppercase text-ink-500">Advances given</div>
+              <div className="text-kpi-numeral tabular-nums text-ink-900">
+                ₹{totalAdvancesGiven.toLocaleString("en-IN")}
+                <span className="ml-2 text-body-sm font-normal text-ink-500">
+                  settled per trip in the tables below
+                </span>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-8">
@@ -388,7 +446,17 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
         }
       />
 
-      <div className="mt-8 mb-4 text-section-header text-ink-900">Vendor Advances</div>
+      <div className="mt-8 mb-4 flex flex-wrap items-baseline justify-between gap-2">
+        <div className="text-section-header text-ink-900">Vendor Advances</div>
+        {advances.length > 0 ? (
+          <div className="text-body-sm text-ink-500">
+            Total given:{" "}
+            <span className="font-semibold tabular-nums text-ink-900">
+              ₹{totalAdvancesGiven.toLocaleString("en-IN")}
+            </span>
+          </div>
+        ) : null}
+      </div>
       <DataTable
         columns={advanceColumns}
         mobileCard={advanceMobileCard}

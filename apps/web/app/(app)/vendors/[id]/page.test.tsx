@@ -133,13 +133,16 @@ describe("VendorDetailPage — Waste & Disposal History", () => {
     expect(screen.getAllByText("No Waste Disposal trips recorded yet for this Vendor.")).toHaveLength(2);
   });
 
-  it("renders every Waste Disposal trip with Site, Waste type, Trips, Amount, and Payment status", async () => {
+  it("renders every Waste Disposal trip with Site, Waste type, Trips, Amount, Advance, Pending and Payment status", async () => {
     mockFetch([], [
       {
         id: "wd1",
         wasteType: "Excavated earth / murum",
         tripCount: 6,
         totalAmount: "18000",
+        advanceTotal: "5000",
+        pendingAmount: "13000",
+        correctsId: null,
         paymentStatus: "UNPAID",
         disposedAt: "2026-08-15T00:00:00Z",
         site: { id: "s1", name: "NH-48 Widening" },
@@ -153,6 +156,10 @@ describe("VendorDetailPage — Waste & Disposal History", () => {
     expect(screen.getAllByText("Excavated earth / murum")).toHaveLength(2);
     expect(screen.getAllByText("6")).toHaveLength(2);
     expect(screen.getAllByText("₹18,000")).toHaveLength(2);
+    // Feature 2026-09-19: the trip's own settlement position — advance
+    // already given and what is still pending — inline on the row.
+    expect(screen.getAllByText("₹5,000")).toHaveLength(2);
+    expect(screen.getAllByText("₹13,000")).toHaveLength(2);
     expect(screen.getAllByText("Unpaid")).toHaveLength(2);
   });
 });
@@ -182,10 +189,24 @@ describe("VendorDetailPage — Vendor Advances", () => {
 
     await renderDetailPage("v1");
 
-    // Rendered once in the md+ table and once in the below-md mobile card.
-    expect(screen.getAllByText("₹2,000")).toHaveLength(2);
+    // Rendered once in the md+ table, once in the below-md mobile card,
+    // and twice more as totals (the header's "Advances given" figure and
+    // the section's "Total given" line — feature 2026-09-19).
+    expect(screen.getAllByText("₹2,000")).toHaveLength(4);
     expect(screen.getAllByText("Excavated earth / murum")).toHaveLength(2);
     expect(screen.getAllByText("Cash")).toHaveLength(2);
+  });
+
+  it("totals every advance in the header and above the table", async () => {
+    mockFetch([], [], [
+      { id: "va1", amount: "2000", paymentMethod: "Cash", givenAt: "2026-08-15T00:00:00Z", wasteDisposal: null },
+      { id: "va2", amount: "3500", paymentMethod: null, givenAt: "2026-08-20T00:00:00Z", wasteDisposal: null },
+    ]);
+
+    await renderDetailPage("v1");
+
+    expect(screen.getByText("Advances given")).toBeInTheDocument();
+    expect(screen.getAllByText("₹5,500")).toHaveLength(2); // header stat + "Total given" line
   });
 });
 

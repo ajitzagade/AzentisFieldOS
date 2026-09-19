@@ -45,6 +45,18 @@ type WasteDisposalListRow = Prisma.WasteDisposalGetPayload<{
   include: typeof DISPOSAL_INCLUDE;
 }>;
 
+// Per-record settlement position (feature 2026-09-19): the advance money
+// already handed to the trip's Vendor and what is still pending — so the
+// list answers "how much do I still owe for this trip" without a detour to
+// the Vendor page. Null on OWN rows (no party to pay) and on correction
+// rows (their money is folded into the root entry's figures).
+export type WasteDisposalSettledRow = WasteDisposalListRow & {
+  advanceTotal: Prisma.Decimal | null;
+  pendingAmount: Prisma.Decimal | null;
+};
+
+const ZERO = new Prisma.Decimal(0);
+
 // Waste & Disposal — a per-trip disposal COST ledger (FR-41 spirit: money
 // leaving the business, attributed to a Site). Append-only (AD-9):
 // create() only ever inserts; a correction is a new signed-delta row
@@ -134,7 +146,9 @@ export class WasteDisposalService {
   // full-array behavior is unchanged.
   async list(
     filters: WasteDisposalListFilters = {},
-  ): Promise<WasteDisposalListRow[] | PaginatedResult<WasteDisposalListRow>> {
+  ): Promise<
+    WasteDisposalSettledRow[] | PaginatedResult<WasteDisposalSettledRow>
+  > {
     const where = this.whereFor(filters);
     const orderBy: Prisma.WasteDisposalOrderByWithRelationInput = {
       disposedAt: 'desc',
@@ -142,14 +156,15 @@ export class WasteDisposalService {
 
     const pagination = paginationParams(filters.page, filters.pageSize);
     if (!pagination.paginated) {
-      return this.prisma.wasteDisposal.findMany({
+      const rows = await this.prisma.wasteDisposal.findMany({
         where,
         include: DISPOSAL_INCLUDE,
         orderBy,
       });
+      return this.withSettlement(rows);
     }
 
-    return Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.wasteDisposal.findMany({
         where,
         include: DISPOSAL_INCLUDE,
@@ -158,12 +173,96 @@ export class WasteDisposalService {
         take: pagination.take,
       }),
       this.prisma.wasteDisposal.count({ where }),
-    ]).then(([rows, total]) => ({
-      rows,
+    ]);
+    return {
+      rows: await this.withSettlement(rows),
       total,
       page: pagination.page,
       pageSize: pagination.pageSize,
-    }));
+    };
+  }
+
+  // Attaches advanceTotal/pendingAmount to each HIRED root row. An advance
+  // only ever attaches to a root entry (createWasteDisposalSchema forbids
+  // `advance` on a correction), but the trip's own money can be corrected —
+  // corrections are signed-delta rows, so a root's true bill is its own
+  // totalAmount plus every delta in its correction chain, and its effective
+  // payment status is the latest non-null one in that chain (the correction
+  // form is also how UNPAID becomes PAID). Pending is therefore:
+  //   0 when effectively PAID, else (net bill − advances given);
+  // negative pending = more advanced than billed (recovers on future trips,
+  // same convention as a Site Contract's negative outstanding).
+  private async withSettlement(
+    rows: WasteDisposalListRow[],
+  ): Promise<WasteDisposalSettledRow[]> {
+    const roots = rows.filter((r) => !r.correctsId && r.vendorId);
+    const notApplicable = (
+      r: WasteDisposalListRow,
+    ): WasteDisposalSettledRow => ({
+      ...r,
+      advanceTotal: null,
+      pendingAmount: null,
+    });
+    if (roots.length === 0) {
+      return rows.map(notApplicable);
+    }
+
+    const rootIds = roots.map((r) => r.id);
+    const advanceGroups = await this.prisma.vendorAdvance.groupBy({
+      by: ['wasteDisposalId'],
+      where: { wasteDisposalId: { in: rootIds } },
+      _sum: { amount: true },
+    });
+    const advanceByRoot = new Map(
+      advanceGroups.map((g) => [g.wasteDisposalId, g._sum.amount ?? ZERO]),
+    );
+
+    // Walk the correction chain breadth-first (a correction can itself be
+    // corrected), attributing every delta back to its chain root.
+    const deltaByRoot = new Map<string, Prisma.Decimal>();
+    const statusByRoot = new Map(
+      roots.map((r) => [r.id, { at: r.createdAt, status: r.paymentStatus }]),
+    );
+    const rootOf = new Map(rootIds.map((id) => [id, id]));
+    let frontier = rootIds;
+    while (frontier.length > 0) {
+      const corrections = await this.prisma.wasteDisposal.findMany({
+        where: { correctsId: { in: frontier } },
+        select: {
+          id: true,
+          correctsId: true,
+          totalAmount: true,
+          paymentStatus: true,
+          createdAt: true,
+        },
+      });
+      if (corrections.length === 0) break;
+      frontier = [];
+      for (const c of corrections) {
+        const root = rootOf.get(c.correctsId!)!;
+        rootOf.set(c.id, root);
+        deltaByRoot.set(
+          root,
+          (deltaByRoot.get(root) ?? ZERO).add(c.totalAmount),
+        );
+        const current = statusByRoot.get(root)!;
+        if (c.paymentStatus && c.createdAt >= current.at) {
+          statusByRoot.set(root, { at: c.createdAt, status: c.paymentStatus });
+        }
+        frontier.push(c.id);
+      }
+    }
+
+    return rows.map((r) => {
+      if (r.correctsId || !r.vendorId) return notApplicable(r);
+      const advanceTotal = advanceByRoot.get(r.id) ?? ZERO;
+      const netBill = r.totalAmount.add(deltaByRoot.get(r.id) ?? ZERO);
+      const pendingAmount =
+        statusByRoot.get(r.id)!.status === 'PAID'
+          ? ZERO
+          : netBill.sub(advanceTotal);
+      return { ...r, advanceTotal, pendingAmount };
+    });
   }
 
   // The Owner view: total disposal cost, trips, own-vs-hired split, and
@@ -252,8 +351,9 @@ export class WasteDisposalService {
   }
 
   // The correction form needs the original's fields to pre-fill from —
-  // same reasoning as ExpensesService.findOne.
-  async findOne(id: string) {
+  // same reasoning as ExpensesService.findOne. Settlement figures ride
+  // along so a detail consumer sees the same advance/pending the list does.
+  async findOne(id: string): Promise<WasteDisposalSettledRow> {
     const disposal = await this.prisma.wasteDisposal.findUnique({
       where: { id },
       include: DISPOSAL_INCLUDE,
@@ -261,7 +361,8 @@ export class WasteDisposalService {
     if (!disposal) {
       throw new NotFoundException(`Waste Disposal ${id} not found`);
     }
-    return disposal;
+    const [settled] = await this.withSettlement([disposal]);
+    return settled!;
   }
 
   // Story 16.6: the global Search palette's Waste Disposal coverage —

@@ -35,6 +35,11 @@ interface WasteDisposalRow {
   ratePerTrip: string;
   otherCharges: string;
   totalAmount: string;
+  // Per-record settlement (2026-09-19): advances already handed to the
+  // trip's Vendor and what is still pending — null on OWN rows and on
+  // correction rows (their money folds into the root entry's figures).
+  advanceTotal: string | null;
+  pendingAmount: string | null;
   disposalLocation: string | null;
   paymentStatus: "PAID" | "PARTIAL" | "UNPAID" | null;
   disposedAt: string;
@@ -92,6 +97,31 @@ const PAYMENT_BADGE: Record<string, { variant: "success" | "warning" | "danger";
   UNPAID: { variant: "danger", label: "Unpaid" },
 };
 
+// "—" for rows with no settlement position (OWN / correction rows) and for
+// a plain ₹0 advance — a zero there is noise, not information.
+function renderAdvance(advanceTotal: string | null) {
+  const advance = advanceTotal === null ? 0 : Number(advanceTotal);
+  if (advance === 0) return <span className="text-ink-500">—</span>;
+  return <span className="tabular-nums">₹{advance.toLocaleString("en-IN")}</span>;
+}
+
+// Pending = net bill − advances (₹0 once marked Paid, computed server-side).
+// Negative means more was advanced than billed — shown green as "Advance ₹X",
+// the same convention as a Site Contract's negative outstanding.
+function renderPending(pendingAmount: string | null) {
+  if (pendingAmount === null) return <span className="text-ink-500">—</span>;
+  const pending = Number(pendingAmount);
+  if (pending < 0) {
+    return (
+      <span className="font-semibold text-success-700 tabular-nums">
+        Advance ₹{Math.abs(pending).toLocaleString("en-IN")}
+      </span>
+    );
+  }
+  if (pending === 0) return <span className="font-semibold text-success-700 tabular-nums">₹0</span>;
+  return <span className="font-semibold text-warning-700 tabular-nums">₹{pending.toLocaleString("en-IN")}</span>;
+}
+
 const columns: DataTableColumn<WasteDisposalRow>[] = [
   { header: "Date", cell: (r) => <span className="text-ink-500">{formatDate(r.disposedAt)}</span> },
   { header: "Site", cell: (r) => r.site.name },
@@ -127,6 +157,8 @@ const columns: DataTableColumn<WasteDisposalRow>[] = [
       </span>
     ),
   },
+  { header: "Advance", align: "right", cell: (r) => renderAdvance(r.advanceTotal) },
+  { header: "Pending", align: "right", cell: (r) => renderPending(r.pendingAmount) },
   {
     header: "Payment",
     cell: (r) => {
