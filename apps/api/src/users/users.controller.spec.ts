@@ -10,6 +10,8 @@ describe('UsersController (delegation)', () => {
     list: ReturnType<typeof vi.fn>;
     createUser: ReturnType<typeof vi.fn>;
     updateRole: ReturnType<typeof vi.fn>;
+    resetPassword: ReturnType<typeof vi.fn>;
+    setActive: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -17,6 +19,8 @@ describe('UsersController (delegation)', () => {
       list: vi.fn(),
       createUser: vi.fn(),
       updateRole: vi.fn(),
+      resetPassword: vi.fn(),
+      setActive: vi.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsersController],
@@ -78,5 +82,24 @@ describe('UsersController (delegation)', () => {
     expect(service.updateRole).toHaveBeenCalledWith('u1', {
       role: 'OWNER_ADMIN',
     });
+  });
+
+  it('resetPassword delegates to UsersService.resetPassword with the id and validated body', async () => {
+    service.resetPassword.mockResolvedValue({ id: 'u1' });
+    await controller.resetPassword('u1', { password: 'a-new-password' });
+    expect(service.resetPassword).toHaveBeenCalledWith('u1', {
+      password: 'a-new-password',
+    });
+  });
+
+  it('setActive delegates to UsersService.setActive with the id, body, and acting user id', async () => {
+    service.setActive.mockResolvedValue({ id: 'u1', isActive: false });
+    const actor: AuthUser = { id: 'admin-1', role: 'OWNER_ADMIN' };
+    await controller.setActive('u1', { isActive: false }, actor);
+    expect(service.setActive).toHaveBeenCalledWith(
+      'u1',
+      { isActive: false },
+      'admin-1',
+    );
   });
 });

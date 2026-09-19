@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -6,6 +7,8 @@ import {
 import * as bcrypt from 'bcryptjs';
 import type {
   CreateUserInput,
+  ResetUserPasswordInput,
+  UpdateUserActiveInput,
   UpdateUserRoleInput,
 } from '@azentisfieldos/shared';
 import { Prisma, type Role } from '../generated/prisma/client';
@@ -17,6 +20,7 @@ export interface SafeUser {
   name: string;
   email: string;
   role: Role;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -73,6 +77,88 @@ export class UsersService {
         data: { role: input.role },
         select: SAFE_USER_SELECT,
       });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`User ${id} not found`);
+      }
+      throw error;
+    }
+  }
+
+  // PATCH /users/:id/password — an OWNER_ADMIN sets a new password directly
+  // (same out-of-band handoff model as createUser; there is no self-service
+  // email-reset flow). Outstanding refresh tokens are revoked in the same
+  // transaction so the old sign-in can't keep silently minting access
+  // tokens for up to 30 more days; the user's still-live access token (≤1h)
+  // expires on its own.
+  async resetPassword(
+    id: string,
+    input: ResetUserPasswordInput,
+  ): Promise<SafeUser> {
+    const passwordHash = await bcrypt.hash(input.password, 12);
+    try {
+      const [user] = await this.prisma.$transaction([
+        this.prisma.user.update({
+          where: { id },
+          data: { passwordHash },
+          select: SAFE_USER_SELECT,
+        }),
+        this.prisma.refreshToken.updateMany({
+          where: { userId: id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        }),
+      ]);
+      return user;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`User ${id} not found`);
+      }
+      throw error;
+    }
+  }
+
+  // PATCH /users/:id/active — deactivate or reactivate an account.
+  // Deactivation, not deletion: User rows are referenced by
+  // DailySiteReports/Photos/AuditLogs, so removing one would destroy
+  // attribution history. Deactivating also revokes outstanding refresh
+  // tokens (same rationale as resetPassword); the auth guard and refresh
+  // flow both refuse inactive accounts from then on.
+  async setActive(
+    id: string,
+    input: UpdateUserActiveInput,
+    actorId: string,
+  ): Promise<SafeUser> {
+    if (id === actorId && !input.isActive) {
+      throw new BadRequestException(
+        'You cannot deactivate your own account.',
+      );
+    }
+    try {
+      // Tokens are revoked only when DEACTIVATING. A redundant
+      // `isActive: true` against an already-active account must be a true
+      // no-op — an unconditional revoke would silently sign that user out
+      // within the hour for an update that changed nothing.
+      const userUpdate = this.prisma.user.update({
+        where: { id },
+        data: { isActive: input.isActive },
+        select: SAFE_USER_SELECT,
+      });
+      const [user] = input.isActive
+        ? await this.prisma.$transaction([userUpdate])
+        : await this.prisma.$transaction([
+            userUpdate,
+            this.prisma.refreshToken.updateMany({
+              where: { userId: id, revokedAt: null },
+              data: { revokedAt: new Date() },
+            }),
+          ]);
+      return user;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

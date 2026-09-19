@@ -143,6 +143,38 @@ describe('AuditLogInterceptor — action naming and Site attribution', () => {
     ]);
   });
 
+  it('names the admin user-security actions distinctly (password reset, deactivate, reactivate)', async () => {
+    const { interceptor, create } = makeInterceptor();
+
+    await run(interceptor, {
+      method: 'PATCH',
+      url: '/users/u-1/password',
+      user: OWNER,
+      body: { password: 'a-new-password' },
+    });
+    await run(interceptor, {
+      method: 'PATCH',
+      url: '/users/u-1/active',
+      user: OWNER,
+      body: { isActive: false },
+    });
+    await run(interceptor, {
+      method: 'PATCH',
+      url: '/users/u-1/active',
+      user: OWNER,
+      body: { isActive: true },
+    });
+
+    const actions = create.mock.calls.map(
+      (call) => (call[0] as { data: { action: string } }).data.action,
+    );
+    expect(actions).toEqual([
+      'Reset User password',
+      'Deactivated User',
+      'Reactivated User',
+    ]);
+  });
+
   it('attributes a Movement to its destination Site (Movements have no bare siteId)', async () => {
     const { interceptor, create } = makeInterceptor();
 

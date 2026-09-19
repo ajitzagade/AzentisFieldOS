@@ -9,8 +9,12 @@ import {
 } from '@nestjs/common';
 import {
   createUserSchema,
+  resetUserPasswordSchema,
+  updateUserActiveSchema,
   updateUserRoleSchema,
   type CreateUserInput,
+  type ResetUserPasswordInput,
+  type UpdateUserActiveInput,
   type UpdateUserRoleInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
@@ -65,5 +69,28 @@ export class UsersController {
     body: UpdateUserRoleInput,
   ) {
     return this.usersService.updateRole(id, body);
+  }
+
+  // Admin-set password, handed to the person out-of-band — the same model
+  // as account creation, so there is deliberately no self-service reset.
+  @Patch(':id/password')
+  @Roles('OWNER_ADMIN')
+  resetPassword(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(resetUserPasswordSchema))
+    body: ResetUserPasswordInput,
+  ) {
+    return this.usersService.resetPassword(id, body);
+  }
+
+  @Patch(':id/active')
+  @Roles('OWNER_ADMIN')
+  setActive(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateUserActiveSchema))
+    body: UpdateUserActiveInput,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.usersService.setActive(id, body, user.id);
   }
 }

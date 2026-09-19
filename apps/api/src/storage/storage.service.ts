@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type {
   ConfirmPhotoUploadInput,
   PresignPhotoUploadInput,
@@ -33,6 +37,15 @@ export class StorageService {
   private signUpload(publicId: string, allowedFormats: string) {
     const timestamp = Math.floor(Date.now() / 1000);
     const { cloud_name, api_key, api_secret } = cloudinary.config();
+    // Fail loudly here, not three steps later: without creds this used to
+    // return HTTP 200 with an empty apiKey/signature and a malformed
+    // uploadUrl, and the break only surfaced as an opaque browser-side
+    // Cloudinary rejection. A misconfigured deployment should say so.
+    if (!cloud_name || !api_key || !api_secret) {
+      throw new ServiceUnavailableException(
+        'Photo storage is not configured on this deployment (CLOUDINARY_* env vars are missing).',
+      );
+    }
     const signature = cloudinary.utils.api_sign_request(
       { public_id: publicId, timestamp, allowed_formats: allowedFormats },
       api_secret ?? '',

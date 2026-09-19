@@ -13,6 +13,9 @@ export interface AuthUser {
   role: Role;
   name?: string;
   email?: string;
+  // Optional (like the fields above) so `{ id, role }` mocks still satisfy
+  // the type; the guard treats only an explicit `false` as deactivated.
+  isActive?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }

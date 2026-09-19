@@ -56,6 +56,8 @@ describe('Users admin authZ over real HTTP', () => {
     updateRole: vi
       .fn()
       .mockResolvedValue({ id: 'user-1', role: 'OWNER_ADMIN' }),
+    resetPassword: vi.fn().mockResolvedValue({ id: 'u2' }),
+    setActive: vi.fn().mockResolvedValue({ id: 'u2', isActive: false }),
   };
 
   beforeEach(async () => {
@@ -106,6 +108,55 @@ describe('Users admin authZ over real HTTP', () => {
       .send({ role: 'OWNER_ADMIN' });
     expect(res.status).toBe(403);
     expect(service.updateRole).not.toHaveBeenCalled();
+  });
+
+  it('403s a SITE_SUPERVISOR from PATCH /users/:id/password', async () => {
+    const res = await request(app.getHttpServer())
+      .patch('/users/u2/password')
+      .set('x-test-role', 'SITE_SUPERVISOR')
+      .send({ password: 'a-new-password' });
+    expect(res.status).toBe(403);
+    expect(service.resetPassword).not.toHaveBeenCalled();
+  });
+
+  it('403s a SITE_SUPERVISOR from PATCH /users/:id/active', async () => {
+    const res = await request(app.getHttpServer())
+      .patch('/users/u2/active')
+      .set('x-test-role', 'SITE_SUPERVISOR')
+      .send({ isActive: false });
+    expect(res.status).toBe(403);
+    expect(service.setActive).not.toHaveBeenCalled();
+  });
+
+  it('allows an OWNER_ADMIN to reset a password, validating the body (min 8 chars)', async () => {
+    const tooShort = await request(app.getHttpServer())
+      .patch('/users/u2/password')
+      .set('x-test-role', 'OWNER_ADMIN')
+      .send({ password: 'short' });
+    expect(tooShort.status).toBe(400);
+    expect(service.resetPassword).not.toHaveBeenCalled();
+
+    const ok = await request(app.getHttpServer())
+      .patch('/users/u2/password')
+      .set('x-test-role', 'OWNER_ADMIN')
+      .send({ password: 'a-new-password' });
+    expect(ok.status).toBe(200);
+    expect(service.resetPassword).toHaveBeenCalledWith('u2', {
+      password: 'a-new-password',
+    });
+  });
+
+  it('allows an OWNER_ADMIN to deactivate, threading the acting user id through', async () => {
+    const res = await request(app.getHttpServer())
+      .patch('/users/u2/active')
+      .set('x-test-role', 'OWNER_ADMIN')
+      .send({ isActive: false });
+    expect(res.status).toBe(200);
+    expect(service.setActive).toHaveBeenCalledWith(
+      'u2',
+      { isActive: false },
+      'user-1',
+    );
   });
 
   it('allows an OWNER_ADMIN through GET /users', async () => {

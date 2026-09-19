@@ -20,6 +20,9 @@ test.describe("Offline Daily Report queue", () => {
     // Go offline, then submit: the POST fails and the report is queued locally.
     await page.context().setOffline(true);
     await page.getByRole("button", { name: "Submit Daily Report" }).click();
+    // The playback ConfirmDialog guards submission (works offline — it's
+    // client-side; only the confirmed POST hits the network).
+    await page.getByRole("button", { name: "Confirm & Submit" }).click();
     await expect(page.getByText("Saved on device — will sync when back online")).toBeVisible({ timeout: 15_000 });
 
     // Reconnect and fire the 'online' event the form listens for; the queue

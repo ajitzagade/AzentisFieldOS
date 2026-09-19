@@ -21,6 +21,8 @@ export interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm: () => void;
+  /** Puts the confirm button in its loading state while an async confirm runs. */
+  confirmLoading?: boolean;
 }
 
 export function ConfirmDialog({
@@ -32,9 +34,20 @@ export function ConfirmDialog({
   confirmLabel = "Confirm & Submit",
   cancelLabel = "Go back",
   onConfirm,
+  confirmLoading = false,
 }: ConfirmDialogProps) {
   return (
-    <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
+    <AlertDialog.Root
+      open={open}
+      // While an async confirm is in flight the dialog is locked: Escape,
+      // backdrop, and Cancel must not dismiss it — the mutation continues
+      // regardless, and a "cancelled" dialog followed by a success notice
+      // reads as the app ignoring the user.
+      onOpenChange={(next) => {
+        if (confirmLoading && !next) return;
+        onOpenChange(next);
+      }}
+    >
       <AlertDialog.Portal>
         <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-ink-900/50" />
         <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 max-h-[85vh] w-[calc(100vw-2rem)] max-w-100 -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-surface-1 p-6 shadow-3">
@@ -45,11 +58,11 @@ export function ConfirmDialog({
           {children ? <div className="mb-4 rounded-md border border-border-hairline bg-surface-2 p-3">{children}</div> : null}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <AlertDialog.Close
-              render={<Button type="button" variant="secondary" />}
+              render={<Button type="button" variant="secondary" disabled={confirmLoading} />}
             >
               {cancelLabel}
             </AlertDialog.Close>
-            <Button type="button" onClick={onConfirm}>
+            <Button type="button" onClick={onConfirm} isLoading={confirmLoading}>
               {confirmLabel}
             </Button>
           </div>

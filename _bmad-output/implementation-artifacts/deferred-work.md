@@ -448,3 +448,18 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: `_bmad-output/implementation-artifacts/spec-dsr-drafts.md`
   summary: Ability to REMOVE a photo already staged into a saved draft before finalizing (resumed draft photos arrive with file undefined and can be retried but not detached).
   evidence: Surfaced by the DSR-drafts adversarial review (2026-09-18); out of the backbone scope and a natural fit for the deferred "My Drafts" management UI.
+
+## Deferred from: code review (2026-09-19)
+
+- source_spec: (no spec — session review of user-mgmt/autosave/photo-feedback batch)
+  summary: DSR autosave uses a single global localStorage slot (dsr-autosave-v1) — a second site/date session (deep-link or second tab) last-writer-wins the snapshot, and any durable save clears it even if the snapshot belonged to a different interrupted session.
+  evidence: apps/web/lib/dsr-autosave.ts STORAGE_KEY; restore/clear call sites in apps/web/app/(app)/dsr/new/page.tsx. Accepted single-slot design for the one-phone-one-supervisor reality; keying by localDsrKey(siteId,reportDate) with most-recent-pick restore is the fuller design.
+- source_spec: (no spec — session review)
+  summary: No transactional guard against a tenant ending up with zero active OWNER_ADMIN accounts (only reachable via two admins deactivating each other concurrently; self-deactivation is already blocked).
+  evidence: apps/api/src/users/users.service.ts setActive uses the array $transaction form; an active-owner count check needs an interactive transaction.
+- source_spec: (no spec — session review)
+  summary: No e2e spec for the deactivation lifecycle (deactivate → sign-in refused → refresh dies → reactivate → sign-in works); the guard-cache TTL behavior is only observable end-to-end.
+  evidence: e2e/ harness and seeded Owner+Supervisor already exist; grep for isActive/deactivat under e2e/ returns nothing.
+- source_spec: (no spec — session review)
+  summary: Settings user list UX polish: group/sort deactivated accounts below active ones and de-emphasize/disable the role SelectField on deactivated rows.
+  evidence: apps/web/app/(app)/settings/users-roles-section.tsx renders one flat DataTable with a status badge only.

@@ -43,6 +43,8 @@ test.describe("Daily Report draft lifecycle", () => {
     await pickCombobox(page, "Site", siteName);
     await expect(page.getByText(/Continuing your saved draft/)).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "Finalize Report" }).click();
+    // The playback ConfirmDialog guards finalization.
+    await page.getByRole("button", { name: "Confirm & Finalize" }).click();
     // Finalize is async and shows "Synced" on success (no redirect) — wait for
     // it before navigating, or the /daily-activity read races the write.
     await expect(page.getByText("Synced")).toBeVisible({ timeout: 15_000 });

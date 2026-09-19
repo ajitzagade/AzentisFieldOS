@@ -3,7 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Badge,
   Button,
+  ConfirmDialog,
+  ConfirmDialogRow,
   DataTable,
   LockIcon,
   MailIcon,
@@ -14,7 +17,12 @@ import {
   type DataTableColumn,
   type DataTableMobileCard,
 } from "@azentisfieldos/ui";
-import { ROLES, createUserSchema, type Role } from "@azentisfieldos/shared";
+import {
+  ROLES,
+  createUserSchema,
+  resetUserPasswordSchema,
+  type Role,
+} from "@azentisfieldos/shared";
 import { useAuthedFetch } from "../../../lib/use-authed-fetch";
 
 export interface UserRow {
@@ -22,6 +30,7 @@ export interface UserRow {
   name: string;
   email: string;
   role: Role;
+  isActive: boolean;
 }
 
 // AC #1 / AD-11: the SelectField is populated ONLY from the shared ROLES
@@ -64,7 +73,13 @@ function RoleCell({
   );
 }
 
-export function UsersRolesSection({ users }: { users: UserRow[] }) {
+export function UsersRolesSection({
+  users,
+  currentUserId,
+}: {
+  users: UserRow[];
+  currentUserId: string;
+}) {
   const router = useRouter();
   const authedFetch = useAuthedFetch();
 
@@ -76,6 +91,17 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<string | null>(null);
+
+  // Per-row admin actions (FR-48): reset password and deactivate/reactivate.
+  // One dialog instance each, targeted at the row whose action was clicked.
+  const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetPending, setResetPending] = useState(false);
+  const [activeTarget, setActiveTarget] = useState<UserRow | null>(null);
+  const [activePending, setActivePending] = useState(false);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -139,16 +165,149 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
     if (res.ok) router.refresh();
   }
 
+  function openReset(row: UserRow) {
+    setActionNotice(null);
+    setActionError(null);
+    setResetError(null);
+    setNewPassword("");
+    setResetTarget(row);
+  }
+
+  async function handleResetConfirm() {
+    if (!resetTarget) return;
+    // AD-7: the SAME shared schema apps/api enforces on this body.
+    const parsed = resetUserPasswordSchema.safeParse({ password: newPassword });
+    if (!parsed.success) {
+      setResetError(
+        parsed.error.flatten().fieldErrors.password?.[0] ??
+          "Enter a valid password.",
+      );
+      return;
+    }
+    setResetPending(true);
+    try {
+      const res = await authedFetch(`/users/${resetTarget.id}/password`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
+      if (!res.ok) {
+        setResetError("Could not reset the password. Please try again.");
+        return;
+      }
+      setActionNotice(
+        `Password for ${resetTarget.email} has been reset — hand them the new password yourself.`,
+      );
+      setResetTarget(null);
+    } catch {
+      setResetError("Could not reset the password. Please try again.");
+    } finally {
+      setResetPending(false);
+    }
+  }
+
+  function openActiveToggle(row: UserRow) {
+    setActionNotice(null);
+    setActionError(null);
+    setActiveTarget(row);
+  }
+
+  async function handleActiveConfirm() {
+    if (!activeTarget) return;
+    setActivePending(true);
+    try {
+      const res = await authedFetch(`/users/${activeTarget.id}/active`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !activeTarget.isActive }),
+      });
+      if (!res.ok) {
+        setActionError(
+          activeTarget.isActive
+            ? "Could not deactivate that account. Please try again."
+            : "Could not reactivate that account. Please try again.",
+        );
+        setActiveTarget(null);
+        return;
+      }
+      setActionNotice(
+        activeTarget.isActive
+          ? `${activeTarget.name} can no longer sign in. Their records and history are kept.`
+          : `${activeTarget.name} can sign in again.`,
+      );
+      setActiveTarget(null);
+      router.refresh();
+    } catch {
+      setActionError("Something went wrong. Please try again.");
+      setActiveTarget(null);
+    } finally {
+      setActivePending(false);
+    }
+  }
+
+  // The row's action buttons — shared between the desktop Actions column and
+  // the mobile card footer. Deactivation is never offered on your own row
+  // (the API refuses it too; this just keeps the dead end out of the UI).
+  function actionButtons(row: UserRow) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => openReset(row)}
+        >
+          <LockIcon className="size-3.5" />
+          Reset password
+        </Button>
+        {row.id === currentUserId ? null : row.isActive ? (
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            onClick={() => openActiveToggle(row)}
+          >
+            Deactivate
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => openActiveToggle(row)}
+          >
+            Reactivate
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   const columns: DataTableColumn<UserRow>[] = [
     { header: "Name", cell: (row) => row.name },
     { header: "Email", cell: (row) => <span className="text-ink-500">{row.email}</span> },
     { header: "Role", cell: (row) => <RoleCell row={row} onChange={handleRoleChange} /> },
+    {
+      header: "Status",
+      cell: (row) =>
+        row.isActive ? (
+          <Badge variant="success">Active</Badge>
+        ) : (
+          <Badge variant="neutral">Deactivated</Badge>
+        ),
+    },
+    { header: "Actions", cell: (row) => actionButtons(row) },
   ];
 
   const mobileCard: DataTableMobileCard<UserRow> = {
     primary: (row) => row.name,
-    omitHeaders: ["Name", "Role"],
-    footer: (row) => <RoleCell row={row} onChange={handleRoleChange} />,
+    omitHeaders: ["Name", "Role", "Actions"],
+    footer: (row) => (
+      <div className="flex flex-col gap-2">
+        <RoleCell row={row} onChange={handleRoleChange} />
+        {actionButtons(row)}
+      </div>
+    ),
   };
 
   return (
@@ -216,6 +375,16 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
           Created an account for {created}.
         </p>
       ) : null}
+      {actionError ? (
+        <p role="alert" className="text-caption text-danger-700">
+          {actionError}
+        </p>
+      ) : null}
+      {actionNotice ? (
+        <p role="status" className="text-caption text-success-700">
+          {actionNotice}
+        </p>
+      ) : null}
 
       <DataTable
         columns={columns}
@@ -227,6 +396,65 @@ export function UsersRolesSection({ users }: { users: UserRow[] }) {
             : { status: "success", rows: users }
         }
       />
+
+      <ConfirmDialog
+        open={resetTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setResetTarget(null);
+        }}
+        title="Reset password"
+        description={
+          resetTarget
+            ? resetTarget.id === currentUserId
+              ? "This is your own account — after the reset you'll be signed out shortly and must sign in again with the new password."
+              : `Set a new password for ${resetTarget.name}. Their current password stops working immediately, and any signed-in session ends within the hour.`
+            : undefined
+        }
+        confirmLabel="Set new password"
+        cancelLabel="Cancel"
+        confirmLoading={resetPending}
+        onConfirm={handleResetConfirm}
+      >
+        <TextField
+          label="New password"
+          type="password"
+          icon={<LockIcon className="size-4" />}
+          value={newPassword}
+          onChange={(e) => {
+            setNewPassword(e.target.value);
+            setResetError(null);
+          }}
+          maxLength={200}
+          placeholder="At least 8 characters"
+          error={resetError ?? undefined}
+          className="mb-0"
+        />
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={activeTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setActiveTarget(null);
+        }}
+        title={activeTarget?.isActive ? "Deactivate account" : "Reactivate account"}
+        description={
+          activeTarget?.isActive
+            ? "They can no longer sign in. Nothing they recorded is deleted — every report and entry keeps their name on it, and you can reactivate them any time."
+            : "They will be able to sign in again with their existing password."
+        }
+        confirmLabel={activeTarget?.isActive ? "Deactivate" : "Reactivate"}
+        cancelLabel="Cancel"
+        confirmLoading={activePending}
+        onConfirm={handleActiveConfirm}
+      >
+        {activeTarget ? (
+          <>
+            <ConfirmDialogRow label="Name" value={activeTarget.name} />
+            <ConfirmDialogRow label="Email" value={activeTarget.email} />
+            <ConfirmDialogRow label="Role" value={ROLE_LABELS[activeTarget.role]} />
+          </>
+        ) : null}
+      </ConfirmDialog>
     </div>
   );
 }

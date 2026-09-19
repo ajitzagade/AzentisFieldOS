@@ -162,6 +162,11 @@ export function DsrDesktopForm({
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Set once POST /dsr (or /correct) succeeds. From that moment the report
+  // row exists server-side: submission must never re-fire (duplicate row),
+  // and navigation waits until every staged photo has either uploaded or
+  // been removed — redirecting with failed photos silently loses them.
+  const [submittedDsrId, setSubmittedDsrId] = useState<string | null>(null);
   // A DSR correction supersedes the whole report and adjusts Site Stock —
   // held for re-verification before it goes to the ledger (FR-54).
   const confirmation = useSubmitConfirmation();
@@ -217,6 +222,10 @@ export function DsrDesktopForm({
   }
 
   function addPhotoFiles(fileList: FileList | null) {
+    // Post-submission the report row exists and the only remaining work is
+    // draining the staged uploads — a photo added NOW would sit forever in
+    // "pending" (nothing uploads it) and block the redirect indefinitely.
+    if (submittedDsrId) return;
     if (!fileList || fileList.length === 0) return;
     const newPhotos: PhotoItem[] = Array.from(fileList).map((file) => ({
       localId: crypto.randomUUID(),
@@ -231,20 +240,64 @@ export function DsrDesktopForm({
     setPhotos((rows) => rows.filter((p) => p.localId !== localId));
   }
 
-  async function uploadAllPhotos(dailySiteReportId: string, items: PhotoItem[]) {
+  async function uploadAllPhotos(dailySiteReportId: string, items: PhotoItem[]): Promise<number> {
+    let failed = 0;
     for (const photo of items) {
       setPhotos((rows) => rows.map((p) => (p.localId === photo.localId ? { ...p, status: "uploading" } : p)));
       try {
         await uploadPhoto(authedFetch, dailySiteReportId, photo.file);
         setPhotos((rows) => rows.map((p) => (p.localId === photo.localId ? { ...p, status: "uploaded" } : p)));
       } catch {
+        failed += 1;
         setPhotos((rows) => rows.map((p) => (p.localId === photo.localId ? { ...p, status: "failed" } : p)));
       }
     }
+    return failed;
   }
+
+  async function retryPhoto(localId: string) {
+    const photo = photos.find((p) => p.localId === localId);
+    if (!photo || !submittedDsrId) return;
+    const failedAgain = await uploadAllPhotos(submittedDsrId, [photo]);
+    if (failedAgain > 0) {
+      setError("That photo failed to upload again — check your connection and retry.");
+    }
+  }
+
+  // The failed-photos banner clears only once NO photo remains failed
+  // (retried successfully or removed) — clearing it on a single successful
+  // retry while others are still failed would strand the user with no
+  // explanation for why the page hasn't moved on. Derived synchronously
+  // from photo state on purpose: the alternative (clearing at each of the
+  // retry/remove call sites) reads stale `photos` from their closures.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (submittedDsrId && !photos.some((p) => p.status === "failed")) {
+      setError(null);
+    }
+  }, [submittedDsrId, photos]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // The single navigation point after a successful submission: leaves only
+  // once no photo is stuck in "failed"/"uploading" limbo (an empty list
+  // passes trivially). Retrying or removing the last failed photo resumes
+  // the redirect automatically.
+  useEffect(() => {
+    if (submittedDsrId && photos.every((p) => p.status === "uploaded")) {
+      router.push(
+        `/daily-activity/${submittedDsrId}?flash=${encodeURIComponent(
+          mode === "correct" ? "Correction submitted" : "Daily Report submitted",
+        )}`,
+      );
+    }
+  }, [submittedDsrId, photos, mode, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // The report row already exists (photo recovery in progress) — a second
+    // POST would duplicate it. The submit button is disabled too; this also
+    // covers Enter-key form dispatch.
+    if (submittedDsrId) return;
     setError(null);
     setIsSubmitting(true);
 
@@ -310,12 +363,17 @@ export function DsrDesktopForm({
       }
 
       const dsr = (await res.json()) as { id: string };
+      setSubmittedDsrId(dsr.id);
       if (photos.length > 0) {
-        await uploadAllPhotos(dsr.id, photos);
+        const failed = await uploadAllPhotos(dsr.id, photos);
+        if (failed > 0) {
+          setError(
+            `Your report was submitted, but ${failed === 1 ? "1 photo" : `${failed} photos`} failed to upload. Retry or remove ${failed === 1 ? "it" : "them"} below — you'll continue automatically once every photo is uploaded.`,
+          );
+          return;
+        }
       }
-      router.push(
-        `/daily-activity/${dsr.id}?flash=${encodeURIComponent(mode === "correct" ? "Correction submitted" : "Daily Report submitted")}`,
-      );
+      // Navigation itself happens in the all-photos-uploaded effect above.
     } finally {
       setIsSubmitting(false);
     }
@@ -641,6 +699,7 @@ export function DsrDesktopForm({
             camera tap (apps/web/lib/photo-upload.ts, story 3.3). */}
         <button
           type="button"
+          disabled={submittedDsrId !== null}
           onClick={() => photoInputRef.current?.click()}
           onDragOver={(e: DragEvent<HTMLButtonElement>) => {
             e.preventDefault();
@@ -652,12 +711,14 @@ export function DsrDesktopForm({
             setIsDraggingOver(false);
             addPhotoFiles(e.dataTransfer.files);
           }}
-          className={`flex w-full flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-8 text-body-sm text-ink-500 transition-colors ${
+          className={`flex w-full flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-8 text-body-sm text-ink-500 transition-colors disabled:opacity-50 ${
             isDraggingOver ? "border-accent-teal-700 bg-accent-teal-100 text-accent-teal-700" : "border-border-strong"
           }`}
         >
           <CameraIcon className="size-6" />
-          Drag and drop photos here, or click to select
+          {submittedDsrId
+            ? "Report submitted — finishing photo uploads"
+            : "Drag and drop photos here, or click to select"}
         </button>
         <input
           ref={photoInputRef}
@@ -680,12 +741,43 @@ export function DsrDesktopForm({
                       blob: preview of a just-selected/dropped File. */}
                   <img src={photo.previewUrl} alt="" className="size-full object-cover" />
                   {photo.status === "uploading" ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-surface-0/70 text-caption text-ink-500">…</div>
+                    <div className="absolute inset-0 flex items-center justify-center bg-surface-0/70 text-caption text-ink-500">
+                      Uploading…
+                    </div>
+                  ) : null}
+                  {photo.status === "uploaded" ? (
+                    <CheckCircleIcon className="absolute right-0.5 bottom-0.5 size-4 rounded-full bg-surface-1 text-success-700" />
                   ) : null}
                 </div>
-                <button type="button" onClick={() => removePhoto(photo.localId)} className="text-caption text-ink-500 underline">
-                  Remove
-                </button>
+                {/* Honest affordances per status: pending (pre-submit) can be
+                    removed; failed offers Retry AND Remove (removing the last
+                    failed photo is a legitimate way to unblock navigation);
+                    uploading and uploaded offer nothing — an uploaded photo
+                    is already attached to the server-side report, so a local
+                    "Remove" would be a lie. */}
+                {photo.status === "failed" ? (
+                  <span className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => retryPhoto(photo.localId)}
+                      className="flex items-center gap-1 text-caption text-danger-700 underline"
+                    >
+                      <RotateCcwIcon className="size-3" />
+                      Retry
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(photo.localId)}
+                      className="text-caption text-ink-500 underline"
+                    >
+                      Remove
+                    </button>
+                  </span>
+                ) : photo.status === "pending" ? (
+                  <button type="button" onClick={() => removePhoto(photo.localId)} className="text-caption text-ink-500 underline">
+                    Remove
+                  </button>
+                ) : null}
               </div>
             ))}
           </div>
@@ -698,7 +790,12 @@ export function DsrDesktopForm({
         </p>
       ) : null}
 
-      <Button type="submit" isLoading={isSubmitting} disabled={!siteId || (mode === "correct" && !reason)} className="w-full justify-center">
+      <Button
+        type="submit"
+        isLoading={isSubmitting}
+        disabled={!siteId || (mode === "correct" && !reason) || submittedDsrId !== null}
+        className="w-full justify-center"
+      >
         {mode === "correct" ? <RotateCcwIcon className="size-4" /> : <CheckCircleIcon className="size-4" />}
         {mode === "correct" ? "Submit Correction" : "Submit Daily Report"}
       </Button>

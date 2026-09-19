@@ -1,19 +1,27 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StorageService } from './storage.service';
 import type { PrismaService } from '../prisma/prisma.service';
 
 const apiSignRequestMock = vi.hoisted(() => vi.fn(() => 'test-signature'));
+// Mutable config mock so individual tests can simulate a deployment with
+// missing CLOUDINARY_* credentials (mockReturnValueOnce({})).
+const cloudinaryConfigMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    cloud_name: 'test-cloud',
+    api_key: 'test-key',
+    api_secret: 'test-secret',
+  })),
+);
 // Mock the Cloudinary client wrapper: a deterministic signature + config, and a
 // pure cloudinaryUrl matching the real `res.cloudinary.com/<cloud>/image/upload`
 // shape so URL assertions are exact.
 vi.mock('./cloudinary-client', () => ({
   cloudinary: {
-    config: () => ({
-      cloud_name: 'test-cloud',
-      api_key: 'test-key',
-      api_secret: 'test-secret',
-    }),
+    config: cloudinaryConfigMock,
     utils: { api_sign_request: apiSignRequestMock },
   },
   cloudinaryUrl: (publicId: string) =>
@@ -82,6 +90,22 @@ describe('StorageService.presignUpload', () => {
     await expect(
       service.presignUpload({ dailySiteReportId: 'missing' }),
     ).rejects.toThrow(NotFoundException);
+    expect(apiSignRequestMock).not.toHaveBeenCalled();
+  });
+
+  it('throws 503, never a 200 with an empty signature, when CLOUDINARY_* creds are missing', async () => {
+    cloudinaryConfigMock.mockReturnValueOnce(
+      {} as ReturnType<typeof cloudinaryConfigMock>,
+    );
+    const service = makeService({
+      dailySiteReport: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'dsr-1' }),
+      },
+    });
+
+    await expect(
+      service.presignUpload({ dailySiteReportId: 'dsr-1' }),
+    ).rejects.toThrow(ServiceUnavailableException);
     expect(apiSignRequestMock).not.toHaveBeenCalled();
   });
 });

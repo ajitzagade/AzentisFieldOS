@@ -96,6 +96,7 @@ describe('CustomAuthGuard', () => {
     expect(call.select).toEqual({
       id: true,
       role: true,
+      isActive: true,
       name: true,
       email: true,
       createdAt: true,
@@ -216,6 +217,25 @@ describe('CustomAuthGuard', () => {
   it('rejects a token whose subject no longer resolves to a User (deleted account) as 401', async () => {
     const verifyAsync = vi.fn().mockResolvedValue({ sub: 'gone' });
     const { prisma } = makePrisma(vi.fn().mockResolvedValue(null));
+    const guard = new CustomAuthGuard(
+      makeReflector(false),
+      makeJwtService(verifyAsync),
+      prisma,
+    );
+    const { context } = makeContext({ authorization: 'Bearer good' });
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it('rejects a token whose user has been deactivated as 401', async () => {
+    const verifyAsync = vi.fn().mockResolvedValue({ sub: 'user-1' });
+    const { prisma } = makePrisma(
+      vi
+        .fn()
+        .mockResolvedValue({ id: 'user-1', role: 'SITE_SUPERVISOR', isActive: false }),
+    );
     const guard = new CustomAuthGuard(
       makeReflector(false),
       makeJwtService(verifyAsync),

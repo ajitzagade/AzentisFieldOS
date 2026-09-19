@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -12,6 +12,8 @@ import {
   Card,
   CheckCircleIcon,
   ComboboxField,
+  ConfirmDialog,
+  ConfirmDialogRow,
   PlusIcon,
   RotateCcwIcon,
   TextField,
@@ -22,6 +24,7 @@ import {
 } from "@azentisfieldos/ui";
 import { SiteField } from "../../_components/site-field";
 import type { CreateDsrInput } from "@azentisfieldos/shared";
+import { clearDsrAutosave, loadDsrAutosave, saveDsrAutosave } from "../../../../lib/dsr-autosave";
 import { isQueued, localDsrKey, queueDsr, withClientGeneratedIds } from "../../../../lib/offline-db";
 import { syncQueuedDsrs } from "../../../../lib/dsr-sync";
 import { uploadPhoto } from "../../../../lib/photo-upload";
@@ -108,6 +111,22 @@ interface DraftResponse {
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
+}
+
+// The continuously-autosaved in-progress form state (lib/dsr-autosave.ts) —
+// everything the Supervisor has typed, minus photos (File objects can't be
+// serialized; `hadPhotos` lets the restore banner say so honestly).
+interface DsrAutosaveData {
+  siteId: string;
+  reportDate: string;
+  workCompleted: string;
+  issuesBlockers: string;
+  crew: CrewRow[];
+  consumptions: ConsumptionRow[];
+  rmcEntries: RmcRow[];
+  expenses: ExpenseRow[];
+  equipmentUsed: EquipmentRow[];
+  hadPhotos: boolean;
 }
 
 // Mobile Site Supervisor DSR entry (FR-28). Every reference field —
@@ -210,7 +229,124 @@ function NewDsrForm() {
   // pending spinner (EXPERIENCE.md).
   const [syncState, setSyncState] = useState<"queued" | "synced" | null>(null);
 
+  // Autosave restore (lib/dsr-autosave.ts): non-null once this mount
+  // restored an interrupted session's entries, driving the restore banner.
+  const [restoredAutosaveAt, setRestoredAutosaveAt] = useState<number | null>(null);
+  const [restoredHadPhotos, setRestoredHadPhotos] = useState(false);
+  // Gates the draft-resume effect below: the restore decision must land
+  // first, or its async crew-defaults fetch could clobber restored crew.
+  const [autosaveChecked, setAutosaveChecked] = useState(false);
+  // Set when a restore just applied — the next crew-defaults fetch is
+  // skipped once so it can't overwrite the restored checklist.
+  const skipCrewDefaultsOnceRef = useRef(false);
+  // True once THIS session wrote a snapshot — lets the writer effect clear
+  // the snapshot when the user deliberately empties the form, without a
+  // fresh empty mount ever clearing another session's un-restored snapshot
+  // (e.g. after a deep-link to a different Site skipped the restore).
+  const hasWrittenAutosaveRef = useRef(false);
+
+  // FR-54-adjacent re-verification: both ways a report leaves this form
+  // (one-shot Submit, draft Finalize) are held behind one ConfirmDialog
+  // that plays the entered details back before anything posts.
+  const [confirmAction, setConfirmAction] = useState<"submit" | "finalize" | null>(null);
+
   const currentKeyRef = useRef(localDsrKey(siteId, reportDate));
+
+  // Restore an interrupted session once per mount, before the draft-resume
+  // effect below is allowed to run. A deep-linked ?siteId= for a DIFFERENT
+  // Site is an explicit navigation intent — don't hijack it with a restore.
+  // Synchronous setState in a mount effect is deliberate here: the snapshot
+  // must NOT feed useState initializers ("use client" pages still server-
+  // render; localStorage-derived initial state would hydration-mismatch),
+  // and the one cascading re-render it triggers is the restore itself.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (autosaveChecked) return;
+    const snapshot = loadDsrAutosave<DsrAutosaveData>();
+    const deepLinkedSiteId = searchParams.get("siteId");
+    if (
+      snapshot &&
+      snapshot.data.siteId &&
+      (!deepLinkedSiteId || deepLinkedSiteId === snapshot.data.siteId)
+    ) {
+      const d = snapshot.data;
+      setSiteId(d.siteId);
+      if (d.reportDate) setReportDate(d.reportDate);
+      setWorkCompleted(d.workCompleted ?? "");
+      setIssuesBlockers(d.issuesBlockers ?? "");
+      setCrew(Array.isArray(d.crew) ? d.crew : []);
+      setConsumptions(Array.isArray(d.consumptions) ? d.consumptions : []);
+      setRmcEntries(Array.isArray(d.rmcEntries) ? d.rmcEntries : []);
+      setExpenses(Array.isArray(d.expenses) ? d.expenses : []);
+      setEquipmentUsed(Array.isArray(d.equipmentUsed) ? d.equipmentUsed : []);
+      setRestoredHadPhotos(Boolean(d.hadPhotos));
+      setRestoredAutosaveAt(snapshot.savedAt);
+      skipCrewDefaultsOnceRef.current = true;
+    }
+    setAutosaveChecked(true);
+  }, [autosaveChecked, searchParams]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Continuously snapshot what's typed (debounced) so an accidental app
+  // close mid-entry never costs the Supervisor their entries. Deliberately
+  // NOT dirty on crew alone — the checklist is auto-prefilled from the
+  // Site's last attendance, and snapshotting that would "restore" sessions
+  // the user never typed into. Skipped once the report has reached a
+  // durable home (submitted/queued — those paths also clear the snapshot).
+  useEffect(() => {
+    if (!autosaveChecked || !siteId || syncState !== null) return;
+    if (isSubmitting || isSavingDraft || isDiscarding) return;
+    const hasContent =
+      workCompleted !== "" ||
+      issuesBlockers !== "" ||
+      consumptions.length > 0 ||
+      rmcEntries.length > 0 ||
+      expenses.length > 0 ||
+      equipmentUsed.length > 0;
+    if (!hasContent) {
+      // The user deliberately emptied a form this session had snapshotted
+      // (or restored) — a kept snapshot would resurrect the deleted
+      // entries on the next visit.
+      if (hasWrittenAutosaveRef.current || restoredAutosaveAt !== null) {
+        clearDsrAutosave();
+        hasWrittenAutosaveRef.current = false;
+      }
+      return;
+    }
+    const timer = setTimeout(() => {
+      hasWrittenAutosaveRef.current = true;
+      saveDsrAutosave<DsrAutosaveData>({
+        siteId,
+        reportDate,
+        workCompleted,
+        issuesBlockers,
+        crew,
+        consumptions,
+        rmcEntries,
+        expenses,
+        equipmentUsed,
+        hadPhotos: photos.some((p) => p.file),
+      });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [
+    autosaveChecked,
+    siteId,
+    reportDate,
+    workCompleted,
+    issuesBlockers,
+    crew,
+    consumptions,
+    rmcEntries,
+    expenses,
+    equipmentUsed,
+    photos,
+    syncState,
+    isSubmitting,
+    isSavingDraft,
+    isDiscarding,
+    restoredAutosaveAt,
+  ]);
 
   useEffect(() => {
     authedFetch(`/sites`)
@@ -261,6 +397,14 @@ function NewDsrForm() {
   // reference data (falling back to a generic label until it arrives).
   // Declared before the resume effect that calls it (React-compiler lint).
   function prefillFromDraft(draft: DraftResponse) {
+    // The server-side draft is the authoritative resume source — a
+    // coexisting autosave snapshot would show two conflicting "restored"
+    // banners, so the snapshot (at most the post-last-save delta) yields.
+    if (restoredAutosaveAt !== null) {
+      setRestoredAutosaveAt(null);
+      setRestoredHadPhotos(false);
+    }
+    clearDsrAutosave();
     setDraftId(draft.id);
     setIsResumedDraft(true);
     setDailySiteReportId(draft.id);
@@ -313,8 +457,16 @@ function NewDsrForm() {
   // had any, not date - 1). One effect, so the crew-defaults fetch can never
   // clobber a resumed draft's crew.
   useEffect(() => {
+    // Wait for the autosave-restore decision — it may be about to change
+    // (site, date) and restore a crew checklist this fetch must not clobber.
+    if (!autosaveChecked) return;
     if (!siteId || !reportDate) return;
     let cancelled = false;
+    // Consumed synchronously at effect entry (not inside the async flow) so
+    // it can only ever apply to the run immediately following the restore,
+    // never leak into a later site/date change.
+    const skipCrewDefaults = skipCrewDefaultsOnceRef.current;
+    skipCrewDefaultsOnceRef.current = false;
 
     (async () => {
       try {
@@ -331,6 +483,9 @@ function NewDsrForm() {
         // leave the form unusable.
       }
       if (cancelled) return;
+      // A just-restored autosave session already carries its crew checklist
+      // — skip the defaults exactly once so it isn't overwritten.
+      if (skipCrewDefaults) return;
       try {
         const res = await authedFetch(`/dsr/defaults?siteId=${siteId}&date=${reportDate}`);
         const defaults = (await res.json()) as { teamMemberId: string; name: string }[];
@@ -347,7 +502,7 @@ function NewDsrForm() {
     };
     // prefillFromDraft is a stable closure over setters; intentionally omitted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteId, reportDate, authedFetch]);
+  }, [autosaveChecked, siteId, reportDate, authedFetch]);
 
   function toggleAttended(teamMemberId: string) {
     setCrew((rows) => rows.map((r) => (r.teamMemberId === teamMemberId ? { ...r, attended: !r.attended } : r)));
@@ -490,6 +645,10 @@ function NewDsrForm() {
       setDraftId(draft.id);
       setDailySiteReportId(draft.id);
       setDraftSaved(true);
+      // The entries now live in the server-side draft — the local safety-net
+      // snapshot has served its purpose.
+      clearDsrAutosave();
+      setRestoredAutosaveAt(null);
       // Upload any staged photos not yet on the server against the draft row.
       for (const photo of photos) {
         if (photo.status !== "uploaded" && photo.file) {
@@ -563,6 +722,8 @@ function NewDsrForm() {
       setDraftId(null);
       setIsResumedDraft(false);
       setSyncState("synced");
+      clearDsrAutosave();
+      setRestoredAutosaveAt(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -602,6 +763,9 @@ function NewDsrForm() {
         if (photo.file) URL.revokeObjectURL(photo.previewUrl);
       }
       setPhotos([]);
+      // A discarded report's local snapshot must not resurrect it.
+      clearDsrAutosave();
+      setRestoredAutosaveAt(null);
     } catch {
       setError("Couldn't discard this draft — check your connection and try again.");
     } finally {
@@ -609,8 +773,9 @@ function NewDsrForm() {
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  // Runs only after the ConfirmDialog's explicit Confirm — the form's
+  // onSubmit only opens that dialog.
+  async function doSubmit() {
     setError(null);
     setIsSubmitting(true);
 
@@ -634,6 +799,8 @@ function NewDsrForm() {
       } catch {
         await queueDsr(payload);
         setSyncState("queued");
+        clearDsrAutosave();
+        setRestoredAutosaveAt(null);
         return;
       }
 
@@ -645,6 +812,8 @@ function NewDsrForm() {
       if (res.status >= 500) {
         await queueDsr(payload);
         setSyncState("queued");
+        clearDsrAutosave();
+        setRestoredAutosaveAt(null);
         return;
       }
       if (!res.ok) {
@@ -661,6 +830,8 @@ function NewDsrForm() {
       const dsr = (await res.json()) as { id: string };
       setDailySiteReportId(dsr.id);
       setSyncState("synced");
+      clearDsrAutosave();
+      setRestoredAutosaveAt(null);
       for (const photo of photos) {
         if (photo.status !== "uploaded" && photo.file) {
           void uploadStagedPhoto(dsr.id, photo.localId, photo.file);
@@ -690,7 +861,40 @@ function NewDsrForm() {
         </p>
       ) : null}
 
-      <form onSubmit={handleSubmit}>
+      {/* Autosave restore: the app closed mid-entry and this device kept the
+          typed entries. Mutually exclusive with the draft banner above —
+          prefillFromDraft clears restoredAutosaveAt when a server draft wins. */}
+      {restoredAutosaveAt !== null && !isResumedDraft ? (
+        <div role="status" className="mb-6 flex items-start gap-2 rounded-md bg-surface-2 p-3 text-body-sm text-ink-700">
+          <RotateCcwIcon className="mt-0.5 size-5 shrink-0 text-accent-teal-700" />
+          <span>
+            Welcome back — we restored the entries you were working on
+            {reportDate !== todayDate() ? ` for ${reportDate}` : ""}.
+            {restoredHadPhotos ? " Photos can't be restored; please re-attach them." : ""}{" "}
+            <button
+              type="button"
+              onClick={() => {
+                clearDsrAutosave();
+                window.location.reload();
+              }}
+              className="font-medium text-accent-teal-700 underline"
+            >
+              Start fresh instead
+            </button>
+          </span>
+        </div>
+      ) : null}
+
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          // isSavingDraft/isDiscarding: a confirm racing an in-flight draft
+          // POST could land both a draft row and a one-shot report for the
+          // same (site, date).
+          if (!siteId || isSubmitting || isSavingDraft || isDiscarding) return;
+          setConfirmAction("submit");
+        }}
+      >
         <Card className="mb-4">
           {/* Searchable + device-remembered Site picker (D5): a Supervisor
               working one Site all day opens the form already pointed at it;
@@ -1068,7 +1272,9 @@ function NewDsrForm() {
         {syncState === "queued" ? (
           <p role="status" className="mb-4 flex items-center gap-2 rounded-md bg-warning-100 p-3 text-body-sm text-warning-700">
             <WifiOffIcon className="size-5 shrink-0" />
-            Saved on device — will sync when back online
+            {photos.length > 0
+              ? "Saved on device — will sync when back online. Photos are not saved offline yet: keep this page open until it syncs, or re-attach them from your gallery later."
+              : "Saved on device — will sync when back online"}
           </p>
         ) : null}
         {syncState === "synced" ? (
@@ -1101,7 +1307,7 @@ function NewDsrForm() {
           <div className="flex flex-col gap-2">
             <Button
               type="button"
-              onClick={handleFinalize}
+              onClick={() => setConfirmAction("finalize")}
               isLoading={isSubmitting}
               disabled={!siteId || isDiscarding}
               className="w-full justify-center"
@@ -1109,6 +1315,10 @@ function NewDsrForm() {
               <CheckCircleIcon className="size-4" />
               Finalize Report
             </Button>
+            {/* `sm:flex-1`, never bare `flex-1`: action-button-row is
+                flex-col below sm, where flex-1's basis:0% is the VERTICAL
+                axis — it collapses the buttons' h-10 to ~zero height
+                (the "Save Draft shrinks after saving" bug). */}
             <div className="action-button-row">
               <Button
                 type="button"
@@ -1116,7 +1326,7 @@ function NewDsrForm() {
                 onClick={handleSaveDraft}
                 isLoading={isSavingDraft}
                 disabled={!siteId || isDiscarding}
-                className="flex-1 justify-center"
+                className="w-full justify-center sm:w-auto sm:flex-1"
               >
                 Save Draft
               </Button>
@@ -1126,7 +1336,7 @@ function NewDsrForm() {
                 onClick={handleDiscard}
                 isLoading={isDiscarding}
                 disabled={isDiscarding}
-                className="flex-1 justify-center"
+                className="w-full justify-center sm:w-auto sm:flex-1"
               >
                 Discard
               </Button>
@@ -1151,6 +1361,57 @@ function NewDsrForm() {
           </div>
         )}
       </form>
+
+      {/* One playback dialog for both ways a report leaves this form — the
+          Supervisor re-verifies the entered details before anything posts
+          to Inventory/Expenses/reports (same ConfirmDialog every money/
+          correction form already uses, AD-5). */}
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+        title={confirmAction === "finalize" ? "Finalize this Daily Report?" : "Submit this Daily Report?"}
+        description="Check the details below — Inventory, Expenses, and reports update once it goes in."
+        confirmLabel={confirmAction === "finalize" ? "Confirm & Finalize" : "Confirm & Submit"}
+        onConfirm={() => {
+          const action = confirmAction;
+          setConfirmAction(null);
+          if (action === "finalize") void handleFinalize();
+          else if (action === "submit") void doSubmit();
+        }}
+      >
+        <ConfirmDialogRow label="Site" value={sites.find((s) => s.id === siteId)?.name ?? "—"} />
+        <ConfirmDialogRow label="Date" value={reportDate} />
+        <ConfirmDialogRow
+          label="Crew present"
+          value={`${crew.filter((c) => c.attended).length} of ${crew.length}`}
+        />
+        <ConfirmDialogRow
+          label="Materials consumed"
+          value={String(consumptions.filter((c) => c.materialSizeId && c.quantity).length)}
+        />
+        <ConfirmDialogRow
+          label="RMC entries"
+          // Same predicate buildPayload uses — the count the user confirms
+          // must be the count that submits.
+          value={String(
+            rmcEntries.filter((r) => r.vendorId && r.quantityM3 && r.grade && r.ratePerM3).length,
+          )}
+        />
+        <ConfirmDialogRow
+          label="Expenses"
+          value={`${expenses.filter((e) => e.categoryId && e.amount).length} · ₹${expenses
+            .filter((e) => e.categoryId && e.amount)
+            .reduce((sum, e) => {
+              const amount = Number(e.amount);
+              return Number.isFinite(amount) ? sum + amount : sum;
+            }, 0)
+            .toLocaleString("en-IN")}`}
+        />
+        <ConfirmDialogRow label="Equipment used" value={String(equipmentUsed.length)} />
+        <ConfirmDialogRow label="Photos" value={String(photos.length)} />
+      </ConfirmDialog>
 
       <TeamMemberQuickCreateModal
         open={teamMemberQuickCreateOpen}

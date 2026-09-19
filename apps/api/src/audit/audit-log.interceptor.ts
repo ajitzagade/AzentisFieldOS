@@ -175,6 +175,14 @@ export class AuditLogInterceptor implements NestInterceptor {
       if (path.endsWith('/mark-paid')) return 'Marked Payment as paid';
       if (path.endsWith('/confirm-receipt'))
         return 'Confirmed Movement receipt';
+      // Note: only the action label is derived from the body here — the
+      // body itself (which for /password contains the new password) is
+      // never persisted to the audit row.
+      if (path.endsWith('/password')) return 'Reset User password';
+      if (path.endsWith('/active'))
+        return body?.isActive === false
+          ? 'Deactivated User'
+          : 'Reactivated User';
       return `Updated ${entityType}`;
     }
     if (path.endsWith('/correct') || body?.correctsId)

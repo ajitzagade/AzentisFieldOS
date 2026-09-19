@@ -56,6 +56,8 @@ test.describe("Supervisor daily flow", () => {
     const submit = page.getByRole("button", { name: /Submit Daily Report/ });
     await expect(submit).toBeEnabled();
     await submit.click();
+    // The playback ConfirmDialog guards submission.
+    await page.getByRole("button", { name: "Confirm & Submit" }).click();
 
     // The form never surfaces a hard failure to the Supervisor — it shows
     // either "Synced" (server reachable, which it is here) or the offline

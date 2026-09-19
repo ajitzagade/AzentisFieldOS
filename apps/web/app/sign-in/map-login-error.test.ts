@@ -8,6 +8,21 @@ describe("mapLoginError", () => {
     );
   });
 
+  it("passes the deactivated-account 401 message through (sent only after the password matched, so no enumeration risk)", () => {
+    expect(
+      mapLoginError(401, "This account has been deactivated. Contact your administrator."),
+    ).toBe("This account has been deactivated. Contact your administrator.");
+  });
+
+  it("keeps the generic 401 copy for any other server message (never leaks raw server text)", () => {
+    expect(mapLoginError(401, "Invalid email or password.")).toBe(
+      "That email and password combination doesn't match our records.",
+    );
+    expect(mapLoginError(401, null)).toBe(
+      "That email and password combination doesn't match our records.",
+    );
+  });
+
   it("falls back to a generic message for any other status code", () => {
     expect(mapLoginError(500)).toBe(
       "Something went wrong signing you in. Please try again.",

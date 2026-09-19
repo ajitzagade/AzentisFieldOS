@@ -30,7 +30,12 @@ export async function loginAction(
   }
 
   if (!response.ok) {
-    return mapLoginError(response.status);
+    // Nest's UnauthorizedException body carries `message` — needed so the
+    // deactivated-account 401 can surface its actionable copy.
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    return mapLoginError(response.status, body?.message ?? null);
   }
 
   const tokens = (await response.json()) as { token: string; refreshToken: string };

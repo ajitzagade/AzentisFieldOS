@@ -35,6 +35,10 @@ model User {
   email        String   @unique
   passwordHash String
   role         Role
+  // Deactivation, not deletion: User rows are referenced by
+  // DailySiteReports/Photos/AuditLogs, so accounts are never hard-deleted —
+  // an inactive account keeps its history but can no longer sign in.
+  isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

@@ -42,6 +42,7 @@ describe('AuthService.login', () => {
         id: 'user-1',
         role: 'OWNER_ADMIN',
         passwordHash: hash,
+        isActive: true,
       }),
       refreshTokenCreate,
     });
@@ -66,6 +67,27 @@ describe('AuthService.login', () => {
         tokenHash: hashToken(result.refreshToken),
         expiresAt: expect.any(Date),
       },
+    });
+  });
+
+  it('rejects a deactivated account even with the correct password', async () => {
+    const hash = await bcrypt.hash('correct-password', 10);
+    const prisma = makePrisma({
+      findUnique: vi.fn().mockResolvedValue({
+        id: 'user-1',
+        role: 'SITE_SUPERVISOR',
+        passwordHash: hash,
+        isActive: false,
+      }),
+    });
+    const service = new AuthService(prisma, makeJwtService(vi.fn()));
+
+    // The message is load-bearing: apps/web's mapLoginError passes exactly
+    // this copy through to the sign-in form (generic 401s stay masked).
+    await expect(
+      service.login({ email: 'gone@example.com', password: 'correct-password' }),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('deactivated') as unknown,
     });
   });
 
@@ -111,7 +133,7 @@ describe('AuthService.refresh', () => {
         tokenHash: hashToken(raw),
         revokedAt: null,
         expiresAt: new Date(Date.now() + 1000 * 60 * 60),
-        user: { id: 'user-1', role: 'OWNER_ADMIN' },
+        user: { id: 'user-1', role: 'OWNER_ADMIN', isActive: true },
       }),
       refreshTokenUpdate,
       refreshTokenCreate,
@@ -157,6 +179,23 @@ describe('AuthService.refresh', () => {
     const service = new AuthService(prisma, makeJwtService(vi.fn()));
 
     await expect(service.refresh('stale')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it('rejects a still-valid token whose user has been deactivated', async () => {
+    const prisma = makePrisma({
+      refreshTokenFindUnique: vi.fn().mockResolvedValue({
+        id: 'rt-1',
+        tokenHash: 'x',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        user: { id: 'user-1', role: 'SITE_SUPERVISOR', isActive: false },
+      }),
+    });
+    const service = new AuthService(prisma, makeJwtService(vi.fn()));
+
+    await expect(service.refresh('deactivated')).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
   });

@@ -102,8 +102,10 @@ export class CustomAuthGuard implements CanActivate {
         : await this.lookupUser(payload.sub);
     // Unlike the old Clerk guard, there is no auto-provisioning here: login
     // already requires an existing User row, so a token whose subject no
-    // longer resolves (deleted account) is simply unauthorized.
-    if (!user) {
+    // longer resolves (deleted account) is simply unauthorized. A
+    // deactivated account is treated the same way — its still-unexpired
+    // access tokens die within the cache TTL window above.
+    if (!user || user.isActive === false) {
       throw new UnauthorizedException();
     }
 

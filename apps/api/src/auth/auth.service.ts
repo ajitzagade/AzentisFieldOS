@@ -43,6 +43,15 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
+    // Checked only after the password matched: the account's real holder may
+    // be told why they can't get in (actionable — contact the Owner), while
+    // an attacker probing emails still can't distinguish anything above.
+    if (!user.isActive) {
+      throw new UnauthorizedException(
+        'This account has been deactivated. Contact your administrator.',
+      );
+    }
+
     const token = await this.signAccessToken(user.id, user.role);
     const refreshToken = await this.issueRefreshToken(user.id);
     return { token, refreshToken };
@@ -81,7 +90,10 @@ export class AuthService {
     if (
       !stored ||
       stored.revokedAt ||
-      stored.expiresAt.getTime() < Date.now()
+      stored.expiresAt.getTime() < Date.now() ||
+      // Deactivation revokes outstanding refresh tokens, but this guard also
+      // fails closed if one somehow survives (e.g. issued mid-deactivation).
+      !stored.user.isActive
     ) {
       throw new UnauthorizedException();
     }

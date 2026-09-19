@@ -183,6 +183,8 @@ describe("NewDsrPage", () => {
     await user.type(screen.getByLabelText("Quantity (Bags)"), "20");
 
     await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
+    // The playback dialog now guards submission — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
     await screen.findByText("Synced");
 
     const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
@@ -247,6 +249,8 @@ describe("NewDsrPage", () => {
     await user.click(await screen.findByText("JCB 3DX"));
 
     await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
+    // The playback dialog now guards submission — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
     await screen.findByText("Synced");
 
     const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
@@ -278,6 +282,8 @@ describe("NewDsrPage", () => {
     await user.type(screen.getByLabelText("Site"), "NH");
     await user.click(await screen.findByText("NH-48"));
     await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
+    // The playback dialog now guards submission — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
 
     await screen.findByText("A report for this Site today already exists");
   });
@@ -298,6 +304,8 @@ describe("NewDsrPage", () => {
     await user.type(screen.getByLabelText("Site"), "NH");
     await user.click(await screen.findByText("NH-48"));
     await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
+    // The playback dialog now guards submission — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
 
     await screen.findByText("Not enough Site Stock for this Consumption.");
   });
@@ -312,6 +320,8 @@ describe("NewDsrPage", () => {
     await user.type(screen.getByLabelText("Site"), "NH");
     await user.click(await screen.findByText("NH-48"));
     await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
+    // The playback dialog now guards submission — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
 
     await screen.findByText("Synced");
     expect(await listQueuedDsrs()).toHaveLength(0);
@@ -326,11 +336,22 @@ describe("NewDsrPage", () => {
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Site"), "NH");
     await user.click(await screen.findByText("NH-48"));
+    // Seed the autosave snapshot so the queued path's clearing is observable.
+    await user.type(screen.getByLabelText("Work completed"), "Footings poured");
+    await waitFor(
+      () => expect(window.localStorage.getItem("dsr-autosave-v1")).not.toBeNull(),
+      { timeout: 3000 },
+    );
     await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
+    // The playback dialog now guards submission — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
 
-    await screen.findByText("Saved on device — will sync when back online");
+    await screen.findByText(/Saved on device — will sync when back online/);
     const queued = await listQueuedDsrs();
     expect(queued).toHaveLength(1);
+    // Queued IS a durable home — the snapshot must not resurrect a copy of
+    // entries that are already syncing from the offline queue.
+    expect(window.localStorage.getItem("dsr-autosave-v1")).toBeNull();
     expect(queued[0]?.payload.siteId).toBe("site-1");
   });
 
@@ -432,6 +453,12 @@ describe("NewDsrPage", () => {
     await user.click(await screen.findByText("NH-48"));
 
     await waitFor(() => expect(screen.getByLabelText("Work completed")).toHaveValue("Curing in progress"));
+    // Edit after the resume so an autosave snapshot exists to clear.
+    await user.type(screen.getByLabelText("Work completed"), " — extra note");
+    await waitFor(
+      () => expect(window.localStorage.getItem("dsr-autosave-v1")).not.toBeNull(),
+      { timeout: 3000 },
+    );
     await user.click(screen.getByRole("button", { name: "Discard" }));
 
     // Confirmed, DELETE fired, form reset back to the fresh one-shot layout.
@@ -440,6 +467,8 @@ describe("NewDsrPage", () => {
       expect(screen.getByRole("button", { name: "Submit Daily Report" })).toBeInTheDocument(),
     );
     expect(screen.getByLabelText("Work completed")).toHaveValue("");
+    // A discarded report's local snapshot must not resurrect it.
+    expect(window.localStorage.getItem("dsr-autosave-v1")).toBeNull();
     const deleteCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
       ([url, init]) =>
         String(url).includes("/dsr/draft/") && (init as RequestInit | undefined)?.method === "DELETE",
@@ -514,6 +543,8 @@ describe("NewDsrPage", () => {
 
     await screen.findByRole("button", { name: "Finalize Report" });
     await user.click(screen.getByRole("button", { name: "Finalize Report" }));
+    // The playback dialog now guards finalization — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Finalize" }));
 
     await screen.findByText("Synced");
     const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls;
@@ -551,9 +582,135 @@ describe("NewDsrPage", () => {
 
     await screen.findByRole("button", { name: "Finalize Report" });
     await user.click(screen.getByRole("button", { name: "Finalize Report" }));
+    // The playback dialog now guards finalization — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Finalize" }));
 
     await screen.findByText("Not enough Site Stock for this Consumption.");
     // Still a draft — Finalize remains available for a retry after fixing stock.
     expect(screen.getByRole("button", { name: "Finalize Report" })).toBeInTheDocument();
+  });
+
+  it("autosaves typed entries and restores them after an interrupted session (lib/dsr-autosave)", async () => {
+    mockFetchRouter({ sites: [{ id: "site-1", name: "NH-48" }] });
+
+    const { unmount } = render(<NewDsrPage />);
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+    await user.type(screen.getByLabelText("Work completed"), "Poured slab for block A");
+
+    // The debounced (800ms) snapshot must land before the "app closes".
+    await waitFor(
+      () => expect(window.localStorage.getItem("dsr-autosave-v1")).not.toBeNull(),
+      { timeout: 3000 },
+    );
+    unmount();
+
+    render(<NewDsrPage />);
+    // Restore banner + the typed narrative back in the field.
+    await screen.findByText(/we restored the entries you were working on/i);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Work completed")).toHaveValue("Poured slab for block A"),
+    );
+  });
+
+  it("clears the autosave snapshot once the report is submitted", async () => {
+    mockFetchRouter({
+      sites: [{ id: "site-1", name: "NH-48" }],
+      dsr: { status: 201, body: { id: "dsr-1" } },
+    });
+
+    render(<NewDsrPage />);
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+    await user.type(screen.getByLabelText("Work completed"), "Shuttering done");
+    await waitFor(
+      () => expect(window.localStorage.getItem("dsr-autosave-v1")).not.toBeNull(),
+      { timeout: 3000 },
+    );
+
+    await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
+    await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
+    await screen.findByText("Synced");
+
+    // Durably on the server — the local safety net must not resurrect it.
+    expect(window.localStorage.getItem("dsr-autosave-v1")).toBeNull();
+  });
+
+  it("restores the crew checklist and does NOT let the crew-defaults fetch clobber it", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    window.localStorage.setItem(
+      "dsr-autosave-v1",
+      JSON.stringify({
+        savedAt: Date.now(),
+        data: {
+          siteId: "site-1",
+          reportDate: today,
+          workCompleted: "Slab work",
+          issuesBlockers: "",
+          crew: [{ teamMemberId: "tm-9", name: "Restored Person", attended: true }],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          hadPhotos: false,
+        },
+      }),
+    );
+    mockFetchRouter({
+      sites: [{ id: "site-1", name: "NH-48" }],
+      defaults: [{ teamMemberId: "tm-1", name: "Default Person" }],
+    });
+
+    render(<NewDsrPage />);
+
+    await screen.findByText(/we restored the entries you were working on/i);
+    // The restored checklist survives; the Site's default checklist (which
+    // the effect fetches when no draft exists) must not overwrite it.
+    await waitFor(() => expect(screen.getByText("Restored Person")).toBeInTheDocument());
+    expect(screen.queryByText("Default Person")).not.toBeInTheDocument();
+  });
+
+  it("does not hijack a deep-linked ?siteId= for a different Site with a restore, and keeps the snapshot", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    window.localStorage.setItem(
+      "dsr-autosave-v1",
+      JSON.stringify({
+        savedAt: Date.now(),
+        data: {
+          siteId: "site-1",
+          reportDate: today,
+          workCompleted: "Interrupted entries for NH-48",
+          issuesBlockers: "",
+          crew: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          hadPhotos: false,
+        },
+      }),
+    );
+    searchParams.current = new URLSearchParams("siteId=site-2");
+    mockFetchRouter({
+      sites: [
+        { id: "site-1", name: "NH-48" },
+        { id: "site-2", name: "Metro Depot" },
+      ],
+    });
+
+    render(<NewDsrPage />);
+
+    // Deep-link intent wins: Metro Depot selected, nothing restored...
+    await waitFor(() => expect(screen.getByLabelText("Site")).toHaveValue("Metro Depot"));
+    expect(screen.queryByText(/we restored the entries/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Work completed")).toHaveValue("");
+    // ...and the other session's snapshot is preserved, not clobbered.
+    expect(window.localStorage.getItem("dsr-autosave-v1")).not.toBeNull();
   });
 });

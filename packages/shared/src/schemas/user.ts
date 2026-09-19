@@ -28,3 +28,22 @@ export const updateUserRoleSchema = z.object({
 });
 
 export type UpdateUserRoleInput = z.infer<typeof updateUserRoleSchema>;
+
+// PATCH /users/:id/password body — an OWNER_ADMIN sets a user's new password
+// directly (same out-of-band handoff model as createUserSchema; there is no
+// self-service email-reset flow). Same length rules as at creation.
+export const resetUserPasswordSchema = z.object({
+  password: z.string().min(8).max(200),
+});
+
+export type ResetUserPasswordInput = z.infer<typeof resetUserPasswordSchema>;
+
+// PATCH /users/:id/active body — deactivate (or reactivate) an account.
+// Deactivation, not deletion: a User row is referenced by DailySiteReports,
+// Photos, and AuditLogs, so removing it would destroy attribution history;
+// an inactive account simply can no longer sign in.
+export const updateUserActiveSchema = z.object({
+  isActive: z.boolean(),
+});
+
+export type UpdateUserActiveInput = z.infer<typeof updateUserActiveSchema>;

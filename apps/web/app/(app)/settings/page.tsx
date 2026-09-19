@@ -44,7 +44,7 @@ export default async function SettingsPage() {
   // /settings URL must not render a broken page — a Supervisor hits 404 here.
   // (The apps/api Users-admin endpoints enforce the same 403 server-side, so
   // this is defence-in-depth, not the only gate.)
-  const me = await getJSON<{ role: Role }>("/users/me");
+  const me = await getJSON<{ id: string; role: Role }>("/users/me");
   if (me.role !== "OWNER_ADMIN") notFound();
 
   const [
@@ -125,7 +125,7 @@ export default async function SettingsPage() {
             Supervisor — the two roles this platform has (AD-11) — and change an active user&apos;s role
             at any time.
           </p>
-          <UsersRolesSection users={users} />
+          <UsersRolesSection users={users} currentUserId={me.id} />
         </Card>
 
         <Card>
