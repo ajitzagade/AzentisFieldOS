@@ -1041,7 +1041,7 @@ function NewDsrForm() {
             >
               <ComboboxField
                 label="Vendor"
-                className="sm:col-span-4"
+                className="sm:col-span-5"
                 options={reference.vendorOptions}
                 value={row.vendorId}
                 onValueChange={(value) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vendorId: value } : r)))}
@@ -1088,7 +1088,7 @@ function NewDsrForm() {
                   onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, ratePerM3: e.target.value } : r)))}
                 />
               </div>
-              <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
+              <div className="sm:col-span-1 sm:mt-6 sm:justify-self-end">
                 <Button type="button" variant="ghost" onClick={() => setRmcEntries((rows) => rows.filter((_, i) => i !== index))}>
                   Remove
                 </Button>

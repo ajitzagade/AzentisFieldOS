@@ -130,7 +130,18 @@ export function ComboboxField({
             placeholder={loading ? "Loading…" : placeholder}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? errorId : hint ? hintId : undefined}
-            className={cn(fieldControlClass, icon && "pl-9", selected ? "pr-20" : "pr-11", error && "border-danger-700")}
+            // The full label is always readable via the native title
+            // tooltip and ellipsis-truncated (never hard-clipped mid-word)
+            // when a narrow column can't fit it — a selected Vendor/Material
+            // name must never read as silently cut off.
+            title={selected?.label}
+            className={cn(
+              fieldControlClass,
+              "overflow-hidden text-ellipsis whitespace-nowrap",
+              icon && "pl-9",
+              selected ? "pr-20" : "pr-11",
+              error && "border-danger-700",
+            )}
           />
           {/* size-8 (32px) tap targets — the clear/open affordances are used
               on phones with gloves on; a 24px hit area misses too easily. */}

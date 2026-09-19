@@ -8,6 +8,7 @@ import {
   ClipboardIcon,
   DataTable,
   PlusIcon,
+  TextField,
   buttonVariants,
   cn,
   type DataTableColumn,
@@ -153,28 +154,40 @@ export default async function DailyActivityPage({
         </Link>
       </div>
 
-      <div className="mb-4 action-button-row sm:items-center">
-        <Link
-          href={`/daily-activity?date=${shiftDate(date, -1)}`}
-          className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
-        >
-          <ChevronRightIcon className="size-4 rotate-180" />
-          Previous day
-        </Link>
-        {isToday ? null : (
-          <>
-            <Link
-              href={`/daily-activity?date=${shiftDate(date, 1)}`}
-              className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
-            >
-              Next day
-              <ChevronRightIcon className="size-4" />
-            </Link>
-            <Link href="/daily-activity" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-              Jump to today
-            </Link>
-          </>
-        )}
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div className="action-button-row sm:items-center">
+          <Link
+            href={`/daily-activity?date=${shiftDate(date, -1)}`}
+            className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
+          >
+            <ChevronRightIcon className="size-4 rotate-180" />
+            Previous day
+          </Link>
+          {isToday ? null : (
+            <>
+              <Link
+                href={`/daily-activity?date=${shiftDate(date, 1)}`}
+                className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
+              >
+                Next day
+                <ChevronRightIcon className="size-4" />
+              </Link>
+              <Link href="/daily-activity" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
+                Jump to today
+              </Link>
+            </>
+          )}
+        </div>
+
+        {/* URL-driven GET jump-to-date — the log previously only supported
+            single-step Previous/Next day navigation, with no way to open an
+            arbitrary past date without hand-editing the URL. */}
+        <form method="GET" action="/daily-activity" className="flex items-end gap-2">
+          <TextField label="Jump to date" name="date" type="date" defaultValue={date} max={today} />
+          <Button type="submit" variant="secondary" size="sm" className="mb-4">
+            Go
+          </Button>
+        </form>
       </div>
 
       <DataTable

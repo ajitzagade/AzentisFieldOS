@@ -314,8 +314,16 @@ function query(params: Record<string, string | undefined>) {
   return qs ? `?${qs}` : "";
 }
 
-async function getDailyReports(): Promise<DailyReportRow[]> {
-  const res = await authedFetch(`/reports/daily`, { cache: "no-store" });
+// The API supports siteId/from/to (ReportsService.listDaily) but this table
+// previously never passed them through — with no other way to browse past
+// compiled/delivered reports, the log was effectively "whatever's recent",
+// unfilterable and unsearchable by date or Site.
+async function getDailyReports(filters: {
+  siteId?: string;
+  from?: string;
+  to?: string;
+} = {}): Promise<DailyReportRow[]> {
+  const res = await authedFetch(`/reports/daily${query(filters)}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load reports (${res.status})`);
   }
@@ -1506,6 +1514,12 @@ export default async function ReportsPage({
     asset?: string;
     from?: string;
     to?: string;
+    // Recent Reports' own filter — deliberately separate names from the
+    // tab-specific siteId/from/to above so filtering the delivery log never
+    // clobbers whichever tab's own filter is active.
+    reportSiteId?: string;
+    reportFrom?: string;
+    reportTo?: string;
   }>;
 }) {
   const {
@@ -1516,6 +1530,9 @@ export default async function ReportsPage({
     asset,
     from,
     to,
+    reportSiteId,
+    reportFrom,
+    reportTo,
   } = await searchParams;
   const tab = resolveTab(tabParam);
 
@@ -1524,7 +1541,7 @@ export default async function ReportsPage({
   // it's independent of the selected tab, so awaiting it here would force
   // every tab-specific fetch below to wait for it first instead of running
   // concurrently.
-  const reportsPromise = getDailyReports();
+  const reportsPromise = getDailyReports({ siteId: reportSiteId, from: reportFrom, to: reportTo });
 
   // Only fetch what the active tab needs. A Site report is inherently per-Site,
   // so default to the first Site when none is selected — the view is never
@@ -1570,6 +1587,10 @@ export default async function ReportsPage({
   // By now reportsPromise has been in flight concurrently with every
   // tab-specific fetch above, so this rarely adds its own wait.
   const reports = await reportsPromise;
+  // The Recent Reports filter's Site dropdown needs the full Site list
+  // regardless of which tab is active — reuse it if the active tab already
+  // fetched it (site/inventory/financial), otherwise fetch it now.
+  const reportFilterSites = sites.length > 0 ? sites : await getSites();
 
   return (
     <>
@@ -1664,6 +1685,40 @@ export default async function ReportsPage({
         <BarChartIcon className="size-4 text-accent-teal-700" />
         <h2 className="text-card-title text-ink-900">Recent Reports</h2>
       </div>
+      <p className="mb-3 text-body-sm text-ink-500">
+        Every compiled Daily Report and its delivery status — the full record of what has been shared, filterable
+        by Site and date.
+      </p>
+
+      {/* Own filter, own query params (reportSiteId/reportFrom/reportTo) —
+          deliberately distinct from the active tab's own siteId/from/to so
+          filtering this log never resets the tab view above. The active
+          tab's own filter state rides along as hidden fields so submitting
+          this form doesn't drop it. */}
+      <form
+        method="GET"
+        action="/reports"
+        className="mb-4 grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        <input type="hidden" name="tab" value={tab} />
+        {siteId ? <input type="hidden" name="siteId" value={siteId} /> : null}
+        {materialId ? <input type="hidden" name="materialId" value={materialId} /> : null}
+        {teamMemberId ? <input type="hidden" name="teamMemberId" value={teamMemberId} /> : null}
+        {asset ? <input type="hidden" name="asset" value={asset} /> : null}
+        {from ? <input type="hidden" name="from" value={from} /> : null}
+        {to ? <input type="hidden" name="to" value={to} /> : null}
+        <SelectField
+          label="Site"
+          name="reportSiteId"
+          defaultValue={reportSiteId ?? ""}
+          options={[{ value: "", label: "All Sites" }, ...reportFilterSites.map((s) => ({ value: s.id, label: s.name }))]}
+        />
+        <TextField label="From" name="reportFrom" type="date" defaultValue={reportFrom ?? ""} />
+        <TextField label="To" name="reportTo" type="date" defaultValue={reportTo ?? ""} />
+        <Button type="submit" variant="secondary" className="mb-4">
+          Apply filters
+        </Button>
+      </form>
 
       <DataTable
         columns={dailyReportColumns}
@@ -1675,7 +1730,9 @@ export default async function ReportsPage({
             ? {
                 status: "empty",
                 message:
-                  "No reports yet. A branded Daily Report compiles and delivers automatically once a Site submits its first Daily Report.",
+                  reportSiteId || reportFrom || reportTo
+                    ? "No reports match this filter."
+                    : "No reports yet. A branded Daily Report compiles and delivers automatically once a Site submits its first Daily Report.",
               }
             : { status: "success", rows: reports }
         }

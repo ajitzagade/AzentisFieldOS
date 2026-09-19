@@ -23,6 +23,17 @@ import { applySiteStockDelta } from '../inventory/stock-delta';
 import { StorageService } from '../storage/storage.service';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 
+// Production incident (2026-09-19): a DSR with a realistic number of crew
+// members/consumptions/RMC entries/expenses ran the sequential per-record
+// loops in materializeSubRecords past Prisma's 5000ms default interactive-
+// transaction timeout (confirmed via prod logs: P2028, "5586 ms passed
+// since the start of the transaction"), which surfaced to the Supervisor as
+// an opaque 500 and silently dropped the report into the offline queue.
+// create()/correct()/finalizeDraft() all run that same loop — same budget
+// for all three. The Vercel function itself allows 60s (vercel.json), so
+// this has headroom without risking a runaway hang.
+const DSR_TRANSACTION_OPTIONS = { timeout: 20_000 };
+
 // FR-28: one DSR per Site per date, with all its nested sub-records
 // created atomically (a partial write must never happen).
 //
@@ -327,7 +338,7 @@ export class DsrService {
             expenses: true,
           },
         });
-      });
+      }, DSR_TRANSACTION_OPTIONS);
 
       // Outside the transaction — a push failure must never roll back a
       // successfully saved DSR. Only on the first submission for this
@@ -359,6 +370,18 @@ export class DsrService {
       ) {
         throw new ConflictException(
           'This record conflicts with an existing one',
+        );
+      }
+      // Same translation finalizeDraft's catch already does for the same
+      // materializeSubRecords loop — a Team Member/Material/Vendor/Category
+      // referenced by this DSR that no longer exists must surface as an
+      // actionable 400, never an opaque 500.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2003' || error.code === 'P2025')
+      ) {
+        throw new BadRequestException(
+          'A referenced Site, Vendor, Material or Team Member no longer exists',
         );
       }
       throw error;
@@ -700,7 +723,7 @@ export class DsrService {
             expenses: true,
           },
         });
-      });
+      }, DSR_TRANSACTION_OPTIONS);
 
       // A finalize that reaches here is always the day's first submission (we
       // 409 above if a SUBMITTED original already existed).
@@ -907,7 +930,7 @@ export class DsrService {
             expenses: true,
           },
         });
-      });
+      }, DSR_TRANSACTION_OPTIONS);
     } catch (error) {
       if (error instanceof ConflictException) {
         throw error;
@@ -918,6 +941,16 @@ export class DsrService {
       ) {
         throw new ConflictException(
           'This record conflicts with an existing one',
+        );
+      }
+      // Same translation create()'s catch applies (both run
+      // materializeSubRecords-equivalent loops against possibly-stale ids).
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2003' || error.code === 'P2025')
+      ) {
+        throw new BadRequestException(
+          'A referenced Site, Vendor, Material or Team Member no longer exists',
         );
       }
       throw error;
