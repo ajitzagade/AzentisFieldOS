@@ -19,6 +19,7 @@ import { RmcModule } from './rmc/rmc.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { WasteDisposalModule } from './waste-disposal/waste-disposal.module';
 import { VendorAdvancesModule } from './vendor-advances/vendor-advances.module';
+import { PaymentsOverviewModule } from './payments-overview/payments-overview.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportsModule } from './reports/reports.module';
 import { UsersModule } from './users/users.module';
@@ -44,6 +45,7 @@ import { PushNotificationsModule } from './push-notifications/push-notifications
     ExpensesModule,
     WasteDisposalModule,
     VendorAdvancesModule,
+    PaymentsOverviewModule,
     DashboardModule,
     ReportsModule,
     UsersModule,

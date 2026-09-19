@@ -227,7 +227,7 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
     },
     {
       key: "payments",
-      label: "Payments",
+      label: "Employee Payments",
       items: (data?.payments?.results ?? []).map((payment) => ({
         id: payment.id,
         label: payment.teamMemberName,

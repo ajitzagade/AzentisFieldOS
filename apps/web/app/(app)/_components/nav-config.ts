@@ -66,12 +66,18 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "People",
     items: [
       { href: "/team", label: "Team & Labour", icon: UsersIcon },
-      { href: "/payments", label: "Payments", icon: WalletIcon },
+      // Renamed from "Payments" (2026-09-19): this surface is Team-Member
+      // pay only — the cross-source feed lives at /all-payments (Money).
+      { href: "/payments", label: "Employee Payments", icon: WalletIcon },
     ],
   },
   {
     label: "Money",
     items: [
+      // The unified cross-source payments feed (2026-09-19) — Employee,
+      // Subcontractor, Vendor, RMC, Waste Disposal and Expense money-out
+      // in one list with paid/unpaid/pending filters.
+      { href: "/all-payments", label: "All Payments", icon: WalletIcon },
       { href: "/vendors", label: "Vendors", icon: BuildingIcon },
       { href: "/subcontractors", label: "Subcontractors", icon: UserIcon },
       { href: "/expenses", label: "Expenses", icon: ReceiptIcon },
