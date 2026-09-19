@@ -194,13 +194,13 @@ export function BrandingForm({ config }: { config: BrandingConfig }) {
                 {logoUrl ? "Replace logo" : "Upload logo"}
               </Button>
               <p className="mt-1 text-eyebrow text-ink-500">
-                PNG or SVG, up to 2MB, transparent background recommended.
+                PNG or JPEG, up to 2MB, transparent background recommended.
               </p>
             </div>
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/svg+xml,image/jpeg"
+              accept="image/png,image/jpeg"
               className="sr-only"
               aria-label="Upload logo file"
               onChange={handleLogoChange}

@@ -85,9 +85,15 @@ export class StorageService {
   // public_id, `logoUrl` is deterministic and returned up-front.
   presignBrandingLogoUpload() {
     const publicId = `branding/logo/${crypto.randomUUID()}`;
-    // Matches branding-form.tsx's accept="image/png,image/svg+xml,image/jpeg".
+    // Production incident (2026-09-19): 'svg' was in this list, but this
+    // Cloudinary account's Security settings don't allow SVG through the
+    // image/upload pipeline — every signed upload with an SVG file
+    // deterministically failed ("Raw file format svg not allowed"),
+    // confirmed by direct reproduction against the real account. Matches
+    // branding-form.tsx's accept="image/png,image/jpeg" — dropped, not
+    // re-added, until that account setting changes.
     return {
-      ...this.signUpload(publicId, 'jpg,jpeg,png,svg'),
+      ...this.signUpload(publicId, 'jpg,jpeg,png'),
       logoUrl: cloudinaryUrl(publicId),
     };
   }

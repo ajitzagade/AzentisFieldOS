@@ -1,7 +1,4 @@
-import {
-  NotFoundException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StorageService } from './storage.service';
 import type { PrismaService } from '../prisma/prisma.service';
@@ -121,7 +118,7 @@ describe('StorageService.presignBrandingLogoUpload', () => {
       'https://api.cloudinary.com/v1_1/test-cloud/image/upload',
     );
     expect(result.signature).toBe('test-signature');
-    expect(result.allowedFormats).toBe('jpg,jpeg,png,svg');
+    expect(result.allowedFormats).toBe('jpg,jpeg,png');
     expect(result.logoUrl).toBe(
       `https://res.cloudinary.com/test-cloud/image/upload/${result.publicId}`,
     );
