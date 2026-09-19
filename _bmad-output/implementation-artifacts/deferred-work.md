@@ -463,3 +463,6 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: (no spec — session review)
   summary: Settings user list UX polish: group/sort deactivated accounts below active ones and de-emphasize/disable the role SelectField on deactivated rows.
   evidence: apps/web/app/(app)/settings/users-roles-section.tsx renders one flat DataTable with a status badge only.
+- source_spec: (no spec — CRUD-reflection verification 2026-09-19)
+  summary: MarkPaidButton's "Payment marked as paid" toast is unobservable — revalidatePath("/payments") re-renders the row as paid (unmounting the button) before its state.done effect can fire the toast. The row's badge flip is the only feedback (adequate, but the dead toast code should either work or go).
+  evidence: apps/web/app/(app)/payments/mark-paid-button.tsx + payments/actions.ts markPaymentPaidAction; observed in the crud-reflection e2e authoring run (real browser).

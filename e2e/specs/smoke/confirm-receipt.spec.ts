@@ -22,15 +22,25 @@ test("Owner can confirm receipt of a Godown-to-Site Movement", async ({ page }) 
   await page.goto("/movements/godown-to-site/new");
   await pickCombobox(page, "Material / Size", MATERIAL_NAME);
   await pickCombobox(page, "Destination Site", SITE_NAME);
-  await fillField(page, /Sent Quantity/, "10");
+  // Deliberately distinctive quantities (137 sent / 94 received) so the
+  // post-confirmation assertion below can find THIS movement's row without
+  // colliding with rows from other specs sharing the seeded DB.
+  await fillField(page, /Sent Quantity/, "137");
   await page.getByRole("button", { name: "Record Movement" }).click();
   await expect(page.getByText("Movement recorded")).toBeVisible({ timeout: 10_000 });
 
   await expect(page.getByText("Pending receipt").first()).toBeVisible();
-  await page.getByRole("link", { name: "Confirm Receipt" }).first().click();
+  // Scope the click to THIS movement's row (found via its distinctive sent
+  // quantity) — a bare .first() can grab an older pending movement left
+  // behind by another spec sharing the seeded DB.
+  await page
+    .locator("tr", { hasText: "137" })
+    .first()
+    .getByRole("link", { name: "Confirm Receipt" })
+    .click();
 
   await expect(page.getByRole("heading", { name: "Confirm Receipt" })).toBeVisible();
-  await fillField(page, "Received Quantity", "10");
+  await fillField(page, "Received Quantity", "94");
   await page.getByRole("button", { name: "Confirm Receipt" }).click();
 
   // The redirect lands on /movements?flash=... but flash-toast.tsx's own
@@ -40,4 +50,12 @@ test("Owner can confirm receipt of a Godown-to-Site Movement", async ({ page }) 
   // The toast text below is the real, stable proof.
   await expect(page).toHaveURL(/\/movements/);
   await expect(page.getByText("Receipt confirmed")).toBeVisible({ timeout: 10_000 });
+
+  // Post-state, not just the toast: this movement's row has flipped from the
+  // "Pending receipt" badge to the received quantity (94 ≠ 137 sent renders
+  // as a highlighted mismatch), proving the confirmation reflects in the
+  // list immediately.
+  const movementRow = page.locator("tr", { hasText: "137" }).first();
+  await expect(movementRow).toContainText("94");
+  await expect(movementRow).not.toContainText("Pending receipt");
 });

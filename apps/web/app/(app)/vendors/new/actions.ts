@@ -61,6 +61,12 @@ export async function createVendorAction(
   const result = await submitVendor(formData);
   if (!result.ok) return result.state;
 
+  // /vendors is the one list read with a time-based cache
+  // (VENDOR_LIST_REVALIDATE_SECONDS) — without this, the redirect can land
+  // on a Data-Cache copy that's up to 10s old and NOT show the vendor just
+  // created (dev mode masks this; production doesn't). Must run before
+  // redirect(), which throws.
+  revalidateVendorPaths();
   redirect(`/vendors?flash=${encodeURIComponent("Vendor added")}`);
 }
 

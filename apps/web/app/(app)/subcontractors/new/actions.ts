@@ -73,6 +73,12 @@ export async function createSubcontractorAction(
   const result = await submitSubcontractor(formData);
   if (!result.ok) return result.state;
 
+  // /subcontractors is a time-cached list read
+  // (SUBCONTRACTOR_LIST_REVALIDATE_SECONDS) — without this, the redirect
+  // can land on a Data-Cache copy up to 10s old that doesn't show the row
+  // just created (dev mode masks this; production doesn't). Must run
+  // before redirect(), which throws.
+  revalidateSubcontractorPaths();
   redirect(`/subcontractors?flash=${encodeURIComponent("Subcontractor added")}`);
 }
 

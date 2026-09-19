@@ -38,7 +38,12 @@ export default async function CorrectDsrPage({ params }: { params: Promise<{ id:
 
   const initial: DsrFormInitialValues = {
     siteId: dsr.site.id,
-    reportDate: dsr.reportDate,
+    // GET /dsr/:id serializes the Prisma DateTime as full ISO
+    // ("2026-09-19T00:00:00.000Z"), but the form's date input and
+    // createDsrSchema's z.iso.date() both need plain YYYY-MM-DD — passing
+    // it through verbatim rendered an empty Date field and made every
+    // correction submit 400.
+    reportDate: dsr.reportDate.slice(0, 10),
     workCompleted: dsr.workCompleted ?? "",
     issuesBlockers: dsr.issuesBlockers ?? "",
     workRecords: dsr.workRecords.map((w) => ({ teamMemberId: w.teamMemberId, name: w.teamMember.name, attended: w.attended })),
