@@ -89,12 +89,34 @@ antivirus flag) is what prevents it from looking untrustworthy.
 3. Client opens the installed app, signs in with their existing
    username/password (same credentials as the browser — this is the same
    backend, not a separate account).
-4. The app should open full-screen with no address bar — same as your own
-   pre-send check above. If the client sees one anyway (a device/DAL
-   verification issue can be device-specific even after your own check
-   passed), that's still story 20.5's chrome-less check failing for them;
-   don't leave them using it in that state — investigate before they rely on
-   it for real work.
+4. **The very first open after install may show Chrome's address bar for a
+   few seconds, then hide it — this is normal and happens exactly once per
+   install.** Chrome runs its Digital Asset Links verification on that first
+   launch and refuses to hide the URL until it has confirmed the app owns the
+   domain; once verified, the result is cached and every later open is
+   full-screen from the start. Tell the client this up front (same spirit as
+   the unknown-sources note above) so a one-time bar doesn't get reported as
+   the app "opening in a browser". A Play Store install would behave the same
+   way — this is Chrome security UX, not something a build change can remove.
+5. From the **second** open onward the app must be full-screen with no
+   address bar at any point — same as your own pre-send check above. If the
+   bar appears on every open, or never disappears, that's story 20.5's
+   chrome-less check failing for them; don't leave them using it in that
+   state — investigate before they rely on it for real work. Two causes seen
+   or anticipated so far:
+   - **Verification failure cached from a bad first launch** (observed with
+     sandeep-enterprises, 2026-09-19): if the device ever launched the app
+     while the tenant's `/.well-known/assetlinks.json` was missing or wrong,
+     Chrome caches the failure and shows the bar forever, even after the
+     server is fixed. Remedy: full uninstall + reinstall (or a rebuilt APK
+     with a higher `--app-version-code`, which installs as an update — both
+     force re-verification). Prevent it by confirming
+     `https://<tenant-domain>/.well-known/assetlinks.json` serves the right
+     package id + fingerprint *before* sending any APK.
+   - **Default browser isn't an up-to-date Chrome**: the TWA opens in the
+     device's default browser, and many OEM defaults (Mi Browser, etc.) only
+     support Custom Tabs — a permanent URL bar. Remedy: update Chrome and
+     set it as the default browser.
 
 ## 4. When a rebuild is required
 

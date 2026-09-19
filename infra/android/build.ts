@@ -52,6 +52,8 @@ interface Args {
   slug: string;
   keystorePath?: string;
   keystoreAlias: string;
+  appVersionCode: number;
+  appVersionName: string;
 }
 
 function usageAndExit(message?: string): never {
@@ -66,6 +68,13 @@ function usageAndExit(message?: string): never {
       "  --manifest-url    HTTPS URL of the tenant's web app manifest (e.g. https://<tenant>.azentis.in/manifest.webmanifest)",
       "  --package-id      Android application id (e.g. in.azentis.<tenant>)",
       "  --slug            Output filename slug -> infra/android/dist/<slug>.apk",
+      "",
+      "Optional:",
+      "  --app-version-code <int>     Android versionCode (default 1). Must be strictly greater than",
+      "                               the previously distributed APK's for the install to register as",
+      "                               an update — which is also what makes Chrome re-run Digital Asset",
+      "                               Links verification on an already-installed device.",
+      "  --app-version-name <string>  Human-readable versionName (defaults to --app-version-code)",
       "",
       "Signing key (one of):",
       "  --keystore-path <file>       Path to an existing upload keystore (.jks)",
@@ -127,12 +136,20 @@ function parseArgs(rawArgv: string[]): Args {
     usageAndExit("--slug must contain only lowercase letters, digits, and hyphens");
   }
 
+  const versionCodeRaw = flags.get("app-version-code") ?? "1";
+  const appVersionCode = Number(versionCodeRaw);
+  if (!Number.isInteger(appVersionCode) || appVersionCode < 1) {
+    usageAndExit(`--app-version-code must be a positive integer, got: ${versionCodeRaw}`);
+  }
+
   return {
     manifestUrl,
     packageId,
     slug,
     keystorePath: flags.get("keystore-path"),
     keystoreAlias: flags.get("keystore-alias") || "upload",
+    appVersionCode,
+    appVersionName: flags.get("app-version-name") || String(appVersionCode),
   };
 }
 
@@ -254,6 +271,12 @@ async function main() {
     const twaManifest = await TwaManifest.fromWebManifest(args.manifestUrl);
     twaManifest.packageId = args.packageId;
     twaManifest.signingKey = { path: keystore.path, alias: keystore.alias };
+    // Like packageId/signingKey, version identity can't come from a web
+    // manifest. An already-installed device only takes a rebuilt APK as an
+    // update (and Chrome only re-runs Digital Asset Links verification —
+    // the thing that hides the URL bar) when versionCode increases.
+    twaManifest.appVersionCode = args.appVersionCode;
+    twaManifest.appVersionName = args.appVersionName;
     await twaManifest.saveToFile(path.join(workDir, "twa-manifest.json"));
 
     console.log("Reconfiguring Android project (bubblewrap update)...");

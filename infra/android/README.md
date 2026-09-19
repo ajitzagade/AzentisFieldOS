@@ -104,12 +104,25 @@ pnpm android:build -- \
   --manifest-url https://<tenant>.azentis.in/manifest.webmanifest \
   --package-id in.azentis.<tenant> \
   --slug <tenant>-dev \
-  --keystore-path infra/android/release.jks
+  --keystore-path infra/android/release.jks \
+  --app-version-code 2   # strictly greater than the last APK distributed for this tenant
 
 # required env vars either way:
 ANDROID_KEYSTORE_PASSWORD=...
 ANDROID_KEY_PASSWORD=...        # optional — defaults to ANDROID_KEYSTORE_PASSWORD
 ```
+
+**Always bump `--app-version-code` when rebuilding an APK a tenant already has
+installed** (each tenant tracks its own sequence; it defaults to 1 for a
+first-ever build). Android only treats a sideloaded APK as an update when
+versionCode strictly increases — and a package *update* is also what makes
+Chrome discard its cached Digital Asset Links verdict and re-verify against
+the live `/.well-known/assetlinks.json`. This matters beyond hygiene: if a
+device ever launched the app while the tenant's assetlinks.json was missing
+or wrong (e.g. installed before that deployment went live), Chrome caches the
+*failed* verification and keeps showing the Custom Tab URL bar forever, even
+after the server side is fixed — only an app update, a full
+uninstall/reinstall, or clearing Chrome's data makes it re-check.
 
 Or, with the keystore delivered as a secret instead of a local file:
 
