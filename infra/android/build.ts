@@ -39,6 +39,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { TwaManifest, util } from "@bubblewrap/core";
+import Color from "color";
 
 const require_ = createRequire(import.meta.url);
 
@@ -271,6 +272,18 @@ async function main() {
     const twaManifest = await TwaManifest.fromWebManifest(args.manifestUrl);
     twaManifest.packageId = args.packageId;
     twaManifest.signingKey = { path: keystore.path, alias: keystore.alias };
+    // Unlike themeColor/backgroundColor, a web manifest has no field for
+    // Android's system navigation bar — fromWebManifest() leaves it at
+    // Bubblewrap's own default (black), which reads as a jarring black block
+    // beneath the app's own bottom nav bar instead of blending in the way
+    // iOS's home-indicator area does. Match it to packages/ui's --surface-1
+    // (the app shell's own bottom-bar background) so both platforms look the
+    // same; these two hexes must stay in sync with theme.css by hand, since
+    // Bubblewrap has no channel to read a design token at build time.
+    twaManifest.navigationColor = new Color("#FFFFFF"); // --surface-1 (light)
+    twaManifest.navigationColorDark = new Color("#191F27"); // --surface-1 (dark)
+    twaManifest.navigationDividerColor = new Color("#FFFFFF");
+    twaManifest.navigationDividerColorDark = new Color("#191F27");
     // Like packageId/signingKey, version identity can't come from a web
     // manifest. An already-installed device only takes a rebuilt APK as an
     // update (and Chrome only re-runs Digital Asset Links verification —
