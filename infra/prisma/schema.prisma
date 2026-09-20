@@ -711,6 +711,11 @@ model DailySiteReport {
   expenses      Expense[]
   rmcEntries    RmcEntry[]
   dailyReports  DailyReport[]
+  // spec-dsr-activity-sync-detail-panel (goals 3-4): mirrors rmcEntries
+  // above exactly — the DSR-embedded Waste Material/Subcontractor Work
+  // Entry rows nested by findOne().
+  wasteDisposalEntries     WasteDisposal[]
+  subcontractorWorkEntries SubcontractorWorkEntry[]
 
   // Informational tagging only — "JCB 3DX was in use today" is not a
   // location/status change (that's Epic 8's MachineryMovementLog /
@@ -877,6 +882,16 @@ model WasteDisposal {
   createdAt        DateTime   @default(now())
   correctsId       String?
   reason           String? // required when correctsId is set
+
+  // spec-dsr-activity-sync-detail-panel (goal 3): a DSR-embedded Waste
+  // Material entry, mirroring RmcEntry's exact two-plus-one field addition —
+  // dailySiteReportId links a materialized row back to the DSR it was
+  // entered on, clientGeneratedId is the same offline-sync upsert key.
+  // Nullable/optional: a standalone Waste Material entry (the pre-existing
+  // module surface) has neither.
+  dailySiteReportId String?
+  dailySiteReport   DailySiteReport? @relation(fields: [dailySiteReportId], references: [id])
+  clientGeneratedId String? @unique
 
   vendorAdvances VendorAdvance[]
 
@@ -1135,6 +1150,16 @@ model SubcontractorWorkEntry {
   createdAt        DateTime     @default(now())
   correctsId       String?
   reason           String?
+
+  // spec-dsr-activity-sync-detail-panel (goal 4): a DSR-embedded Subcontractor
+  // entry that picked a real Site Contract + quantity creates one of these —
+  // dailySiteReportId/clientGeneratedId mirror RmcEntry/WasteDisposal exactly
+  // so DsrService.findOne() can nest it and DsrService.correct() can resolve
+  // the prior entry via clientGeneratedId the same way. Nullable/optional: a
+  // standalone Work Entry (the pre-existing Epic 18 surface) has neither.
+  dailySiteReportId String?
+  dailySiteReport   DailySiteReport? @relation(fields: [dailySiteReportId], references: [id])
+  clientGeneratedId String? @unique
 
   // list() filters by siteContractId, always orders by workDate desc.
   @@index([siteContractId, workDate])

@@ -1,6 +1,6 @@
 import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { FeedItem, PhotoGalleryItem } from "@azentisfieldos/shared";
@@ -29,7 +29,7 @@ import { SitePhotoUploadButton } from "./_components/site-photo-upload-button";
 import { DeleteEntityButton } from "../../_components/delete-entity-button";
 import { RecordRecentlyViewed } from "../../_components/record-recently-viewed";
 import { deleteSiteAction } from "./actions";
-import { FEED_TYPE_CONFIG } from "./feed-type-config";
+import { SiteActivityFeedClient } from "./_components/site-activity-feed-client";
 
 // How many of the Site's newest photos the detail page previews inline —
 // one gallery-grid row at the widest breakpoint; the full history stays on
@@ -168,38 +168,6 @@ const STATUS_BADGE: Record<Site["status"], { variant: "success" | "warning" | "n
   ACTIVE: { variant: "success", label: "Active" },
   ON_HOLD: { variant: "warning", label: "On Hold" },
   COMPLETED: { variant: "neutral", label: "Completed" },
-};
-
-const feedColumns: DataTableColumn<FeedItem>[] = [
-  { header: "Date", cell: (item) => <span className="text-ink-500">{formatDateTime(item.occurredAt)}</span> },
-  {
-    header: "Type",
-    cell: (item) => {
-      const config = FEED_TYPE_CONFIG[item.type];
-      const Icon = config.icon;
-      return (
-        <Badge variant={config.badgeVariant} icon={<Icon />}>
-          {config.label}
-        </Badge>
-      );
-    },
-  },
-  { header: "Description", cell: (item) => item.summary },
-  {
-    header: "Amount",
-    align: "right",
-    cell: (item) =>
-      item.amount !== null ? (
-        <span className="font-semibold text-gold-700 tabular-nums">₹{item.amount.toLocaleString("en-IN")}</span>
-      ) : (
-        <span className="text-ink-500">—</span>
-      ),
-  },
-];
-
-const feedMobileCard: DataTableMobileCard<FeedItem> = {
-  primary: (item) => formatDateTime(item.occurredAt),
-  omitHeaders: ["Date"],
 };
 
 const stockColumns: DataTableColumn<SiteStockRow>[] = [
@@ -509,20 +477,10 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
       </div>
 
       <div className="mb-4 text-section-header text-ink-900">Activity Feed</div>
-      <DataTable
-        columns={feedColumns}
-        mobileCard={feedMobileCard}
-        rowKey={(item) => item.id}
-        state={
-          site.feed.length === 0
-            ? {
-                status: "empty",
-                icon: <ClipboardIcon />,
-                message: "No activity logged yet for this Site.",
-              }
-            : { status: "success", rows: site.feed }
-        }
-      />
+      {/* spec-dsr-activity-sync-detail-panel, goal 5: extracted client
+          component owns the click-to-open detail panel — the rest of this
+          page stays a plain Server Component. */}
+      <SiteActivityFeedClient feed={site.feed} />
     </>
   );
 }

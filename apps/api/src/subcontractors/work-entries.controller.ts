@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Query, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UsePipes,
+} from '@nestjs/common';
 import {
   createSubcontractorWorkEntrySchema,
   type CreateSubcontractorWorkEntryInput,
@@ -28,5 +36,13 @@ export class WorkEntriesController {
   @Get()
   list(@Query('siteContractId') siteContractId?: string) {
     return this.workEntriesService.list({ siteContractId });
+  }
+
+  // spec-dsr-activity-sync-detail-panel (goal 5): Site Activity Feed detail
+  // panel target — declared after the static `list()` route above, but
+  // there is no other static-path route here to collide with `:id`.
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.workEntriesService.findOne(id);
   }
 }

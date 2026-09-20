@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Query,
   UseGuards,
@@ -38,5 +39,16 @@ export class SubcontractorPaymentsController {
   @Get()
   list(@Query('siteContractId') siteContractId?: string) {
     return this.paymentsService.list({ siteContractId });
+  }
+
+  // spec-dsr-activity-sync-detail-panel (goal 5): Site Activity Feed detail
+  // panel target. Explicit override of the class-level @Roles('OWNER_ADMIN')
+  // — RolesGuard's Reflector.getAllAndOverride checks handler-level metadata
+  // first (see SiteContractsController.findOne's identical override), so a
+  // Supervisor viewing the Site feed isn't blocked from this one read.
+  @Get(':id')
+  @Roles()
+  findOne(@Param('id') id: string) {
+    return this.paymentsService.findOne(id);
   }
 }

@@ -1,8 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type { CreateSubcontractorWorkEntryInput } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { applyQuantityDelta } from './quantity-completed';
+import { createWorkEntry } from './work-entry-write';
 
 export interface WorkEntriesListQuery {
   siteContractId?: string;
@@ -67,61 +67,33 @@ export class WorkEntriesService {
     return { candidates, total };
   }
 
+  // spec-dsr-activity-sync-detail-panel (goal 5): Site Activity Feed detail
+  // panel target for a WORK_ENTRY row — same include shape as
+  // searchCandidates above.
+  async findOne(id: string) {
+    const entry = await this.prisma.subcontractorWorkEntry.findUnique({
+      where: { id },
+      include: {
+        siteContract: { include: { subcontractor: true, site: true } },
+      },
+    });
+    if (!entry) {
+      throw new NotFoundException(`Work Entry ${id} not found`);
+    }
+    return entry;
+  }
+
+  // spec-dsr-activity-sync-detail-panel (goal 4): the validation + create +
+  // applyQuantityDelta body now lives in work-entry-write.ts's
+  // tx-accepting createWorkEntry(), shared with dsr.service.ts's DSR-
+  // embedded Subcontractor entries — this wraps it in its own transaction,
+  // no behavior change to the standalone path.
   async create(
     input: CreateSubcontractorWorkEntryInput,
     recordedByUserId: string,
   ) {
-    const contract = await this.prisma.siteContract.findUnique({
-      where: { id: input.siteContractId },
-      include: { subcontractor: true },
-    });
-    if (!contract || contract.subcontractor.deletedAt) {
-      throw new BadRequestException('This Site Contract does not exist');
-    }
-    // AC #3: only an Active contract accepts Work Entries — applies to a
-    // correction too, since it targets the same (still-current) contract.
-    if (contract.status !== 'ACTIVE') {
-      throw new BadRequestException({
-        error: {
-          code: 'CONTRACT_NOT_ACTIVE',
-          message:
-            'Work Entries can only be recorded against an Active Site Contract',
-        },
-      });
-    }
-    // AC #2: Fixed Cost contracts have no billable quantity — completion is
-    // tracked via status only (no BOQ/percent-complete concept in this
-    // product, see Epic 2's "Activity Pulse" precedent).
-    if (contract.rateType === 'FIXED_COST') {
-      throw new BadRequestException({
-        error: {
-          code: 'FIXED_COST_NO_QUANTITY',
-          message:
-            "Fixed Cost contracts don't track work quantity — update the contract's status directly",
-        },
-      });
-    }
-
-    if (input.correctsId) {
-      const original = await this.prisma.subcontractorWorkEntry.findUnique({
-        where: { id: input.correctsId },
-      });
-      if (!original || original.siteContractId !== input.siteContractId) {
-        throw new BadRequestException(
-          'The Work Entry being corrected does not exist on this Site Contract',
-        );
-      }
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const entry = await tx.subcontractorWorkEntry.create({
-        data: { ...input, recordedByUserId },
-      });
-      // AD-9: quantityCompleted is materialized and write-path-only, updated
-      // in the same transaction as the causing row. Floor-checked so a
-      // reducing correction can never drive it below zero (AC #5).
-      await applyQuantityDelta(tx, input.siteContractId, input.quantity);
-      return entry;
-    });
+    return this.prisma.$transaction((tx) =>
+      createWorkEntry(tx, input, recordedByUserId),
+    );
   }
 }

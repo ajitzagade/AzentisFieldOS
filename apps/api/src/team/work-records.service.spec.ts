@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../generated/prisma/client';
 import { WorkRecordsService } from './work-records.service';
@@ -244,5 +248,38 @@ describe('WorkRecordsService.searchCandidates', () => {
       expect.objectContaining({ where: expectedWhere }),
     );
     expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});
+
+// spec-dsr-activity-sync-detail-panel (goal 5): Site Activity Feed detail
+// panel target for a WORK_RECORD row.
+describe('WorkRecordsService.findOne', () => {
+  it('returns the record with teamMember/site included', async () => {
+    const record = {
+      id: 'wr1',
+      teamMember: { name: 'Ravi' },
+      site: { name: 'Site A' },
+    };
+    const findUnique = vi.fn().mockResolvedValue(record);
+    const prisma = { workRecord: { findUnique } };
+    const service = new WorkRecordsService(
+      prisma as unknown as ConstructorParameters<typeof WorkRecordsService>[0],
+    );
+
+    await expect(service.findOne('wr1')).resolves.toEqual(record);
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: 'wr1' },
+      include: { teamMember: true, site: true },
+    });
+  });
+
+  it('throws NotFoundException for an id that does not exist', async () => {
+    const findUnique = vi.fn().mockResolvedValue(null);
+    const prisma = { workRecord: { findUnique } };
+    const service = new WorkRecordsService(
+      prisma as unknown as ConstructorParameters<typeof WorkRecordsService>[0],
+    );
+
+    await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
   });
 });

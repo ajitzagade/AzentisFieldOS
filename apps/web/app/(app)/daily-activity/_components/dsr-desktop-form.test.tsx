@@ -182,3 +182,106 @@ describe("DsrDesktopForm correction submission (deferred navigation + photo reco
     );
   });
 });
+
+// spec-dsr-activity-sync-detail-panel (goals 3-4): dsr.service.ts's
+// correct() resolves the ORIGINAL WasteDisposal/SubcontractorWorkEntry row
+// via clientGeneratedId (matched against the superseded report's own rows)
+// to link the correctsId chain and compute a restated delta — a fresh id
+// on the pre-filled correction row would silently double-count against
+// WasteDisposalService.summary()/SiteContract.quantityCompleted. This is
+// the one case where a correction's pre-filled row must NOT get a fresh
+// client-generated id (every other sub-record array does — see
+// withRowIds's own comment in dsr-desktop-form.tsx).
+describe("DsrDesktopForm correction pre-fill preserves clientGeneratedId (Waste Material / Subcontractor Work Entry)", () => {
+  function capturedCorrectBody() {
+    const call = authedFetchMock.mock.calls.find((args: unknown[]) => String(args[0]).endsWith("/correct"));
+    return JSON.parse((call![1] as { body: string }).body);
+  }
+
+  it("submits the original Waste Material row's clientGeneratedId unchanged, not a fresh one", async () => {
+    routeFetch({ status: 201, body: { id: "dsr-9" } });
+    render(
+      <DsrDesktopForm
+        mode="correct"
+        originalId="dsr-1"
+        initial={{
+          ...INITIAL,
+          wasteDisposalEntries: [
+            {
+              clientGeneratedId: "waste-original-1",
+              wasteType: "Debris",
+              quantityDetails: "",
+              ownership: "OWN",
+              vendorId: null,
+              equipmentValue: "",
+              vehicleDetails: "",
+              tripCount: "5",
+              ratePerTrip: "",
+              otherCharges: "",
+              paymentStatus: "",
+              disposalLocation: "",
+              notes: "",
+            },
+          ],
+        }}
+      />,
+    );
+    const user = userEvent.setup();
+
+    await fillReasonAndSubmit(user);
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalled());
+    const body = capturedCorrectBody();
+    expect(body.wasteDisposalEntries).toHaveLength(1);
+    expect(body.wasteDisposalEntries[0].clientGeneratedId).toBe("waste-original-1");
+  });
+
+  it("submits the original Subcontractor row's clientGeneratedId unchanged, not a fresh one", async () => {
+    routeFetch({ status: 201, body: { id: "dsr-9" } });
+    render(
+      <DsrDesktopForm
+        mode="correct"
+        originalId="dsr-1"
+        initial={{
+          ...INITIAL,
+          subcontractorEntries: [
+            {
+              clientGeneratedId: "sub-original-1",
+              subcontractorId: "subc-1",
+              workNote: "",
+              siteContractId: "contract-1",
+              quantity: "7",
+            },
+          ],
+        }}
+      />,
+    );
+    const user = userEvent.setup();
+
+    await fillReasonAndSubmit(user);
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalled());
+    const body = capturedCorrectBody();
+    expect(body.subcontractorEntries).toHaveLength(1);
+    expect(body.subcontractorEntries[0].clientGeneratedId).toBe("sub-original-1");
+  });
+
+  it("still assigns a fresh clientGeneratedId to a brand-new row added during a correction", async () => {
+    routeFetch({ status: 201, body: { id: "dsr-9" } });
+    render(<DsrDesktopForm mode="correct" originalId="dsr-1" initial={INITIAL} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Add waste trip" }));
+    await user.type(screen.getByLabelText("Waste / material type"), "Debris");
+    // isWasteRowComplete requires a Vendor when Hired (the row's default) —
+    // switch to Own so the row is complete without also picking a Vendor.
+    await user.selectOptions(screen.getByLabelText("Own / Hired"), "OWN");
+    await user.type(screen.getByLabelText("Number of trips"), "2");
+    await fillReasonAndSubmit(user);
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalled());
+    const body = capturedCorrectBody();
+    expect(body.wasteDisposalEntries).toHaveLength(1);
+    expect(body.wasteDisposalEntries[0].clientGeneratedId).toEqual(expect.any(String));
+  });
+});

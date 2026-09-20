@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { SubcontractorPaymentsService } from './subcontractor-payments.service';
 
@@ -367,5 +367,26 @@ describe('SubcontractorPaymentsService.searchCandidates', () => {
       expect.objectContaining({ where: expectedWhere }),
     );
     expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});
+
+// spec-dsr-activity-sync-detail-panel (goal 5): Site Activity Feed detail
+// panel target for a SUBCONTRACTOR_PAYMENT row.
+describe('SubcontractorPaymentsService.findOne', () => {
+  it('returns the payment with siteContract/subcontractor/site included', async () => {
+    const payment = { id: 'p1', siteContract: { subcontractor: {}, site: {} } };
+    const { service } = makeService({
+      findUniquePayment: vi.fn().mockResolvedValue(payment),
+    });
+
+    await expect(service.findOne('p1')).resolves.toEqual(payment);
+  });
+
+  it('throws NotFoundException for an id that does not exist', async () => {
+    const { service } = makeService({
+      findUniquePayment: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
   });
 });

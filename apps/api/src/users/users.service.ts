@@ -135,9 +135,7 @@ export class UsersService {
     actorId: string,
   ): Promise<SafeUser> {
     if (id === actorId && !input.isActive) {
-      throw new BadRequestException(
-        'You cannot deactivate your own account.',
-      );
+      throw new BadRequestException('You cannot deactivate your own account.');
     }
     try {
       // Tokens are revoked only when DEACTIVATING. A redundant

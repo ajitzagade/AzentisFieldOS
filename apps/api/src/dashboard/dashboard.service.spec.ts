@@ -846,7 +846,8 @@ describe('DashboardService.getCommandCenter', () => {
     // aggregate now computes it once and threads it in. The scan is the only
     // call carrying a `where.correctsId` clause.
     const scanCalls = dailySiteReportFindMany.mock.calls.filter(
-      (call) => (call[0] as { where?: { correctsId?: unknown } })?.where?.correctsId,
+      (call) =>
+        (call[0] as { where?: { correctsId?: unknown } })?.where?.correctsId,
     );
     expect(scanCalls).toHaveLength(1);
   });
@@ -876,7 +877,9 @@ describe('DashboardService.getCommandCenter', () => {
 
   it('rejects the whole request when a core read (overall) fails', async () => {
     const { service } = makeService();
-    vi.spyOn(service, 'getOverall').mockRejectedValue(new Error('overall down'));
+    vi.spyOn(service, 'getOverall').mockRejectedValue(
+      new Error('overall down'),
+    );
 
     // Same outcome as the pre-consolidation core read failing: the page
     // error-bounds rather than rendering a half-populated dashboard.

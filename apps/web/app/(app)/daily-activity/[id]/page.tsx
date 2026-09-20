@@ -2,9 +2,10 @@ import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import type { DsrEquipmentUsed } from "@azentisfieldos/shared";
-import { AlertTriangleIcon, Card, RotateCcwIcon, buttonVariants, cn } from "@azentisfieldos/ui";
-import { formatDate } from "@/lib/format";
+import type { DsrEquipmentUsed, FeedItem } from "@azentisfieldos/shared";
+import { AlertTriangleIcon, Badge, Card, RotateCcwIcon, buttonVariants, cn } from "@azentisfieldos/ui";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
+import { FEED_TYPE_CONFIG } from "../../sites/[id]/feed-type-config";
 
 interface WorkRecordDetail {
   id: string;
@@ -37,6 +38,19 @@ interface ExpenseDetail {
   description: string | null;
 }
 
+// Client-readiness batch (2026-09-20), goal 3: a DSR-embedded Waste
+// Material entry, now a real WasteDisposal row (mirrors RmcEntryDetail's
+// exact "delivery may be recorded before pricing is known" nullability).
+interface WasteDisposalDetail {
+  id: string;
+  wasteType: string;
+  ownership: string;
+  tripCount: number;
+  vendor: { name: string } | null;
+  totalAmount: number | null;
+}
+
+
 interface PhotoDetail {
   id: string;
   url: string;
@@ -55,12 +69,23 @@ interface DsrDetail {
   safetyObservations: string | null;
   notes: string | null;
   equipmentUsed: DsrEquipmentUsed[];
-  subcontractorEntries?: { subcontractorId: string; workNote?: string }[];
+  // Client-readiness batch (2026-09-20), goal 4: siteContractId/quantity are
+  // additive optional fields — present only when the entry picked a real
+  // Site Contract (which then also has a real, materialized
+  // SubcontractorWorkEntry — see dsr.service.ts). A historical row without
+  // them renders exactly as before.
+  subcontractorEntries?: {
+    subcontractorId: string;
+    workNote?: string;
+    siteContractId?: string;
+    quantity?: number;
+  }[];
   labourEntries?: { category: string; men: number; women: number }[];
   workRecords: WorkRecordDetail[];
   consumptions: ConsumptionDetail[];
   rmcEntries: RmcEntryDetail[];
   expenses: ExpenseDetail[];
+  wasteDisposalEntries: WasteDisposalDetail[];
   photos: PhotoDetail[];
   // Story 3.5 (AD-9, FR-54): corrections are a new linked row, never an
   // edit — correctsId/reason are set when this DSR *is* a correction;
@@ -68,6 +93,11 @@ interface DsrDetail {
   correctsId: string | null;
   reason: string | null;
   correctedById: string | null;
+  // Client-readiness batch (2026-09-20), goal 2: same-day Site activity
+  // recorded outside this DSR (this DSR's own materialized rows, and this
+  // DSR itself, are already excluded server-side) — so "did my entries
+  // sync" is answerable without leaving this page.
+  otherActivity: FeedItem[];
 }
 
 async function getDsrDetail(id: string): Promise<DsrDetail | null> {
@@ -234,6 +264,35 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
         </Card>
 
         <Card>
+          <h2 className="mb-3 text-card-title text-ink-900">Waste Material</h2>
+          {dsr.wasteDisposalEntries.length === 0 ? (
+            <p className="text-body-sm text-ink-500">No Waste Material logged for this report.</p>
+          ) : (
+            <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
+              {dsr.wasteDisposalEntries.map((w) => (
+                <li key={w.id} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                  <span>
+                    {w.wasteType} — {w.tripCount} trip{Math.abs(w.tripCount) === 1 ? "" : "s"}
+                    {w.vendor ? ` (${w.vendor.name})` : " (own vehicle)"}
+                  </span>
+                  <span className="text-ink-500">
+                    {/* D7: an unpriced trip has no amount yet — pending, never ₹0. */}
+                    {w.totalAmount === null ? (
+                      <span className="text-ink-500">Pricing pending</span>
+                    ) : (
+                      // Review fix (finding #9): a correction-delta row can
+                      // be negative — formatMoney puts the sign before the
+                      // ₹ symbol ("−₹2,000"), not "₹-2,000".
+                      <span className="font-semibold text-gold-700">{formatMoney(w.totalAmount)}</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card>
           <h2 className="mb-3 text-card-title text-ink-900">Equipment used</h2>
           {dsr.equipmentUsed.length === 0 ? (
             <p className="text-body-sm text-ink-500">No machinery or vehicles tagged for this report.</p>
@@ -260,7 +319,16 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
             <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
               {subcontractorEntries.map((s, index) => (
                 <li key={`${s.subcontractorId}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
-                  <span>{subcontractorNames.get(s.subcontractorId) ?? "Subcontractor"}</span>
+                  <span>
+                    {subcontractorNames.get(s.subcontractorId) ?? "Subcontractor"}
+                    {/* goal 4: a picked Site Contract + quantity created a real
+                        Work Entry (dsr.service.ts) — shown here so the DSR
+                        detail page reflects it, not just the standalone
+                        Site Contract's ledger. */}
+                    {s.quantity !== undefined ? (
+                      <span className="ml-2 text-ink-500">— {s.quantity} logged</span>
+                    ) : null}
+                  </span>
                   <span className="text-ink-500">{s.workNote ?? "—"}</span>
                 </li>
               ))}
@@ -327,6 +395,48 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                 </div>
               ))}
             </div>
+          )}
+        </Card>
+
+        {/* Goal 2 (client-readiness batch): read-only, no click-through —
+            Goal 5's clickable detail panel is Site-Details-page-only per the
+            user's ask. Reuses the exact same Site Activity Feed
+            getSiteActivityFeed() powers, narrowed to this DSR's own
+            Site+date and filtered to exclude this DSR's own materialized
+            rows, so "did my entries sync" is answerable without leaving
+            this page. */}
+        <Card>
+          <h2 className="mb-3 text-card-title text-ink-900">Other activity at this Site on this date</h2>
+          {dsr.otherActivity.length === 0 ? (
+            <p className="text-body-sm text-ink-500">No other activity recorded for this Site on this date.</p>
+          ) : (
+            <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
+              {dsr.otherActivity.map((item) => {
+                const config = FEED_TYPE_CONFIG[item.type];
+                const Icon = config.icon;
+                return (
+                  <li
+                    key={`${item.type}-${item.id}`}
+                    className="flex flex-wrap items-center justify-between gap-2 border-b border-border-hairline py-1.5 last:border-b-0"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Badge variant={config.badgeVariant} icon={<Icon />}>
+                        {config.label}
+                      </Badge>
+                      <span>{item.summary}</span>
+                    </span>
+                    <span className="text-ink-500">
+                      {formatDateTime(item.occurredAt)}
+                      {item.amount !== null ? (
+                        // Review fix (finding #9): a Waste Material
+                        // correction-delta row can carry a negative amount.
+                        <span className="ml-2 font-semibold text-gold-700">{formatMoney(item.amount)}</span>
+                      ) : null}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </Card>
       </div>

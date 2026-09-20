@@ -44,6 +44,37 @@ export function useStock(scope: StockScope | null): StockLookup {
   // location's balances, without an eager synchronous reset inside the
   // effect.
   const [state, setState] = useState<{ key: string; rows: StockRow[] } | null>(null);
+  // Goal 1 (DSR/module data sync fixes): a long-lived DSR session
+  // (autosave/draft/resume) can stay open across a Purchase/Movement
+  // recorded elsewhere — the fetch effect below is keyed only on
+  // key/path/authedFetch, so it never re-runs on its own. Bumping this
+  // nonce on window focus forces a refetch without an eager poll, fixing
+  // staleness at this one shared source for every consumer.
+  const [focusNonce, setFocusNonce] = useState(0);
+
+  useEffect(() => {
+    function handleFocus() {
+      setFocusNonce((n) => n + 1);
+    }
+    // Review fix (finding #7): this is a PWA/mobile-first app where
+    // backgrounding/foregrounding a mobile browser tab — not a desktop
+    // window losing/regaining OS focus — is the primary usage pattern.
+    // `visibilitychange` is the more reliable "came back to foreground"
+    // signal there (a mobile browser often doesn't fire `focus` at all on
+    // tab-switch-back); `document.visibilityState === "visible"` guards
+    // against the paired "went to background" firing too.
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        setFocusNonce((n) => n + 1);
+      }
+    }
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (!key || !path) {
@@ -63,7 +94,10 @@ export function useStock(scope: StockScope | null): StockLookup {
     return () => {
       cancelled = true;
     };
-  }, [key, path, authedFetch]);
+    // focusNonce is a deliberate refetch trigger — included in the deps
+    // array below (not read inside the effect body) so a window focus
+    // event forces a re-run of this same fetch.
+  }, [key, path, authedFetch, focusNonce]);
 
   // Derived, not a second state cell: loading whenever a location is
   // selected and the rows we hold aren't for that location yet.

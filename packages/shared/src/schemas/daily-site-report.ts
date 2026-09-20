@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  WASTE_DISPOSAL_OWNERSHIP,
+  WASTE_DISPOSAL_PAYMENT_STATUSES,
+} from "./waste-disposal";
 
 // FR-28: One DSR per Site per date. This is the single schema for the
 // create shape — reused by apps/api (source of truth) and apps/web
@@ -105,13 +109,103 @@ export type DsrLabourEntry = z.infer<typeof dsrLabourEntrySchema>;
 
 // Picks from the existing Subcontractor register; workNote is a free-text
 // note about what the Subcontractor did that day.
+//
+// spec-dsr-activity-sync-detail-panel (goal 4): siteContractId/quantity are
+// ADDITIVE optional fields — a historical row's JSON (or a fresh entry that
+// only names the Subcontractor informally) has neither and keeps validating
+// and rendering exactly as before. Only when BOTH are present does
+// dsr.service.ts create a real SubcontractorWorkEntry against that Site
+// Contract; an entry with workNote only stays exactly as informational as
+// today.
 export const dsrSubcontractorEntrySchema = z.object({
   subcontractorId: z.string(),
   workNote: z.string().optional(),
   clientGeneratedId: z.string().optional(),
+  siteContractId: z.string().optional(),
+  quantity: z.number().positive().optional(),
 });
 
 export type DsrSubcontractorEntry = z.infer<typeof dsrSubcontractorEntrySchema>;
+
+// spec-dsr-activity-sync-detail-panel (goal 3): a DSR-embedded Waste
+// Material entry. Reuses createWasteDisposalSchema's (waste-disposal.ts)
+// OWN/HIRED branching and vendor/machinery/vehicle-or-text superRefine,
+// minus siteId/disposedAt/recordedByUserId/correctsId/reason/the advance
+// sub-object (those are either DSR-level context or explicitly out of scope
+// here — see the "Never add VendorAdvance" boundary), plus
+// clientGeneratedId for the same offline-sync/DSR-correction matching every
+// other DSR sub-record uses.
+export const dsrWasteDisposalEntrySchema = z
+  .object({
+    wasteType: z.string().min(1).max(200),
+    quantityDetails: z.string().max(200).optional(),
+    ownership: z.enum(WASTE_DISPOSAL_OWNERSHIP),
+    vendorId: z.uuid().optional(),
+    machineryId: z.uuid().optional(),
+    vehicleId: z.uuid().optional(),
+    vehicleDetails: z.string().max(200).optional(),
+    tripCount: z.number().int().positive(),
+    // Nullable/all-or-none with paymentStatus (D7 pattern) — a Supervisor
+    // may log a trip on the Daily Report before pricing is known.
+    ratePerTrip: z.number().nonnegative().optional(),
+    otherCharges: z.number().nonnegative().optional(),
+    disposalLocation: z.string().max(300).optional(),
+    paymentStatus: z.enum(WASTE_DISPOSAL_PAYMENT_STATUSES).optional(),
+    notes: z.string().max(1000).optional(),
+    clientGeneratedId: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.machineryId && data.vehicleId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["vehicleId"],
+        message: "Pick either a Machinery or a Vehicle, not both",
+      });
+    }
+
+    if (data.ownership === "HIRED") {
+      if (!data.vendorId) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["vendorId"],
+          message: "A hired disposal must name the Vendor/party being paid",
+        });
+      }
+      const hasRate = data.ratePerTrip !== undefined;
+      const hasStatus = data.paymentStatus !== undefined;
+      if (hasRate && !hasStatus) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["paymentStatus"],
+          message: "Payment status is required once a rate is entered",
+        });
+      }
+      if (!hasRate && hasStatus) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["ratePerTrip"],
+          message: "Rate is required when Payment Status is set",
+        });
+      }
+    } else {
+      if (data.vendorId) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["vendorId"],
+          message: "An own-vehicle disposal has no Vendor to pay",
+        });
+      }
+      if (data.paymentStatus) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["paymentStatus"],
+          message: "Payment status applies only to hired disposals",
+        });
+      }
+    }
+  });
+
+export type DsrWasteDisposalEntry = z.infer<typeof dsrWasteDisposalEntrySchema>;
 
 export const createDsrSchema = z.object({
   siteId: z.string(),
@@ -129,6 +223,7 @@ export const createDsrSchema = z.object({
   equipmentUsed: z.array(dsrEquipmentUsedSchema).default([]),
   subcontractorEntries: z.array(dsrSubcontractorEntrySchema).default([]),
   labourEntries: z.array(dsrLabourEntrySchema).default([]),
+  wasteDisposalEntries: z.array(dsrWasteDisposalEntrySchema).default([]),
 });
 
 export type CreateDsrInput = z.infer<typeof createDsrSchema>;

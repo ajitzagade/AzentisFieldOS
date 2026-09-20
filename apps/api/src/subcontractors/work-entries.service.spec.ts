@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { WorkEntriesService } from './work-entries.service';
 
@@ -16,16 +16,27 @@ function makeService(overrides: {
   const findMany = overrides.findMany ?? vi.fn();
   const findUniqueEntry = overrides.findUniqueEntry ?? vi.fn();
 
+  // spec-dsr-activity-sync-detail-panel (goal 4): createWorkEntry (work-
+  // entry-write.ts) now does ALL of its reads/writes — including the
+  // Site Contract lookup and the correctsId-match lookup — through the
+  // `tx` client it's handed, not `this.prisma` directly, so this fake tx
+  // must carry siteContract.findUnique/subcontractorWorkEntry.findUnique
+  // too (WorkEntriesService.create() just opens the transaction now).
   const tx: {
-    subcontractorWorkEntry: { create: typeof create };
-    siteContract: { updateMany: typeof updateMany };
+    subcontractorWorkEntry: {
+      create: typeof create;
+      findUnique: typeof findUniqueEntry;
+    };
+    siteContract: {
+      updateMany: typeof updateMany;
+      findUnique: typeof findUnique;
+    };
   } = {
-    subcontractorWorkEntry: { create },
-    siteContract: { updateMany },
+    subcontractorWorkEntry: { create, findUnique: findUniqueEntry },
+    siteContract: { updateMany, findUnique },
   };
   const prisma = {
-    siteContract: { findUnique },
-    subcontractorWorkEntry: { findMany, findUnique: findUniqueEntry },
+    subcontractorWorkEntry: { findMany },
     $transaction: vi.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
   };
 
@@ -280,5 +291,36 @@ describe('WorkEntriesService.searchCandidates', () => {
       expect.objectContaining({ where: expectedWhere }),
     );
     expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});
+
+// spec-dsr-activity-sync-detail-panel (goal 5): Site Activity Feed detail
+// panel target for a WORK_ENTRY row.
+describe('WorkEntriesService.findOne', () => {
+  it('returns the entry with siteContract/subcontractor/site included', async () => {
+    const entry = { id: 'we1', siteContract: { subcontractor: {}, site: {} } };
+    const findUnique = vi.fn().mockResolvedValue(entry);
+    const prisma = { subcontractorWorkEntry: { findUnique } };
+    const service = new WorkEntriesService(
+      prisma as unknown as ConstructorParameters<typeof WorkEntriesService>[0],
+    );
+
+    await expect(service.findOne('we1')).resolves.toEqual(entry);
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: 'we1' },
+      include: {
+        siteContract: { include: { subcontractor: true, site: true } },
+      },
+    });
+  });
+
+  it('throws NotFoundException for an id that does not exist', async () => {
+    const findUnique = vi.fn().mockResolvedValue(null);
+    const prisma = { subcontractorWorkEntry: { findUnique } };
+    const service = new WorkEntriesService(
+      prisma as unknown as ConstructorParameters<typeof WorkEntriesService>[0],
+    );
+
+    await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
   });
 });

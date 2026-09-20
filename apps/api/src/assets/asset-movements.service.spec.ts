@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../generated/prisma/client';
 import { AssetMovementsService } from './asset-movements.service';
@@ -281,5 +281,43 @@ describe('AssetMovementsService.list', () => {
       include: { site: true },
       orderBy: { movedAt: 'desc' },
     });
+  });
+});
+
+// spec-dsr-activity-sync-detail-panel (goal 5): Site Activity Feed detail
+// panel target for a MACHINERY_MOVEMENT/VEHICLE_MOVEMENT row.
+describe('AssetMovementsService.findOne', () => {
+  it('branches to machineryMovementLog for assetType=MACHINERY', async () => {
+    const log = { id: 'log1', machinery: { name: 'JCB' }, site: null };
+    const machineryMovementLogFindUnique = vi.fn().mockResolvedValue(log);
+    const { service } = makeService({ machineryMovementLogFindUnique });
+
+    await expect(service.findOne('MACHINERY', 'log1')).resolves.toEqual(log);
+    expect(machineryMovementLogFindUnique).toHaveBeenCalledWith({
+      where: { id: 'log1' },
+      include: { site: true, machinery: true },
+    });
+  });
+
+  it('branches to vehicleMovementLog for assetType=VEHICLE', async () => {
+    const log = { id: 'log1', vehicle: { number: 'MH1' }, site: null };
+    const vehicleMovementLogFindUnique = vi.fn().mockResolvedValue(log);
+    const { service } = makeService({ vehicleMovementLogFindUnique });
+
+    await expect(service.findOne('VEHICLE', 'log1')).resolves.toEqual(log);
+    expect(vehicleMovementLogFindUnique).toHaveBeenCalledWith({
+      where: { id: 'log1' },
+      include: { site: true, vehicle: { include: { type: true } } },
+    });
+  });
+
+  it('throws NotFoundException for an id that does not exist', async () => {
+    const { service } = makeService({
+      machineryMovementLogFindUnique: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(service.findOne('MACHINERY', 'missing')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });

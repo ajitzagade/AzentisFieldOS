@@ -232,9 +232,11 @@ describe('CustomAuthGuard', () => {
   it('rejects a token whose user has been deactivated as 401', async () => {
     const verifyAsync = vi.fn().mockResolvedValue({ sub: 'user-1' });
     const { prisma } = makePrisma(
-      vi
-        .fn()
-        .mockResolvedValue({ id: 'user-1', role: 'SITE_SUPERVISOR', isActive: false }),
+      vi.fn().mockResolvedValue({
+        id: 'user-1',
+        role: 'SITE_SUPERVISOR',
+        isActive: false,
+      }),
     );
     const guard = new CustomAuthGuard(
       makeReflector(false),

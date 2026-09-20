@@ -85,7 +85,10 @@ describe('AuthService.login', () => {
     // The message is load-bearing: apps/web's mapLoginError passes exactly
     // this copy through to the sign-in form (generic 401s stay masked).
     await expect(
-      service.login({ email: 'gone@example.com', password: 'correct-password' }),
+      service.login({
+        email: 'gone@example.com',
+        password: 'correct-password',
+      }),
     ).rejects.toMatchObject({
       message: expect.stringContaining('deactivated') as unknown,
     });

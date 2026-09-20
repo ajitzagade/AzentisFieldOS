@@ -51,7 +51,13 @@ function fullDsr(overrides: Record<string, unknown> = {}) {
     ],
     rmcEntries: [{ id: "r-1", vendor: { name: "ABC Suppliers" }, quantityM3: 12, grade: "M25", totalAmount: 72000 }],
     expenses: [{ id: "e-1", category: { name: "Fuel" }, amount: 4200, description: "Diesel refill" }],
+    // Client-readiness batch (2026-09-20), goal 3.
+    wasteDisposalEntries: [
+      { id: "w-1", wasteType: "Debris", ownership: "OWN", tripCount: 2, vendor: null, totalAmount: null },
+    ],
     photos: [{ id: "p-1", url: "https://r2.example/p1.jpg", createdAt: "2026-08-11T10:00:00Z" }],
+    // Client-readiness batch (2026-09-20), goal 2.
+    otherActivity: [],
     ...overrides,
   };
 }
@@ -73,8 +79,30 @@ describe("DsrDetailPage", () => {
     expect(screen.getByText("JCB 3DX")).toBeInTheDocument();
     expect(screen.getByText("Diesel refill")).toBeInTheDocument();
     expect(screen.getByText("₹4,200")).toBeInTheDocument();
+    expect(screen.getByText(/Debris — 2 trips/)).toBeInTheDocument();
     expect(screen.getByText("Photos (1)")).toBeInTheDocument();
     expect(container.querySelectorAll("img")).toHaveLength(1);
+    expect(screen.getByText("No other activity recorded for this Site on this date.")).toBeInTheDocument();
+  });
+
+  // Review fix (finding #9): a Waste Material correction-delta row can
+  // carry a negative totalAmount — must render sign-first ("−₹2,000"), not
+  // "₹-2,000".
+  it("renders a negative Waste Material totalAmount sign-first", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () =>
+        fullDsr({
+          wasteDisposalEntries: [
+            { id: "w-2", wasteType: "Debris", ownership: "OWN", tripCount: -2, vendor: null, totalAmount: -2000 },
+          ],
+        }),
+    }) as unknown as typeof fetch;
+
+    await renderDetailPage("dsr-1");
+
+    expect(screen.getByText("−₹2,000")).toBeInTheDocument();
+    expect(screen.queryByText("₹-2,000")).not.toBeInTheDocument();
   });
 
   it("renders honest empty-state text for each section instead of a blank list when a report has no data for it", async () => {
@@ -87,6 +115,7 @@ describe("DsrDetailPage", () => {
           rmcEntries: [],
           equipmentUsed: [],
           expenses: [],
+          wasteDisposalEntries: [],
           photos: [],
         }),
     }) as unknown as typeof fetch;
@@ -98,6 +127,7 @@ describe("DsrDetailPage", () => {
     expect(screen.getByText("No RMC delivery logged for this report.")).toBeInTheDocument();
     expect(screen.getByText("No machinery or vehicles tagged for this report.")).toBeInTheDocument();
     expect(screen.getByText("No expenses logged for this report.")).toBeInTheDocument();
+    expect(screen.getByText("No Waste Material logged for this report.")).toBeInTheDocument();
     expect(screen.getByText("No photos attached to this report.")).toBeInTheDocument();
   });
 

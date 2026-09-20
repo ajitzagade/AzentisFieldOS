@@ -16,6 +16,7 @@ import {
   ConfirmDialogRow,
   PlusIcon,
   RotateCcwIcon,
+  SelectField,
   TextField,
   TextareaField,
   TruckIcon,
@@ -91,6 +92,73 @@ interface SubcontractorRow {
   clientGeneratedId: string;
   subcontractorId: string | null;
   workNote: string;
+  // spec-dsr-activity-sync-detail-panel (goal 4): both ADDITIVE and OPTIONAL
+  // — an entry with neither stays exactly as informational-JSON-only as
+  // before. Only when both are present does dsr.service.ts create a real
+  // SubcontractorWorkEntry against the picked Site Contract.
+  siteContractId: string | null;
+  quantity: string;
+}
+
+// A Site's Active, non-FIXED_COST Site Contracts, for the optional picker on
+// each Subcontractor row (goal 4). FIXED_COST is filtered client-side (a
+// FIXED_COST contract + quantity fails the whole DSR submission server-side)
+// — best-effort per the spec's own "don't over-engineer this" note; the
+// server remains the authoritative enforcement point regardless.
+interface SiteContractOption {
+  id: string;
+  subcontractorId: string;
+  workCategory: string | null;
+  rateType: string;
+  subcontractor: { name: string };
+}
+
+// spec-dsr-activity-sync-detail-panel (goal 3): a DSR-embedded Waste
+// Material trip — structurally the same repeatable-row shape as RmcRow,
+// with the OWN/HIRED-branching field set from waste-disposal-form.tsx minus
+// the advance sub-flow (explicit "Never" boundary — that stays a
+// standalone-module-only concept).
+interface WasteRow {
+  clientGeneratedId: string;
+  wasteType: string;
+  quantityDetails: string;
+  ownership: "OWN" | "HIRED";
+  vendorId: string | null;
+  // Combines the Machinery/Vehicle registers into one picker value, same
+  // "type:id" convention as the equipmentUsed picker — "" when neither
+  // register supplies the asset (a Vendor-only or free-text-only trip).
+  equipmentValue: string;
+  vehicleDetails: string;
+  tripCount: string;
+  ratePerTrip: string;
+  otherCharges: string;
+  // "" until a rate is entered (D7 pattern) — never defaults to a real
+  // status while pricing is unknown.
+  paymentStatus: string;
+  disposalLocation: string;
+  notes: string;
+}
+
+// Same predicate buildPayload's own filter uses — shared so the "N entries"
+// confirm-dialog count and what actually submits can never drift apart.
+function isWasteRowComplete(row: WasteRow): boolean {
+  return (
+    row.wasteType.trim() !== "" &&
+    row.tripCount.trim() !== "" &&
+    Number(row.tripCount) > 0 &&
+    (row.ownership === "OWN" || !!row.vendorId)
+  );
+}
+
+// Review fix (finding #10): the same client-side completeness/positivity
+// gating isWasteRowComplete/other numeric DSR row fields already have —
+// z.number().positive() is enforced server-side only otherwise, so a
+// 0/negative quantity previously failed the WHOLE DSR submission late
+// with no inline warning. A siteContractId with an invalid quantity falls
+// back to informational-only (matches the "both stay additive/optional"
+// rule) rather than being sent to the server as a real link.
+function isSubcontractorLinkValid(row: SubcontractorRow): boolean {
+  return !!row.siteContractId && row.quantity.trim() !== "" && Number(row.quantity) > 0;
 }
 
 interface LabourRow {
@@ -146,8 +214,38 @@ interface DraftResponse {
   }[];
   expenses: { clientGeneratedId?: string; categoryId: string; amount: number; description?: string }[];
   equipmentUsed: EquipmentRow[];
-  subcontractorEntries: { clientGeneratedId?: string; subcontractorId: string; workNote?: string }[];
+  subcontractorEntries: {
+    clientGeneratedId?: string;
+    subcontractorId: string;
+    workNote?: string;
+    // goal 4: additive/optional — absent on every historical draft.
+    siteContractId?: string;
+    quantity?: number;
+  }[];
   labourEntries: { clientGeneratedId?: string; category: string; men: number; women: number }[];
+  // goal 3: dsr.service.ts's draftSubRecords()/getDraft() defer
+  // wasteDisposalEntries through the Save Draft/Resume round trip exactly
+  // like workRecords/consumptions/rmcEntries/expenses do — a Waste
+  // Material row typed before Save Draft survives save -> resume ->
+  // Finalize (see dsr.service.integration.spec.ts's own test for this).
+  // The `?? []` fallback below is still defensive against a historical
+  // draft saved before this field existed.
+  wasteDisposalEntries: {
+    clientGeneratedId?: string;
+    wasteType: string;
+    quantityDetails?: string;
+    ownership: "OWN" | "HIRED";
+    vendorId?: string;
+    machineryId?: string;
+    vehicleId?: string;
+    vehicleDetails?: string;
+    tripCount: number;
+    ratePerTrip?: number | null;
+    otherCharges?: number | null;
+    paymentStatus?: string | null;
+    disposalLocation?: string;
+    notes?: string;
+  }[];
   photos: { id: string; url: string }[];
 }
 
@@ -170,6 +268,7 @@ interface DsrAutosaveData {
   equipmentUsed: EquipmentRow[];
   subcontractorEntries: SubcontractorRow[];
   labourEntries: LabourRow[];
+  wasteEntries: WasteRow[];
   hadPhotos: boolean;
 }
 
@@ -219,6 +318,56 @@ function NewDsrForm() {
   const [subcontractorEntries, setSubcontractorEntries] = useState<SubcontractorRow[]>([]);
   const [subcontractorQuickCreateRow, setSubcontractorQuickCreateRow] = useState<number | null>(null);
   const [labourEntries, setLabourEntries] = useState<LabourRow[]>([]);
+  const [wasteEntries, setWasteEntries] = useState<WasteRow[]>([]);
+
+  // goal 4: this Site's Active, non-FIXED_COST Site Contracts, for the
+  // optional picker on each Subcontractor row. Keyed on siteId and shared
+  // across every row, the same "one fetch per Site" pattern useSiteStock
+  // uses (state keyed by siteId, compared against the current siteId when
+  // read — never an eager synchronous reset inside the effect) — not part
+  // of useDsrReferenceData since that hook loads once, globally, with no
+  // Site scoping.
+  const [siteContractState, setSiteContractState] = useState<{ siteId: string; options: SiteContractOption[] } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!siteId) return;
+    let cancelled = false;
+    authedFetch(`/site-contracts?siteId=${siteId}&status=ACTIVE`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`${res.status}`))))
+      .then((data: SiteContractOption[]) => {
+        if (cancelled) return;
+        setSiteContractState({ siteId, options: Array.isArray(data) ? data.filter((c) => c.rateType !== "FIXED_COST") : [] });
+      })
+      .catch(() => {
+        if (!cancelled) setSiteContractState({ siteId, options: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [siteId, authedFetch]);
+  // Review fix (finding #5): scoped per-row to the row's OWN picked
+  // Subcontractor — a flat, Site-wide list let a user pick Subcontractor A
+  // in one field and materialize the ledger entry against Subcontractor
+  // B's contract in the sibling field. A row with no Subcontractor picked
+  // yet sees every Active contract for the Site (nothing to narrow by).
+  function siteContractOptionsFor(row: SubcontractorRow) {
+    const options = siteContractState?.siteId === siteId ? siteContractState.options : [];
+    return options
+      .filter((c) => !row.subcontractorId || c.subcontractorId === row.subcontractorId)
+      .map((c) => ({
+        value: c.id,
+        label: `${c.subcontractor.name} — ${c.workCategory ?? "General"}`,
+      }));
+  }
+  // Waste Material's "Own machinery / vehicle" picker (goal 3) reuses the
+  // same Machinery+Vehicle registers equipmentUsed already loads, minus the
+  // synthetic "Other Vehicle" entry — WasteDisposal has its own free-text
+  // vehicleDetails field for that case, never resolved against a register.
+  const machineryVehicleOptions = useMemo(
+    () => reference.equipmentOptions.filter((o) => o.equipmentType !== "OTHER"),
+    [reference.equipmentOptions],
+  );
 
   // FR-30: photos are staged locally as they're captured (like every other
   // field) and uploaded once the DSR itself has synced and has a real id —
@@ -313,6 +462,7 @@ function NewDsrForm() {
     setEquipmentUsed(Array.isArray(d.equipmentUsed) ? d.equipmentUsed : []);
     setSubcontractorEntries(Array.isArray(d.subcontractorEntries) ? d.subcontractorEntries : []);
     setLabourEntries(Array.isArray(d.labourEntries) ? d.labourEntries : []);
+    setWasteEntries(Array.isArray(d.wasteEntries) ? d.wasteEntries : []);
     setRestoredHadPhotos(Boolean(d.hadPhotos));
     setRestoredAutosaveAt(savedAt);
   }
@@ -368,7 +518,8 @@ function NewDsrForm() {
       expenses.length > 0 ||
       equipmentUsed.length > 0 ||
       subcontractorEntries.length > 0 ||
-      labourEntries.length > 0;
+      labourEntries.length > 0 ||
+      wasteEntries.length > 0;
     if (!hasContent) {
       // The user deliberately emptied a form this session had snapshotted
       // (or restored) — a kept snapshot would resurrect the deleted
@@ -393,6 +544,7 @@ function NewDsrForm() {
         equipmentUsed,
         subcontractorEntries,
         labourEntries,
+        wasteEntries,
         hadPhotos: photos.some((p) => p.file),
       });
     }, 800);
@@ -410,6 +562,7 @@ function NewDsrForm() {
     equipmentUsed,
     subcontractorEntries,
     labourEntries,
+    wasteEntries,
     photos,
     syncState,
     isSubmitting,
@@ -519,6 +672,8 @@ function NewDsrForm() {
         clientGeneratedId: s.clientGeneratedId ?? crypto.randomUUID(),
         subcontractorId: s.subcontractorId,
         workNote: s.workNote ?? "",
+        siteContractId: s.siteContractId ?? null,
+        quantity: s.quantity != null ? String(s.quantity) : "",
       })),
     );
     setLabourEntries(
@@ -527,6 +682,26 @@ function NewDsrForm() {
         category: l.category,
         men: String(l.men),
         women: String(l.women),
+      })),
+    );
+    // goal 3: see DraftResponse's own comment — always [] against today's
+    // backend, wired the same defensive way as every sibling array here so
+    // it starts working the moment the draft round trip picks it up.
+    setWasteEntries(
+      (draft.wasteDisposalEntries ?? []).map((w) => ({
+        clientGeneratedId: w.clientGeneratedId ?? crypto.randomUUID(),
+        wasteType: w.wasteType,
+        quantityDetails: w.quantityDetails ?? "",
+        ownership: w.ownership,
+        vendorId: w.vendorId ?? null,
+        equipmentValue: w.machineryId ? `machinery:${w.machineryId}` : w.vehicleId ? `vehicle:${w.vehicleId}` : "",
+        vehicleDetails: w.vehicleDetails ?? "",
+        tripCount: String(w.tripCount),
+        ratePerTrip: w.ratePerTrip != null ? String(w.ratePerTrip) : "",
+        otherCharges: w.otherCharges != null ? String(w.otherCharges) : "",
+        paymentStatus: w.paymentStatus ?? "",
+        disposalLocation: w.disposalLocation ?? "",
+        notes: w.notes ?? "",
       })),
     );
     setPhotos(
@@ -597,6 +772,7 @@ function NewDsrForm() {
       setEquipmentUsed([]);
       setSubcontractorEntries([]);
       setLabourEntries([]);
+      setWasteEntries([]);
       try {
         const res = await authedFetch(`/dsr/defaults?siteId=${siteId}&date=${reportDate}`);
         const defaults = (await res.json()) as { teamMemberId: string; name: string }[];
@@ -763,6 +939,14 @@ function NewDsrForm() {
           clientGeneratedId: s.clientGeneratedId,
           subcontractorId: s.subcontractorId!,
           workNote: s.workNote || undefined,
+          // goal 4: both stay additive/optional — an entry with neither
+          // submits exactly as informational-only as it always has.
+          // Review fix (finding #10): a siteContractId with an invalid
+          // (blank/0/negative) quantity is dropped back to informational-
+          // only client-side, rather than reaching the server as a
+          // positive()-violating value that fails the whole submission.
+          siteContractId: isSubcontractorLinkValid(s) ? s.siteContractId! : undefined,
+          quantity: isSubcontractorLinkValid(s) ? Number(s.quantity) : undefined,
         })),
       labourEntries: labourEntries
         .filter((l) => l.category && (Number(l.men) > 0 || Number(l.women) > 0))
@@ -772,6 +956,29 @@ function NewDsrForm() {
           men: Number(l.men) || 0,
           women: Number(l.women) || 0,
         })),
+      // goal 3: same "only complete rows submit" rule as every sibling array.
+      wasteDisposalEntries: wasteEntries.filter(isWasteRowComplete).map((w) => {
+        const machineryId = w.equipmentValue.startsWith("machinery:") ? w.equipmentValue.slice(10) : undefined;
+        const vehicleId = w.equipmentValue.startsWith("vehicle:") ? w.equipmentValue.slice(8) : undefined;
+        const hasRate = w.ratePerTrip.trim() !== "";
+        return {
+          clientGeneratedId: w.clientGeneratedId,
+          wasteType: w.wasteType,
+          quantityDetails: w.quantityDetails || undefined,
+          ownership: w.ownership,
+          vendorId: w.ownership === "HIRED" ? (w.vendorId ?? undefined) : undefined,
+          machineryId,
+          vehicleId,
+          vehicleDetails: w.vehicleDetails || undefined,
+          tripCount: Number(w.tripCount),
+          ratePerTrip: hasRate ? Number(w.ratePerTrip) : undefined,
+          otherCharges: w.otherCharges ? Number(w.otherCharges) : undefined,
+          disposalLocation: w.disposalLocation || undefined,
+          paymentStatus:
+            hasRate && w.paymentStatus ? (w.paymentStatus as "PAID" | "PARTIAL" | "UNPAID") : undefined,
+          notes: w.notes || undefined,
+        };
+      }),
     });
   }
 
@@ -914,6 +1121,7 @@ function NewDsrForm() {
       setEquipmentUsed([]);
       setSubcontractorEntries([]);
       setLabourEntries([]);
+      setWasteEntries([]);
       for (const photo of photos) {
         if (photo.file) URL.revokeObjectURL(photo.previewUrl);
       }
@@ -1380,6 +1588,222 @@ function NewDsrForm() {
         </Card>
 
         <Card className="mb-4">
+          <h2 className="mb-3 text-card-title text-ink-900">Waste Material</h2>
+          {wasteEntries.map((row, index) => {
+            const hasRate = row.ratePerTrip.trim() !== "";
+            return (
+              <div
+                key={row.clientGeneratedId}
+                className="mb-3 grid grid-cols-1 gap-x-3 border-b border-border-hairline sm:grid-cols-12 sm:items-start"
+              >
+                <div className="sm:col-span-4">
+                  <TextField
+                    label="Waste / material type"
+                    placeholder="e.g. Debris, Excavated earth / murum"
+                    value={row.wasteType}
+                    onChange={(e) =>
+                      setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, wasteType: e.target.value } : r)))
+                    }
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <SelectField
+                    label="Own / Hired"
+                    value={row.ownership}
+                    onChange={(e) => {
+                      const next = e.target.value === "OWN" ? "OWN" : "HIRED";
+                      setWasteEntries((rows) =>
+                        rows.map((r, i) =>
+                          i === index
+                            ? { ...r, ownership: next, ...(next === "OWN" ? { vendorId: null, paymentStatus: "" } : {}) }
+                            : r,
+                        ),
+                      );
+                    }}
+                    options={[
+                      { value: "HIRED", label: "Hired (third party)" },
+                      { value: "OWN", label: "Own vehicle / machine" },
+                    ]}
+                  />
+                </div>
+                {row.ownership === "HIRED" ? (
+                  <div className="sm:col-span-3">
+                    <ComboboxField
+                      label="Party / Vendor"
+                      options={reference.vendorOptions}
+                      value={row.vendorId}
+                      onValueChange={(value) =>
+                        setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vendorId: value } : r)))
+                      }
+                      loading={reference.loading}
+                      placeholder="Type a Vendor name…"
+                      emptyMessage={reference.loadFailed ? "Couldn't load Vendors — check your connection" : "No matching Vendor"}
+                    />
+                  </div>
+                ) : null}
+                <div className="sm:col-span-3">
+                  <ComboboxField
+                    label="Own machinery / vehicle"
+                    options={machineryVehicleOptions}
+                    value={row.equipmentValue || null}
+                    onValueChange={(value) =>
+                      setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, equipmentValue: value ?? "" } : r)))
+                    }
+                    placeholder="Type a machine name or vehicle number…"
+                    hint="Optional — only if one of your own assets did the trips"
+                    emptyMessage={
+                      reference.loadFailed ? "Couldn't load the registers — check your connection" : "No matching Machinery or Vehicle"
+                    }
+                  />
+                </div>
+                <div className="sm:col-span-3">
+                  <TextField
+                    label="Vehicle details"
+                    hint="Optional — e.g. hired dumper MH15CD5678"
+                    value={row.vehicleDetails}
+                    onChange={(e) =>
+                      setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vehicleDetails: e.target.value } : r)))
+                    }
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <TextField
+                    label="Number of trips"
+                    type="number"
+                    min={0}
+                    step="1"
+                    inputMode="numeric"
+                    value={row.tripCount}
+                    onChange={(e) =>
+                      setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, tripCount: e.target.value } : r)))
+                    }
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <AmountField
+                    label="Rate per trip"
+                    hint="Optional — leave blank if pricing isn't known yet"
+                    value={row.ratePerTrip}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setWasteEntries((rows) =>
+                        rows.map((r, i) =>
+                          i === index
+                            ? {
+                                ...r,
+                                ratePerTrip: next,
+                                // Same finding as the standalone Waste
+                                // Material form: blanking the rate must also
+                                // reset Payment status, or re-entering a rate
+                                // later silently resurfaces a stale choice.
+                                paymentStatus: r.ratePerTrip.trim() !== "" && next.trim() === "" ? "" : r.paymentStatus,
+                              }
+                            : r,
+                        ),
+                      );
+                    }}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <AmountField
+                    label="Other charges"
+                    hint="Optional — loading / JCB / toll etc."
+                    value={row.otherCharges}
+                    onChange={(e) =>
+                      setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, otherCharges: e.target.value } : r)))
+                    }
+                  />
+                </div>
+                {row.ownership === "HIRED" ? (
+                  <div className="sm:col-span-2">
+                    <SelectField
+                      label="Payment status"
+                      disabled={!hasRate}
+                      value={hasRate ? row.paymentStatus : ""}
+                      onChange={(e) =>
+                        setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, paymentStatus: e.target.value } : r)))
+                      }
+                      hint={hasRate ? undefined : "Enter a rate to set this"}
+                      options={
+                        hasRate
+                          ? [
+                              { value: "", label: "Select…" },
+                              { value: "UNPAID", label: "Unpaid" },
+                              { value: "PARTIAL", label: "Partial" },
+                              { value: "PAID", label: "Paid" },
+                            ]
+                          : [{ value: "", label: "— (pricing pending)" }]
+                      }
+                    />
+                  </div>
+                ) : null}
+                <div className="sm:col-span-3">
+                  <TextField
+                    label="Quantity"
+                    hint="Optional — e.g. approx 40 MT"
+                    value={row.quantityDetails}
+                    onChange={(e) =>
+                      setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, quantityDetails: e.target.value } : r)))
+                    }
+                  />
+                </div>
+                <div className="sm:col-span-3">
+                  <TextField
+                    label="Disposal location"
+                    hint="Optional"
+                    value={row.disposalLocation}
+                    onChange={(e) =>
+                      setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, disposalLocation: e.target.value } : r)))
+                    }
+                  />
+                </div>
+                <div className="sm:col-span-4">
+                  <TextareaField
+                    label="Notes"
+                    rows={2}
+                    hint="Optional"
+                    value={row.notes}
+                    onChange={(e) => setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, notes: e.target.value } : r)))}
+                  />
+                </div>
+                <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
+                  <Button type="button" variant="ghost" onClick={() => setWasteEntries((rows) => rows.filter((_, i) => i !== index))}>
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() =>
+              setWasteEntries((rows) => [
+                ...rows,
+                {
+                  clientGeneratedId: crypto.randomUUID(),
+                  wasteType: "",
+                  quantityDetails: "",
+                  ownership: "HIRED",
+                  vendorId: null,
+                  equipmentValue: "",
+                  vehicleDetails: "",
+                  tripCount: "",
+                  ratePerTrip: "",
+                  otherCharges: "",
+                  paymentStatus: "",
+                  disposalLocation: "",
+                  notes: "",
+                },
+              ])
+            }
+          >
+            <PlusIcon className="size-4" />
+            Add waste trip
+          </Button>
+        </Card>
+
+        <Card className="mb-4">
           <h2 className="mb-3 text-card-title text-ink-900">Subcontractors on site</h2>
           {subcontractorEntries.map((row, index) => (
             <div
@@ -1398,7 +1822,22 @@ function NewDsrForm() {
                     // picked again for this one.
                     value && rows.some((r, i) => i !== index && r.subcontractorId === value)
                       ? rows
-                      : rows.map((r, i) => (i === index ? { ...r, subcontractorId: value } : r)),
+                      : rows.map((r, i) =>
+                          i === index
+                            ? {
+                                ...r,
+                                subcontractorId: value,
+                                // Review fix (finding #5): an ACTUAL change
+                                // of Subcontractor invalidates a previously
+                                // picked Site Contract that belonged to the
+                                // OLD Subcontractor — never leave a
+                                // mismatched pairing silently in place. A
+                                // no-op re-selection of the same value must
+                                // not wipe an already-typed quantity.
+                                ...(value !== r.subcontractorId ? { siteContractId: null, quantity: "" } : {}),
+                              }
+                            : r,
+                        ),
                   )
                 }
                 loading={reference.loading}
@@ -1418,6 +1857,38 @@ function NewDsrForm() {
                   }
                 />
               </div>
+              {/* goal 4: both OPTIONAL — an entry with neither stays exactly
+                  as informational-JSON-only as before. Only picking a
+                  Contract AND typing a quantity creates a real ledger row. */}
+              <div className="sm:col-span-5">
+                <ComboboxField
+                  label="Site Contract"
+                  hint="Optional — link this trip to a Site Contract to record completed quantity"
+                  options={siteContractOptionsFor(row)}
+                  value={row.siteContractId}
+                  onValueChange={(value) =>
+                    setSubcontractorEntries((rows) =>
+                      rows.map((r, i) => (i === index ? { ...r, siteContractId: value, quantity: value ? r.quantity : "" } : r)),
+                    )
+                  }
+                  placeholder="Type to link a Site Contract…"
+                  emptyMessage="No matching Active Site Contract for this Site"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <TextField
+                  label="Quantity completed"
+                  type="number"
+                  min={0}
+                  step="any"
+                  disabled={!row.siteContractId}
+                  hint={row.siteContractId ? "Optional" : "Pick a Site Contract to record a quantity"}
+                  value={row.quantity}
+                  onChange={(e) =>
+                    setSubcontractorEntries((rows) => rows.map((r, i) => (i === index ? { ...r, quantity: e.target.value } : r)))
+                  }
+                />
+              </div>
               <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
                 <Button type="button" variant="ghost" onClick={() => setSubcontractorEntries((rows) => rows.filter((_, i) => i !== index))}>
                   Remove
@@ -1431,7 +1902,7 @@ function NewDsrForm() {
             onClick={() =>
               setSubcontractorEntries((rows) => [
                 ...rows,
-                { clientGeneratedId: crypto.randomUUID(), subcontractorId: null, workNote: "" },
+                { clientGeneratedId: crypto.randomUUID(), subcontractorId: null, workNote: "", siteContractId: null, quantity: "" },
               ])
             }
           >
@@ -1708,6 +2179,12 @@ function NewDsrForm() {
             .toLocaleString("en-IN")}`}
         />
         <ConfirmDialogRow label="Equipment used" value={String(equipmentUsed.length)} />
+        <ConfirmDialogRow
+          label="Waste Material"
+          // Same predicate buildPayload uses — the count the user confirms
+          // must be the count that submits.
+          value={String(wasteEntries.filter(isWasteRowComplete).length)}
+        />
         <ConfirmDialogRow
           label="Subcontractors"
           value={String(subcontractorEntries.filter((s) => s.subcontractorId).length)}

@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Query, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UsePipes,
+} from '@nestjs/common';
 import {
   createWorkRecordBatchSchema,
   createWorkRecordSchema,
@@ -38,5 +46,13 @@ export class WorkRecordsController {
   @Get('default-crew')
   getDefaultCrew(@Query('siteId') siteId: string, @Query('date') date: string) {
     return this.workRecordsService.getDefaultCrew(siteId, date);
+  }
+
+  // spec-dsr-activity-sync-detail-panel (goal 5): Site Activity Feed detail
+  // panel target — declared after `default-crew` above, same static-path-
+  // before-wildcard discipline as the rest of this controller.
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.workRecordsService.findOne(id);
   }
 }

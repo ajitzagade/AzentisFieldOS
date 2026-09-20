@@ -22,6 +22,8 @@ import {
 import { applySiteStockDelta } from '../inventory/stock-delta';
 import { StorageService } from '../storage/storage.service';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
+import { getSiteActivityFeed } from '../sites/site-activity-feed';
+import { createWorkEntry } from '../subcontractors/work-entry-write';
 
 // Production incident (2026-09-19): a DSR with a realistic number of crew
 // members/consumptions/RMC entries/expenses ran the sequential per-record
@@ -93,6 +95,170 @@ export class DsrService {
       where: { teamMemberId, workDate, siteId },
     });
     return existing;
+  }
+
+  // Review fix (finding #2): resolves a Waste Material entry's TRUE
+  // current cumulative state by walking its correction chain FORWARD from
+  // the root — the one row that carries the entry's (globally unique)
+  // clientGeneratedId, since no correction row is ever given one (it would
+  // violate the unique constraint) — to its current tip, summing each
+  // numeric field along the way. Delta-ing a new correction against just
+  // the immediately-superseded report's own row (one hop back) is wrong
+  // from the second correction of the same entry onward: that row's own
+  // stored tripCount/otherCharges are themselves deltas, not the entry's
+  // absolute state, so subtracting against them directly corrupts the
+  // total. Returns null when no root exists yet (a brand-new entry).
+  private async currentWasteDisposalState(
+    tx: Prisma.TransactionClient,
+    clientGeneratedId: string,
+  ): Promise<{
+    tipId: string;
+    tripCount: number;
+    otherCharges: Prisma.Decimal;
+    ratePerTrip: Prisma.Decimal | null;
+    paymentStatus: string | null;
+  } | null> {
+    const root = await tx.wasteDisposal.findUnique({
+      where: { clientGeneratedId },
+    });
+    if (!root) return null;
+
+    let tipId = root.id;
+    let tripCount = root.tripCount;
+    let otherCharges = root.otherCharges;
+    let ratePerTrip = root.ratePerTrip;
+    let paymentStatus = root.paymentStatus;
+    let frontier = [root.id];
+
+    while (frontier.length > 0) {
+      const children = await tx.wasteDisposal.findMany({
+        where: { correctsId: { in: frontier } },
+      });
+      if (children.length === 0) break;
+      frontier = [];
+      for (const child of children) {
+        tipId = child.id;
+        tripCount += child.tripCount;
+        otherCharges = otherCharges.add(child.otherCharges);
+        if (child.ratePerTrip !== null) ratePerTrip = child.ratePerTrip;
+        if (child.paymentStatus !== null) paymentStatus = child.paymentStatus;
+        frontier.push(child.id);
+      }
+    }
+
+    return { tipId, tripCount, otherCharges, ratePerTrip, paymentStatus };
+  }
+
+  // Backward counterpart to currentWasteDisposalState — given a
+  // materialized row's id (not its clientGeneratedId, which correction
+  // rows never carry), finds the clientGeneratedId-bearing root of its
+  // correction chain. Needed by correct()'s "don't silently drop an
+  // already-materialized entry" guard (review finding #4), which only has
+  // the superseded report's own row ids to start from.
+  private async wasteDisposalRootClientGeneratedId(
+    tx: Prisma.TransactionClient,
+    rowId: string,
+  ): Promise<string | null> {
+    let current = await tx.wasteDisposal.findUnique({ where: { id: rowId } });
+    while (
+      current &&
+      current.clientGeneratedId === null &&
+      current.correctsId
+    ) {
+      current = await tx.wasteDisposal.findUnique({
+        where: { id: current.correctsId },
+      });
+    }
+    return current?.clientGeneratedId ?? null;
+  }
+
+  // Same reasoning as currentWasteDisposalState above, for Subcontractor
+  // Work Entry's quantity (SiteContract.quantityCompleted is a materialized
+  // running total, same class of bug as Waste Material's totalAmount).
+  private async currentSubcontractorWorkEntryState(
+    tx: Prisma.TransactionClient,
+    clientGeneratedId: string,
+  ): Promise<{ tipId: string; quantity: number } | null> {
+    const root = await tx.subcontractorWorkEntry.findUnique({
+      where: { clientGeneratedId },
+    });
+    if (!root) return null;
+
+    let tipId = root.id;
+    let quantity = root.quantity.toNumber();
+    let frontier = [root.id];
+
+    while (frontier.length > 0) {
+      const children = await tx.subcontractorWorkEntry.findMany({
+        where: { correctsId: { in: frontier } },
+      });
+      if (children.length === 0) break;
+      frontier = [];
+      for (const child of children) {
+        tipId = child.id;
+        quantity += child.quantity.toNumber();
+        frontier.push(child.id);
+      }
+    }
+
+    return { tipId, quantity };
+  }
+
+  // Backward counterpart to currentSubcontractorWorkEntryState — same
+  // reasoning as wasteDisposalRootClientGeneratedId above.
+  private async subcontractorWorkEntryRootClientGeneratedId(
+    tx: Prisma.TransactionClient,
+    rowId: string,
+  ): Promise<string | null> {
+    let current = await tx.subcontractorWorkEntry.findUnique({
+      where: { id: rowId },
+    });
+    while (
+      current &&
+      current.clientGeneratedId === null &&
+      current.correctsId
+    ) {
+      current = await tx.subcontractorWorkEntry.findUnique({
+        where: { id: current.correctsId },
+      });
+    }
+    return current?.clientGeneratedId ?? null;
+  }
+
+  // Review fix (finding #1): walks a Waste Material/Subcontractor Work
+  // Entry correction chain BACKWARD from this DSR's own current rows,
+  // collecting every ancestor id along the way (not just the current tip).
+  // Unlike RMC/Consumption/Expense (fresh, fully-restated rows on
+  // correction — naturally excluded from the feed via
+  // currentDsrRowsWhere's superseded-DSR filter), these two use
+  // correctsId-chain DELTA rows that are meant to be summed with their
+  // ancestors (see WasteDisposalService.summary()/quantityCompleted), so
+  // every ancestor is the SAME logical entry as this DSR's current row and
+  // must also be excluded from otherActivity — or a corrected DSR's
+  // pre-correction row leaks in as if it were someone else's activity.
+  private async collectCorrectsIdAncestors(
+    model: 'wasteDisposal' | 'subcontractorWorkEntry',
+    startIds: string[],
+  ): Promise<string[]> {
+    const ancestorIds: string[] = [];
+    let frontier = startIds;
+    while (frontier.length > 0) {
+      ancestorIds.push(...frontier);
+      const rows =
+        model === 'wasteDisposal'
+          ? await this.prisma.wasteDisposal.findMany({
+              where: { id: { in: frontier } },
+              select: { correctsId: true },
+            })
+          : await this.prisma.subcontractorWorkEntry.findMany({
+              where: { id: { in: frontier } },
+              select: { correctsId: true },
+            });
+      frontier = rows
+        .map((r) => r.correctsId)
+        .filter((id): id is string => id !== null);
+    }
+    return ancestorIds;
   }
 
   // Crew members are processed in a fixed (teamMemberId-sorted) order so
@@ -269,6 +435,91 @@ export class DsrService {
         await tx.expense.create({ data });
       }
     }
+
+    // Client-readiness batch (2026-09-20), goal 3: mirrors the RMC loop
+    // above exactly — server-computed totalAmount (D7: null whenever
+    // ratePerTrip is absent, matching WasteDisposalService.create()'s own
+    // tripCount × ratePerTrip + otherCharges arithmetic), upsert-by-
+    // clientGeneratedId for offline-sync retry idempotency. Never sets
+    // correctsId here — a plain submission/finalize is never a correction
+    // of anything.
+    for (const waste of input.wasteDisposalEntries) {
+      const totalAmount =
+        waste.ratePerTrip === undefined
+          ? null
+          : new Prisma.Decimal(waste.tripCount)
+              .mul(waste.ratePerTrip)
+              .add(waste.otherCharges ?? 0);
+      const data = {
+        siteId: input.siteId,
+        wasteType: waste.wasteType,
+        quantityDetails: waste.quantityDetails,
+        ownership: waste.ownership,
+        vendorId: waste.vendorId,
+        machineryId: waste.machineryId,
+        vehicleId: waste.vehicleId,
+        vehicleDetails: waste.vehicleDetails,
+        tripCount: waste.tripCount,
+        ratePerTrip: waste.ratePerTrip ?? null,
+        otherCharges: waste.otherCharges ?? 0,
+        totalAmount,
+        paymentStatus:
+          waste.ratePerTrip === undefined
+            ? null
+            : (waste.paymentStatus ?? null),
+        disposalLocation: waste.disposalLocation,
+        notes: waste.notes,
+        disposedAt: reportDate,
+        recordedByUserId: submittedByUserId,
+        dailySiteReportId: dsrId,
+      };
+      if (waste.clientGeneratedId) {
+        await tx.wasteDisposal.upsert({
+          where: { clientGeneratedId: waste.clientGeneratedId },
+          update: data,
+          create: { ...data, clientGeneratedId: waste.clientGeneratedId },
+        });
+      } else {
+        await tx.wasteDisposal.create({ data });
+      }
+    }
+
+    // Client-readiness batch (2026-09-20), goal 4: only entries that picked
+    // a real Site Contract + quantity get a real SubcontractorWorkEntry —
+    // an entry with workNote only stays exactly as informational as today
+    // (the JSON write to subcontractorEntries happens unconditionally,
+    // outside this loop, via dsrData above). Guarded by clientGeneratedId
+    // against a retried offline sync double-creating the entry (and
+    // double-incrementing quantityCompleted) — SubcontractorWorkEntry is
+    // append-only (AD-9), so unlike Consumption/RMC/Expense/Waste Material
+    // above this is a skip-if-already-materialized check, never an upsert.
+    for (const subcontractor of input.subcontractorEntries) {
+      if (
+        !subcontractor.siteContractId ||
+        subcontractor.quantity === undefined
+      ) {
+        continue;
+      }
+      if (subcontractor.clientGeneratedId) {
+        const existing = await tx.subcontractorWorkEntry.findUnique({
+          where: { clientGeneratedId: subcontractor.clientGeneratedId },
+        });
+        if (existing) continue;
+      }
+      await createWorkEntry(
+        tx,
+        {
+          siteContractId: subcontractor.siteContractId,
+          quantity: subcontractor.quantity,
+          workDate: reportDate,
+          note: subcontractor.workNote,
+          dailySiteReportId: dsrId,
+          clientGeneratedId: subcontractor.clientGeneratedId,
+          siteId: input.siteId,
+        },
+        submittedByUserId,
+      );
+    }
   }
 
   // Story 1.8 (AC #1): `submittedByUserId` is the real authenticated user,
@@ -345,6 +596,8 @@ export class DsrService {
             consumptions: true,
             rmcEntries: true,
             expenses: true,
+            wasteDisposalEntries: true,
+            subcontractorWorkEntries: true,
           },
         });
       }, DSR_TRANSACTION_OPTIONS);
@@ -438,6 +691,13 @@ export class DsrService {
       consumptions: input.consumptions,
       rmcEntries: input.rmcEntries,
       expenses: input.expenses,
+      // Client-readiness batch (2026-09-20), goal 3: Waste Material is a
+      // real-row-materializing sub-record exactly like RMC/Consumption/
+      // Expense above (never a plain column, unlike equipmentUsed/
+      // subcontractorEntries/labourEntries) — it must be deferred here too,
+      // or a Waste Material row typed before Save Draft silently vanishes
+      // on Resume.
+      wasteDisposalEntries: input.wasteDisposalEntries,
     };
   }
 
@@ -543,6 +803,7 @@ export class DsrService {
         consumptions?: CreateDsrInput['consumptions'];
         rmcEntries?: CreateDsrInput['rmcEntries'];
         expenses?: CreateDsrInput['expenses'];
+        wasteDisposalEntries?: CreateDsrInput['wasteDisposalEntries'];
       } | null) ?? {};
     const photos = await Promise.all(
       draft.photos.map(async (photo) => ({
@@ -568,6 +829,7 @@ export class DsrService {
       consumptions: content.consumptions ?? [],
       rmcEntries: content.rmcEntries ?? [],
       expenses: content.expenses ?? [],
+      wasteDisposalEntries: content.wasteDisposalEntries ?? [],
       photos,
     };
   }
@@ -704,6 +966,7 @@ export class DsrService {
           equipmentUsed: draft.equipmentUsed ?? [],
           subcontractorEntries: draft.subcontractorEntries ?? [],
           labourEntries: draft.labourEntries ?? [],
+          wasteDisposalEntries: content.wasteDisposalEntries ?? [],
         });
         if (!parsed.success) {
           throw new BadRequestException(
@@ -736,6 +999,8 @@ export class DsrService {
             consumptions: true,
             rmcEntries: true,
             expenses: true,
+            wasteDisposalEntries: true,
+            subcontractorWorkEntries: true,
           },
         });
       }, DSR_TRANSACTION_OPTIONS);
@@ -823,6 +1088,60 @@ export class DsrService {
           throw new ConflictException(
             'This report has already been corrected — correct the latest version instead',
           );
+        }
+
+        // Review fix (finding #4): a correction that silently drops an
+        // already-materialized Waste Material/Subcontractor Work Entry
+        // (present on the superseded report, absent — or unlinked, for
+        // Subcontractor — from this submission) would leave that ledger
+        // contribution stuck forever with no way to reverse it. Unlike RMC/
+        // Consumption/Expense (naturally invisible once superseded — no
+        // correctsId chain to break), these two are real, separately-
+        // aggregated rows a plain "just don't resubmit it" can't safely
+        // erase. This codebase's own convention (CorrectedValueField) is
+        // "type the corrected value," never "delete by omission" — refuse
+        // rather than silently orphaning the row.
+        const supersededWasteRows = await tx.wasteDisposal.findMany({
+          where: { dailySiteReportId: originalId },
+        });
+        const submittedWasteClientGeneratedIds = new Set(
+          input.wasteDisposalEntries
+            .map((w) => w.clientGeneratedId)
+            .filter((cgid): cgid is string => cgid !== undefined),
+        );
+        for (const row of supersededWasteRows) {
+          const rootId = await this.wasteDisposalRootClientGeneratedId(
+            tx,
+            row.id,
+          );
+          if (rootId && !submittedWasteClientGeneratedIds.has(rootId)) {
+            throw new BadRequestException(
+              'A previously recorded Waste Material entry is missing from this correction — set its trips and charges to 0 instead of removing the row.',
+            );
+          }
+        }
+
+        const supersededWorkEntries = await tx.subcontractorWorkEntry.findMany({
+          where: { dailySiteReportId: originalId },
+        });
+        for (const row of supersededWorkEntries) {
+          const rootId = await this.subcontractorWorkEntryRootClientGeneratedId(
+            tx,
+            row.id,
+          );
+          if (!rootId) continue;
+          const resubmitted = input.subcontractorEntries.find(
+            (s) => s.clientGeneratedId === rootId,
+          );
+          const stillLinked =
+            resubmitted &&
+            resubmitted.siteContractId &&
+            resubmitted.quantity !== undefined;
+          if (!stillLinked) {
+            throw new BadRequestException(
+              'A previously recorded Subcontractor Work Entry is missing from this correction — set its quantity to 0 instead of removing or unlinking the row.',
+            );
+          }
         }
 
         const dsr = await tx.dailySiteReport.create({
@@ -939,6 +1258,173 @@ export class DsrService {
           });
         }
 
+        // Client-readiness batch (2026-09-20), goal 3: unlike RMC's loop
+        // above, this DOES set correctsId/reason on a matched row —
+        // WasteDisposalService.summary()/withSettlement() (used by the
+        // standalone Waste Material list and the Vendor page's Advance/
+        // Pending columns) sum a correctsId chain, so the row filed here
+        // must carry the DELTA relative to the row it supersedes, never
+        // the restated absolute value, or those screens would double-
+        // count. The prior row is resolved via currentWasteDisposalState
+        // (walks the FULL correction chain from the root, not just one hop
+        // back — review fix #2) — a miss (no root exists yet, e.g. a wholly
+        // new entry added on this correction) falls back to a fresh row.
+        for (const waste of input.wasteDisposalEntries) {
+          const state = waste.clientGeneratedId
+            ? await this.currentWasteDisposalState(tx, waste.clientGeneratedId)
+            : null;
+
+          if (state) {
+            const tripCountDelta = waste.tripCount - state.tripCount;
+            const otherChargesDelta = new Prisma.Decimal(
+              waste.otherCharges ?? 0,
+            ).sub(state.otherCharges);
+            // Review fix (finding #3): the delta must be (new absolute
+            // total) − (old absolute total), never
+            // tripCountDelta × newRate + otherChargesDelta — that formula
+            // silently produces a zero delta whenever a rate is
+            // added/changed with tripCount unchanged, leaving the entry's
+            // true cost invisible in WasteDisposalService.summary() forever.
+            const oldTotal =
+              state.ratePerTrip === null
+                ? new Prisma.Decimal(0)
+                : new Prisma.Decimal(state.tripCount)
+                    .mul(state.ratePerTrip)
+                    .add(state.otherCharges);
+            const newTotal =
+              waste.ratePerTrip === undefined
+                ? null
+                : new Prisma.Decimal(waste.tripCount)
+                    .mul(waste.ratePerTrip)
+                    .add(waste.otherCharges ?? 0);
+            const totalAmount =
+              newTotal === null ? null : newTotal.sub(oldTotal);
+            await tx.wasteDisposal.create({
+              data: {
+                siteId: input.siteId,
+                wasteType: waste.wasteType,
+                quantityDetails: waste.quantityDetails,
+                ownership: waste.ownership,
+                vendorId: waste.vendorId,
+                machineryId: waste.machineryId,
+                vehicleId: waste.vehicleId,
+                vehicleDetails: waste.vehicleDetails,
+                tripCount: tripCountDelta,
+                ratePerTrip: waste.ratePerTrip ?? null,
+                otherCharges: otherChargesDelta,
+                totalAmount,
+                paymentStatus:
+                  waste.ratePerTrip === undefined
+                    ? null
+                    : (waste.paymentStatus ?? state.paymentStatus ?? null),
+                disposalLocation: waste.disposalLocation,
+                notes: waste.notes,
+                disposedAt: reportDate,
+                recordedByUserId: submittedByUserId,
+                dailySiteReportId: dsr.id,
+                correctsId: state.tipId,
+                reason,
+              },
+            });
+          } else {
+            const totalAmount =
+              waste.ratePerTrip === undefined
+                ? null
+                : new Prisma.Decimal(waste.tripCount)
+                    .mul(waste.ratePerTrip)
+                    .add(waste.otherCharges ?? 0);
+            await tx.wasteDisposal.create({
+              data: {
+                siteId: input.siteId,
+                wasteType: waste.wasteType,
+                quantityDetails: waste.quantityDetails,
+                ownership: waste.ownership,
+                vendorId: waste.vendorId,
+                machineryId: waste.machineryId,
+                vehicleId: waste.vehicleId,
+                vehicleDetails: waste.vehicleDetails,
+                tripCount: waste.tripCount,
+                ratePerTrip: waste.ratePerTrip ?? null,
+                otherCharges: waste.otherCharges ?? 0,
+                totalAmount,
+                paymentStatus:
+                  waste.ratePerTrip === undefined
+                    ? null
+                    : (waste.paymentStatus ?? null),
+                disposalLocation: waste.disposalLocation,
+                notes: waste.notes,
+                disposedAt: reportDate,
+                recordedByUserId: submittedByUserId,
+                dailySiteReportId: dsr.id,
+                // Review fix (#2/#4): MUST persist so a future correction
+                // of this freshly-added-during-a-correction row can find
+                // it again via currentWasteDisposalState — omitting it (as
+                // the original implementation did) meant a row added on
+                // correction #1 could never be properly delta-corrected on
+                // correction #2; it would silently spawn a second,
+                // disconnected "fresh" row instead.
+                clientGeneratedId: waste.clientGeneratedId,
+              },
+            });
+          }
+        }
+
+        // Client-readiness batch (2026-09-20), goal 4: same correctsId-
+        // chain reasoning as Waste Material above — SiteContract.
+        // quantityCompleted is a materialized running total, so a matched
+        // entry's ledger row must carry the DELTA relative to the entry it
+        // supersedes (applyQuantityDelta applies `quantity` as a raw signed
+        // increment either way). currentSubcontractorWorkEntryState walks
+        // the FULL correction chain (review fix #2), not just one hop back.
+        for (const subcontractor of input.subcontractorEntries) {
+          if (
+            !subcontractor.siteContractId ||
+            subcontractor.quantity === undefined
+          ) {
+            continue;
+          }
+          const state = subcontractor.clientGeneratedId
+            ? await this.currentSubcontractorWorkEntryState(
+                tx,
+                subcontractor.clientGeneratedId,
+              )
+            : null;
+
+          if (state) {
+            const quantityDelta = subcontractor.quantity - state.quantity;
+            await createWorkEntry(
+              tx,
+              {
+                siteContractId: subcontractor.siteContractId,
+                quantity: quantityDelta,
+                workDate: reportDate,
+                note: subcontractor.workNote,
+                correctsId: state.tipId,
+                reason,
+                dailySiteReportId: dsr.id,
+                siteId: input.siteId,
+              },
+              submittedByUserId,
+            );
+          } else {
+            await createWorkEntry(
+              tx,
+              {
+                siteContractId: subcontractor.siteContractId,
+                quantity: subcontractor.quantity,
+                workDate: reportDate,
+                note: subcontractor.workNote,
+                dailySiteReportId: dsr.id,
+                // Review fix (#2/#4) — see the equivalent Waste Material
+                // comment above.
+                clientGeneratedId: subcontractor.clientGeneratedId,
+                siteId: input.siteId,
+              },
+              submittedByUserId,
+            );
+          }
+        }
+
         return tx.dailySiteReport.findUniqueOrThrow({
           where: { id: dsr.id },
           include: {
@@ -946,6 +1432,8 @@ export class DsrService {
             consumptions: true,
             rmcEntries: true,
             expenses: true,
+            wasteDisposalEntries: true,
+            subcontractorWorkEntries: true,
           },
         });
       }, DSR_TRANSACTION_OPTIONS);
@@ -1137,6 +1625,10 @@ export class DsrService {
         },
         rmcEntries: { include: { vendor: true } },
         expenses: { include: { category: true } },
+        wasteDisposalEntries: { include: { vendor: true } },
+        subcontractorWorkEntries: {
+          include: { siteContract: { include: { subcontractor: true } } },
+        },
         photos: true,
       },
     });
@@ -1163,6 +1655,55 @@ export class DsrService {
       select: { id: true },
     });
 
-    return { ...dsr, photos, correctedById: correction?.id ?? null };
+    // Client-readiness batch (2026-09-20), goal 2: reuses the exact same
+    // Site Activity Feed the Site detail page renders, narrowed to this
+    // report's own Site+date — so "did my entries sync" is answerable by
+    // seeing everything else recorded that day, not just this DSR's own
+    // materialized rows. Own rows (including this DSR row itself) are
+    // filtered out by `${type}:${id}` so nothing appears twice.
+    //
+    // Review fix (finding #1): Waste Material/Subcontractor Work Entry
+    // corrections are correctsId-chain DELTA rows (see
+    // currentWasteDisposalState's own comment) — every ancestor a chain
+    // was corrected from is the SAME logical entry as this DSR's current
+    // row, not a different one, so they must be excluded too.
+    const wasteAncestorIds = await this.collectCorrectsIdAncestors(
+      'wasteDisposal',
+      dsr.wasteDisposalEntries
+        .map((r) => r.correctsId)
+        .filter((id): id is string => id !== null),
+    );
+    const workEntryAncestorIds = await this.collectCorrectsIdAncestors(
+      'subcontractorWorkEntry',
+      dsr.subcontractorWorkEntries
+        .map((r) => r.correctsId)
+        .filter((id): id is string => id !== null),
+    );
+    const ownKeys = new Set<string>([
+      `DSR:${dsr.id}`,
+      ...dsr.workRecords.map((r) => `WORK_RECORD:${r.id}`),
+      ...dsr.consumptions.map((r) => `CONSUMPTION:${r.id}`),
+      ...dsr.rmcEntries.map((r) => `RMC:${r.id}`),
+      ...dsr.expenses.map((r) => `EXPENSE:${r.id}`),
+      ...dsr.wasteDisposalEntries.map((r) => `WASTE_DISPOSAL:${r.id}`),
+      ...wasteAncestorIds.map((id) => `WASTE_DISPOSAL:${id}`),
+      ...dsr.subcontractorWorkEntries.map((r) => `WORK_ENTRY:${r.id}`),
+      ...workEntryAncestorIds.map((id) => `WORK_ENTRY:${id}`),
+    ]);
+    const reportDateStr = dsr.reportDate.toISOString().slice(0, 10);
+    const feed = await getSiteActivityFeed(this.prisma, dsr.siteId, {
+      from: reportDateStr,
+      to: reportDateStr,
+    });
+    const otherActivity = feed.filter(
+      (item) => !ownKeys.has(`${item.type}:${item.id}`),
+    );
+
+    return {
+      ...dsr,
+      photos,
+      correctedById: correction?.id ?? null,
+      otherActivity,
+    };
   }
 }

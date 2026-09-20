@@ -17,8 +17,46 @@ interface DsrForCorrection {
   // Nullable (goal 1) — a delivery may be recorded before pricing exists.
   rmcEntries: { vendorId: string; quantityM3: number; grade: string; ratePerM3: number | null }[];
   expenses: { categoryId: string; amount: number; description: string | null }[];
-  subcontractorEntries: { subcontractorId: string; workNote?: string }[];
+  // goal 4: siteContractId/quantity are additive/optional — absent on a
+  // historical row's JSON, present on a row that was linked to a real Site
+  // Contract at submit time. clientGeneratedId MUST be threaded through to
+  // the form pre-fill unchanged (see withPreservedRowIds in
+  // dsr-desktop-form.tsx) — it's how dsr.service.ts's correct() resolves
+  // the ORIGINAL SubcontractorWorkEntry to link the correctsId chain and
+  // compute the restated quantity delta; a fresh id would silently
+  // double-count against SiteContract.quantityCompleted.
+  subcontractorEntries: {
+    subcontractorId: string;
+    workNote?: string;
+    siteContractId?: string;
+    quantity?: number;
+    clientGeneratedId?: string;
+  }[];
   labourEntries: { category: string; men: number; women: number }[];
+  // goal 3: real WasteDisposal rows materialized against this DSR (findOne's
+  // `wasteDisposalEntries: { include: { vendor: true } }`) — pre-fills the
+  // desktop correction form's own Waste Material section the same way
+  // rmcEntries pre-fills RMC above. clientGeneratedId MUST be threaded
+  // through unchanged — same reasoning as subcontractorEntries above,
+  // dsr.service.ts's correct() resolves the ORIGINAL WasteDisposal row via
+  // this exact id to link correctsId and compute the restated delta
+  // (WasteDisposalService.summary() would otherwise double-count).
+  wasteDisposalEntries: {
+    clientGeneratedId: string | null;
+    wasteType: string;
+    quantityDetails: string | null;
+    ownership: "OWN" | "HIRED";
+    vendorId: string | null;
+    machineryId: string | null;
+    vehicleId: string | null;
+    vehicleDetails: string | null;
+    tripCount: number;
+    ratePerTrip: number | null;
+    otherCharges: number | null;
+    paymentStatus: string | null;
+    disposalLocation: string | null;
+    notes: string | null;
+  }[];
 }
 
 async function getDsr(id: string): Promise<DsrForCorrection | null> {
@@ -77,11 +115,33 @@ export default async function CorrectDsrPage({ params }: { params: Promise<{ id:
     subcontractorEntries: (dsr.subcontractorEntries ?? []).map((s) => ({
       subcontractorId: s.subcontractorId,
       workNote: s.workNote ?? "",
+      siteContractId: s.siteContractId ?? null,
+      quantity: s.quantity != null ? String(s.quantity) : "",
+      clientGeneratedId: s.clientGeneratedId,
     })),
     labourEntries: (dsr.labourEntries ?? []).map((l) => ({
       category: l.category,
       men: String(l.men),
       women: String(l.women),
+    })),
+    // goal 3: NOTE — unlike the mobile form's Save-Draft/Resume path, this
+    // read comes straight from findOne's real WasteDisposal rows (not the
+    // draftContent gap noted in dsr/new/page.tsx), so a correction here
+    // reliably pre-fills every prior Waste Material trip.
+    wasteDisposalEntries: (dsr.wasteDisposalEntries ?? []).map((w) => ({
+      clientGeneratedId: w.clientGeneratedId ?? undefined,
+      wasteType: w.wasteType,
+      quantityDetails: w.quantityDetails ?? "",
+      ownership: w.ownership,
+      vendorId: w.vendorId ?? null,
+      equipmentValue: w.machineryId ? `machinery:${w.machineryId}` : w.vehicleId ? `vehicle:${w.vehicleId}` : "",
+      vehicleDetails: w.vehicleDetails ?? "",
+      tripCount: String(w.tripCount),
+      ratePerTrip: w.ratePerTrip != null ? String(w.ratePerTrip) : "",
+      otherCharges: w.otherCharges != null ? String(w.otherCharges) : "",
+      paymentStatus: w.paymentStatus ?? "",
+      disposalLocation: w.disposalLocation ?? "",
+      notes: w.notes ?? "",
     })),
   };
 

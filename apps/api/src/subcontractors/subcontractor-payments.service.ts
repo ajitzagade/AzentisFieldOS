@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { CreateSubcontractorPaymentInput } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -71,6 +75,22 @@ export class SubcontractorPaymentsService {
       this.prisma.subcontractorPayment.count({ where }),
     ]);
     return { candidates, total };
+  }
+
+  // spec-dsr-activity-sync-detail-panel (goal 5): Site Activity Feed detail
+  // panel target for a SUBCONTRACTOR_PAYMENT row — same include shape as
+  // searchCandidates above.
+  async findOne(id: string) {
+    const payment = await this.prisma.subcontractorPayment.findUnique({
+      where: { id },
+      include: {
+        siteContract: { include: { subcontractor: true, site: true } },
+      },
+    });
+    if (!payment) {
+      throw new NotFoundException(`Payment ${id} not found`);
+    }
+    return payment;
   }
 
   async create(

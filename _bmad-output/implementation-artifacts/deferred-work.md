@@ -466,3 +466,12 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: (no spec — CRUD-reflection verification 2026-09-19)
   summary: MarkPaidButton's "Payment marked as paid" toast is unobservable — revalidatePath("/payments") re-renders the row as paid (unmounting the button) before its state.done effect can fire the toast. The row's badge flip is the only feedback (adequate, but the dead toast code should either work or go).
   evidence: apps/web/app/(app)/payments/mark-paid-button.tsx + payments/actions.ts markPaymentPaidAction; observed in the crud-reflection e2e authoring run (real browser).
+
+## Deferred from: spec-dsr-activity-sync-detail-panel review (2026-09-20)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-dsr-activity-sync-detail-panel.md`
+  summary: Correcting a DSR Subcontractor entry to point at a different Site Contract than the one it was originally materialized against always throws (`createWorkEntry`'s correction guard requires `original.siteContractId === input.siteContractId`), with no client-side guardrail preventing the user from attempting it first.
+  evidence: apps/api/src/subcontractors/work-entry-write.ts's correction branch. Fails safely (rejects the whole DSR correction, no data corruption) rather than corrupting data, but needs a product decision on whether re-linking to a different contract during a correction should be a supported flow at all before building a fix.
+- source_spec: `_bmad-output/implementation-artifacts/spec-dsr-activity-sync-detail-panel.md`
+  summary: Negative correction-delta rows (Waste Material tripCount, Subcontractor quantity) render on the DSR detail page with no visual indication they're signed deltas rather than absolute values (e.g. "Debris — -2 trips").
+  evidence: apps/web/app/(app)/daily-activity/[id]/page.tsx's Waste Material/Subcontractor list sections. Needs a broader design pass on how correction-delta rows are displayed across the DSR detail page, not a one-line fix.

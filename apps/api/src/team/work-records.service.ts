@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import type {
   CreateWorkRecordBatchInput,
@@ -201,6 +202,19 @@ export class WorkRecordsService {
       name: record.teamMember.name,
       attended: record.attended,
     }));
+  }
+
+  // spec-dsr-activity-sync-detail-panel (goal 5): Site Activity Feed detail
+  // panel target for a WORK_RECORD row.
+  async findOne(id: string) {
+    const record = await this.prisma.workRecord.findUnique({
+      where: { id },
+      include: { teamMember: true, site: true },
+    });
+    if (!record) {
+      throw new NotFoundException(`Work Record ${id} not found`);
+    }
+    return record;
   }
 
   private async assertNoExistingWorkRecord(

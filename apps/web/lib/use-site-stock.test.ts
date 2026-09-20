@@ -1,5 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { stockStatus, withStockMeta, type StockLookup } from "./use-site-stock";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const authedFetchMock = vi.fn();
+vi.mock("./use-authed-fetch", () => ({
+  useAuthedFetch: () => authedFetchMock,
+}));
+
+// Imported after the mock above so useStock's own useAuthedFetch() call
+// resolves to the mock (vi.mock is hoisted by Vitest's transform, so this
+// static import already sees it).
+import { stockStatus, useSiteStock, withStockMeta, type StockLookup } from "./use-site-stock";
 
 function lookup(entries: Record<string, { quantity: number; unit?: string }>, loading = false): StockLookup {
   return { bySizeId: new Map(Object.entries(entries)), loading };
@@ -61,6 +71,94 @@ describe("stockStatus", () => {
   it("ignores an unparsable quantity instead of flagging it", () => {
     const stock = lookup({ ms1: { quantity: 80 } });
     expect(stockStatus({ stock, materialSizeId: "ms1", quantity: "abc", location: "this Site" })?.insufficient).toBe(false);
+  });
+});
+
+describe("useSiteStock", () => {
+  beforeEach(() => {
+    authedFetchMock.mockReset();
+  });
+
+  afterEach(() => {
+    // Restore jsdom's default so a later test's mount effects aren't
+    // affected by a prior test's visibilityState override.
+    Object.defineProperty(document, "visibilityState", {
+      value: "visible",
+      configurable: true,
+    });
+  });
+
+  it("refetches when the window regains focus — fixes the 'No stock available' staleness bug in a long-lived DSR session", async () => {
+    authedFetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [{ materialSizeId: "ms1", quantity: 10 }],
+    });
+
+    const { result } = renderHook(() => useSiteStock("site-1"));
+
+    await waitFor(() => expect(authedFetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.bySizeId.get("ms1")?.quantity).toBe(10));
+
+    authedFetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [{ materialSizeId: "ms1", quantity: 25 }],
+    });
+
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    await waitFor(() => expect(authedFetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.bySizeId.get("ms1")?.quantity).toBe(25));
+  });
+
+  it("refetches when the document becomes visible again (mobile tab-switch-back) — review fix #7", async () => {
+    authedFetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [{ materialSizeId: "ms1", quantity: 10 }],
+    });
+
+    const { result } = renderHook(() => useSiteStock("site-1"));
+
+    await waitFor(() => expect(authedFetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.bySizeId.get("ms1")?.quantity).toBe(10));
+
+    authedFetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [{ materialSizeId: "ms1", quantity: 40 }],
+    });
+
+    Object.defineProperty(document, "visibilityState", {
+      value: "visible",
+      configurable: true,
+    });
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await waitFor(() => expect(authedFetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.bySizeId.get("ms1")?.quantity).toBe(40));
+  });
+
+  it("does not refetch when visibilitychange fires while backgrounded (hidden)", async () => {
+    authedFetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [{ materialSizeId: "ms1", quantity: 10 }],
+    });
+
+    const { result } = renderHook(() => useSiteStock("site-1"));
+    await waitFor(() => expect(authedFetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.bySizeId.get("ms1")?.quantity).toBe(10));
+
+    Object.defineProperty(document, "visibilityState", {
+      value: "hidden",
+      configurable: true,
+    });
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(authedFetchMock).toHaveBeenCalledTimes(1);
   });
 });
 

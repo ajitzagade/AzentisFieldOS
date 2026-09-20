@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type {
   CreateAssetMovementInput,
   ReportDateRange,
@@ -131,6 +135,26 @@ export class AssetMovementsService {
       include: { site: true },
       orderBy: { movedAt: 'desc' },
     });
+  }
+
+  // spec-dsr-activity-sync-detail-panel (goal 5): Site Activity Feed detail
+  // panel target for a MACHINERY_MOVEMENT/VEHICLE_MOVEMENT row — same
+  // assetType branching as list() above.
+  async findOne(assetType: 'MACHINERY' | 'VEHICLE', id: string) {
+    const log =
+      assetType === 'MACHINERY'
+        ? await this.prisma.machineryMovementLog.findUnique({
+            where: { id },
+            include: { site: true, machinery: true },
+          })
+        : await this.prisma.vehicleMovementLog.findUnique({
+            where: { id },
+            include: { site: true, vehicle: { include: { type: true } } },
+          });
+    if (!log) {
+      throw new NotFoundException(`Movement ${id} not found`);
+    }
+    return log;
   }
 
   // An assetId or siteId that doesn't exist (P2003) must be a clean 400,

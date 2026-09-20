@@ -8,7 +8,12 @@ const notFoundMock = vi.hoisted(() =>
 );
 vi.mock("next/navigation", () => ({
   notFound: notFoundMock,
-  useRouter: () => ({ refresh: vi.fn() }),
+  useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }),
+  // spec-dsr-activity-sync-detail-panel, goal 5: the extracted
+  // SiteActivityFeedClient (rendered inside this page) reads these via
+  // useDetailPanelState and its own shareable-panel-href computation.
+  usePathname: () => "/sites/site-1",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 import SiteDetailPage from "./page";

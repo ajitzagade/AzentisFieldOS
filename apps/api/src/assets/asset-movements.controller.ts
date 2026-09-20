@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Query,
   UsePipes,
@@ -40,5 +41,19 @@ export class AssetMovementsController {
       );
     }
     return this.assetMovementsService.list(parsedAssetType.data, assetId);
+  }
+
+  // spec-dsr-activity-sync-detail-panel (goal 5): Site Activity Feed detail
+  // panel target — `assetType` is a required query param (same shape as
+  // list() above) since a bare id alone can't tell Machinery from Vehicle.
+  @Get(':id')
+  findOne(@Param('id') id: string, @Query('assetType') assetType: string) {
+    const parsedAssetType = assetTypeSchema.safeParse(assetType);
+    if (!parsedAssetType.success) {
+      throw new BadRequestException(
+        'assetType (MACHINERY or VEHICLE) query param is required',
+      );
+    }
+    return this.assetMovementsService.findOne(parsedAssetType.data, id);
   }
 }

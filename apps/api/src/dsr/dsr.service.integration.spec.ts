@@ -17,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ConsumptionService } from '../inventory/consumption.service';
 import { RmcService } from '../rmc/rmc.service';
 import { ExpensesService } from '../expenses/expenses.service';
+import { WasteDisposalService } from '../waste-disposal/waste-disposal.service';
 import { DsrService } from './dsr.service';
 import { getSitePhotoGallery } from '../sites/site-photo-gallery';
 import type { StorageService } from '../storage/storage.service';
@@ -38,6 +39,7 @@ describeIfDb('DsrService (integration)', () => {
   let teamMemberId: string;
   let vendorId: string;
   let categoryId: string;
+  let subcontractorId: string;
   let testUserId: string;
   let otherUserId: string;
   let sendToRole: ReturnType<typeof vi.fn>;
@@ -131,6 +133,11 @@ describeIfDb('DsrService (integration)', () => {
       data: { name: 'Test Expense Category' },
     });
     categoryId = expenseCategory.id;
+
+    const subcontractor = await prisma.subcontractor.create({
+      data: { name: 'Test Subcontractor' },
+    });
+    subcontractorId = subcontractor.id;
   });
 
   // FR-12: DSR-embedded Consumption now decrements SiteStock, so every
@@ -163,6 +170,11 @@ describeIfDb('DsrService (integration)', () => {
     await prisma.rmcEntry.deleteMany({ where: { siteId } });
     await prisma.consumption.deleteMany({ where: { siteId } });
     await prisma.workRecord.deleteMany({ where: { siteId } });
+    await prisma.wasteDisposal.deleteMany({ where: { siteId } });
+    await prisma.subcontractorWorkEntry.deleteMany({
+      where: { siteContract: { siteId } },
+    });
+    await prisma.siteContract.deleteMany({ where: { siteId } });
     // spec-dsr-drafts: photos FK the DSR row — clear them before the parent.
     await prisma.photo.deleteMany({ where: { dailySiteReport: { siteId } } });
     await prisma.dailySiteReport.deleteMany({ where: { siteId } });
@@ -174,6 +186,11 @@ describeIfDb('DsrService (integration)', () => {
     await prisma.rmcEntry.deleteMany({ where: { siteId } });
     await prisma.consumption.deleteMany({ where: { siteId } });
     await prisma.workRecord.deleteMany({ where: { siteId } });
+    await prisma.wasteDisposal.deleteMany({ where: { siteId } });
+    await prisma.subcontractorWorkEntry.deleteMany({
+      where: { siteContract: { siteId } },
+    });
+    await prisma.siteContract.deleteMany({ where: { siteId } });
     // spec-dsr-drafts: photos FK the DSR row — clear them before the parent.
     await prisma.photo.deleteMany({ where: { dailySiteReport: { siteId } } });
     await prisma.dailySiteReport.deleteMany({ where: { siteId } });
@@ -193,6 +210,7 @@ describeIfDb('DsrService (integration)', () => {
     }
     await prisma.vendor.deleteMany({ where: { id: vendorId } });
     await prisma.expenseCategory.deleteMany({ where: { id: categoryId } });
+    await prisma.subcontractor.deleteMany({ where: { id: subcontractorId } });
     await prisma.site.deleteMany({ where: { id: siteId } });
     await prisma.user.deleteMany({
       where: { id: { in: [testUserId, otherUserId] } },
@@ -212,6 +230,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [{ type: 'MACHINERY', id: 'mach-1', name: 'JCB 3DX' }],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     expect(result.workRecords).toHaveLength(1);
@@ -239,6 +258,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     expect(result.rmcEntries[0]?.totalAmount).toBeNull();
@@ -259,6 +279,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     const second = await create({
@@ -272,6 +293,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     // Same underlying row, last-synced-write-wins on its own fields (AD-8) —
@@ -300,6 +322,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     // Same clientGeneratedId, different quantity — simulates the offline
@@ -314,6 +337,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     expect(result.consumptions).toHaveLength(1);
@@ -338,6 +362,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     await create({
@@ -350,6 +375,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     const records = await prisma.workRecord.findMany({
@@ -379,6 +405,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       }),
     ).rejects.toThrow();
 
@@ -400,6 +427,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     const defaults = await service.getCrewDefaults(siteId, '2026-08-04');
@@ -423,6 +451,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     const rows = await service.listByDate('2026-08-15');
@@ -450,6 +479,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     const detail = await service.findOne(created.id);
@@ -475,6 +505,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
     await prisma.photo.create({
       data: {
@@ -509,6 +540,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     const correction = await correct(
@@ -524,6 +556,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       },
       'Work completed text was wrong',
     );
@@ -551,6 +584,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
     const originalWorkRecordId = original.workRecords[0]?.id;
 
@@ -566,6 +600,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       },
       'Ravi was actually present, not absent',
     );
@@ -597,6 +632,7 @@ describeIfDb('DsrService (integration)', () => {
           equipmentUsed: [],
           subcontractorEntries: [],
           labourEntries: [],
+          wasteDisposalEntries: [],
         },
         'Some reason',
       ),
@@ -614,6 +650,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
     const otherSite = await prisma.site.create({
       data: { name: 'Wrong Site', location: 'Elsewhere' },
@@ -632,6 +669,7 @@ describeIfDb('DsrService (integration)', () => {
           equipmentUsed: [],
           subcontractorEntries: [],
           labourEntries: [],
+          wasteDisposalEntries: [],
         },
         'Wrong Site',
       ),
@@ -650,6 +688,7 @@ describeIfDb('DsrService (integration)', () => {
           equipmentUsed: [],
           subcontractorEntries: [],
           labourEntries: [],
+          wasteDisposalEntries: [],
         },
         'Wrong date',
       ),
@@ -674,6 +713,7 @@ describeIfDb('DsrService (integration)', () => {
           equipmentUsed: [],
           subcontractorEntries: [],
           labourEntries: [],
+          wasteDisposalEntries: [],
         }),
       ),
     );
@@ -702,6 +742,7 @@ describeIfDb('DsrService (integration)', () => {
           equipmentUsed: [],
           subcontractorEntries: [],
           labourEntries: [],
+          wasteDisposalEntries: [],
         }),
       ),
     );
@@ -729,6 +770,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
     const correction = await correct(
       original.id,
@@ -743,6 +785,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       },
       'Fixing the summary',
     );
@@ -765,6 +808,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
     const firstCorrection = await correct(
       original.id,
@@ -778,6 +822,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       },
       'First fix',
     );
@@ -793,6 +838,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       },
       'Second fix',
     );
@@ -816,6 +862,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     const uncorrected = await service.findOne(original.id);
@@ -833,6 +880,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       },
       'A fix',
     );
@@ -853,6 +901,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
     const correction = await correct(
       original.id,
@@ -866,6 +915,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       },
       'A fix',
     );
@@ -881,6 +931,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     expect(resubmitted.id).toBe(original.id);
@@ -910,6 +961,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     expect(await siteStockQuantity()).toBe('80');
@@ -934,6 +986,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       }),
     ).rejects.toThrow(BadRequestException);
 
@@ -958,6 +1011,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
     expect(await siteStockQuantity()).toBe('80');
 
@@ -973,6 +1027,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       },
       'Recount: 12 bags used, not 20',
     );
@@ -999,6 +1054,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
     await correct(
       original.id,
@@ -1014,6 +1070,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       },
       'Recount',
     );
@@ -1052,6 +1109,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
     const payload = {
       siteId,
@@ -1063,6 +1121,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     };
     await correct(original.id, payload, 'First correction');
 
@@ -1086,6 +1145,7 @@ describeIfDb('DsrService (integration)', () => {
       equipmentUsed: [],
       subcontractorEntries: [],
       labourEntries: [],
+      wasteDisposalEntries: [],
     });
 
     const ledgerCounts = async () => ({
@@ -1189,6 +1249,30 @@ describeIfDb('DsrService (integration)', () => {
       expect(rows).toHaveLength(1);
     });
 
+    // spec-dsr-activity-sync-detail-panel (goal 3, follow-up fix): Waste
+    // Material is a real-row-materializing sub-record exactly like RMC/
+    // Consumption/Expense — it must be deferred via draftContent and survive
+    // save -> resume -> Finalize the same way those do, closing the gap
+    // flagged during this feature's own implementation (a Waste Material
+    // row typed before Save Draft was silently vanishing on Resume).
+    it('a Waste Material row typed before Save Draft survives save -> resume -> Finalize', async () => {
+      const input = {
+        ...draftInput('2026-09-19'),
+        wasteDisposalEntries: [
+          { wasteType: 'Debris', ownership: 'OWN' as const, tripCount: 3 },
+        ],
+      };
+      const { id } = await service.saveDraft(input, testUserId);
+
+      const resumed = await service.getDraft(siteId, '2026-09-19', testUserId);
+      expect(resumed?.wasteDisposalEntries).toHaveLength(1);
+      expect(resumed?.wasteDisposalEntries[0]?.tripCount).toBe(3);
+
+      const finalized = await service.finalizeDraft(id, testUserId);
+      expect(finalized.wasteDisposalEntries).toHaveLength(1);
+      expect(finalized.wasteDisposalEntries[0]?.tripCount).toBe(3);
+    });
+
     it('save → resume → Finalize decrements stock exactly once (reload no-double-count)', async () => {
       const { id } = await service.saveDraft(
         draftInput('2026-09-06', 30),
@@ -1286,6 +1370,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       });
       await expect(
         service.deleteDraft(submitted.id, testUserId),
@@ -1345,6 +1430,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       });
 
       await expect(
@@ -1374,6 +1460,7 @@ describeIfDb('DsrService (integration)', () => {
         equipmentUsed: [],
         subcontractorEntries: [],
         labourEntries: [],
+        wasteDisposalEntries: [],
       });
 
       await expect(service.finalizeDraft(id, testUserId)).rejects.toThrow(
@@ -1448,6 +1535,7 @@ describeIfDb('DsrService (integration)', () => {
             equipmentUsed: [],
             subcontractorEntries: [],
             labourEntries: [],
+            wasteDisposalEntries: [],
           },
           'Attempted correction of a draft',
         ),
@@ -1477,6 +1565,7 @@ describeIfDb('DsrService (integration)', () => {
           equipmentUsed: [],
           subcontractorEntries: [],
           labourEntries: [],
+          wasteDisposalEntries: [],
         },
         testUserId,
       );
@@ -1492,6 +1581,1107 @@ describeIfDb('DsrService (integration)', () => {
       });
       expect(row.status).toBe('DRAFT');
       expect(await prisma.rmcEntry.count({ where: { siteId } })).toBe(0);
+    });
+  });
+
+  // spec-dsr-activity-sync-detail-panel, goal 3: mirrors the RMC
+  // pricing-pending/correction test set above, plus the correctsId-chain
+  // divergence this feature's Design Notes call out explicitly.
+  describe('Waste Material DSR entries (client-readiness batch, goal 3)', () => {
+    it('a DSR-embedded Waste Material entry with ratePerTrip omitted stores totalAmount/paymentStatus as null — "Pricing pending", never ₹0', async () => {
+      const result = await create({
+        siteId,
+        reportDate: '2026-09-21',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [
+          { wasteType: 'Debris', ownership: 'OWN', tripCount: 3 },
+        ],
+      });
+
+      expect(result.wasteDisposalEntries).toHaveLength(1);
+      expect(result.wasteDisposalEntries[0]?.totalAmount).toBeNull();
+      expect(result.wasteDisposalEntries[0]?.paymentStatus).toBeNull();
+    });
+
+    it('server-computes totalAmount (tripCount × ratePerTrip + otherCharges) for a priced HIRED entry', async () => {
+      const result = await create({
+        siteId,
+        reportDate: '2026-09-22',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [
+          {
+            wasteType: 'Excavated earth',
+            ownership: 'HIRED',
+            vendorId,
+            tripCount: 4,
+            ratePerTrip: 1500,
+            otherCharges: 200,
+            paymentStatus: 'UNPAID',
+          },
+        ],
+      });
+
+      expect(result.wasteDisposalEntries[0]?.totalAmount?.toString()).toBe(
+        '6200',
+      );
+    });
+
+    it('correct(): a matched Waste Material entry (via clientGeneratedId) is linked via correctsId, and WasteDisposalService.summary() reflects only the restated amount — never both', async () => {
+      const original = await create({
+        siteId,
+        reportDate: '2026-09-23',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [
+          {
+            wasteType: 'Debris',
+            ownership: 'HIRED',
+            vendorId,
+            tripCount: 5,
+            ratePerTrip: 1000,
+            paymentStatus: 'UNPAID',
+            clientGeneratedId: 'waste-cg-1',
+          },
+        ],
+      });
+      const originalRow = original.wasteDisposalEntries[0]!;
+      expect(originalRow.totalAmount?.toString()).toBe('5000');
+
+      await correct(
+        original.id,
+        {
+          siteId,
+          reportDate: '2026-09-23',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [],
+          labourEntries: [],
+          wasteDisposalEntries: [
+            {
+              wasteType: 'Debris',
+              ownership: 'HIRED',
+              vendorId,
+              tripCount: 3,
+              ratePerTrip: 1000,
+              paymentStatus: 'UNPAID',
+              clientGeneratedId: 'waste-cg-1',
+            },
+          ],
+        },
+        'Recount: 3 trips, not 5',
+      );
+
+      const correctionRow = await prisma.wasteDisposal.findFirst({
+        where: { correctsId: originalRow.id },
+      });
+      expect(correctionRow).not.toBeNull();
+      // Delta, not a restated absolute: 3 − 5 = −2 trips → −2000.
+      expect(correctionRow?.tripCount).toBe(-2);
+      expect(correctionRow?.totalAmount?.toString()).toBe('-2000');
+
+      const wasteDisposalService = new WasteDisposalService(prisma);
+      const summary = await wasteDisposalService.summary({ siteId });
+      // 5000 (original) − 2000 (correction) = 3000 — the restated amount
+      // only, never 5000 + 3000 (which double-counting would produce).
+      expect(summary.totalCost).toBe(3000);
+    });
+
+    it('correct(): a Waste Material entry with no matching clientGeneratedId in the superseded report is treated as a fresh, un-linked row', async () => {
+      const original = await create({
+        siteId,
+        reportDate: '2026-09-24',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+
+      await correct(
+        original.id,
+        {
+          siteId,
+          reportDate: '2026-09-24',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [],
+          labourEntries: [],
+          wasteDisposalEntries: [
+            {
+              wasteType: 'Debris',
+              ownership: 'OWN',
+              tripCount: 2,
+              clientGeneratedId: 'brand-new-row',
+            },
+          ],
+        },
+        'Actually there was a Waste Material trip too',
+      );
+
+      const rows = await prisma.wasteDisposal.findMany({
+        where: { siteId, wasteType: 'Debris' },
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.correctsId).toBeNull();
+      expect(rows[0]?.tripCount).toBe(2);
+    });
+
+    // Review fix (finding #12): idempotency parity with the existing
+    // Consumption/RmcEntry/Expense retry test.
+    it('upserts a Waste Material entry by clientGeneratedId instead of duplicating it on a retried sync', async () => {
+      const dsr1 = await create({
+        siteId,
+        reportDate: '2026-10-02',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [
+          {
+            wasteType: 'Debris',
+            ownership: 'OWN',
+            tripCount: 2,
+            clientGeneratedId: 'waste-retry-1',
+          },
+        ],
+      });
+      const dsr2 = await create({
+        siteId,
+        reportDate: '2026-10-02',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [
+          {
+            wasteType: 'Debris',
+            ownership: 'OWN',
+            tripCount: 2,
+            clientGeneratedId: 'waste-retry-1',
+          },
+        ],
+      });
+      expect(dsr2.id).toBe(dsr1.id);
+      const rows = await prisma.wasteDisposal.findMany({
+        where: { clientGeneratedId: 'waste-retry-1' },
+      });
+      expect(rows).toHaveLength(1);
+    });
+
+    // Review fix (finding #2): a second correction of the same entry must
+    // delta against its TRUE current cumulative state (5 → 3 → 6 means the
+    // second correction's delta is +3, not "6 − (−2)" using the first
+    // correction's own delta row as if it were an absolute value).
+    it("correct(): a SECOND correction of the same Waste Material entry deltas against the true cumulative total, not the first correction's raw delta row", async () => {
+      const original = await create({
+        siteId,
+        reportDate: '2026-10-03',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [
+          {
+            wasteType: 'Debris',
+            ownership: 'HIRED',
+            vendorId,
+            tripCount: 5,
+            ratePerTrip: 1000,
+            paymentStatus: 'UNPAID',
+            clientGeneratedId: 'waste-cg-2',
+          },
+        ],
+      });
+
+      const firstCorrection = await correct(
+        original.id,
+        {
+          siteId,
+          reportDate: '2026-10-03',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [],
+          labourEntries: [],
+          wasteDisposalEntries: [
+            {
+              wasteType: 'Debris',
+              ownership: 'HIRED',
+              vendorId,
+              tripCount: 3,
+              ratePerTrip: 1000,
+              paymentStatus: 'UNPAID',
+              clientGeneratedId: 'waste-cg-2',
+            },
+          ],
+        },
+        'Recount: 3 trips, not 5',
+      );
+
+      await correct(
+        firstCorrection.id,
+        {
+          siteId,
+          reportDate: '2026-10-03',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [],
+          labourEntries: [],
+          wasteDisposalEntries: [
+            {
+              wasteType: 'Debris',
+              ownership: 'HIRED',
+              vendorId,
+              tripCount: 6,
+              ratePerTrip: 1000,
+              paymentStatus: 'UNPAID',
+              clientGeneratedId: 'waste-cg-2',
+            },
+          ],
+        },
+        'Recount again: 6 trips, not 3',
+      );
+
+      const wasteDisposalService = new WasteDisposalService(prisma);
+      const summary = await wasteDisposalService.summary({ siteId });
+      // 5 trips × 1000 = 5000 is the TRUE final total — a bug that deltas
+      // against the first correction's own delta row (-2000) would instead
+      // compute 6000 − (-2000) = 8000 for the second correction, totalling
+      // 5000 + 8000 = 13000.
+      expect(summary.totalCost).toBe(6000);
+      expect(summary.totalTrips).toBe(6);
+    });
+
+    // Review fix (finding #3): a correction that only adds/changes a rate
+    // (tripCount unchanged) must still produce the correct nonzero delta —
+    // tripCountDelta × newRate is always 0 in this scenario.
+    it('correct(): adding a rate to a previously-unpriced entry with unchanged tripCount produces the correct nonzero totalAmount delta', async () => {
+      const original = await create({
+        siteId,
+        reportDate: '2026-10-04',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [
+          {
+            wasteType: 'Debris',
+            ownership: 'HIRED',
+            vendorId,
+            tripCount: 4,
+            clientGeneratedId: 'waste-cg-3',
+          },
+        ],
+      });
+      expect(original.wasteDisposalEntries[0]?.totalAmount).toBeNull();
+
+      await correct(
+        original.id,
+        {
+          siteId,
+          reportDate: '2026-10-04',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [],
+          labourEntries: [],
+          wasteDisposalEntries: [
+            {
+              wasteType: 'Debris',
+              ownership: 'HIRED',
+              vendorId,
+              tripCount: 4,
+              ratePerTrip: 1000,
+              paymentStatus: 'UNPAID',
+              clientGeneratedId: 'waste-cg-3',
+            },
+          ],
+        },
+        'Pricing now known: 1000/trip',
+      );
+
+      const wasteDisposalService = new WasteDisposalService(prisma);
+      const summary = await wasteDisposalService.summary({ siteId });
+      expect(summary.totalCost).toBe(4000);
+    });
+
+    // Review fix (finding #3): a correction that changes only the rate
+    // (tripCount unchanged) must also produce the correct delta.
+    it('correct(): changing only the rate on an already-priced entry produces the correct totalAmount delta', async () => {
+      const original = await create({
+        siteId,
+        reportDate: '2026-10-05',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [
+          {
+            wasteType: 'Debris',
+            ownership: 'HIRED',
+            vendorId,
+            tripCount: 4,
+            ratePerTrip: 1000,
+            paymentStatus: 'UNPAID',
+            clientGeneratedId: 'waste-cg-4',
+          },
+        ],
+      });
+      expect(original.wasteDisposalEntries[0]?.totalAmount?.toString()).toBe(
+        '4000',
+      );
+
+      await correct(
+        original.id,
+        {
+          siteId,
+          reportDate: '2026-10-05',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [],
+          labourEntries: [],
+          wasteDisposalEntries: [
+            {
+              wasteType: 'Debris',
+              ownership: 'HIRED',
+              vendorId,
+              tripCount: 4,
+              ratePerTrip: 1500,
+              paymentStatus: 'UNPAID',
+              clientGeneratedId: 'waste-cg-4',
+            },
+          ],
+        },
+        'Rate was actually 1500/trip, not 1000',
+      );
+
+      const wasteDisposalService = new WasteDisposalService(prisma);
+      const summary = await wasteDisposalService.summary({ siteId });
+      // 4 × 1500 = 6000 is the true total (4 × 1000 original + 4 × 500 delta).
+      expect(summary.totalCost).toBe(6000);
+    });
+
+    // Review fix (finding #4): dropping an already-materialized entry from
+    // a correction's submission must be refused, not silently orphaned.
+    it('correct(): refuses to drop an already-materialized Waste Material entry that is absent from the new submission', async () => {
+      const original = await create({
+        siteId,
+        reportDate: '2026-10-06',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [
+          {
+            wasteType: 'Debris',
+            ownership: 'OWN',
+            tripCount: 3,
+            clientGeneratedId: 'waste-cg-5',
+          },
+        ],
+      });
+
+      await expect(
+        correct(
+          original.id,
+          {
+            siteId,
+            reportDate: '2026-10-06',
+            workRecords: [],
+            consumptions: [],
+            rmcEntries: [],
+            expenses: [],
+            equipmentUsed: [],
+            subcontractorEntries: [],
+            labourEntries: [],
+            wasteDisposalEntries: [],
+          },
+          'Forgot to restate the Waste Material row',
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      // No partial write: no correcting DSR should exist either.
+      const corrections = await prisma.dailySiteReport.findMany({
+        where: { correctsId: original.id },
+      });
+      expect(corrections).toHaveLength(0);
+    });
+  });
+
+  // spec-dsr-activity-sync-detail-panel, goal 4.
+  describe('Subcontractor Work Entries via DSR (client-readiness batch, goal 4)', () => {
+    async function createActiveContract(rateType = 'PER_TRIP') {
+      return prisma.siteContract.create({
+        data: {
+          subcontractorId,
+          siteId,
+          status: 'ACTIVE',
+          rateType,
+          rateUnitLabel: 'trips',
+        },
+      });
+    }
+
+    it('an entry with workNote only stays informational — no SubcontractorWorkEntry is created', async () => {
+      const result = await create({
+        siteId,
+        reportDate: '2026-09-25',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [{ subcontractorId, workNote: 'On site today' }],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+
+      expect(result.subcontractorWorkEntries).toHaveLength(0);
+      const dsr = await prisma.dailySiteReport.findUniqueOrThrow({
+        where: { id: result.id },
+      });
+      expect(dsr.subcontractorEntries).toEqual([
+        { subcontractorId, workNote: 'On site today' },
+      ]);
+    });
+
+    it('an entry with a picked Active, non-Fixed-Cost Site Contract + quantity creates a real SubcontractorWorkEntry and increments quantityCompleted', async () => {
+      const contract = await createActiveContract();
+
+      const result = await create({
+        siteId,
+        reportDate: '2026-09-26',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [
+          {
+            subcontractorId,
+            siteContractId: contract.id,
+            quantity: 6,
+            clientGeneratedId: 'sub-cg-1',
+          },
+        ],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+
+      expect(result.subcontractorWorkEntries).toHaveLength(1);
+      expect(result.subcontractorWorkEntries[0]?.quantity.toString()).toBe('6');
+      const updatedContract = await prisma.siteContract.findUniqueOrThrow({
+        where: { id: contract.id },
+      });
+      expect(updatedContract.quantityCompleted.toString()).toBe('6');
+    });
+
+    it('rejects the whole DSR when the picked Site Contract is Fixed Cost, with the same BadRequestException shape WorkEntriesService.create() uses', async () => {
+      const contract = await createActiveContract('FIXED_COST');
+
+      await expect(
+        create({
+          siteId,
+          reportDate: '2026-09-27',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [
+            { subcontractorId, siteContractId: contract.id, quantity: 6 },
+          ],
+          labourEntries: [],
+          wasteDisposalEntries: [],
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      // No partial write: the DSR itself must not have been created either.
+      const rows = await prisma.dailySiteReport.findMany({
+        where: { siteId, reportDate: new Date('2026-09-27') },
+      });
+      expect(rows).toHaveLength(0);
+    });
+
+    it('correct(): a matched entry (via clientGeneratedId) applies a signed delta to quantityCompleted, not a second absolute increment', async () => {
+      const contract = await createActiveContract();
+      const original = await create({
+        siteId,
+        reportDate: '2026-09-28',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [
+          {
+            subcontractorId,
+            siteContractId: contract.id,
+            quantity: 10,
+            clientGeneratedId: 'sub-cg-2',
+          },
+        ],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+      expect(
+        (
+          await prisma.siteContract.findUniqueOrThrow({
+            where: { id: contract.id },
+          })
+        ).quantityCompleted.toString(),
+      ).toBe('10');
+
+      await correct(
+        original.id,
+        {
+          siteId,
+          reportDate: '2026-09-28',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [
+            {
+              subcontractorId,
+              siteContractId: contract.id,
+              quantity: 7,
+              clientGeneratedId: 'sub-cg-2',
+            },
+          ],
+          labourEntries: [],
+          wasteDisposalEntries: [],
+        },
+        'Recount: 7 trips, not 10',
+      );
+
+      const updatedContract = await prisma.siteContract.findUniqueOrThrow({
+        where: { id: contract.id },
+      });
+      // 10 − 3 (delta of 7 − 10) = 7 — the restated amount, never 10 + 7.
+      expect(updatedContract.quantityCompleted.toString()).toBe('7');
+      const correctionEntry = await prisma.subcontractorWorkEntry.findFirst({
+        where: { siteContractId: contract.id, quantity: { lt: 0 } },
+      });
+      expect(correctionEntry?.correctsId).toBe(
+        original.subcontractorWorkEntries[0]!.id,
+      );
+    });
+
+    it('a historical DSR whose subcontractorEntries JSON has no siteContractId still renders/validates unchanged', async () => {
+      const dsr = await prisma.dailySiteReport.create({
+        data: {
+          siteId,
+          reportDate: new Date('2026-09-29'),
+          submittedByUserId: testUserId,
+          subcontractorEntries: [
+            { subcontractorId, workNote: 'Pre-existing historical row' },
+          ],
+        },
+      });
+
+      const detail = await service.findOne(dsr.id);
+      expect(detail.subcontractorEntries).toEqual([
+        { subcontractorId, workNote: 'Pre-existing historical row' },
+      ]);
+    });
+
+    // Review fix (finding #12): idempotency parity with the existing
+    // Consumption/RmcEntry/Expense retry test.
+    it('does not double-create a Work Entry (or double-increment quantityCompleted) on a retried sync with the same clientGeneratedId', async () => {
+      const contract = await createActiveContract();
+      const input = {
+        siteId,
+        reportDate: '2026-10-07',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [
+          {
+            subcontractorId,
+            siteContractId: contract.id,
+            quantity: 5,
+            clientGeneratedId: 'sub-retry-1',
+          },
+        ],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      };
+      const dsr1 = await create(input);
+      const dsr2 = await create(input);
+      expect(dsr2.id).toBe(dsr1.id);
+
+      const rows = await prisma.subcontractorWorkEntry.findMany({
+        where: { clientGeneratedId: 'sub-retry-1' },
+      });
+      expect(rows).toHaveLength(1);
+      const updatedContract = await prisma.siteContract.findUniqueOrThrow({
+        where: { id: contract.id },
+      });
+      expect(updatedContract.quantityCompleted.toString()).toBe('5');
+    });
+
+    // Review fix (finding #2): a second correction must delta against the
+    // TRUE current cumulative quantity, not the first correction's own
+    // delta row treated as if it were an absolute value.
+    it("correct(): a SECOND correction of the same Work Entry deltas against the true cumulative quantity, not the first correction's raw delta row", async () => {
+      const contract = await createActiveContract();
+      const original = await create({
+        siteId,
+        reportDate: '2026-10-08',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [
+          {
+            subcontractorId,
+            siteContractId: contract.id,
+            quantity: 10,
+            clientGeneratedId: 'sub-cg-3',
+          },
+        ],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+
+      const firstCorrection = await correct(
+        original.id,
+        {
+          siteId,
+          reportDate: '2026-10-08',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [
+            {
+              subcontractorId,
+              siteContractId: contract.id,
+              quantity: 7,
+              clientGeneratedId: 'sub-cg-3',
+            },
+          ],
+          labourEntries: [],
+          wasteDisposalEntries: [],
+        },
+        'Recount: 7, not 10',
+      );
+
+      await correct(
+        firstCorrection.id,
+        {
+          siteId,
+          reportDate: '2026-10-08',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [
+            {
+              subcontractorId,
+              siteContractId: contract.id,
+              quantity: 12,
+              clientGeneratedId: 'sub-cg-3',
+            },
+          ],
+          labourEntries: [],
+          wasteDisposalEntries: [],
+        },
+        'Recount again: 12, not 7',
+      );
+
+      const updatedContract = await prisma.siteContract.findUniqueOrThrow({
+        where: { id: contract.id },
+      });
+      // 12 is the TRUE final quantity — a bug that deltas against the
+      // first correction's own delta row (-3) would instead compute
+      // 12 − (-3) = 15 for the second correction, totalling 10 − 3 + 15 = 22.
+      expect(updatedContract.quantityCompleted.toString()).toBe('12');
+    });
+
+    // Review fix (finding #4): dropping (or unlinking) an already-
+    // materialized entry from a correction's submission must be refused.
+    it('correct(): refuses to drop an already-materialized Work Entry that is absent from the new submission', async () => {
+      const contract = await createActiveContract();
+      const original = await create({
+        siteId,
+        reportDate: '2026-10-09',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [
+          {
+            subcontractorId,
+            siteContractId: contract.id,
+            quantity: 4,
+            clientGeneratedId: 'sub-cg-4',
+          },
+        ],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+
+      await expect(
+        correct(
+          original.id,
+          {
+            siteId,
+            reportDate: '2026-10-09',
+            workRecords: [],
+            consumptions: [],
+            rmcEntries: [],
+            expenses: [],
+            equipmentUsed: [],
+            subcontractorEntries: [],
+            labourEntries: [],
+            wasteDisposalEntries: [],
+          },
+          'Forgot to restate the Work Entry',
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      const corrections = await prisma.dailySiteReport.findMany({
+        where: { correctsId: original.id },
+      });
+      expect(corrections).toHaveLength(0);
+    });
+
+    it('correct(): refuses when an already-materialized Work Entry is present but unlinked (siteContractId/quantity dropped)', async () => {
+      const contract = await createActiveContract();
+      const original = await create({
+        siteId,
+        reportDate: '2026-10-10',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [
+          {
+            subcontractorId,
+            siteContractId: contract.id,
+            quantity: 4,
+            clientGeneratedId: 'sub-cg-5',
+          },
+        ],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+
+      await expect(
+        correct(
+          original.id,
+          {
+            siteId,
+            reportDate: '2026-10-10',
+            workRecords: [],
+            consumptions: [],
+            rmcEntries: [],
+            expenses: [],
+            equipmentUsed: [],
+            subcontractorEntries: [
+              {
+                subcontractorId,
+                workNote: 'Unlinked from the contract',
+                clientGeneratedId: 'sub-cg-5',
+              },
+            ],
+            labourEntries: [],
+            wasteDisposalEntries: [],
+          },
+          'Accidentally unlinked the contract',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    // Review fix (finding #6): a DSR must not be able to materialize a Work
+    // Entry against a Site Contract belonging to a different Site.
+    it('rejects a Site Contract that belongs to a different Site than the DSR', async () => {
+      const otherSite = await prisma.site.create({
+        data: { name: 'Other Site', location: 'Elsewhere' },
+      });
+      const foreignContract = await prisma.siteContract.create({
+        data: {
+          subcontractorId,
+          siteId: otherSite.id,
+          status: 'ACTIVE',
+          rateType: 'PER_TRIP',
+          rateUnitLabel: 'trips',
+        },
+      });
+
+      await expect(
+        create({
+          siteId,
+          reportDate: '2026-10-11',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [
+            {
+              subcontractorId,
+              siteContractId: foreignContract.id,
+              quantity: 3,
+            },
+          ],
+          labourEntries: [],
+          wasteDisposalEntries: [],
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      await prisma.siteContract.deleteMany({ where: { siteId: otherSite.id } });
+      await prisma.site.deleteMany({ where: { id: otherSite.id } });
+    });
+  });
+
+  // spec-dsr-activity-sync-detail-panel, goal 2.
+  describe('findOne(): otherActivity rollup (client-readiness batch, goal 2)', () => {
+    it("includes same-day activity recorded outside this DSR, and excludes this DSR's own materialized rows and itself", async () => {
+      const contract = await prisma.siteContract.create({
+        data: {
+          subcontractorId,
+          siteId,
+          status: 'ACTIVE',
+          rateType: 'PER_TRIP',
+          rateUnitLabel: 'trips',
+        },
+      });
+      const dsr = await create({
+        siteId,
+        reportDate: '2026-09-30',
+        workRecords: [{ teamMemberId, attended: true }],
+        consumptions: [{ materialSizeId, quantity: 5 }],
+        rmcEntries: [
+          { vendorId, quantityM3: 2, grade: 'M25', ratePerM3: 6000 },
+        ],
+        expenses: [{ categoryId, amount: 500 }],
+        equipmentUsed: [],
+        subcontractorEntries: [
+          { subcontractorId, siteContractId: contract.id, quantity: 4 },
+        ],
+        labourEntries: [],
+        wasteDisposalEntries: [
+          { wasteType: 'Debris', ownership: 'OWN', tripCount: 2 },
+        ],
+      });
+
+      const purchase = await prisma.purchase.create({
+        data: {
+          siteId,
+          vendorId,
+          materialSizeId,
+          quantity: 50,
+          destination: 'SITE',
+          purchasedAt: new Date('2026-09-30'),
+        },
+      });
+
+      const detail = await service.findOne(dsr.id);
+
+      expect(detail.otherActivity.some((item) => item.id === purchase.id)).toBe(
+        true,
+      );
+      expect(
+        detail.otherActivity.some(
+          (item) => item.type === 'DSR' && item.id === dsr.id,
+        ),
+      ).toBe(false);
+      expect(
+        detail.otherActivity.some((item) => item.type === 'CONSUMPTION'),
+      ).toBe(false);
+      expect(detail.otherActivity.some((item) => item.type === 'RMC')).toBe(
+        false,
+      );
+      // Review fix (finding #13): the same exclusion must also cover the
+      // record types the earlier version of this test didn't exercise.
+      expect(
+        detail.otherActivity.some((item) => item.type === 'WORK_RECORD'),
+      ).toBe(false);
+      expect(detail.otherActivity.some((item) => item.type === 'EXPENSE')).toBe(
+        false,
+      );
+      expect(
+        detail.otherActivity.some((item) => item.type === 'WASTE_DISPOSAL'),
+      ).toBe(false);
+      expect(
+        detail.otherActivity.some((item) => item.type === 'WORK_ENTRY'),
+      ).toBe(false);
+
+      await prisma.purchase.deleteMany({ where: { id: purchase.id } });
+    });
+
+    // Review fix (finding #1): Waste Material/Subcontractor Work Entry
+    // corrections are correctsId-chain DELTA rows meant to be summed with
+    // their ancestors (unlike RMC/Consumption/Expense) — a corrected DSR's
+    // PRE-correction row must not leak into otherActivity as if it were a
+    // different, unrelated entry.
+    it("excludes a corrected DSR's own pre-correction Waste Material and Subcontractor Work Entry rows from otherActivity", async () => {
+      const contract = await prisma.siteContract.create({
+        data: {
+          subcontractorId,
+          siteId,
+          status: 'ACTIVE',
+          rateType: 'PER_TRIP',
+          rateUnitLabel: 'trips',
+        },
+      });
+      const original = await create({
+        siteId,
+        reportDate: '2026-10-12',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [
+          {
+            subcontractorId,
+            siteContractId: contract.id,
+            quantity: 5,
+            clientGeneratedId: 'other-activity-sub-1',
+          },
+        ],
+        labourEntries: [],
+        wasteDisposalEntries: [
+          {
+            wasteType: 'Debris',
+            ownership: 'OWN',
+            tripCount: 3,
+            clientGeneratedId: 'other-activity-waste-1',
+          },
+        ],
+      });
+      const originalWasteId = original.wasteDisposalEntries[0]!.id;
+      const originalWorkEntryId = original.subcontractorWorkEntries[0]!.id;
+
+      const correction = await correct(
+        original.id,
+        {
+          siteId,
+          reportDate: '2026-10-12',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [
+            {
+              subcontractorId,
+              siteContractId: contract.id,
+              quantity: 8,
+              clientGeneratedId: 'other-activity-sub-1',
+            },
+          ],
+          labourEntries: [],
+          wasteDisposalEntries: [
+            {
+              wasteType: 'Debris',
+              ownership: 'OWN',
+              tripCount: 5,
+              clientGeneratedId: 'other-activity-waste-1',
+            },
+          ],
+        },
+        'Recount',
+      );
+
+      const detail = await service.findOne(correction.id);
+
+      expect(
+        detail.otherActivity.some(
+          (item) =>
+            item.type === 'WASTE_DISPOSAL' && item.id === originalWasteId,
+        ),
+      ).toBe(false);
+      expect(
+        detail.otherActivity.some(
+          (item) =>
+            item.type === 'WORK_ENTRY' && item.id === originalWorkEntryId,
+        ),
+      ).toBe(false);
+    });
+
+    it('renders no otherActivity (empty array, no error) when nothing else was recorded that day', async () => {
+      const dsr = await create({
+        siteId,
+        reportDate: '2026-10-01',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+
+      const detail = await service.findOne(dsr.id);
+      expect(detail.otherActivity).toEqual([]);
     });
   });
 });
