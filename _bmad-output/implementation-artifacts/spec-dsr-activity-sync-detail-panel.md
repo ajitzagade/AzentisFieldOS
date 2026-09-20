@@ -2,7 +2,7 @@
 title: 'DSR/module data sync fixes + Site Activity Feed detail panel'
 type: 'feature'
 created: '2026-09-20'
-status: 'in-review'
+status: 'done'
 review_loop_iteration: 0
 context: []
 baseline_commit: '9b5f63d4ee0a68481f75d022b96cae6a8107bfaf'
@@ -148,3 +148,70 @@ baseline_commit: '9b5f63d4ee0a68481f75d022b96cae6a8107bfaf'
 **Manual checks (if no CLI):**
 - In the deployed preview: open a DSR draft, background the tab, record a Purchase for that Site elsewhere, return to the tab, confirm the stock hint updates without reload.
 - Submit a DSR with a Waste Material entry and a linked Subcontractor entry, then confirm both the Vendor page's settlement figures and the Site Contract's `quantityCompleted` reflect it correctly.
+
+## Suggested Review Order
+
+**Correction-chain math (the highest-risk part of this change — caught and fixed by adversarial review, not the original implementation)**
+
+- Entry point: resolves a Waste Material entry's true cumulative state by walking its correction chain forward from the root, not just one hop back — the bug that corrupted second-and-later corrections.
+  [`dsr.service.ts:111`](../../apps/api/src/dsr/dsr.service.ts#L111)
+
+- Same fix for Subcontractor Work Entry's `quantity` — `SiteContract.quantityCompleted` is the same class of materialized-running-total bug.
+  [`dsr.service.ts:178`](../../apps/api/src/dsr/dsr.service.ts#L178)
+
+- Delta computed as `(new absolute total) − (old absolute total)`, not `tripCountDelta × newRate` — the formula that silently zeroed a rate-only correction.
+  [`dsr.service.ts:1284`](../../apps/api/src/dsr/dsr.service.ts#L1284)
+
+- Walks every `correctsId` ancestor (not just the current tip) so a corrected DSR's own pre-correction row can't leak into "Other activity" as if it were someone else's.
+  [`dsr.service.ts:239`](../../apps/api/src/dsr/dsr.service.ts#L239)
+
+- Server-side guard: a correction that drops an already-materialized entry now rejects with a clear error instead of silently orphaning its ledger contribution.
+  [`dsr.service.ts:1272`](../../apps/api/src/dsr/dsr.service.ts#L1272)
+
+**Waste Material DSR entry (goal 3)**
+
+- Conditional branching schema mirroring `createWasteDisposalSchema`'s OWN/HIRED split, minus the advance sub-flow.
+  [`daily-site-report.ts:138`](../../packages/shared/src/schemas/daily-site-report.ts#L138)
+
+- Materialize loop — server-computed total, upsert-by-`clientGeneratedId`, same shape as the RMC loop it mirrors.
+  [`dsr.service.ts:446`](../../apps/api/src/dsr/dsr.service.ts#L446)
+
+- New nullable FK + idempotency key, hand-written to avoid the documented pg_trgm/GIN migration-drift trap.
+  [`migration.sql`](../../infra/prisma/migrations/20260920140000_dsr_waste_and_subcontractor_link/migration.sql#L1)
+
+**Subcontractor Work Entry via DSR (goal 4)**
+
+- Validation-plus-`applyQuantityDelta` extracted into a `tx`-accepting helper, shared by the standalone path and the DSR path — avoids duplicating Active/non-Fixed-Cost/correction-match rules.
+  [`work-entry-write.ts:38`](../../apps/api/src/subcontractors/work-entry-write.ts#L38)
+
+- `siteContractId`/`quantity` are additive optional fields on the existing JSON entry — historical DSRs with neither field keep rendering exactly as before.
+  [`daily-site-report.ts:120`](../../packages/shared/src/schemas/daily-site-report.ts#L120)
+
+**DSR "Other activity" rollup (goal 2)**
+
+- Reuses `getSiteActivityFeed` as-is, filtered by an ownership-exclusion set built from this DSR's own materialized rows plus their correction ancestors.
+  [`dsr.service.ts:1682`](../../apps/api/src/dsr/dsr.service.ts#L1682)
+
+**Stock staleness fix (goal 1)**
+
+- Refetches on both `focus` and `visibilitychange` — one shared-hook fix benefits all 6 consumers instead of patching each form.
+  [`use-site-stock.ts:55`](../../apps/web/lib/use-site-stock.ts#L55)
+
+**Site Activity Feed detail panel (goal 5)**
+
+- Extracted client component — `onRowClick` opens a `DetailPanel`, fetching full detail lazily per click via a `type:id` compound URL param.
+  [`site-activity-feed-client.tsx:410`](../../apps/web/app/(app)/sites/[id]/_components/site-activity-feed-client.tsx#L410)
+
+- New `findOne`/`GET :id` endpoints mirroring the existing 9-endpoint shape, for the 5 types that had no single-record read before.
+  [`work-records.controller.ts:55`](../../apps/api/src/team/work-records.controller.ts#L55),
+  [`asset-movements.controller.ts:50`](../../apps/api/src/assets/asset-movements.controller.ts#L50),
+  [`work-entries.controller.ts:45`](../../apps/api/src/subcontractors/work-entries.controller.ts#L45),
+  [`subcontractor-payments.controller.ts:51`](../../apps/api/src/subcontractors/subcontractor-payments.controller.ts#L51)
+
+**Peripherals**
+
+- Schema addition backing goals 3–4.
+  [`schema.prisma`](../../infra/prisma/schema.prisma#L1)
+
+- Integration coverage for the correction-chain fixes above, including the repeat-correction and rate-only-change regression tests.
+  [`dsr.service.integration.spec.ts:1590`](../../apps/api/src/dsr/dsr.service.integration.spec.ts#L1590)
