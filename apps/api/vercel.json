@@ -3,5 +3,11 @@
   "functions": {
     "api/index.js": { "maxDuration": 60 }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
+  "crons": [
+    { "path": "/cron/send-missing-report-reminders", "schedule": "30 12 * * *" },
+    { "path": "/cron/compile-daily-reports", "schedule": "0 18 * * *" },
+    { "path": "/cron/retry-report-deliveries", "schedule": "0 19,21 * * *" },
+    { "path": "/cron/run-report-schedules", "schedule": "0 * * * *" }
+  ]
 }
