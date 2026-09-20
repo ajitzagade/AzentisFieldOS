@@ -488,7 +488,7 @@ export function WasteDisposalForm({
         </p>
       ) : null}
 
-      <SubmitButton label={correcting ? "Submit Correction" : "Record Disposal"} correcting={correcting} />
+      <SubmitButton label={correcting ? "Submit Correction" : "Record Waste"} correcting={correcting} />
 
       <ConfirmDialog
         open={confirmation.open}

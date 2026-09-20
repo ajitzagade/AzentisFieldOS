@@ -244,7 +244,7 @@ export default async function WasteDisposalPage({
         <Link href="/waste-disposal/new">
           <Button>
             <PlusIcon className="size-4" />
-            Record Disposal
+            Record Waste
           </Button>
         </Link>
       </div>
@@ -339,7 +339,7 @@ export default async function WasteDisposalPage({
                 action: (
                   <Link href="/waste-disposal/new" className={cn(buttonVariants({ variant: "primary" }))}>
                     <PlusIcon className="size-4" />
-                    Record your first Disposal
+                    Record your first Waste entry
                   </Link>
                 ),
               }

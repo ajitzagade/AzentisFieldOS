@@ -407,7 +407,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
               className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
             >
               <TruckIcon className="size-4" />
-              Record Disposal
+              Record Waste
             </Link>
           </div>
         </div>
