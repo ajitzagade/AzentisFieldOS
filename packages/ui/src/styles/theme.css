@@ -23,6 +23,14 @@
 @source "../";
 
 :root {
+  /* Without this, Safari (iOS in particular) renders *native* form-control
+     chrome — most visibly <input type="date">'s internal text — using the
+     device's system Light/Dark Mode setting, not this app's actual .dark
+     class. A phone in system Dark Mode viewing this app in light mode then
+     gets near-white native date text on our white bg-surface-1 input:
+     invisible. This pins native controls to whichever theme is actually
+     rendered, overridden by .dark below. */
+  color-scheme: light;
   /* Color — light mode (DESIGN.md frontmatter `colors`) */
   --surface-0: #FBFAF7;
   --surface-1: #FFFFFF;
@@ -89,6 +97,7 @@
  * here and keep their :root value.
  */
 .dark {
+  color-scheme: dark;
   --surface-0: #12161C;
   --surface-1: #191F27;
   --surface-2: #212933;
