@@ -5,6 +5,7 @@ import type { PhotoGalleryItem } from "@azentisfieldos/shared";
 import { CameraIcon, EmptyState } from "@azentisfieldos/ui";
 import type { Site } from "../../page";
 import { PhotoGalleryGrid } from "../../../_components/photo-gallery-grid";
+import { SitePhotoUploadButton } from "../_components/site-photo-upload-button";
 
 async function getSite(id: string): Promise<Pick<Site, "id" | "name"> | null> {
   const res = await authedFetch(`/sites/${id}`, { cache: "no-store" });
@@ -44,10 +45,16 @@ export default async function SitePhotosPage({ params }: { params: Promise<{ id:
         </Link>{" "}
         / Photos
       </div>
-      <h1 className="mb-6 text-page-title text-ink-900">{site.name} — Site Photos</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-page-title text-ink-900">{site.name} — Site Photos</h1>
+        <SitePhotoUploadButton siteId={site.id} />
+      </div>
 
       {photos.length === 0 ? (
-        <EmptyState icon={<CameraIcon />} message="No photos yet for this Site." />
+        <EmptyState
+          icon={<CameraIcon />}
+          message="No photos yet for this Site — they arrive with Daily Reports, or upload one directly above."
+        />
       ) : (
         <PhotoGalleryGrid photos={photos} />
       )}

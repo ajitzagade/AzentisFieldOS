@@ -29,6 +29,7 @@ vi.mock('./cloudinary-client', () => ({
 
 function makeService(overrides: {
   dailySiteReport?: { findUnique: ReturnType<typeof vi.fn> };
+  site?: { findUnique: ReturnType<typeof vi.fn> };
   user?: {
     findUnique: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
@@ -37,6 +38,7 @@ function makeService(overrides: {
 }) {
   const prisma = {
     dailySiteReport: overrides.dailySiteReport ?? { findUnique: vi.fn() },
+    site: overrides.site ?? { findUnique: vi.fn() },
     user: overrides.user ?? { findUnique: vi.fn(), create: vi.fn() },
     photo: overrides.photo ?? { create: vi.fn() },
   };
@@ -103,6 +105,38 @@ describe('StorageService.presignUpload', () => {
     await expect(
       service.presignUpload({ dailySiteReportId: 'dsr-1' }),
     ).rejects.toThrow(ServiceUnavailableException);
+    expect(apiSignRequestMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('StorageService.presignSitePhotoUpload', () => {
+  it('returns a Cloudinary-signed param set with a public_id scoped to the Site, once the Site is confirmed to exist', async () => {
+    const service = makeService({
+      site: { findUnique: vi.fn().mockResolvedValue({ id: 'site-1' }) },
+    });
+
+    const result = await service.presignSitePhotoUpload({ siteId: 'site-1' });
+
+    expect(result.publicId).toMatch(/^site\/site-1\/[0-9a-f-]{36}$/);
+    expect(result.allowedFormats).toBe('jpg,jpeg,png,webp,heic,heif');
+    expect(apiSignRequestMock).toHaveBeenCalledWith(
+      {
+        public_id: result.publicId,
+        timestamp: result.timestamp,
+        allowed_formats: 'jpg,jpeg,png,webp,heic,heif',
+      },
+      'test-secret',
+    );
+  });
+
+  it('throws NotFoundException, not a raw error, for a Site that does not exist', async () => {
+    const service = makeService({
+      site: { findUnique: vi.fn().mockResolvedValue(null) },
+    });
+
+    await expect(
+      service.presignSitePhotoUpload({ siteId: 'missing' }),
+    ).rejects.toThrow(NotFoundException);
     expect(apiSignRequestMock).not.toHaveBeenCalled();
   });
 });
@@ -174,6 +208,51 @@ describe('StorageService.confirmUpload', () => {
           dailySiteReportId: 'missing',
           storageKey: 'dsr/missing/x.jpg',
         },
+        'user-1',
+      ),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  // Direct-to-Site upload (2026-09-20): a Photo attaches to exactly one
+  // parent — these branch on siteId instead of dailySiteReportId.
+  it('creates the Photo row under siteId once the Site is confirmed to exist', async () => {
+    const photoCreate = vi.fn().mockResolvedValue({
+      id: 'photo-1',
+      siteId: 'site-1',
+      storageKey: 'site/site-1/x.jpg',
+    });
+    const service = makeService({
+      site: { findUnique: vi.fn().mockResolvedValue({ id: 'site-1' }) },
+      photo: { create: photoCreate },
+    });
+
+    const result = await service.confirmUpload(
+      { siteId: 'site-1', storageKey: 'site/site-1/x.jpg' },
+      'user-1',
+    );
+
+    expect(photoCreate).toHaveBeenCalledWith({
+      data: {
+        siteId: 'site-1',
+        storageKey: 'site/site-1/x.jpg',
+        uploadedByUserId: 'user-1',
+      },
+    });
+    expect(result).toEqual({
+      id: 'photo-1',
+      siteId: 'site-1',
+      storageKey: 'site/site-1/x.jpg',
+    });
+  });
+
+  it('throws NotFoundException, not a raw error, for a Site that does not exist', async () => {
+    const service = makeService({
+      site: { findUnique: vi.fn().mockResolvedValue(null) },
+    });
+
+    await expect(
+      service.confirmUpload(
+        { siteId: 'missing', storageKey: 'site/missing/x.jpg' },
         'user-1',
       ),
     ).rejects.toThrow(NotFoundException);

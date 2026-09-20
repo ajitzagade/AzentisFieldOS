@@ -159,6 +159,7 @@ model Site {
   dailyReports         DailyReport[]
   wasteDisposals       WasteDisposal[]
   siteContracts        SiteContract[]
+  photos               Photo[]
 }
 
 // ---------- Material catalog (FR-4..FR-7) ----------
@@ -748,14 +749,25 @@ model DailySiteReport {
   // `migrate deploy`, never `migrate dev` (which would drift-drop it).
 }
 
+// A Photo attaches to exactly one of DailySiteReport or Site — never both,
+// never neither (enforced in StorageService.confirmUpload, the only write
+// path). Both FKs are nullable to support the two independent entry
+// surfaces: a DSR photo (the original, most common case) and a direct
+// Site-photo upload (2026-09-20 — for a photo captured but not uploaded
+// during that day's Daily Report; filed under the upload date, not a
+// user-chosen backdate, since there is no DSR to anchor a reportDate to).
 model Photo {
-  id                String          @id @default(uuid(7))
-  dailySiteReportId String
-  dailySiteReport   DailySiteReport @relation(fields: [dailySiteReportId], references: [id])
+  id                String           @id @default(uuid(7))
+  dailySiteReportId String?
+  dailySiteReport   DailySiteReport? @relation(fields: [dailySiteReportId], references: [id])
+  siteId            String?
+  site              Site?            @relation(fields: [siteId], references: [id])
   storageKey        String // Cloudflare R2 object key
   uploadedByUserId  String
-  uploadedBy        User            @relation(fields: [uploadedByUserId], references: [id])
-  createdAt         DateTime        @default(now())
+  uploadedBy        User             @relation(fields: [uploadedByUserId], references: [id])
+  createdAt         DateTime         @default(now())
+
+  @@index([siteId, createdAt])
 }
 
 // ---------- Vendors & Expenses (FR-39..FR-41) ----------

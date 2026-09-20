@@ -96,4 +96,26 @@ describeIfDb('getSitePhotoGallery (integration)', () => {
     const gallery = await getSitePhotoGallery(prisma, storage, siteId);
     expect(gallery).toEqual([]);
   });
+
+  // Direct-to-Site upload (2026-09-20): a real row with dailySiteReportId
+  // null and siteId set — exercises the nullable-FK migration itself, not
+  // just the mapping logic a unit test already covers.
+  it('includes a direct-to-Site upload (no parent DSR), tagged with a null dailySiteReportId', async () => {
+    await prisma.photo.create({
+      data: { siteId, storageKey: 'site/x/2.jpg', uploadedByUserId: userId },
+    });
+
+    const storage = {
+      getThumbnailUrl: vi
+        .fn()
+        .mockResolvedValue('https://cloudinary.example/thumb'),
+    } as unknown as StorageService;
+    const gallery = await getSitePhotoGallery(prisma, storage, siteId);
+
+    expect(gallery).toHaveLength(1);
+    expect(gallery[0]).toMatchObject({
+      uploaderName: 'Ramesh Yadav',
+      dailySiteReportId: null,
+    });
+  });
 });

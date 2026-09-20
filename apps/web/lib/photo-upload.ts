@@ -21,7 +21,9 @@ function withJpegExtension(name: string): string {
 // browsers with no HEIC support at all) falls straight back to uploading
 // the original file untouched — a compression failure must never block the
 // upload itself.
-async function compressPhoto(file: File): Promise<File> {
+// Exported so uploadSitePhoto (direct-to-Site upload, 2026-09-20) shares
+// the exact same compression pass rather than a second copy.
+export async function compressPhotoForUpload(file: File): Promise<File> {
   if (!file.type.startsWith("image/") || file.size <= SKIP_COMPRESSION_BELOW_BYTES) {
     return file;
   }
@@ -75,7 +77,7 @@ export async function uploadPhoto(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dailySiteReportId }),
     }),
-    compressPhoto(file),
+    compressPhotoForUpload(file),
   ]);
   if (!presignRes.ok) {
     throw new Error("Could not get an upload URL for this photo");

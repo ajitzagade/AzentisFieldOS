@@ -6,6 +6,7 @@ import {
 import type {
   ConfirmPhotoUploadInput,
   PresignPhotoUploadInput,
+  PresignSitePhotoUploadInput,
 } from '@azentisfieldos/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -77,6 +78,22 @@ export class StorageService {
     return this.signUpload(publicId, 'jpg,jpeg,png,webp,heic,heif');
   }
 
+  // Direct-to-Site upload (2026-09-20) — for a photo captured but not
+  // uploaded during that day's Daily Report. Same sign→POST→confirm flow
+  // as presignUpload, only the public_id prefix and the validated parent
+  // differ (Site instead of DailySiteReport).
+  async presignSitePhotoUpload(input: PresignSitePhotoUploadInput) {
+    const site = await this.prisma.site.findUnique({
+      where: { id: input.siteId },
+    });
+    if (!site) {
+      throw new NotFoundException(`Site ${input.siteId} not found`);
+    }
+
+    const publicId = `site/${input.siteId}/${crypto.randomUUID()}`;
+    return this.signUpload(publicId, 'jpg,jpeg,png,webp,heic,heif');
+  }
+
   // Story 14.1 (FR-47): the exact same sign→POST→store-URL flow the DSR photo
   // upload uses (AD-3 — apps/api never touches the bytes), only the destination
   // differs: the branding logo lands under a `branding/` public_id and its
@@ -114,27 +131,45 @@ export class StorageService {
   }
 
   // Story 1.8 (AC #1): `uploadedByUserId` is the real authenticated user,
-  // threaded in from the controller (req.user, set by ClerkAuthGuard) — no
+  // threaded in from the controller (req.user, set by CustomAuthGuard) — no
   // longer a placeholder resolved inside the service.
+  //
+  // A Photo attaches to exactly one parent — the shared Zod schema's own
+  // refine already guarantees exactly one of dailySiteReportId/siteId is
+  // present on `input`; this is the one write path (2026-09-20), so no
+  // other code path can ever create a Photo with both or neither set.
   async confirmUpload(
     input: ConfirmPhotoUploadInput,
     uploadedByUserId: string,
   ) {
-    const dsr = await this.prisma.dailySiteReport.findUnique({
-      where: { id: input.dailySiteReportId },
-    });
-    if (!dsr) {
-      throw new NotFoundException(
-        `Daily Site Report ${input.dailySiteReportId} not found`,
-      );
+    if (input.dailySiteReportId) {
+      const dsr = await this.prisma.dailySiteReport.findUnique({
+        where: { id: input.dailySiteReportId },
+      });
+      if (!dsr) {
+        throw new NotFoundException(
+          `Daily Site Report ${input.dailySiteReportId} not found`,
+        );
+      }
+      return this.prisma.photo.create({
+        data: {
+          dailySiteReportId: input.dailySiteReportId,
+          storageKey: input.storageKey,
+          uploadedByUserId,
+        },
+      });
     }
 
+    // The Zod schema's refine already guarantees siteId is present whenever
+    // dailySiteReportId isn't — the `!` reflects that validated invariant,
+    // not an unchecked assumption.
+    const siteId = input.siteId!;
+    const site = await this.prisma.site.findUnique({ where: { id: siteId } });
+    if (!site) {
+      throw new NotFoundException(`Site ${siteId} not found`);
+    }
     return this.prisma.photo.create({
-      data: {
-        dailySiteReportId: input.dailySiteReportId,
-        storageKey: input.storageKey,
-        uploadedByUserId,
-      },
+      data: { siteId, storageKey: input.storageKey, uploadedByUserId },
     });
   }
 

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ConfirmPhotoUploadInput,
   PresignPhotoUploadInput,
+  PresignSitePhotoUploadInput,
 } from '@azentisfieldos/shared';
 import { StorageController } from './storage.controller';
 import { StorageService } from './storage.service';
@@ -17,11 +18,16 @@ describe('StorageController', () => {
   let controller: StorageController;
   let service: {
     presignUpload: ReturnType<typeof vi.fn>;
+    presignSitePhotoUpload: ReturnType<typeof vi.fn>;
     confirmUpload: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
-    service = { presignUpload: vi.fn(), confirmUpload: vi.fn() };
+    service = {
+      presignUpload: vi.fn(),
+      presignSitePhotoUpload: vi.fn(),
+      confirmUpload: vi.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [StorageController],
@@ -46,6 +52,24 @@ describe('StorageController', () => {
     const result = await controller.presign(input);
 
     expect(service.presignUpload).toHaveBeenCalledWith(input);
+    expect(result).toEqual(signed);
+  });
+
+  it('presignSitePhoto delegates to StorageService.presignSitePhotoUpload with the validated body', async () => {
+    const input: PresignSitePhotoUploadInput = { siteId: 'site-1' };
+    const signed = {
+      uploadUrl: 'https://api.cloudinary.com/v1_1/test-cloud/image/upload',
+      apiKey: 'test-key',
+      timestamp: 1735689600,
+      signature: 'test-signature',
+      publicId: 'site/site-1/x',
+      storageKey: 'site/site-1/x',
+    };
+    service.presignSitePhotoUpload.mockResolvedValue(signed);
+
+    const result = await controller.presignSitePhoto(input);
+
+    expect(service.presignSitePhotoUpload).toHaveBeenCalledWith(input);
     expect(result).toEqual(signed);
   });
 

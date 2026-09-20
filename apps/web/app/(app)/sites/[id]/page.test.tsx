@@ -6,7 +6,10 @@ const notFoundMock = vi.hoisted(() =>
     throw new Error("NEXT_NOT_FOUND");
   }),
 );
-vi.mock("next/navigation", () => ({ notFound: notFoundMock }));
+vi.mock("next/navigation", () => ({
+  notFound: notFoundMock,
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 import SiteDetailPage from "./page";
 

@@ -25,6 +25,7 @@ import {
 } from "@azentisfieldos/ui";
 import type { Site } from "../page";
 import { PhotoGalleryGrid } from "../../_components/photo-gallery-grid";
+import { SitePhotoUploadButton } from "./_components/site-photo-upload-button";
 import { DeleteEntityButton } from "../../_components/delete-entity-button";
 import { RecordRecentlyViewed } from "../../_components/record-recently-viewed";
 import { deleteSiteAction } from "./actions";
@@ -448,20 +449,23 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
       <div className="mb-8">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="text-section-header text-ink-900">Recent Photos</div>
-          {photos !== null && photos.length > 0 ? (
-            <Link
-              href={`/sites/${site.id}/photos`}
-              className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-            >
-              View all {photos.length} photo{photos.length === 1 ? "" : "s"}
-            </Link>
-          ) : null}
+          <div className="flex items-center gap-3">
+            {photos !== null && photos.length > 0 ? (
+              <Link
+                href={`/sites/${site.id}/photos`}
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+              >
+                View all {photos.length} photo{photos.length === 1 ? "" : "s"}
+              </Link>
+            ) : null}
+            <SitePhotoUploadButton siteId={site.id} />
+          </div>
         </div>
         {photos === null ? (
           <p className="text-body-sm text-ink-500">Couldn&apos;t load this Site&apos;s photos right now.</p>
         ) : photos.length === 0 ? (
           <p className="text-body-sm text-ink-500">
-            No photos yet for this Site — they arrive with Daily Reports.
+            No photos yet for this Site — they arrive with Daily Reports, or upload one directly above.
           </p>
         ) : (
           <PhotoGalleryGrid photos={photos.slice(0, RECENT_PHOTOS_LIMIT)} />

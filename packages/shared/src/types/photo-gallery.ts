@@ -10,10 +10,13 @@ export interface PhotoGalleryItem {
    * `getThumbnailUrl` call) for the click-to-preview lightbox — not the
    * grid thumbnail stretched up, and not the untransformed original. */
   previewUrl: string;
-  /** ISO-8601 date (YYYY-MM-DD) — the DSR's reportDate, not the photo's
-   * upload timestamp; these can differ for an offline-queued submission. */
+  /** ISO-8601 date (YYYY-MM-DD) — the DSR's reportDate for a DSR photo
+   * (these can differ from the upload timestamp for an offline-queued
+   * submission), or the photo's own createdAt date for a direct Site
+   * upload (2026-09-20), which has no DSR to anchor a reportDate to. */
   reportDate: string;
-  dailySiteReportId: string;
+  /** Null for a direct Site upload (2026-09-20) — no parent DSR. */
+  dailySiteReportId: string | null;
   uploaderName: string;
   createdAt: string;
 }

@@ -6,7 +6,10 @@ const notFoundMock = vi.hoisted(() =>
     throw new Error("NEXT_NOT_FOUND");
   }),
 );
-vi.mock("next/navigation", () => ({ notFound: notFoundMock }));
+vi.mock("next/navigation", () => ({
+  notFound: notFoundMock,
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 import SitePhotosPage from "./page";
 
@@ -67,7 +70,9 @@ describe("SitePhotosPage", () => {
 
     const { container } = await renderPhotosPage("site-1");
 
-    expect(screen.getByText("No photos yet for this Site.")).toBeInTheDocument();
+    expect(
+      screen.getByText("No photos yet for this Site — they arrive with Daily Reports, or upload one directly above."),
+    ).toBeInTheDocument();
     expect(container.querySelectorAll("img")).toHaveLength(0);
   });
 
