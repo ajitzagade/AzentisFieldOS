@@ -24,6 +24,11 @@ interface VehicleListItem {
   type?: { name: string } | null;
 }
 
+interface VehicleTypeOption {
+  id: string;
+  name: string;
+}
+
 async function getList<T>(path: string): Promise<T[]> {
   const res = await authedFetch(path, { cache: "no-store" });
   if (!res.ok) {
@@ -37,11 +42,12 @@ export default async function NewWasteDisposalPage({
 }: {
   searchParams?: Promise<{ siteId?: string }>;
 } = {}) {
-  const [sites, vendors, machinery, vehicles, { siteId } = {}] = await Promise.all([
+  const [sites, vendors, machinery, vehicles, vehicleTypes, { siteId } = {}] = await Promise.all([
     getList<SiteOption>(`/sites`),
     getList<VendorOption>(`/vendors`),
     getList<MachineryListItem>(`/machinery`),
     getList<VehicleListItem>(`/vehicles`),
+    getList<VehicleTypeOption>(`/vehicle-types`),
     searchParams,
   ]);
 
@@ -72,6 +78,7 @@ export default async function NewWasteDisposalPage({
         sites={sites}
         vendors={vendors}
         equipment={equipment}
+        vehicleTypeOptions={vehicleTypes}
         initial={prefillSiteId ? { siteId: prefillSiteId } : undefined}
       />
     </div>

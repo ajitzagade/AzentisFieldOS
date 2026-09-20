@@ -7,7 +7,10 @@ const redirectMock = vi.hoisted(() =>
 );
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-import { createVehicleAction } from "./actions";
+const revalidatePathMock = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+
+import { createVehicleAction, createVehicleQuickAction } from "./actions";
 
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.API_URL;
@@ -15,6 +18,7 @@ const originalApiUrl = process.env.API_URL;
 beforeEach(() => {
   process.env.API_URL = "http://localhost:3001";
   redirectMock.mockClear();
+  revalidatePathMock.mockClear();
 });
 
 afterEach(() => {
@@ -42,7 +46,11 @@ describe("createVehicleAction", () => {
   });
 
   it("posts the validated payload (optional fields omitted) and redirects to /machinery-vehicles on success", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "veh-1", number: "MH-12-AB-1234" }),
+    }) as unknown as typeof fetch;
 
     await expect(
       createVehicleAction({}, formData({ number: "MH-12-AB-1234", typeId: validTypeId })),
@@ -59,7 +67,11 @@ describe("createVehicleAction", () => {
   });
 
   it("includes optional ownership/driver when provided", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "veh-1", number: "MH-12-AB-1234" }),
+    }) as unknown as typeof fetch;
 
     await expect(
       createVehicleAction(
@@ -91,5 +103,32 @@ describe("createVehicleAction", () => {
     const result = await createVehicleAction({}, formData({ number: "MH-12-AB-1234", typeId: validTypeId }));
 
     expect(result.formError).toBe("Something went wrong registering the Vehicle. Please try again.");
+  });
+});
+
+describe("createVehicleQuickAction", () => {
+  it("returns { success, id, name } instead of redirecting, and revalidates every Vehicle-picker route", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "veh-1", number: "MH-12-AB-1234" }),
+    }) as unknown as typeof fetch;
+
+    const result = await createVehicleQuickAction({}, formData({ number: "MH-12-AB-1234", typeId: validTypeId }));
+
+    expect(result).toEqual({ success: true, id: "veh-1", name: "MH-12-AB-1234" });
+    expect(redirectMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).toHaveBeenCalledWith("/machinery-vehicles");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/waste-disposal/new");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dsr/new");
+  });
+
+  it("returns field errors without revalidating on failure", async () => {
+    global.fetch = vi.fn();
+
+    const result = await createVehicleQuickAction({}, formData({ typeId: validTypeId }));
+
+    expect(result.errors?.number).toBeDefined();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });

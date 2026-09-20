@@ -33,6 +33,7 @@ function mockFetchRouter(handlers: {
   expenseCategories?: unknown;
   machinery?: unknown;
   vehicles?: unknown;
+  vehicleTypes?: unknown;
   subcontractors?: unknown;
   siteStock?: unknown;
   dsr?: { status: number; body?: unknown } | "network-error";
@@ -79,6 +80,7 @@ function mockFetchRouter(handlers: {
     if (pathname === "/expense-categories") return ok(handlers.expenseCategories ?? []);
     if (pathname === "/machinery") return ok(handlers.machinery ?? []);
     if (pathname === "/vehicles") return ok(handlers.vehicles ?? []);
+    if (pathname === "/vehicle-types") return ok(handlers.vehicleTypes ?? []);
     if (pathname === "/subcontractors") return ok(handlers.subcontractors ?? []);
     return ok({});
   }) as unknown as typeof fetch;

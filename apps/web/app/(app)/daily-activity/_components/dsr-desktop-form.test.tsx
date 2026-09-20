@@ -23,6 +23,7 @@ vi.mock("@/lib/use-dsr-reference-data", () => ({
     expenseCategoryOptions: [],
     equipmentOptions: [],
     subcontractorOptions: [],
+    vehicleTypeOptions: [],
     rmcGradeOptions: [],
     loading: false,
     loadFailed: false,
@@ -30,6 +31,7 @@ vi.mock("@/lib/use-dsr-reference-data", () => ({
     addVendorOption: vi.fn(),
     addTeamMemberOption: vi.fn(),
     addSubcontractorOption: vi.fn(),
+    addVehicleOption: vi.fn(),
   }),
 }));
 

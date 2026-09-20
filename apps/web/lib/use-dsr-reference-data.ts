@@ -39,6 +39,9 @@ export interface DsrReferenceData {
   /** Existing Subcontractor register (goal 5) — same `onCreateNew` combobox
    * pattern as Vendor. */
   subcontractorOptions: ComboboxFieldOption[];
+  /** Vehicle Types, needed only to render VehicleQuickCreateModal's own
+   * Type field — not itself a picker option list. */
+  vehicleTypeOptions: NamedListItem[];
   /** Grade names from the "RMC" Material Category — empty when the tenant
    * hasn't configured one, in which case Grade stays free text. */
   rmcGradeOptions: string[];
@@ -54,6 +57,9 @@ export interface DsrReferenceData {
   addVendorOption: (option: ComboboxFieldOption) => void;
   addTeamMemberOption: (option: ComboboxFieldOption) => void;
   addSubcontractorOption: (option: ComboboxFieldOption) => void;
+  /** Prepends a just-created Vehicle into equipmentOptions (before the
+   * always-last Other Vehicle option) so it's immediately selectable. */
+  addVehicleOption: (option: { id: string; name: string }) => void;
 }
 
 interface MaterialListItem {
@@ -92,7 +98,7 @@ interface VehicleListItem {
 
 type DsrReferenceListData = Omit<
   DsrReferenceData,
-  "addMaterialOption" | "addVendorOption" | "addTeamMemberOption" | "addSubcontractorOption"
+  "addMaterialOption" | "addVendorOption" | "addTeamMemberOption" | "addSubcontractorOption" | "addVehicleOption"
 >;
 
 const EMPTY: Omit<DsrReferenceListData, "loading" | "loadFailed"> = {
@@ -102,6 +108,7 @@ const EMPTY: Omit<DsrReferenceListData, "loading" | "loadFailed"> = {
   expenseCategoryOptions: [],
   equipmentOptions: [OTHER_VEHICLE_OPTION],
   subcontractorOptions: [],
+  vehicleTypeOptions: [],
   rmcGradeOptions: [],
 };
 
@@ -130,8 +137,9 @@ export function useDsrReferenceData(): DsrReferenceData {
       fetchList<MachineryListItem>("/machinery"),
       fetchList<VehicleListItem>("/vehicles"),
       fetchList<NamedListItem>("/subcontractors"),
+      fetchList<NamedListItem>("/vehicle-types"),
     ])
-      .then(([materials, teamMembers, vendors, categories, machinery, vehicles, subcontractors]) => {
+      .then(([materials, teamMembers, vendors, categories, machinery, vehicles, subcontractors, vehicleTypes]) => {
         if (cancelled) return;
         setData({
           // Consumption is recorded per Material Size, so each size is its
@@ -175,6 +183,7 @@ export function useDsrReferenceData(): DsrReferenceData {
             OTHER_VEHICLE_OPTION,
           ],
           subcontractorOptions: subcontractors.map((s) => ({ value: s.id, label: s.name })),
+          vehicleTypeOptions: vehicleTypes,
           loading: false,
           loadFailed: false,
         });
@@ -204,6 +213,25 @@ export function useDsrReferenceData(): DsrReferenceData {
   const addSubcontractorOption = useCallback((option: ComboboxFieldOption) => {
     setData((prev) => ({ ...prev, subcontractorOptions: [option, ...prev.subcontractorOptions] }));
   }, []);
+  // Inserted before the always-last Other Vehicle entry (never after it) so
+  // the dropdown order stays List -> Other Vehicle -> "+ Add Vehicle" trigger.
+  const addVehicleOption = useCallback((option: { id: string; name: string }) => {
+    setData((prev) => ({
+      ...prev,
+      equipmentOptions: [
+        { value: `vehicle:${option.id}`, label: option.name, description: "Vehicle", equipmentType: "VEHICLE", name: option.name },
+        ...prev.equipmentOptions.filter((o) => o.value !== OTHER_VEHICLE_OPTION_VALUE),
+        OTHER_VEHICLE_OPTION,
+      ],
+    }));
+  }, []);
 
-  return { ...data, addMaterialOption, addVendorOption, addTeamMemberOption, addSubcontractorOption };
+  return {
+    ...data,
+    addMaterialOption,
+    addVendorOption,
+    addTeamMemberOption,
+    addSubcontractorOption,
+    addVehicleOption,
+  };
 }

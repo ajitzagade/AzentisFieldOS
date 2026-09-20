@@ -31,6 +31,7 @@ import { usePreventFormResetOnError } from "../../../lib/use-prevent-form-reset-
 import { requireOriginal } from "../../../lib/require-original";
 import { SiteField } from "../_components/site-field";
 import { VendorQuickCreateModal } from "../vendors/_components/vendor-quick-create-modal";
+import { VehicleQuickCreateModal } from "../machinery-vehicles/vehicles/_components/vehicle-quick-create-modal";
 import { createWasteDisposalAction, type CreateWasteDisposalFormState } from "./actions";
 import { parseWasteDisposalForm } from "./parse";
 
@@ -92,7 +93,8 @@ export function WasteDisposalForm({
   correctsId,
   sites,
   vendors: initialVendors,
-  equipment,
+  equipment: initialEquipment,
+  vehicleTypeOptions = [],
   initial,
 }: {
   mode: "new" | "correct";
@@ -100,6 +102,9 @@ export function WasteDisposalForm({
   sites: SiteOption[];
   vendors: VendorOption[];
   equipment: EquipmentOption[];
+  /** Only needed to render VehicleQuickCreateModal's own Type field —
+   * absent on the correct-mode page, where the picker stays disabled. */
+  vehicleTypeOptions?: { id: string; name: string }[];
   initial?: WasteDisposalFormInitialValues;
 }) {
   const [state, formAction] = useActionState(createWasteDisposalAction, initialState);
@@ -117,6 +122,8 @@ export function WasteDisposalForm({
   const [vendors, setVendors] = useState(initialVendors);
   const [vendorId, setVendorId] = useState(initial?.vendorId ?? "");
   const [vendorQuickCreateOpen, setVendorQuickCreateOpen] = useState(false);
+  const [equipment, setEquipment] = useState(initialEquipment);
+  const [vehicleQuickCreateOpen, setVehicleQuickCreateOpen] = useState(false);
   const [equipmentValue, setEquipmentValue] = useState(
     initial?.machineryId
       ? `machinery:${initial.machineryId}`
@@ -297,6 +304,8 @@ export function WasteDisposalForm({
           hint={ownership === "HIRED" ? "Optional — only if one of your own assets did the trips" : "Optional"}
           emptyMessage="No matching Machinery or Vehicle in the registers"
           error={fieldError("machineryId") ?? fieldError("vehicleId")}
+          onCreateNew={correcting ? undefined : () => setVehicleQuickCreateOpen(true)}
+          createNewLabel="+ Add Vehicle"
         />
         <input type="hidden" name="machineryId" value={correcting ? (initial?.machineryId ?? "") : machineryId} />
         <input type="hidden" name="vehicleId" value={correcting ? (initial?.vehicleId ?? "") : vehicleId} />
@@ -503,6 +512,19 @@ export function WasteDisposalForm({
           setVendors((prev) => [vendor, ...prev]);
           setVendorId(vendor.id);
           setVendorQuickCreateOpen(false);
+        }}
+      />
+      <VehicleQuickCreateModal
+        open={vehicleQuickCreateOpen}
+        vehicleTypeOptions={vehicleTypeOptions}
+        onOpenChange={setVehicleQuickCreateOpen}
+        onSuccess={(vehicle) => {
+          setEquipment((prev) => [
+            { value: `vehicle:${vehicle.id}`, label: vehicle.name, description: "Vehicle" },
+            ...prev,
+          ]);
+          setEquipmentValue(`vehicle:${vehicle.id}`);
+          setVehicleQuickCreateOpen(false);
         }}
       />
     </form>

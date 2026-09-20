@@ -31,6 +31,7 @@ import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-si
 import { MaterialQuickCreateModal } from "../../materials/_components/material-quick-create-modal";
 import { TeamMemberQuickCreateModal } from "../../team/_components/team-member-quick-create-modal";
 import { VendorQuickCreateModal } from "../../vendors/_components/vendor-quick-create-modal";
+import { VehicleQuickCreateModal } from "../../machinery-vehicles/vehicles/_components/vehicle-quick-create-modal";
 import { SubcontractorQuickCreateModal } from "../../subcontractors/_components/subcontractor-quick-create-modal";
 
 interface SiteOption {
@@ -182,6 +183,7 @@ export function DsrDesktopForm({
   // quick-create modal is shared, so it tracks which row's picker opened it.
   const [materialQuickCreateRow, setMaterialQuickCreateRow] = useState<number | null>(null);
   const [vendorQuickCreateRow, setVendorQuickCreateRow] = useState<number | null>(null);
+  const [vehicleQuickCreateOpen, setVehicleQuickCreateOpen] = useState(false);
 
   const [consumptions, setConsumptions] = useState<ConsumptionRow[]>(() => withRowIds(initial?.consumptions));
   const [rmcEntries, setRmcEntries] = useState<RmcRow[]>(() => withRowIds(initial?.rmcEntries));
@@ -784,6 +786,8 @@ export function DsrDesktopForm({
               ? "Couldn't load the registers — try reloading"
               : "No matching Machinery or Vehicle in the registers"
           }
+          onCreateNew={() => setVehicleQuickCreateOpen(true)}
+          createNewLabel="+ Add Vehicle"
         />
       </Card>
 
@@ -1068,6 +1072,20 @@ export function DsrDesktopForm({
             setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vendorId: vendor.id } : r)));
           }
           setVendorQuickCreateRow(null);
+        }}
+      />
+      <VehicleQuickCreateModal
+        open={vehicleQuickCreateOpen}
+        vehicleTypeOptions={reference.vehicleTypeOptions}
+        onOpenChange={setVehicleQuickCreateOpen}
+        onSuccess={(vehicle) => {
+          reference.addVehicleOption({ id: vehicle.id, name: vehicle.name });
+          setEquipmentUsed((rows) =>
+            rows.some((r) => r.id === vehicle.id)
+              ? rows
+              : [...rows, { type: "VEHICLE", id: vehicle.id, name: vehicle.name }],
+          );
+          setVehicleQuickCreateOpen(false);
         }}
       />
       <SubcontractorQuickCreateModal
