@@ -11,9 +11,24 @@ import { useAuthedFetch } from "./use-authed-fetch";
 // search), so the ComboboxField filters client-side. Shared by the mobile
 // and desktop DSR forms so both stay option-for-option identical.
 export interface EquipmentOption extends ComboboxFieldOption {
-  equipmentType: "MACHINERY" | "VEHICLE";
+  equipmentType: "MACHINERY" | "VEHICLE" | "OTHER";
   name: string;
 }
+
+// Client-readiness batch (goal 2): a synthetic, always-present option for a
+// vehicle that isn't in either register — picking it reveals a free-text
+// description field instead of resolving to a Machinery/Vehicle id. Never
+// looked up against either register, so it can never create/update a
+// Vehicle row (the boundary the spec requires).
+export const OTHER_VEHICLE_OPTION_VALUE = "other:other-vehicle";
+
+const OTHER_VEHICLE_OPTION: EquipmentOption = {
+  value: OTHER_VEHICLE_OPTION_VALUE,
+  label: "Other Vehicle (not in register)",
+  description: "Type a description — plate number, hired dumper, etc.",
+  equipmentType: "OTHER",
+  name: "Other Vehicle",
+};
 
 export interface DsrReferenceData {
   materialOptions: ComboboxFieldOption[];
@@ -21,6 +36,9 @@ export interface DsrReferenceData {
   vendorOptions: ComboboxFieldOption[];
   expenseCategoryOptions: ComboboxFieldOption[];
   equipmentOptions: EquipmentOption[];
+  /** Existing Subcontractor register (goal 5) — same `onCreateNew` combobox
+   * pattern as Vendor. */
+  subcontractorOptions: ComboboxFieldOption[];
   /** Grade names from the "RMC" Material Category — empty when the tenant
    * hasn't configured one, in which case Grade stays free text. */
   rmcGradeOptions: string[];
@@ -35,6 +53,7 @@ export interface DsrReferenceData {
   addMaterialOption: (option: ComboboxFieldOption) => void;
   addVendorOption: (option: ComboboxFieldOption) => void;
   addTeamMemberOption: (option: ComboboxFieldOption) => void;
+  addSubcontractorOption: (option: ComboboxFieldOption) => void;
 }
 
 interface MaterialListItem {
@@ -71,14 +90,18 @@ interface VehicleListItem {
   type?: { name: string } | null;
 }
 
-type DsrReferenceListData = Omit<DsrReferenceData, "addMaterialOption" | "addVendorOption" | "addTeamMemberOption">;
+type DsrReferenceListData = Omit<
+  DsrReferenceData,
+  "addMaterialOption" | "addVendorOption" | "addTeamMemberOption" | "addSubcontractorOption"
+>;
 
 const EMPTY: Omit<DsrReferenceListData, "loading" | "loadFailed"> = {
   materialOptions: [],
   teamMemberOptions: [],
   vendorOptions: [],
   expenseCategoryOptions: [],
-  equipmentOptions: [],
+  equipmentOptions: [OTHER_VEHICLE_OPTION],
+  subcontractorOptions: [],
   rmcGradeOptions: [],
 };
 
@@ -106,8 +129,9 @@ export function useDsrReferenceData(): DsrReferenceData {
       fetchList<NamedListItem>("/expense-categories"),
       fetchList<MachineryListItem>("/machinery"),
       fetchList<VehicleListItem>("/vehicles"),
+      fetchList<NamedListItem>("/subcontractors"),
     ])
-      .then(([materials, teamMembers, vendors, categories, machinery, vehicles]) => {
+      .then(([materials, teamMembers, vendors, categories, machinery, vehicles, subcontractors]) => {
         if (cancelled) return;
         setData({
           // Consumption is recorded per Material Size, so each size is its
@@ -146,7 +170,11 @@ export function useDsrReferenceData(): DsrReferenceData {
                 name: vehicle.number,
               }),
             ),
+            // Goal 2: always offered, even when the registers are empty —
+            // never resolved against either register.
+            OTHER_VEHICLE_OPTION,
           ],
+          subcontractorOptions: subcontractors.map((s) => ({ value: s.id, label: s.name })),
           loading: false,
           loadFailed: false,
         });
@@ -173,6 +201,9 @@ export function useDsrReferenceData(): DsrReferenceData {
   const addTeamMemberOption = useCallback((option: ComboboxFieldOption) => {
     setData((prev) => ({ ...prev, teamMemberOptions: [option, ...prev.teamMemberOptions] }));
   }, []);
+  const addSubcontractorOption = useCallback((option: ComboboxFieldOption) => {
+    setData((prev) => ({ ...prev, subcontractorOptions: [option, ...prev.subcontractorOptions] }));
+  }, []);
 
-  return { ...data, addMaterialOption, addVendorOption, addTeamMemberOption };
+  return { ...data, addMaterialOption, addVendorOption, addTeamMemberOption, addSubcontractorOption };
 }

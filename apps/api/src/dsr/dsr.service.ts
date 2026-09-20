@@ -68,12 +68,20 @@ export class DsrService {
   // in teamMemberId-sorted order) so two transactions can never deadlock
   // waiting on each other.
   //
-  // Returns the existing WorkRecord for this person/date (if any), so
-  // create()'s update-vs-create branch can reuse it instead of running a
-  // second, near-identical findFirst right after this one — the two used
-  // to query overlapping data (this one across every Site, the second
-  // re-checking the same person/date narrowed to just this Site) once per
-  // crew member, every DSR submission.
+  // Returns the existing WorkRecord for this person/date AT THIS SITE (if
+  // any), so create()'s update-vs-create branch can reuse it instead of
+  // running a second, near-identical findFirst right after this one.
+  //
+  // Client-readiness batch (goal 6): a crew member CAN legitimately work
+  // more than one Site on the same date (e.g. a half-day at each) — this
+  // used to throw ConflictException when the person's most recent WorkRecord
+  // for the date belonged to a different Site, which wrongly blocked that
+  // case. The advisory lock is still needed (serializes concurrent
+  // create()/correct() calls for the same person+date so they can't race
+  // into duplicate rows), it's just narrowed to this Site's own existing row
+  // so a different Site's booking never collides with or blocks this one.
+  // The separate, stricter standalone Work Record entry restriction
+  // (WorkRecordsService.assertNoExistingWorkRecord) is untouched.
   private async assertNoDoubleBooking(
     tx: Prisma.TransactionClient,
     teamMemberId: string,
@@ -82,13 +90,8 @@ export class DsrService {
   ) {
     await lockOnKey(tx, `workrecord:${teamMemberId}:${workDate.toISOString()}`);
     const existing = await tx.workRecord.findFirst({
-      where: { teamMemberId, workDate },
+      where: { teamMemberId, workDate, siteId },
     });
-    if (existing && existing.siteId !== siteId) {
-      throw new ConflictException(
-        'A crew member is already recorded at another Site on this date',
-      );
-    }
     return existing;
   }
 
@@ -218,14 +221,18 @@ export class DsrService {
     }
 
     for (const rmc of input.rmcEntries) {
-      // Server-computed, never client-trusted.
-      const totalAmount = rmc.quantityM3 * rmc.ratePerM3;
+      // Server-computed, never client-trusted. Rate absent (pricing
+      // pending, goal 1) ⇒ totalAmount stays null — multiplying against a
+      // missing rate would otherwise produce NaN into a nullable-but-still-
+      // typed column.
+      const totalAmount =
+        rmc.ratePerM3 === undefined ? null : rmc.quantityM3 * rmc.ratePerM3;
       const data = {
         siteId: input.siteId,
         vendorId: rmc.vendorId,
         quantityM3: rmc.quantityM3,
         grade: rmc.grade,
-        ratePerM3: rmc.ratePerM3,
+        ratePerM3: rmc.ratePerM3 ?? null,
         totalAmount,
         deliveredAt: reportDate,
         dailySiteReportId: dsrId,
@@ -305,6 +312,8 @@ export class DsrService {
           safetyObservations: input.safetyObservations,
           notes: input.notes,
           equipmentUsed: input.equipmentUsed,
+          subcontractorEntries: input.subcontractorEntries,
+          labourEntries: input.labourEntries,
         };
 
         const dsr = existingOriginal
@@ -482,6 +491,8 @@ export class DsrService {
         safetyObservations: input.safetyObservations,
         notes: input.notes,
         equipmentUsed: input.equipmentUsed,
+        subcontractorEntries: input.subcontractorEntries,
+        labourEntries: input.labourEntries,
         draftContent: this.draftSubRecords(input) as Prisma.InputJsonValue,
       };
 
@@ -551,6 +562,8 @@ export class DsrService {
       safetyObservations: draft.safetyObservations,
       notes: draft.notes,
       equipmentUsed: draft.equipmentUsed,
+      subcontractorEntries: draft.subcontractorEntries,
+      labourEntries: draft.labourEntries,
       workRecords: content.workRecords ?? [],
       consumptions: content.consumptions ?? [],
       rmcEntries: content.rmcEntries ?? [],
@@ -689,6 +702,8 @@ export class DsrService {
           rmcEntries: content.rmcEntries ?? [],
           expenses: content.expenses ?? [],
           equipmentUsed: draft.equipmentUsed ?? [],
+          subcontractorEntries: draft.subcontractorEntries ?? [],
+          labourEntries: draft.labourEntries ?? [],
         });
         if (!parsed.success) {
           throw new BadRequestException(
@@ -822,6 +837,8 @@ export class DsrService {
             safetyObservations: input.safetyObservations,
             notes: input.notes,
             equipmentUsed: input.equipmentUsed,
+            subcontractorEntries: input.subcontractorEntries,
+            labourEntries: input.labourEntries,
             correctsId: originalId,
             reason,
           },
@@ -891,14 +908,15 @@ export class DsrService {
         }
 
         for (const rmc of input.rmcEntries) {
-          const totalAmount = rmc.quantityM3 * rmc.ratePerM3;
+          const totalAmount =
+            rmc.ratePerM3 === undefined ? null : rmc.quantityM3 * rmc.ratePerM3;
           await tx.rmcEntry.create({
             data: {
               siteId: input.siteId,
               vendorId: rmc.vendorId,
               quantityM3: rmc.quantityM3,
               grade: rmc.grade,
-              ratePerM3: rmc.ratePerM3,
+              ratePerM3: rmc.ratePerM3 ?? null,
               totalAmount,
               deliveredAt: reportDate,
               dailySiteReportId: dsr.id,

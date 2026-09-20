@@ -163,6 +163,75 @@ describe('getSiteActivityFeed', () => {
     );
   });
 
+  // Goal 1 (nullable pricing): a pricing-pending RMC delivery or Waste
+  // Material trip has totalAmount: null — the feed must show it as
+  // amount-less (never a thrown error, never a fabricated ₹0).
+  it('maps a pricing-pending RMC delivery and Waste Material trip to a null FeedItem.amount, without throwing', async () => {
+    const rmcFindMany = vi.fn().mockResolvedValue([
+      {
+        id: 'rmc-priced',
+        deliveredAt: new Date('2026-08-14T09:00:00Z'),
+        quantityM3: { toString: () => '20' },
+        grade: 'M25',
+        totalAmount: decimal(124000),
+        vendor: { name: 'Anand RMC Suppliers' },
+      },
+      {
+        id: 'rmc-pending',
+        deliveredAt: new Date('2026-08-13T09:00:00Z'),
+        quantityM3: { toString: () => '10' },
+        grade: 'M25',
+        totalAmount: null,
+        vendor: { name: 'Anand RMC Suppliers' },
+      },
+    ]);
+    const wasteDisposalFindMany = vi.fn().mockResolvedValue([
+      {
+        id: 'wd-priced',
+        disposedAt: new Date('2026-08-14T10:00:00Z'),
+        wasteType: 'Debris',
+        tripCount: 4,
+        vendor: { name: 'Balaji Transport' },
+        disposalLocation: null,
+        totalAmount: decimal(3000),
+      },
+      {
+        id: 'wd-pending',
+        disposedAt: new Date('2026-08-13T10:00:00Z'),
+        wasteType: 'Debris',
+        tripCount: 2,
+        vendor: { name: 'Balaji Transport' },
+        disposalLocation: null,
+        totalAmount: null,
+      },
+    ]);
+    const prisma = {
+      purchase: { findMany: emptyFindMany() },
+      movement: { findMany: emptyFindMany() },
+      consumption: { findMany: emptyFindMany() },
+      returnWastage: { findMany: emptyFindMany() },
+      workRecord: { findMany: emptyFindMany() },
+      expense: { findMany: emptyFindMany() },
+      rmcEntry: { findMany: rmcFindMany },
+      dailySiteReport: { findMany: emptyFindMany() },
+      machineryMovementLog: { findMany: emptyFindMany() },
+      vehicleMovementLog: { findMany: emptyFindMany() },
+      wasteDisposal: { findMany: wasteDisposalFindMany },
+      siteContract: { findMany: emptyFindMany() },
+      subcontractorWorkEntry: { findMany: emptyFindMany() },
+      subcontractorPayment: { findMany: emptyFindMany() },
+    } as any as PrismaService;
+
+    const feed = await getSiteActivityFeed(prisma, 'site-1');
+
+    expect(feed).toHaveLength(4);
+    const byId = Object.fromEntries(feed.map((item) => [item.id, item]));
+    expect(byId['rmc-priced']).toMatchObject({ amount: 124000 });
+    expect(byId['rmc-pending']).toMatchObject({ amount: null });
+    expect(byId['wd-priced']).toMatchObject({ amount: 3000 });
+    expect(byId['wd-pending']).toMatchObject({ amount: null });
+  });
+
   it('includes Site Contract, Work Entry, and Subcontractor Payment events (Epic 18), filtered via the SiteContract relation', async () => {
     const siteContractFindMany = vi.fn().mockResolvedValue([
       {

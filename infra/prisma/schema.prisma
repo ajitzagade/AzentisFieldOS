@@ -642,8 +642,11 @@ model RmcEntry {
   vendor        Vendor   @relation(fields: [vendorId], references: [id])
   quantityM3    Decimal
   grade         String
-  ratePerM3     Decimal
-  totalAmount   Decimal
+  // Nullable: a Supervisor may record delivery before pricing is known.
+  // totalAmount stays null whenever ratePerM3 is null — never a false ₹0
+  // (client-readiness batch, goal 1).
+  ratePerM3     Decimal?
+  totalAmount   Decimal?
   invoiceOrChallanNo String?
   challanPhotoUrl String?
   deliveredAt   DateTime
@@ -714,6 +717,14 @@ model DailySiteReport {
   // Denormalized (stores the name at entry time) so this DSR's feed entry
   // still reads correctly even if the asset is later renamed/deleted.
   equipmentUsed Json @default("[]")
+
+  // Client-readiness batch (2026-09-20), goal 5: same reasoning as
+  // equipmentUsed above — informational tagging, not a money-bearing ledger,
+  // so plain denormalized JSON rather than a relational sub-table. A
+  // correction already gets a fresh copy for free since it's a whole new
+  // DailySiteReport row.
+  subcontractorEntries Json @default("[]")
+  labourEntries        Json @default("[]")
 
   // Story 3.5 (AD-9, FR-54): a correction is a new row, never an edit —
   // same plain correctsId/reason pattern as Purchase/Movement/Consumption
@@ -838,12 +849,15 @@ model WasteDisposal {
   // Free text for hired dumpers/trucks that aren't in the own registers.
   vehicleDetails   String?
   tripCount        Int
-  ratePerTrip      Decimal
+  // Nullable, all-or-none with totalAmount/paymentStatus (mirrors Purchase's
+  // D7 pattern): a Supervisor may record a trip before pricing is known.
+  ratePerTrip      Decimal?
   otherCharges     Decimal    @default(0) // loading/JCB/toll etc.
-  totalAmount      Decimal // server-computed, see model comment
+  totalAmount      Decimal? // server-computed when ratePerTrip present, see model comment
   disposalLocation String?
   // PAID | PARTIAL | UNPAID — HIRED rows only (same vocabulary as
-  // Purchase.paymentStatus); null for OWN rows, never a fabricated PAID.
+  // Purchase.paymentStatus); null for OWN rows or pricing-pending rows,
+  // never a fabricated PAID.
   paymentStatus    String?
   notes            String?
   disposedAt       DateTime

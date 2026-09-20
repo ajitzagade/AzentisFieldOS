@@ -210,6 +210,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [{ vendorId, quantityM3: 5, grade: 'M25', ratePerM3: 6000 }],
       expenses: [{ categoryId, amount: 500, description: 'Test expense' }],
       equipmentUsed: [{ type: 'MACHINERY', id: 'mach-1', name: 'JCB 3DX' }],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     expect(result.workRecords).toHaveLength(1);
@@ -217,10 +219,30 @@ describeIfDb('DsrService (integration)', () => {
     expect(result.rmcEntries).toHaveLength(1);
     expect(result.expenses).toHaveLength(1);
     // 5 * 6000 — computed server-side, never trusted from a client input.
-    expect(result.rmcEntries[0]?.totalAmount.toString()).toBe('30000');
+    expect(result.rmcEntries[0]?.totalAmount?.toString()).toBe('30000');
     expect(result.equipmentUsed).toEqual([
       { type: 'MACHINERY', id: 'mach-1', name: 'JCB 3DX' },
     ]);
+  });
+
+  // Matrix Test Audit (client-readiness batch, goal 1): a DSR-embedded RMC
+  // entry with no rate yet (pricing pending) must store totalAmount as
+  // null, never NaN from multiplying against a missing rate.
+  it('a DSR-embedded RMC entry with ratePerM3 omitted stores totalAmount as null, not NaN', async () => {
+    const result = await create({
+      siteId,
+      reportDate: '2026-08-09',
+      workRecords: [],
+      consumptions: [],
+      rmcEntries: [{ vendorId, quantityM3: 5, grade: 'M25' }],
+      expenses: [],
+      equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
+    });
+
+    expect(result.rmcEntries[0]?.totalAmount).toBeNull();
+    expect(result.rmcEntries[0]?.ratePerM3).toBeNull();
   });
 
   it('upserts a second submission for the same Site/date instead of duplicating it (story 3.2: retried offline sync must be idempotent)', async () => {
@@ -235,6 +257,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     const second = await create({
@@ -246,6 +270,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     // Same underlying row, last-synced-write-wins on its own fields (AD-8) —
@@ -272,6 +298,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     // Same clientGeneratedId, different quantity — simulates the offline
@@ -284,6 +312,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     expect(result.consumptions).toHaveLength(1);
@@ -293,7 +323,7 @@ describeIfDb('DsrService (integration)', () => {
     expect(await siteStockQuantity()).toBe('975');
   });
 
-  it('rejects a crew member double-booked at another Site on the same date, not a raw constraint error', async () => {
+  it('allows a crew member to work multiple Sites on the same date (client-readiness batch, goal 6)', async () => {
     const otherSite = await prisma.site.create({
       data: { name: 'Other Site', location: 'Elsewhere' },
     });
@@ -306,20 +336,34 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
-    await expect(
-      create({
-        siteId: otherSite.id,
-        reportDate: '2026-08-12',
-        workRecords: [{ teamMemberId, attended: true }],
-        consumptions: [],
-        rmcEntries: [],
-        expenses: [],
-        equipmentUsed: [],
-      }),
-    ).rejects.toThrow(ConflictException);
+    await create({
+      siteId: otherSite.id,
+      reportDate: '2026-08-12',
+      workRecords: [{ teamMemberId, attended: true }],
+      consumptions: [],
+      rmcEntries: [],
+      expenses: [],
+      equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
+    });
 
+    const records = await prisma.workRecord.findMany({
+      where: { teamMemberId, workDate: new Date('2026-08-12') },
+    });
+    expect(records).toHaveLength(2);
+    expect(records.map((r) => r.siteId).sort()).toEqual(
+      [siteId, otherSite.id].sort(),
+    );
+
+    await prisma.workRecord.deleteMany({ where: { siteId: otherSite.id } });
+    await prisma.dailySiteReport.deleteMany({
+      where: { siteId: otherSite.id },
+    });
     await prisma.site.delete({ where: { id: otherSite.id } });
   });
 
@@ -333,6 +377,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       }),
     ).rejects.toThrow();
 
@@ -352,6 +398,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     const defaults = await service.getCrewDefaults(siteId, '2026-08-04');
@@ -373,6 +421,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     const rows = await service.listByDate('2026-08-15');
@@ -398,6 +448,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [{ vendorId, quantityM3: 5, grade: 'M25', ratePerM3: 6000 }],
       expenses: [{ categoryId, amount: 500, description: 'Test expense' }],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     const detail = await service.findOne(created.id);
@@ -421,6 +473,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
     await prisma.photo.create({
       data: {
@@ -453,6 +507,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     const correction = await correct(
@@ -466,6 +522,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       },
       'Work completed text was wrong',
     );
@@ -491,6 +549,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
     const originalWorkRecordId = original.workRecords[0]?.id;
 
@@ -504,6 +564,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       },
       'Ravi was actually present, not absent',
     );
@@ -533,6 +595,8 @@ describeIfDb('DsrService (integration)', () => {
           rmcEntries: [],
           expenses: [],
           equipmentUsed: [],
+          subcontractorEntries: [],
+          labourEntries: [],
         },
         'Some reason',
       ),
@@ -548,6 +612,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
     const otherSite = await prisma.site.create({
       data: { name: 'Wrong Site', location: 'Elsewhere' },
@@ -564,6 +630,8 @@ describeIfDb('DsrService (integration)', () => {
           rmcEntries: [],
           expenses: [],
           equipmentUsed: [],
+          subcontractorEntries: [],
+          labourEntries: [],
         },
         'Wrong Site',
       ),
@@ -580,6 +648,8 @@ describeIfDb('DsrService (integration)', () => {
           rmcEntries: [],
           expenses: [],
           equipmentUsed: [],
+          subcontractorEntries: [],
+          labourEntries: [],
         },
         'Wrong date',
       ),
@@ -602,6 +672,8 @@ describeIfDb('DsrService (integration)', () => {
           rmcEntries: [],
           expenses: [],
           equipmentUsed: [],
+          subcontractorEntries: [],
+          labourEntries: [],
         }),
       ),
     );
@@ -628,6 +700,8 @@ describeIfDb('DsrService (integration)', () => {
           rmcEntries: [],
           expenses: [],
           equipmentUsed: [],
+          subcontractorEntries: [],
+          labourEntries: [],
         }),
       ),
     );
@@ -653,6 +727,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
     const correction = await correct(
       original.id,
@@ -665,6 +741,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       },
       'Fixing the summary',
     );
@@ -685,6 +763,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
     const firstCorrection = await correct(
       original.id,
@@ -696,6 +776,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       },
       'First fix',
     );
@@ -709,6 +791,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       },
       'Second fix',
     );
@@ -730,6 +814,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     const uncorrected = await service.findOne(original.id);
@@ -745,6 +831,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       },
       'A fix',
     );
@@ -763,6 +851,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
     const correction = await correct(
       original.id,
@@ -774,6 +864,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       },
       'A fix',
     );
@@ -787,6 +879,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     expect(resubmitted.id).toBe(original.id);
@@ -814,6 +908,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     expect(await siteStockQuantity()).toBe('80');
@@ -836,6 +932,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       }),
     ).rejects.toThrow(BadRequestException);
 
@@ -858,6 +956,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
     expect(await siteStockQuantity()).toBe('80');
 
@@ -871,6 +971,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       },
       'Recount: 12 bags used, not 20',
     );
@@ -895,6 +997,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [{ vendorId, quantityM3: 5, grade: 'M25', ratePerM3: 6000 }],
       expenses: [{ categoryId, amount: 500 }],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
     await correct(
       original.id,
@@ -908,6 +1012,8 @@ describeIfDb('DsrService (integration)', () => {
         ],
         expenses: [{ categoryId, amount: 450 }],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       },
       'Recount',
     );
@@ -944,6 +1050,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
     const payload = {
       siteId,
@@ -953,6 +1061,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     };
     await correct(original.id, payload, 'First correction');
 
@@ -974,6 +1084,8 @@ describeIfDb('DsrService (integration)', () => {
       rmcEntries: [{ vendorId, quantityM3: 3, grade: 'M25', ratePerM3: 5000 }],
       expenses: [{ categoryId, amount: 700, description: 'Draft expense' }],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     });
 
     const ledgerCounts = async () => ({
@@ -1172,6 +1284,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       });
       await expect(
         service.deleteDraft(submitted.id, testUserId),
@@ -1229,6 +1343,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       });
 
       await expect(
@@ -1256,6 +1372,8 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
       });
 
       await expect(service.finalizeDraft(id, testUserId)).rejects.toThrow(
@@ -1328,6 +1446,8 @@ describeIfDb('DsrService (integration)', () => {
             rmcEntries: [],
             expenses: [],
             equipmentUsed: [],
+            subcontractorEntries: [],
+            labourEntries: [],
           },
           'Attempted correction of a draft',
         ),
@@ -1355,6 +1475,8 @@ describeIfDb('DsrService (integration)', () => {
           ],
           expenses: [],
           equipmentUsed: [],
+          subcontractorEntries: [],
+          labourEntries: [],
         },
         testUserId,
       );

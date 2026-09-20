@@ -76,19 +76,26 @@ export class WasteDisposalService {
       });
       if (!original) {
         throw new BadRequestException(
-          `Waste Disposal ${input.correctsId} does not exist`,
+          `Waste Material ${input.correctsId} does not exist`,
         );
       }
       // A correction is a signed adjustment to the SAME activity — Site,
       // waste type, ownership, party, and rate must all match the original
       // (same rule as ExpensesService/RmcService corrections). A different
       // rate/party is a new activity, not a correction of this one.
+      // Null-safe: an original with no rate yet (pricing pending) only
+      // matches a correction that also carries no rate.
+      const rateMismatch =
+        original.ratePerTrip === null
+          ? input.ratePerTrip !== undefined
+          : input.ratePerTrip === undefined ||
+            !original.ratePerTrip.equals(new Prisma.Decimal(input.ratePerTrip));
       if (
         original.siteId !== input.siteId ||
         original.wasteType !== input.wasteType ||
         original.ownership !== input.ownership ||
         (original.vendorId ?? undefined) !== input.vendorId ||
-        !original.ratePerTrip.equals(new Prisma.Decimal(input.ratePerTrip))
+        rateMismatch
       ) {
         throw new BadRequestException(
           "A correction's Site, waste type, ownership, party and rate must match the entry it corrects",
@@ -97,10 +104,15 @@ export class WasteDisposalService {
     }
 
     // Exact Decimal arithmetic, signed on corrections (negative tripCount /
-    // otherCharges deltas produce a negative totalAmount delta).
-    const totalAmount = new Prisma.Decimal(input.tripCount)
-      .mul(new Prisma.Decimal(input.ratePerTrip))
-      .add(new Prisma.Decimal(input.otherCharges ?? 0));
+    // otherCharges deltas produce a negative totalAmount delta). Rate absent
+    // (pricing pending, goal 1) ⇒ totalAmount stays null — never a false ₹0
+    // from multiplying against a missing rate.
+    const totalAmount =
+      input.ratePerTrip === undefined
+        ? null
+        : new Prisma.Decimal(input.tripCount)
+            .mul(new Prisma.Decimal(input.ratePerTrip))
+            .add(new Prisma.Decimal(input.otherCharges ?? 0));
 
     // `advance` is a separate VendorAdvance row (its own table), not a
     // WasteDisposal column — pulled out before spreading `input` into the
@@ -114,6 +126,13 @@ export class WasteDisposalService {
             ...disposalInput,
             otherCharges: disposalInput.otherCharges ?? 0,
             totalAmount,
+            // All-or-none with ratePerTrip (D7 pattern): pricing pending
+            // means paymentStatus is also null, never a stray value the
+            // schema's group check would otherwise have rejected anyway.
+            paymentStatus:
+              input.ratePerTrip === undefined
+                ? null
+                : (disposalInput.paymentStatus ?? null),
             disposedAt: new Date(disposalInput.disposedAt),
             recordedByUserId,
           },
@@ -241,9 +260,11 @@ export class WasteDisposalService {
       for (const c of corrections) {
         const root = rootOf.get(c.correctsId!)!;
         rootOf.set(c.id, root);
+        // A correction to a still-unpriced entry can itself carry a null
+        // totalAmount (goal 1) — null-safe, treated as a 0 contribution.
         deltaByRoot.set(
           root,
-          (deltaByRoot.get(root) ?? ZERO).add(c.totalAmount),
+          (deltaByRoot.get(root) ?? ZERO).add(c.totalAmount ?? ZERO),
         );
         const current = statusByRoot.get(root)!;
         if (c.paymentStatus && c.createdAt >= current.at) {
@@ -256,7 +277,11 @@ export class WasteDisposalService {
     return rows.map((r) => {
       if (r.correctsId || !r.vendorId) return notApplicable(r);
       const advanceTotal = advanceByRoot.get(r.id) ?? ZERO;
-      const netBill = r.totalAmount.add(deltaByRoot.get(r.id) ?? ZERO);
+      // Null-safe (goal 1): a still-unpriced root contributes 0, never
+      // throws — pendingAmount below stays a real (if incomplete) figure.
+      const netBill = (r.totalAmount ?? ZERO).add(
+        deltaByRoot.get(r.id) ?? ZERO,
+      );
       const pendingAmount =
         statusByRoot.get(r.id)!.status === 'PAID'
           ? ZERO
@@ -302,7 +327,10 @@ export class WasteDisposalService {
     >();
 
     for (const row of rows) {
-      const cost = row.totalAmount.toNumber();
+      // Pricing-pending rows (goal 1) contribute 0 to every cost aggregate —
+      // never a fabricated ₹0 total for the row itself (rendered as "—" in
+      // the UI), just excluded from the sums here.
+      const cost = row.totalAmount?.toNumber() ?? 0;
       const trips = row.tripCount;
       summary.totalCost += cost;
       summary.totalTrips += trips;
@@ -359,7 +387,7 @@ export class WasteDisposalService {
       include: DISPOSAL_INCLUDE,
     });
     if (!disposal) {
-      throw new NotFoundException(`Waste Disposal ${id} not found`);
+      throw new NotFoundException(`Waste Material ${id} not found`);
     }
     const [settled] = await this.withSettlement([disposal]);
     return settled!;

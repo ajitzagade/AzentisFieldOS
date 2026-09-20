@@ -231,7 +231,10 @@ export class RmcService {
         entryCount: 0,
       };
       bucket.totalQuantityM3 += entry.quantityM3.toNumber();
-      bucket.totalCost += entry.totalAmount.toNumber();
+      // A pricing-pending delivery (goal 1: ratePerM3/totalAmount nullable)
+      // contributes 0 to the cost aggregate — never throws, never a
+      // fabricated ₹0 total for the individual row (rendered as "—" there).
+      bucket.totalCost += entry.totalAmount?.toNumber() ?? 0;
       bucket.entryCount += 1;
       groups.set(key, bucket);
     }

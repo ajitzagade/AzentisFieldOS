@@ -115,6 +115,13 @@ export function RmcForm({ mode, correctsId, sites, vendors: initialVendors, grad
   const [quantityM3, setQuantityM3] = useState("");
   const [ratePerM3, setRatePerM3] = useState(initial?.ratePerM3 ?? "");
   const [totalAmount, setTotalAmount] = useState(initial?.totalAmount ?? "");
+  // A pricing-pending original (D7-style: ratePerM3/totalAmount both null)
+  // has no original total to derive a delta from — requireOriginal would
+  // throw. There is no dedicated pricing-completion workflow for RMC
+  // deliveries (only Purchase has one, D7), so a correction must never be
+  // the way pricing first gets attached: the rate/total fields lock closed
+  // instead of rendering an editable corrected-value input.
+  const pricingPending = mode === "correct" && initial?.totalAmount == null;
 
   function recomputeTotal(nextQuantity: string, nextRate: string) {
     const quantity = Number(nextQuantity);
@@ -248,7 +255,8 @@ export function RmcForm({ mode, correctsId, sites, vendors: initialVendors, grad
         <AmountField
           label="Rate / m³"
           name="ratePerM3"
-          required
+          hint={pricingPending ? "Pricing pending — a rate can't be added through a correction" : "Optional — leave blank if pricing isn't known yet"}
+          disabled={pricingPending}
           value={ratePerM3}
           onChange={(e) => {
             setRatePerM3(e.target.value);
@@ -256,23 +264,36 @@ export function RmcForm({ mode, correctsId, sites, vendors: initialVendors, grad
           }}
           error={fieldError("ratePerM3")}
         />
+        {pricingPending ? <input type="hidden" name="ratePerM3" value="" /> : null}
         {mode === "correct" ? (
-          <CorrectedValueField
-            label="Corrected total amount"
-            name="totalAmount"
-            originalValue={requireOriginal(initial?.totalAmount, "total amount")}
-            unit="₹"
-            required
-            error={fieldError("totalAmount")}
-          />
+          pricingPending ? (
+            <>
+              <AmountField
+                label="Total Amount"
+                value=""
+                disabled
+                hint="Pricing pending — this delivery has no rate/total yet, and one can't be added through a correction. Quantity, Grade, and Vendor can still be corrected."
+                error={fieldError("totalAmount")}
+              />
+              <input type="hidden" name="totalAmount" value="" />
+            </>
+          ) : (
+            <CorrectedValueField
+              label="Corrected total amount"
+              name="totalAmount"
+              originalValue={requireOriginal(initial?.totalAmount, "total amount")}
+              unit="₹"
+              required
+              error={fieldError("totalAmount")}
+            />
+          )
         ) : (
           <AmountField
             label="Total Amount"
             name="totalAmount"
-            required
             value={totalAmount}
             onChange={(e) => setTotalAmount(e.target.value)}
-            hint="Auto-calculated as quantity × rate — you can type over it"
+            hint="Auto-calculated as quantity × rate — leave blank if pricing isn't known yet, you can also type over it"
             error={fieldError("totalAmount")}
           />
         )}

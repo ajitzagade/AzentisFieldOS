@@ -66,7 +66,7 @@ export default async function NewWasteDisposalPage({
 
   return (
     <div className="max-w-160">
-      <h1 className="mb-6 text-page-title text-ink-900">Record Waste Disposal</h1>
+      <h1 className="mb-6 text-page-title text-ink-900">Record Waste Material</h1>
       <WasteDisposalForm
         mode="new"
         sites={sites}

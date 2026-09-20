@@ -37,7 +37,7 @@ export interface UserRow {
 // constant, so a third tier can never be offered. Labels are display-only.
 const ROLE_LABELS: Record<Role, string> = {
   OWNER_ADMIN: "Owner/Admin",
-  SITE_SUPERVISOR: "Site Supervisor",
+  SITE_SUPERVISOR: "Site Engineer",
 };
 const ROLE_OPTIONS = ROLES.map((role) => ({ value: role, label: ROLE_LABELS[role] }));
 

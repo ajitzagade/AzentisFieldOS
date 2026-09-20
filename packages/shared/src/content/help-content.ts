@@ -61,20 +61,20 @@ export const HELP_CONTENT = {
   },
 
   problemToday: {
-    flow: ["Supervisor", "WhatsApp", "Photos", "Paper", "Phone Calls", "Owner"],
+    flow: ["Site Engineer", "WhatsApp", "Photos", "Paper", "Phone Calls", "Owner"],
     problems: [
       "Information gets lost",
       "Stock is difficult to track",
       "Bills don't match easily",
       "Labour advances are forgotten",
-      "Owner has to call supervisors",
+      "Owner has to call site engineers",
       "Reports take time to prepare",
     ],
   },
 
   solutionFlow: [
     "Site Activity",
-    "Supervisor records it",
+    "Site Engineer records it",
     "System updates the information",
     "Owner sees it immediately",
     "Reports are ready",
@@ -88,7 +88,7 @@ export const HELP_CONTENT = {
       summary: "Uses the system to manage sites, monitor work, check stock, track expenses, track labour, track vendors, review reports, and take decisions.",
     },
     SITE_SUPERVISOR: {
-      label: "Site Supervisor",
+      label: "Site Engineer",
       summary: "Uses the system mainly from a phone to record daily work, record labour, record material usage, record expenses, upload photos, and report problems.",
     },
   },
@@ -99,7 +99,7 @@ export const HELP_CONTENT = {
       id: "dashboard",
       name: "Dashboard",
       whatIsIt: "The Dashboard is the first thing the Owner sees — a quick picture of every site, today.",
-      whyUseIt: "So the Owner knows what happened today without calling every supervisor.",
+      whyUseIt: "So the Owner knows what happened today without calling every site engineer.",
       usedBy: ["OWNER_ADMIN"],
       howToUse: [
         "Open the app — the Dashboard is the home screen.",
@@ -124,7 +124,7 @@ export const HELP_CONTENT = {
         "Save.",
       ],
       afterSaving: "The new site appears in the list immediately and is ready to use everywhere else in the app — the Daily Report form, Inventory, Reports.",
-      example: "NH-48 Widening — Package 3, in Nashik. Once added, a supervisor can start sending daily reports for it the same day.",
+      example: "NH-48 Widening — Package 3, in Nashik. Once added, a site engineer can start sending daily reports for it the same day.",
       href: "/sites",
     },
     {
@@ -162,7 +162,7 @@ export const HELP_CONTENT = {
       id: "inventory",
       name: "Inventory",
       whatIsIt: "Inventory tells you how much material is available at each site, and at the central store.",
-      whyUseIt: "So the Owner always knows how much material is on hand, without calling a supervisor to check.",
+      whyUseIt: "So the Owner always knows how much material is on hand, without calling a site engineer to check.",
       usedBy: ["OWNER_ADMIN"],
       howToUse: [
         "Open Inventory.",
@@ -337,12 +337,12 @@ export const HELP_CONTENT = {
     },
     {
       id: "waste-disposal",
-      name: "Waste & Disposal",
-      whatIsIt: "Waste & Disposal records what it costs to remove debris or waste material from a site — by the truckload.",
+      name: "Waste Material",
+      whatIsIt: "Waste Material records what it costs to remove debris or waste material from a site — by the truckload.",
       whyUseIt: "So the real cost of clearing a site is tracked, whether it's paid to an outside truck or done with the company's own vehicle.",
       usedBy: ["OWNER_ADMIN", "SITE_SUPERVISOR"],
       howToUse: [
-        "Open Waste & Disposal → Record Disposal.",
+        "Open Waste Material → Record Disposal.",
         "Say what kind of waste it is, and whether it's an outside party (hired) or the company's own vehicle (own).",
         "If hired, pick who was paid.",
         "Enter the number of trips and the rate per trip.",
@@ -356,7 +356,7 @@ export const HELP_CONTENT = {
       id: "dsr",
       name: "Daily Report (DSR)",
       whatIsIt: "The Daily Report (you may also hear it called the DSR) is the site's daily update — one entry that covers everything that happened today.",
-      whyUseIt: "So the supervisor tells the system what happened once, instead of typing the same information into five different screens.",
+      whyUseIt: "So the site engineer tells the system what happened once, instead of typing the same information into five different screens.",
       usedBy: ["SITE_SUPERVISOR"],
       howToUse: [
         "Open today's report on your phone.",
@@ -386,7 +386,7 @@ export const HELP_CONTENT = {
         "The numbers update to match.",
       ],
       afterSaving: "Nothing to save — Reports are always live, built from everything already recorded elsewhere. A branded daily report is also compiled automatically for each site, ready to review.",
-      example: "Pick Financial → All Sites → this month, and see the total spent on material, labour, RMC, machinery, expenses, and waste disposal, site by site.",
+      example: "Pick Financial → All Sites → this month, and see the total spent on material, labour, RMC, machinery, expenses, and waste material, site by site.",
       href: "/reports",
     },
     {
@@ -429,7 +429,7 @@ export const HELP_CONTENT = {
 
   dsrStory: {
     steps: [
-      "Supervisor opens app",
+      "Site Engineer opens app",
       "Selects site",
       "Records today's labour",
       "Records material used",
@@ -453,12 +453,12 @@ export const HELP_CONTENT = {
   },
 
   dayInTheLife: [
-    { time: "Morning", title: "Supervisor reaches Site A", detail: "The day begins." },
+    { time: "Morning", title: "Site Engineer reaches Site A", detail: "The day begins." },
     { time: "Material arrives", title: "100 bags cement received", detail: "Recorded as a Purchase — stock rises to 100." },
     { time: "Labour starts work", title: "20 workers present", detail: "Marked present for today." },
     { time: "Work happens", title: "50 bags cement consumed", detail: "Recorded as Consumption — stock drops to 50." },
     { time: "Expense occurs", title: "₹2,000 site expense recorded", detail: "Fuel for the day, logged on the spot." },
-    { time: "Supervisor takes photos", title: "Photos attached to today's report", detail: "No separate upload screen — same form." },
+    { time: "Site Engineer takes photos", title: "Photos attached to today's report", detail: "No separate upload screen — same form." },
     { time: "Daily Report submitted", title: "One tap, everything above included", detail: "Attendance, stock, expenses, photos — all in one entry." },
     { time: "Owner sees update", title: "Owner can now see the site's latest information", detail: "No phone call needed." },
   ] as TimelineStep[],
@@ -551,7 +551,7 @@ export const HELP_CONTENT = {
         { title: "Destination", detail: "Choose where the material went: Godown (the central store) or Site." },
         { title: "Site", detail: "This box appears only if you chose Site as the destination — pick which site received the material. The form remembers the site you picked last time." },
         { title: "Quantity", detail: "Type how much came in — for example, 100 bags. The unit is shown right on the box." },
-        { title: "Rate", detail: "Supervisors won't see this box or the next two — the app shows \"Rates & amounts are entered by the office\" instead, so just move on to Purchase Date; the office fills the prices in later. Owners: type the price for one unit — for example, ₹350 per bag." },
+        { title: "Rate", detail: "Site Engineers won't see this box or the next two — the app shows \"Rates & amounts are entered by the office\" instead, so just move on to Purchase Date; the office fills the prices in later. Owners: type the price for one unit — for example, ₹350 per bag." },
         { title: "Total Amount", detail: "Owners only, like Rate. Worked out for you automatically (quantity × rate). You can type over it if the bill shows a slightly different figure — but do that last: if you change Quantity or Rate afterwards, the form works the total out again and replaces your figure, so retype it if that happens." },
         { title: "Payment Status", detail: "Owners only, like Rate. Already set to Paid — change it to Partial or Unpaid if the bill isn't settled yet." },
         { title: "Purchase Date", detail: "Today's date is already filled in. Change it if the material arrived on an earlier day." },
@@ -574,7 +574,7 @@ export const HELP_CONTENT = {
       steps: [
         { title: "Open Team & Labour", detail: "From the sidebar, open Team & Labour." },
         { title: "Open the worker", detail: "Tap the worker's name to open their profile." },
-        { title: "Open the advance form", detail: "Next to Advance Ledger on the profile, tap Record Advance. Only Owners and Admins see this button — Supervisors don't record advances." },
+        { title: "Open the advance form", detail: "Next to Advance Ledger on the profile, tap Record Advance. Only Owners and Admins see this button — Site Engineers don't record advances." },
         { title: "Amount", detail: "Type how much money is being given — for example, ₹2,000." },
         { title: "Date", detail: "Today's date is already filled in. Change it if the advance was given on an earlier day." },
         { title: "Reason", detail: "You can leave this empty. If you like, note why the advance was given — for example, \"medical emergency\"." },
@@ -767,7 +767,7 @@ export const SEARCH_ACTIONS: SearchAction[] = [
   },
   {
     id: "record-waste-disposal",
-    title: "Record Waste Disposal",
+    title: "Record Waste Material",
     description: "Log a waste or disposal trip",
     keywords: ["waste disposal", "dispose", "disposal"],
     href: "/waste-disposal/new",

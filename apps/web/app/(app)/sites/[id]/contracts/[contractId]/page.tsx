@@ -1,5 +1,6 @@
 import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
+import { formatDate as formatDateShared } from "@/lib/format";
 import type { Role } from "@azentisfieldos/shared";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -110,7 +111,7 @@ async function getPayments(contractId: string): Promise<SubcontractorPaymentRow[
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDateShared(iso);
 }
 
 // D7's "never render a pending term as ₹0" convention, applied here too.

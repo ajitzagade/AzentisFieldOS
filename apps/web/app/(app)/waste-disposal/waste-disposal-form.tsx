@@ -126,6 +126,12 @@ export function WasteDisposalForm({
   );
   const [tripCount, setTripCount] = useState("");
   const [ratePerTrip, setRatePerTrip] = useState(initial?.ratePerTrip ?? "");
+  // All-or-none with ratePerTrip (createWasteDisposalSchema's HIRED
+  // superRefine, client-readiness batch goal 1) — a rate-less entry must
+  // not carry a payment status either, so the field is disabled (and
+  // therefore excluded from FormData) until a rate is typed, rather than
+  // defaulting to "UNPAID" regardless.
+  const [paymentStatus, setPaymentStatus] = useState("UNPAID");
   const [otherCharges, setOtherCharges] = useState("");
   const [includeAdvance, setIncludeAdvance] = useState(false);
   // null = follow the trip's own computed Total live; set once the user
@@ -142,6 +148,7 @@ export function WasteDisposalForm({
   const trips = Number(tripCount);
   const rate = Number(ratePerTrip);
   const other = Number(otherCharges || 0);
+  const hasRate = ratePerTrip.trim() !== "";
   const computedTotal =
     Number.isFinite(trips) && Number.isFinite(rate) && Number.isFinite(other) && tripCount !== ""
       ? trips * rate + other
@@ -333,10 +340,22 @@ export function WasteDisposalForm({
         <AmountField
           label="Rate per trip"
           name="ratePerTrip"
-          required
+          hint="Optional — leave blank if pricing isn't known yet"
           disabled={correcting}
           value={ratePerTrip}
-          onChange={(e) => setRatePerTrip(e.target.value)}
+          onChange={(e) => {
+            const next = e.target.value;
+            // Finding (client-readiness batch review): blanking the rate
+            // reverts to pricing-pending, but the Payment status SELECT's
+            // own state was never reset — re-entering a rate later silently
+            // resurfaced whatever status was picked before, with no fresh
+            // choice required. Reset to the same default a brand-new entry
+            // starts from whenever the rate transitions from filled to blank.
+            if (ratePerTrip.trim() !== "" && next.trim() === "") {
+              setPaymentStatus("UNPAID");
+            }
+            setRatePerTrip(next);
+          }}
           error={fieldError("ratePerTrip")}
         />
         {correcting ? <input type="hidden" name="ratePerTrip" value={initial?.ratePerTrip} /> : null}
@@ -377,13 +396,20 @@ export function WasteDisposalForm({
           <SelectField
             label="Payment status"
             name="paymentStatus"
-            required
-            defaultValue="UNPAID"
-            options={[
-              { value: "UNPAID", label: "Unpaid" },
-              { value: "PARTIAL", label: "Partial" },
-              { value: "PAID", label: "Paid" },
-            ]}
+            required={hasRate}
+            disabled={!hasRate}
+            value={hasRate ? paymentStatus : ""}
+            onChange={(e) => setPaymentStatus(e.target.value)}
+            hint={hasRate ? undefined : "Enter a rate to record a payment status — leave both blank if pricing isn't known yet"}
+            options={
+              hasRate
+                ? [
+                    { value: "UNPAID", label: "Unpaid" },
+                    { value: "PARTIAL", label: "Partial" },
+                    { value: "PAID", label: "Paid" },
+                  ]
+                : [{ value: "", label: "— (pricing pending)" }]
+            }
             error={fieldError("paymentStatus")}
           />
         ) : null}

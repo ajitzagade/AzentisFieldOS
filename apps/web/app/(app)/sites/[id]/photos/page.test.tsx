@@ -52,9 +52,9 @@ describe("SitePhotosPage", () => {
     const { container } = await renderPhotosPage("site-1");
 
     expect(screen.getByRole("heading", { name: /NH-48 Highway Widening/ })).toBeInTheDocument();
-    expect(screen.getByText(/12 Aug 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/12\/Aug\/2026/)).toBeInTheDocument();
     expect(screen.getByText(/Ramesh Yadav/)).toBeInTheDocument();
-    expect(screen.getByText(/11 Aug 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/11\/Aug\/2026/)).toBeInTheDocument();
     expect(screen.getByText(/Suresh Patil/)).toBeInTheDocument();
     // Thumbnails are decorative (alt="") since the visible caption already
     // conveys date/uploader — queried by tag, not role, since alt="" opts

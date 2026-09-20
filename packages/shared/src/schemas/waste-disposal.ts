@@ -22,7 +22,12 @@ export const createWasteDisposalSchema = z
     vehicleId: z.uuid().optional(),
     vehicleDetails: z.string().max(200).optional(),
     tripCount: z.number().int(),
-    ratePerTrip: z.number().nonnegative(),
+    // Nullable, all-or-none with paymentStatus for a HIRED trip (client-
+    // readiness batch, goal 1) — a Supervisor may record a trip before
+    // pricing is known; the Owner prices it later. totalAmount is still
+    // never a client input (server-computed, see model comment) and stays
+    // null whenever ratePerTrip is absent.
+    ratePerTrip: z.number().nonnegative().optional(),
     otherCharges: z.number().optional(),
     disposalLocation: z.string().max(300).optional(),
     paymentStatus: z.enum(WASTE_DISPOSAL_PAYMENT_STATUSES).optional(),
@@ -59,12 +64,26 @@ export const createWasteDisposalSchema = z
           message: "A hired disposal must name the Vendor/party being paid",
         });
       }
-      if (!data.correctsId && !data.paymentStatus) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["paymentStatus"],
-          message: "Payment status is required for a hired disposal",
-        });
+      // D7-style pricing group (mirrors Purchase/RmcEntry): ratePerTrip and
+      // paymentStatus travel together for a fresh HIRED entry — an
+      // unpriced trip has neither, a priced trip has both.
+      if (!data.correctsId) {
+        const hasRate = data.ratePerTrip !== undefined;
+        const hasStatus = data.paymentStatus !== undefined;
+        if (hasRate && !hasStatus) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["paymentStatus"],
+            message: "Payment status is required once a rate is entered",
+          });
+        }
+        if (!hasRate && hasStatus) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["ratePerTrip"],
+            message: "Rate is required when Payment Status is set",
+          });
+        }
       }
     } else {
       // OWN: there is no third party to owe — a vendor or payment status

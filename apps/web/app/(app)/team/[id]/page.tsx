@@ -1,5 +1,6 @@
 import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -94,10 +95,6 @@ async function getAdjustments(id: string): Promise<AdjustmentListItem[]> {
     throw new Error(`Failed to load Advance Adjustments (${res.status})`);
   }
   return res.json();
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function formatMoney(amount: string) {

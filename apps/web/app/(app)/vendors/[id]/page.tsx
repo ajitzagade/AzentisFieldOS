@@ -1,5 +1,6 @@
 import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -36,14 +37,15 @@ interface VendorPurchase {
 // GET /vendors/:id/purchase-summary's "Fully Paid" badge could read true
 // while an unpaid disposal against this Vendor was invisible here. Every
 // row GET /waste-disposals?vendorId=... returns is HIRED by construction
-// (only HIRED rows carry a vendorId at all), so paymentStatus is never
-// null in practice — the `| null` in the type is defensive, matching the
-// real API contract rather than assuming it.
+// (only HIRED rows carry a vendorId at all).
+// totalAmount/paymentStatus ARE now genuinely nullable (client-readiness
+// batch, goal 1) — a HIRED trip can be recorded before pricing is known,
+// same D7-style all-or-none group as Purchase.
 interface VendorWasteDisposal {
   id: string;
   wasteType: string;
   tripCount: number;
-  totalAmount: string;
+  totalAmount: string | null;
   // Per-record settlement (2026-09-19): advances already handed to this
   // Vendor for the trip and what is still pending — null on correction
   // rows (their money folds into the root entry's figures).
@@ -121,10 +123,6 @@ const PAYMENT_STATUS_BADGE: Record<NonNullable<VendorPurchase["paymentStatus"]>,
   PARTIAL: { variant: "warning", label: "Partial" },
   UNPAID: { variant: "danger", label: "Unpaid" },
 };
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
 
 const purchaseColumns: DataTableColumn<VendorPurchase>[] = [
   {
@@ -214,7 +212,8 @@ function renderPending(pendingAmount: string | null) {
 }
 
 // Every row here is HIRED by construction (see VendorWasteDisposal's own
-// comment) — no "Pricing pending" branch needed, unlike Purchase's D7 case.
+// comment) — but a HIRED trip can still be pricing-pending (goal 1), so
+// both cells below now mirror Purchase's D7 "Pricing pending" branch.
 const wasteDisposalColumns: DataTableColumn<VendorWasteDisposal>[] = [
   { header: "Site", cell: (row) => row.site.name },
   {
@@ -232,7 +231,12 @@ const wasteDisposalColumns: DataTableColumn<VendorWasteDisposal>[] = [
     align: "right",
     cell: (row) => (
       <span className="font-semibold text-gold-700 tabular-nums">
-        ₹{Number(row.totalAmount).toLocaleString("en-IN")}
+        {/* D7: an unpriced trip has no amount yet — pending, never ₹0. */}
+        {row.totalAmount === null ? (
+          <span className="text-ink-500">—</span>
+        ) : (
+          <>₹{Number(row.totalAmount).toLocaleString("en-IN")}</>
+        )}
       </span>
     ),
   },
@@ -241,9 +245,10 @@ const wasteDisposalColumns: DataTableColumn<VendorWasteDisposal>[] = [
   {
     header: "Payment status",
     cell: (row) => {
-      const badge = row.paymentStatus
-        ? (PAYMENT_STATUS_BADGE[row.paymentStatus] ?? { variant: "neutral" as const, label: row.paymentStatus })
-        : { variant: "neutral" as const, label: "—" };
+      const badge =
+        row.paymentStatus === null
+          ? { variant: "warning" as const, label: "Pricing pending" }
+          : (PAYMENT_STATUS_BADGE[row.paymentStatus] ?? { variant: "neutral" as const, label: row.paymentStatus });
       return <Badge variant={badge.variant}>{badge.label}</Badge>;
     },
   },
@@ -430,7 +435,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
         }
       />
 
-      <div className="mt-8 mb-4 text-section-header text-ink-900">Waste &amp; Disposal History</div>
+      <div className="mt-8 mb-4 text-section-header text-ink-900">Waste Material History</div>
       <DataTable
         columns={wasteDisposalColumns}
         mobileCard={wasteDisposalMobileCard}
@@ -440,7 +445,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
             ? {
                 status: "empty",
                 icon: <ClipboardIcon />,
-                message: "No Waste Disposal trips recorded yet for this Vendor.",
+                message: "No Waste Material trips recorded yet for this Vendor.",
               }
             : { status: "success", rows: wasteDisposals }
         }

@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 import { CheckCircleIcon } from "@azentisfieldos/ui";
 
@@ -53,14 +54,6 @@ async function getReport(id: string): Promise<DailyReportDetail | null> {
     throw new Error(`Failed to load report (${res.status})`);
   }
   return res.json();
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 }
 
 function channelLabel(channel: string) {

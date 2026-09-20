@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
+import type { CreateRmcEntryInput } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
 import { RmcService } from './rmc.service';
 
@@ -69,6 +70,30 @@ describe('RmcService.create', () => {
     expect(rmcEntryCreate).toHaveBeenCalledWith({
       data: { ...baseInput, deliveredAt: new Date(baseInput.deliveredAt) },
     });
+  });
+
+  it('creates a pricing-pending RMC entry (ratePerM3/totalAmount omitted) persisting both as null (D7-style group, goal 1)', async () => {
+    const pricingPendingInput: CreateRmcEntryInput = { ...baseInput };
+    delete pricingPendingInput.ratePerM3;
+    delete pricingPendingInput.totalAmount;
+    const rmcEntryCreate = vi.fn().mockResolvedValue({
+      id: 'r1',
+      ...pricingPendingInput,
+      ratePerM3: null,
+      totalAmount: null,
+    });
+    const { service } = makeService({ rmcEntryCreate });
+
+    const result = await service.create(pricingPendingInput);
+
+    expect(rmcEntryCreate).toHaveBeenCalledWith({
+      data: {
+        ...pricingPendingInput,
+        deliveredAt: new Date(pricingPendingInput.deliveredAt),
+      },
+    });
+    expect(result.ratePerM3).toBeNull();
+    expect(result.totalAmount).toBeNull();
   });
 
   it('rejects a correctsId that does not reference an existing RMC delivery', async () => {
@@ -501,6 +526,33 @@ describe('RmcService.report', () => {
     const { service } = makeService({ rmcEntryFindMany });
 
     await expect(service.report('site')).resolves.toEqual([]);
+  });
+
+  it('treats a pricing-pending row (totalAmount: null) as contributing 0 cost, without throwing (goal 1)', async () => {
+    const rmcEntryFindMany = vi.fn().mockResolvedValue([
+      {
+        id: 'e5',
+        siteId: 'siteA',
+        vendorId: 'vendorX',
+        grade: 'M25',
+        deliveredAt: new Date('2026-08-12T09:00:00Z'),
+        quantityM3: dec(10),
+        totalAmount: null,
+        site: { name: 'Alpha Site' },
+        vendor: { name: 'X Concrete' },
+      },
+    ]);
+    const { service } = makeService({ rmcEntryFindMany });
+
+    await expect(service.report('day')).resolves.toEqual([
+      {
+        key: '2026-08-12',
+        label: '2026-08-12',
+        totalQuantityM3: 10,
+        totalCost: 0,
+        entryCount: 1,
+      },
+    ]);
   });
 });
 

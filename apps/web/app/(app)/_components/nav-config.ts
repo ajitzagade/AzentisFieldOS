@@ -59,7 +59,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/inventory", label: "Inventory", icon: BoxIcon },
       { href: "/movements", label: "Movements", icon: ArrowsIcon },
       { href: "/materials", label: "Materials", icon: LayersIcon },
-      { href: "/waste-disposal", label: "Waste & Disposal", icon: AlertTriangleIcon },
+      { href: "/waste-disposal", label: "Waste Material", icon: AlertTriangleIcon },
     ],
   },
   {
@@ -115,7 +115,7 @@ export const SUPERVISOR_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/inventory", label: "Inventory", icon: BoxIcon },
       { href: "/movements", label: "Movements", icon: ArrowsIcon },
-      { href: "/waste-disposal", label: "Waste & Disposal", icon: AlertTriangleIcon },
+      { href: "/waste-disposal", label: "Waste Material", icon: AlertTriangleIcon },
     ],
   },
   {

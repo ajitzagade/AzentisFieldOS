@@ -119,7 +119,7 @@ export function TeamMemberQuickCreateModal({ open, onOpenChange, onSuccess }: Te
               hint="Optional"
               maxLength={200}
               icon={<ClipboardIcon className="size-4" />}
-              placeholder="e.g. Site Supervisor, Mason, Helper"
+              placeholder="e.g. Site Engineer, Mason, Helper"
               error={errorFor("designation")}
             />
             <TextField

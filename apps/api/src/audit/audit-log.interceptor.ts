@@ -39,7 +39,7 @@ const ENTITY_LABELS: Record<string, string> = {
   'asset-movements': 'Asset Movement',
   'asset-service-logs': 'Asset Service Log',
   vendors: 'Vendor',
-  'waste-disposals': 'Waste Disposal',
+  'waste-disposals': 'Waste Material',
   users: 'User',
   'branding-config': 'Branding Config',
   'notification-settings': 'Notification Setting',

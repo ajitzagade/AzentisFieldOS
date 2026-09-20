@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import type { DsrEquipmentUsed } from "@azentisfieldos/shared";
 import { AlertTriangleIcon, Card, RotateCcwIcon, buttonVariants, cn } from "@azentisfieldos/ui";
+import { formatDate } from "@/lib/format";
 
 interface WorkRecordDetail {
   id: string;
@@ -25,7 +26,8 @@ interface RmcEntryDetail {
   vendor: { name: string };
   quantityM3: number;
   grade: string;
-  totalAmount: number;
+  // Nullable (goal 1) — a delivery may be recorded before pricing exists.
+  totalAmount: number | null;
 }
 
 interface ExpenseDetail {
@@ -53,6 +55,8 @@ interface DsrDetail {
   safetyObservations: string | null;
   notes: string | null;
   equipmentUsed: DsrEquipmentUsed[];
+  subcontractorEntries?: { subcontractorId: string; workNote?: string }[];
+  labourEntries?: { category: string; men: number; women: number }[];
   workRecords: WorkRecordDetail[];
   consumptions: ConsumptionDetail[];
   rmcEntries: RmcEntryDetail[];
@@ -75,8 +79,18 @@ async function getDsrDetail(id: string): Promise<DsrDetail | null> {
   return res.json();
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+// subcontractorEntries is plain denormalized JSON (goal 5, same reasoning
+// as equipmentUsed) — it carries only the Subcontractor's id, so this page
+// resolves a display name itself rather than the API doing a per-row join.
+async function getSubcontractorNames(): Promise<Map<string, string>> {
+  try {
+    const res = await authedFetch(`/subcontractors`, { cache: "no-store" });
+    if (!res.ok) return new Map();
+    const rows = (await res.json()) as { id: string; name: string }[];
+    return new Map(rows.map((r) => [r.id, r.name]));
+  } catch {
+    return new Map();
+  }
 }
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
@@ -97,6 +111,10 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
 
   const presentCount = dsr.workRecords.filter((w) => w.attended).length;
   const expensesTotal = dsr.expenses.reduce((sum, e) => sum + e.amount, 0);
+  const subcontractorEntries = dsr.subcontractorEntries ?? [];
+  const labourEntries = dsr.labourEntries ?? [];
+  const subcontractorNames =
+    subcontractorEntries.length > 0 ? await getSubcontractorNames() : new Map<string, string>();
 
   return (
     <>
@@ -203,7 +221,11 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                     {r.vendor.name} — {r.grade}
                   </span>
                   <span className="text-ink-500">
-                    {r.quantityM3} m³ · <span className="font-semibold text-gold-700">₹{r.totalAmount.toLocaleString("en-IN")}</span>
+                    {r.quantityM3} m³ ·{" "}
+                    <span className="font-semibold text-gold-700">
+                      {/* D7: an unpriced delivery has no amount yet — pending, never ₹0. */}
+                      {r.totalAmount === null ? <span className="text-ink-500">Pricing pending</span> : `₹${r.totalAmount.toLocaleString("en-IN")}`}
+                    </span>
                   </span>
                 </li>
               ))}
@@ -217,9 +239,47 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
             <p className="text-body-sm text-ink-500">No machinery or vehicles tagged for this report.</p>
           ) : (
             <ul className="flex flex-wrap gap-2">
-              {dsr.equipmentUsed.map((e) => (
-                <li key={e.id} className="rounded-md border border-border-hairline bg-surface-2 px-3 py-1 text-body-sm text-ink-900">
-                  {e.name}
+              {dsr.equipmentUsed.map((e, index) => (
+                <li
+                  key={e.id ?? `${e.type}-${index}`}
+                  className="rounded-md border border-border-hairline bg-surface-2 px-3 py-1 text-body-sm text-ink-900"
+                >
+                  {e.type === "OTHER" ? (e.description ?? "Other Vehicle") : e.name}
+                  {e.type !== "OTHER" && e.description ? <span className="text-ink-500"> — {e.description}</span> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-3 text-card-title text-ink-900">Subcontractors on site</h2>
+          {subcontractorEntries.length === 0 ? (
+            <p className="text-body-sm text-ink-500">No Subcontractors tagged for this report.</p>
+          ) : (
+            <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
+              {subcontractorEntries.map((s, index) => (
+                <li key={`${s.subcontractorId}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                  <span>{subcontractorNames.get(s.subcontractorId) ?? "Subcontractor"}</span>
+                  <span className="text-ink-500">{s.workNote ?? "—"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-3 text-card-title text-ink-900">Labour</h2>
+          {labourEntries.length === 0 ? (
+            <p className="text-body-sm text-ink-500">No labour logged for this report.</p>
+          ) : (
+            <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
+              {labourEntries.map((l, index) => (
+                <li key={`${l.category}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                  <span>{l.category}</span>
+                  <span className="text-ink-500">
+                    {l.men} men · {l.women} women · {l.men + l.women} total
+                  </span>
                 </li>
               ))}
             </ul>

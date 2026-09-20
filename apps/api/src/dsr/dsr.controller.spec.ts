@@ -46,6 +46,8 @@ describe('DsrController', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     };
     service.create.mockResolvedValue({ id: 'dsr-1', ...input });
 
@@ -64,6 +66,8 @@ describe('DsrController', () => {
       rmcEntries: [],
       expenses: [],
       equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
     };
     service.correct.mockResolvedValue({
       id: 'dsr-2',

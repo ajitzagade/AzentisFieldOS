@@ -80,7 +80,7 @@ describe('ReportCompilerService.buildContent', () => {
     const content = service.buildContent(makeDsr(), branding);
 
     expect(content.siteName).toBe('NH-48 Highway Widening — Package 3');
-    expect(content.reportDate).toBe('2026-08-11');
+    expect(content.reportDate).toBe('11/Aug/2026');
     expect(content.branding).toEqual(branding);
     expect(content.work.completed).toBe(
       'Sub-base compaction — Ch. 4+200 to 4+450',

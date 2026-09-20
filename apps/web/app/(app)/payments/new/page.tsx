@@ -1,5 +1,6 @@
 import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
+import { formatDate } from "@/lib/format";
 import { notFound } from "next/navigation";
 import { PaymentForm } from "../payment-form";
 
@@ -31,10 +32,6 @@ async function getAdvances(): Promise<AdvanceListItem[]> {
     throw new Error(`Failed to load Advances (${res.status})`);
   }
   return res.json();
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 // Payments are Owner/Admin-only money movement (apps/api's PaymentsController

@@ -123,6 +123,27 @@ describe('WasteDisposalService.create', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  // Matrix Test Audit (client-readiness batch, goal 1): a HIRED disposal
+  // with no rate yet (pricing pending) must store totalAmount AND
+  // paymentStatus as null (all-or-none, D7 pattern) — never thrown, never
+  // NaN, never a stray default paymentStatus.
+  it('a HIRED disposal with ratePerTrip omitted stores totalAmount and paymentStatus as null', async () => {
+    const rest: CreateWasteDisposalInput = { ...HIRED_INPUT };
+    delete rest.ratePerTrip;
+    delete rest.paymentStatus;
+
+    await ctx.service.create(rest, 'user-1');
+
+    const { data } = ctx.prisma.wasteDisposal.create.mock.calls[0]![0] as {
+      data: {
+        totalAmount: Prisma.Decimal | null;
+        paymentStatus: string | null;
+      };
+    };
+    expect(data.totalAmount).toBeNull();
+    expect(data.paymentStatus).toBeNull();
+  });
+
   // Feature (2026-09-06): an advance to a hired disposal's Vendor is a
   // separate VendorAdvance row, written in the same transaction.
   describe('advance to the hired Vendor', () => {
@@ -208,6 +229,41 @@ describe('WasteDisposalService.summary', () => {
     ]);
   });
 
+  // Goal 1 (nullable pricing): a HIRED trip recorded before pricing is
+  // known has totalAmount: null — it must contribute 0 to every cost
+  // aggregate, never throw on the `?.toNumber()` call.
+  it('excludes a pricing-pending HIRED row (totalAmount: null) from cost aggregates without throwing', async () => {
+    const site1 = { id: 'site-1', name: 'NH-48' };
+    const vendor = { id: 'v-1', name: 'Balaji Transport' };
+    ctx.prisma.wasteDisposal.findMany.mockResolvedValue([
+      {
+        site: site1,
+        vendor,
+        ownership: 'HIRED',
+        wasteType: 'Debris',
+        tripCount: 3,
+        totalAmount: null,
+      },
+      {
+        site: site1,
+        vendor,
+        ownership: 'HIRED',
+        wasteType: 'Debris',
+        tripCount: 6,
+        totalAmount: new Prisma.Decimal(3000),
+      },
+    ]);
+
+    const summary = await ctx.service.summary({});
+
+    expect(summary.totalCost).toBe(3000);
+    expect(summary.totalTrips).toBe(9);
+    expect(summary.hired).toEqual({ cost: 3000, trips: 9 });
+    expect(summary.byVendor).toEqual([
+      { vendorId: 'v-1', name: 'Balaji Transport', cost: 3000, trips: 9 },
+    ]);
+  });
+
   it('threads Site/vendor/date filters into the query where-clause', async () => {
     await ctx.service.summary({
       siteId: 's-1',
@@ -271,6 +327,26 @@ describe('WasteDisposalService.list — advance/pending settlement figures', () 
 
     expect(rows[0]!.advanceTotal!.toNumber()).toBe(0);
     expect(rows[0]!.pendingAmount!.toNumber()).toBe(3000);
+  });
+
+  // Matrix Test Audit (client-readiness batch, goal 1/row 3): a HIRED root
+  // whose rate was never given (totalAmount null, pricing pending) must not
+  // throw inside withSettlement()'s .add()/.sub() arithmetic — it should be
+  // treated as a 0 contribution to the net bill, with pendingAmount still a
+  // real, null-safe figure.
+  it('a HIRED root with totalAmount null (pricing pending) does not throw and pends only the advance-relative figure', async () => {
+    ctx.prisma.wasteDisposal.findMany.mockResolvedValueOnce([
+      { ...hiredRoot, totalAmount: null, paymentStatus: null },
+    ]);
+    ctx.prisma.vendorAdvance.groupBy.mockResolvedValue([
+      { wasteDisposalId: 'wd-1', _sum: { amount: new Prisma.Decimal(500) } },
+    ]);
+
+    const rows = (await ctx.service.list()) as SettledRow[];
+
+    expect(rows[0]!.advanceTotal!.toNumber()).toBe(500);
+    // Net bill treated as 0 (unpriced) minus the 500 already advanced.
+    expect(rows[0]!.pendingAmount!.toNumber()).toBe(-500);
   });
 
   it('OWN rows have no settlement position (nulls, and no advance query at all)', async () => {

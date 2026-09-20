@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/format";
 import { Badge, Card, CorrectAction, RotateCcwIcon } from "@azentisfieldos/ui";
 import type { AssetLocationStatus } from "./status-badge";
 
@@ -18,10 +19,6 @@ function movementLabel(movement: MovementHistoryItem) {
     return "Sent to Maintenance";
   }
   return "Available";
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 // AC #2: every prior Movement remains visible — a reverse-chronological

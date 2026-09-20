@@ -307,7 +307,7 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
     },
     {
       key: "wasteDisposals",
-      label: "Waste Disposal",
+      label: "Waste Material",
       items: (data?.wasteDisposals?.results ?? []).map((disposal) => ({
         id: disposal.id,
         label: disposal.wasteType,

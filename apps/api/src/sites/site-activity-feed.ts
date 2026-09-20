@@ -185,7 +185,8 @@ export async function getSiteActivityFeed(
       type: 'RMC',
       occurredAt: r.deliveredAt.toISOString(),
       summary: `RMC delivery, ${r.quantityM3.toString()} m³ (${r.grade}) — ${r.vendor.name}`,
-      amount: r.totalAmount.toNumber(),
+      // Pricing-pending (goal 1): no amount to show yet, never a false ₹0.
+      amount: r.totalAmount?.toNumber() ?? null,
     })),
     ...dsrs.map((d): FeedItem => ({
       id: d.id,
@@ -220,7 +221,8 @@ export async function getSiteActivityFeed(
       type: 'WASTE_DISPOSAL',
       occurredAt: w.disposedAt.toISOString(),
       summary: `${w.wasteType} disposal — ${w.tripCount} trip${Math.abs(w.tripCount) === 1 ? '' : 's'}${w.vendor ? ` by ${w.vendor.name}` : ' (own vehicle)'}${w.disposalLocation ? ` to ${w.disposalLocation}` : ''}`,
-      amount: w.totalAmount.toNumber(),
+      // Pricing-pending (goal 1): no amount to show yet, never a false ₹0.
+      amount: w.totalAmount?.toNumber() ?? null,
     })),
     ...siteContracts.map((c): FeedItem => ({
       id: c.id,

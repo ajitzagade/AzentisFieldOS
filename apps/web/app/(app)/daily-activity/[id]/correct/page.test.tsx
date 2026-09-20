@@ -53,8 +53,9 @@ function mockFetchRouter(handlers: {
       return Promise.resolve({ ok: true, json: async () => handlers.dsr ?? originalDsr() });
     }
     // useDsrReferenceData's list endpoints (materials/team/expense-categories/
-    // machinery/vehicles) — must be arrays or the reference hook errors out.
-    if (/\/(materials|team-members|expense-categories|machinery|vehicles)(\?|$)/.test(urlStr)) {
+    // machinery/vehicles/subcontractors) — must be arrays or the reference
+    // hook errors out.
+    if (/\/(materials|team-members|expense-categories|machinery|vehicles|subcontractors)(\?|$)/.test(urlStr)) {
       return Promise.resolve({ ok: true, json: async () => [] });
     }
     return Promise.resolve({ ok: true, json: async () => ({}) });

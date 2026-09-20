@@ -32,9 +32,13 @@ interface WasteDisposalRow {
   ownership: "OWN" | "HIRED";
   vehicleDetails: string | null;
   tripCount: number;
-  ratePerTrip: string;
+  // ratePerTrip/totalAmount are nullable (client-readiness batch, goal 1):
+  // a Supervisor may record a trip before pricing is known — mirrors D7's
+  // Purchase pattern. paymentStatus (below) is also null in that case, and
+  // separately null for every OWN row (no third party to pay).
+  ratePerTrip: string | null;
   otherCharges: string;
-  totalAmount: string;
+  totalAmount: string | null;
   // Per-record settlement (2026-09-19): advances already handed to the
   // trip's Vendor and what is still pending — null on OWN rows and on
   // correction rows (their money folds into the root entry's figures).
@@ -153,7 +157,8 @@ const columns: DataTableColumn<WasteDisposalRow>[] = [
     align: "right",
     cell: (r) => (
       <span className="font-semibold text-gold-700 tabular-nums">
-        ₹{Number(r.totalAmount).toLocaleString("en-IN")}
+        {/* D7: an unpriced trip has no total yet — pending, never ₹0. */}
+        {r.totalAmount === null ? <span className="text-ink-500">—</span> : `₹${Number(r.totalAmount).toLocaleString("en-IN")}`}
       </span>
     ),
   },
@@ -162,7 +167,15 @@ const columns: DataTableColumn<WasteDisposalRow>[] = [
   {
     header: "Payment",
     cell: (r) => {
-      if (!r.paymentStatus) return <span className="text-ink-500">—</span>;
+      if (!r.paymentStatus) {
+        // A HIRED trip with no rate yet has no payment status either
+        // (all-or-none); an OWN trip never has one at all — only the
+        // former is actually "pending" something.
+        if (r.ownership === "HIRED") {
+          return <Badge variant="warning">Pricing pending</Badge>;
+        }
+        return <span className="text-ink-500">—</span>;
+      }
       const badge = PAYMENT_BADGE[r.paymentStatus] ?? { variant: "warning" as const, label: r.paymentStatus };
       return <Badge variant={badge.variant}>{badge.label}</Badge>;
     },
@@ -223,7 +236,7 @@ export default async function WasteDisposalPage({
     <>
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-page-title text-ink-900">Waste &amp; Disposal</h1>
+          <h1 className="text-page-title text-ink-900">Waste Material</h1>
           <p className="text-body-sm text-ink-500">
             Debris and waste-material removal — per-trip disposal cost by Site
           </p>
@@ -322,7 +335,7 @@ export default async function WasteDisposalPage({
             ? {
                 status: "empty",
                 icon: <TruckIcon />,
-                message: "No Waste Disposal entries yet.",
+                message: "No Waste Material entries yet.",
                 action: (
                   <Link href="/waste-disposal/new" className={cn(buttonVariants({ variant: "primary" }))}>
                     <PlusIcon className="size-4" />

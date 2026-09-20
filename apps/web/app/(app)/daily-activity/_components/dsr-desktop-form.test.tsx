@@ -22,12 +22,14 @@ vi.mock("@/lib/use-dsr-reference-data", () => ({
     vendorOptions: [],
     expenseCategoryOptions: [],
     equipmentOptions: [],
+    subcontractorOptions: [],
     rmcGradeOptions: [],
     loading: false,
     loadFailed: false,
     addMaterialOption: vi.fn(),
     addVendorOption: vi.fn(),
     addTeamMemberOption: vi.fn(),
+    addSubcontractorOption: vi.fn(),
   }),
 }));
 

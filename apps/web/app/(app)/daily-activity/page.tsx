@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 import {
   Badge,
@@ -67,10 +68,6 @@ function shiftDate(date: string, days: number): string {
   const shifted = new Date(`${date}T00:00:00Z`);
   shifted.setUTCDate(shifted.getUTCDate() + days);
   return shifted.toISOString().slice(0, 10);
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
 }
 
 function summaryFor(report: DsrListRow) {

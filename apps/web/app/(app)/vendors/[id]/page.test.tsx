@@ -124,16 +124,16 @@ describe("VendorDetailPage", () => {
 // fetched/shown) even though they carry real money owed to this same
 // Vendor — the exact production report was "waste and disposal records
 // are not properly visible in the vendor payments."
-describe("VendorDetailPage — Waste & Disposal History", () => {
-  it("renders an explicit empty state, not a blank table, for a Vendor with no Waste Disposal trips", async () => {
+describe("VendorDetailPage — Waste Material History", () => {
+  it("renders an explicit empty state, not a blank table, for a Vendor with no Waste Material trips", async () => {
     mockFetch([], []);
 
     await renderDetailPage("v1");
 
-    expect(screen.getAllByText("No Waste Disposal trips recorded yet for this Vendor.")).toHaveLength(2);
+    expect(screen.getAllByText("No Waste Material trips recorded yet for this Vendor.")).toHaveLength(2);
   });
 
-  it("renders every Waste Disposal trip with Site, Waste type, Trips, Amount, Advance, Pending and Payment status", async () => {
+  it("renders every Waste Material trip with Site, Waste type, Trips, Amount, Advance, Pending and Payment status", async () => {
     mockFetch([], [
       {
         id: "wd1",

@@ -94,12 +94,12 @@ export default async function CorrectWasteDisposalPage({ params }: { params: Pro
     <div className="max-w-160">
       <div className="mb-2 text-eyebrow text-ink-500">
         <Link href="/waste-disposal" className="hover:text-accent-teal-700 hover:underline">
-          Waste &amp; Disposal
+          Waste Material
         </Link>{" "}
         / Correct
       </div>
       <h1 className="mb-6 flex items-center gap-2 text-page-title text-ink-900">
-        Correct Waste Disposal
+        Correct Waste Material
         {CORRECT_HELP ? <HelpBubble>{CORRECT_HELP.explanation}</HelpBubble> : null}
       </h1>
       <WasteDisposalForm mode="correct" correctsId={disposal.id} sites={sites} vendors={vendors} equipment={[]} initial={initial} />

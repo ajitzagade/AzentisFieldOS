@@ -1,5 +1,6 @@
 import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PaymentForm, type PaymentFormInitialValues } from "../../payment-form";
@@ -52,10 +53,6 @@ async function getAdvances(): Promise<AdvanceListItem[]> {
     throw new Error(`Failed to load Advances (${res.status})`);
   }
   return res.json();
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 // AC #2: pre-fills from the Payment being corrected, submits to the same

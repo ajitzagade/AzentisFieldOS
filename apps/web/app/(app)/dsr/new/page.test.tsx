@@ -14,6 +14,16 @@ vi.mock("next/navigation", () => ({
 const originalFetch = global.fetch;
 const originalApiUrl = process.env.NEXT_PUBLIC_API_URL;
 
+// Client-readiness batch (goal 8): autosave is now keyed per (siteId,
+// reportDate) — every direct localStorage assertion below needs the same
+// key apps/web/lib/dsr-autosave.ts derives.
+function autosaveKey(siteId: string, reportDate: string) {
+  return `dsr-autosave-v1:${siteId}:${reportDate}`;
+}
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function mockFetchRouter(handlers: {
   sites?: unknown;
   defaults?: unknown;
@@ -23,6 +33,7 @@ function mockFetchRouter(handlers: {
   expenseCategories?: unknown;
   machinery?: unknown;
   vehicles?: unknown;
+  subcontractors?: unknown;
   siteStock?: unknown;
   dsr?: { status: number; body?: unknown } | "network-error";
   // spec-dsr-drafts: GET /dsr/draft resume response (default null = no draft),
@@ -68,6 +79,7 @@ function mockFetchRouter(handlers: {
     if (pathname === "/expense-categories") return ok(handlers.expenseCategories ?? []);
     if (pathname === "/machinery") return ok(handlers.machinery ?? []);
     if (pathname === "/vehicles") return ok(handlers.vehicles ?? []);
+    if (pathname === "/subcontractors") return ok(handlers.subcontractors ?? []);
     return ok({});
   }) as unknown as typeof fetch;
 }
@@ -262,6 +274,50 @@ describe("NewDsrPage", () => {
     expect(payload.equipmentUsed).toEqual([{ type: "MACHINERY", id: "mac-1", name: "JCB 3DX" }]);
   });
 
+  // Matrix Test Audit (client-readiness batch, goal 2/row 4): "Other
+  // Vehicle" is free text stored inline with the entry — it must never
+  // resolve to (or create) a Machinery/Vehicle register id.
+  it('adds "Other Vehicle" as free text, never resolving an id against the Machinery/Vehicle registers', async () => {
+    mockFetchRouter({
+      sites: [{ id: "site-1", name: "NH-48" }],
+      machinery: [{ id: "mac-1", name: "JCB 3DX", assetNumber: "AZ-01", type: { name: "Excavator" } }],
+      vehicles: [{ id: "veh-1", number: "MH12AB1234", type: { name: "Tipper" } }],
+      dsr: { status: 201, body: { id: "dsr-1" } },
+    });
+
+    render(<NewDsrPage />);
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+
+    const picker = screen.getByLabelText("Add machinery or vehicle");
+    await waitFor(() => expect(picker).toBeEnabled());
+    await user.type(picker, "other");
+    await user.click(await screen.findByText("Other Vehicle (not in register)"));
+
+    await user.type(screen.getByLabelText("Describe this vehicle"), "Hired dumper — MH12 AB 9999");
+
+    await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
+    // The playback dialog now guards submission — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
+    await screen.findByText("Synced");
+
+    const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+      ([, init]) => (init as RequestInit | undefined)?.method === "POST",
+    );
+    const payload = JSON.parse((postCall![1] as RequestInit).body as string) as {
+      equipmentUsed: { type: string; id: string; name: string; description?: string }[];
+    };
+    expect(payload.equipmentUsed).toHaveLength(1);
+    const [row] = payload.equipmentUsed;
+    expect(row).toMatchObject({ type: "OTHER", description: "Hired dumper — MH12 AB 9999" });
+    // Never a Machinery/Vehicle register id — a fresh client-only key only.
+    expect(row!.id).not.toBe("mac-1");
+    expect(row!.id).not.toBe("veh-1");
+  });
+
   it("disables submit until a Site is selected", async () => {
     mockFetchRouter({ sites: [{ id: "site-1", name: "NH-48" }] });
     render(<NewDsrPage />);
@@ -339,7 +395,7 @@ describe("NewDsrPage", () => {
     // Seed the autosave snapshot so the queued path's clearing is observable.
     await user.type(screen.getByLabelText("Work completed"), "Footings poured");
     await waitFor(
-      () => expect(window.localStorage.getItem("dsr-autosave-v1")).not.toBeNull(),
+      () => expect(window.localStorage.getItem(autosaveKey("site-1", today()))).not.toBeNull(),
       { timeout: 3000 },
     );
     await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
@@ -351,7 +407,7 @@ describe("NewDsrPage", () => {
     expect(queued).toHaveLength(1);
     // Queued IS a durable home — the snapshot must not resurrect a copy of
     // entries that are already syncing from the offline queue.
-    expect(window.localStorage.getItem("dsr-autosave-v1")).toBeNull();
+    expect(window.localStorage.getItem(autosaveKey("site-1", today()))).toBeNull();
     expect(queued[0]?.payload.siteId).toBe("site-1");
   });
 
@@ -456,7 +512,7 @@ describe("NewDsrPage", () => {
     // Edit after the resume so an autosave snapshot exists to clear.
     await user.type(screen.getByLabelText("Work completed"), " — extra note");
     await waitFor(
-      () => expect(window.localStorage.getItem("dsr-autosave-v1")).not.toBeNull(),
+      () => expect(window.localStorage.getItem(autosaveKey("site-1", today()))).not.toBeNull(),
       { timeout: 3000 },
     );
     await user.click(screen.getByRole("button", { name: "Discard" }));
@@ -468,7 +524,7 @@ describe("NewDsrPage", () => {
     );
     expect(screen.getByLabelText("Work completed")).toHaveValue("");
     // A discarded report's local snapshot must not resurrect it.
-    expect(window.localStorage.getItem("dsr-autosave-v1")).toBeNull();
+    expect(window.localStorage.getItem(autosaveKey("site-1", today()))).toBeNull();
     const deleteCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
       ([url, init]) =>
         String(url).includes("/dsr/draft/") && (init as RequestInit | undefined)?.method === "DELETE",
@@ -603,7 +659,7 @@ describe("NewDsrPage", () => {
 
     // The debounced (800ms) snapshot must land before the "app closes".
     await waitFor(
-      () => expect(window.localStorage.getItem("dsr-autosave-v1")).not.toBeNull(),
+      () => expect(window.localStorage.getItem(autosaveKey("site-1", today()))).not.toBeNull(),
       { timeout: 3000 },
     );
     unmount();
@@ -630,7 +686,7 @@ describe("NewDsrPage", () => {
     await user.click(await screen.findByText("NH-48"));
     await user.type(screen.getByLabelText("Work completed"), "Shuttering done");
     await waitFor(
-      () => expect(window.localStorage.getItem("dsr-autosave-v1")).not.toBeNull(),
+      () => expect(window.localStorage.getItem(autosaveKey("site-1", today()))).not.toBeNull(),
       { timeout: 3000 },
     );
 
@@ -639,18 +695,17 @@ describe("NewDsrPage", () => {
     await screen.findByText("Synced");
 
     // Durably on the server — the local safety net must not resurrect it.
-    expect(window.localStorage.getItem("dsr-autosave-v1")).toBeNull();
+    expect(window.localStorage.getItem(autosaveKey("site-1", today()))).toBeNull();
   });
 
   it("restores the crew checklist and does NOT let the crew-defaults fetch clobber it", async () => {
-    const today = new Date().toISOString().slice(0, 10);
     window.localStorage.setItem(
-      "dsr-autosave-v1",
+      autosaveKey("site-1", today()),
       JSON.stringify({
         savedAt: Date.now(),
         data: {
           siteId: "site-1",
-          reportDate: today,
+          reportDate: today(),
           workCompleted: "Slab work",
           issuesBlockers: "",
           crew: [{ teamMemberId: "tm-9", name: "Restored Person", attended: true }],
@@ -677,14 +732,13 @@ describe("NewDsrPage", () => {
   });
 
   it("does not hijack a deep-linked ?siteId= for a different Site with a restore, and keeps the snapshot", async () => {
-    const today = new Date().toISOString().slice(0, 10);
     window.localStorage.setItem(
-      "dsr-autosave-v1",
+      autosaveKey("site-1", today()),
       JSON.stringify({
         savedAt: Date.now(),
         data: {
           siteId: "site-1",
-          reportDate: today,
+          reportDate: today(),
           workCompleted: "Interrupted entries for NH-48",
           issuesBlockers: "",
           crew: [],
@@ -711,6 +765,84 @@ describe("NewDsrPage", () => {
     expect(screen.queryByText(/we restored the entries/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText("Work completed")).toHaveValue("");
     // ...and the other session's snapshot is preserved, not clobbered.
-    expect(window.localStorage.getItem("dsr-autosave-v1")).not.toBeNull();
+    expect(window.localStorage.getItem(autosaveKey("site-1", today()))).not.toBeNull();
+  });
+
+  // Client-readiness batch (goal 8): the actual reported bug — switching
+  // Site+Date mid-session (no remount) leaked the previous pair's in-memory
+  // state into the new one, since only `crew` was ever reset when the new
+  // pair had no server draft.
+  it("resets every field (not just crew) when switching Site+Date mid-session to a pair with no draft (goal 8)", async () => {
+    mockFetchRouter({
+      sites: [
+        { id: "site-1", name: "NH-48" },
+        { id: "site-2", name: "Metro Depot" },
+      ],
+    });
+
+    render(<NewDsrPage />);
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+    await user.type(screen.getByLabelText("Work completed"), "Footings for Site A");
+    await user.type(screen.getByLabelText("Issues / blockers"), "Rebar delivery delayed");
+    await user.click(screen.getByRole("button", { name: "Add expense" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Work completed")).toHaveValue("Footings for Site A"));
+
+    // Switch Site mid-session — no remount, no server draft for the new pair.
+    await user.clear(screen.getByLabelText("Site"));
+    await user.type(screen.getByLabelText("Site"), "Metro");
+    await user.click(await screen.findByText("Metro Depot"));
+
+    // Every field resets to blank/defaults, not just crew — the old Site's
+    // narrative and sub-record rows must not bleed into the new one.
+    await waitFor(() => expect(screen.getByLabelText("Work completed")).toHaveValue(""));
+    expect(screen.getByLabelText("Issues / blockers")).toHaveValue("");
+    expect(screen.queryByLabelText("Category")).not.toBeInTheDocument();
+  });
+
+  // Matrix Test Audit (client-readiness batch, goal 8/row 7): switching
+  // back to a Site+Date pair that has its OWN unsaved local autosave must
+  // restore that pair's own content — not stay blank, and not show the
+  // other pair's content (the actual reported bug's mirror image).
+  it("switching back to a Site+Date pair with its own local draft restores that pair's own content (goal 8)", async () => {
+    mockFetchRouter({
+      sites: [
+        { id: "site-1", name: "NH-48" },
+        { id: "site-2", name: "Metro Depot" },
+      ],
+    });
+
+    render(<NewDsrPage />);
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
+
+    const user = userEvent.setup();
+    // Site A: type content and let the debounced autosave land.
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+    await user.type(screen.getByLabelText("Work completed"), "Footings for Site A");
+    await waitFor(
+      () => expect(window.localStorage.getItem(autosaveKey("site-1", today()))).not.toBeNull(),
+      { timeout: 3000 },
+    );
+
+    // Switch to Site B — no draft there, so it resets blank.
+    await user.clear(screen.getByLabelText("Site"));
+    await user.type(screen.getByLabelText("Site"), "Metro");
+    await user.click(await screen.findByText("Metro Depot"));
+    await waitFor(() => expect(screen.getByLabelText("Work completed")).toHaveValue(""));
+
+    // Switch BACK to Site A — its own autosaved content must come back,
+    // not blank and not Site B's (empty) content.
+    await user.clear(screen.getByLabelText("Site"));
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Work completed")).toHaveValue("Footings for Site A"),
+    );
   });
 });

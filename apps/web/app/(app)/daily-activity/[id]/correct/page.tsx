@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -13,8 +14,11 @@ interface DsrForCorrection {
   equipmentUsed: DsrEquipmentUsed[];
   workRecords: { teamMemberId: string; teamMember: { name: string }; attended: boolean }[];
   consumptions: { materialSizeId: string; quantity: number; activityReference: string | null }[];
-  rmcEntries: { vendorId: string; quantityM3: number; grade: string; ratePerM3: number }[];
+  // Nullable (goal 1) — a delivery may be recorded before pricing exists.
+  rmcEntries: { vendorId: string; quantityM3: number; grade: string; ratePerM3: number | null }[];
   expenses: { categoryId: string; amount: number; description: string | null }[];
+  subcontractorEntries: { subcontractorId: string; workNote?: string }[];
+  labourEntries: { category: string; men: number; women: number }[];
 }
 
 async function getDsr(id: string): Promise<DsrForCorrection | null> {
@@ -56,10 +60,29 @@ export default async function CorrectDsrPage({ params }: { params: Promise<{ id:
       vendorId: r.vendorId,
       quantityM3: String(r.quantityM3),
       grade: r.grade,
-      ratePerM3: String(r.ratePerM3),
+      ratePerM3: r.ratePerM3 != null ? String(r.ratePerM3) : "",
     })),
     expenses: dsr.expenses.map((e) => ({ categoryId: e.categoryId, amount: String(e.amount), description: e.description ?? "" })),
-    equipmentUsed: dsr.equipmentUsed,
+    // DsrEquipmentUsed's id/name are optional at the schema level (an OTHER
+    // row's description is its record) — the desktop form's own EquipmentRow
+    // always carries a real id/name (even OTHER rows get a client-generated
+    // one when added), so fall back defensively here rather than widen that
+    // invariant everywhere it's relied on.
+    equipmentUsed: dsr.equipmentUsed.map((e) => ({
+      type: e.type,
+      id: e.id ?? randomUUID(),
+      name: e.name ?? (e.type === "OTHER" ? "Other Vehicle" : "Equipment"),
+      description: e.description,
+    })),
+    subcontractorEntries: (dsr.subcontractorEntries ?? []).map((s) => ({
+      subcontractorId: s.subcontractorId,
+      workNote: s.workNote ?? "",
+    })),
+    labourEntries: (dsr.labourEntries ?? []).map((l) => ({
+      category: l.category,
+      men: String(l.men),
+      women: String(l.women),
+    })),
   };
 
   return (

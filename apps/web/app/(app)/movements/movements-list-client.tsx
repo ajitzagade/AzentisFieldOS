@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
@@ -89,10 +90,6 @@ interface SiteOption {
 
 function formatQuantity(quantity: string, unitName: string): string {
   return `${quantity} ${unitName}`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function purchaseToMovementRow(purchase: PurchaseListItem, canPrice: boolean): MovementRow {

@@ -1,5 +1,6 @@
 import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Card } from "@azentisfieldos/ui";
@@ -48,12 +49,7 @@ export default async function PurchasePricingPage({ params }: { params: Promise<
   const quantity = Number(purchase.quantity);
   const unit = purchase.materialSize.material.unit.name;
   const deliveredTo = purchase.destination === "GODOWN" ? "Godown" : (purchase.site?.name ?? "Site");
-  const when = new Date(purchase.purchasedAt).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "Asia/Kolkata",
-  });
+  const when = formatDate(purchase.purchasedAt);
 
   return (
     <div className="max-w-160">

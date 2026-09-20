@@ -50,7 +50,7 @@ describe("PhotoGalleryGrid", () => {
     const user = userEvent.setup();
     render(<PhotoGalleryGrid photos={threePhotos} />);
 
-    await user.click(screen.getByRole("button", { name: /View photo from 11 Aug 2026/ }));
+    await user.click(screen.getByRole("button", { name: /View photo from 11\/Aug\/2026/ }));
 
     const dialog = screen.getByRole("dialog");
     expect(previewSrc(dialog)).toBe("https://cloudinary.example/preview/2.jpg");
@@ -61,7 +61,7 @@ describe("PhotoGalleryGrid", () => {
     const user = userEvent.setup();
     render(<PhotoGalleryGrid photos={threePhotos} />);
 
-    await user.click(screen.getByRole("button", { name: /View photo from 10 Aug 2026/ }));
+    await user.click(screen.getByRole("button", { name: /View photo from 10\/Aug\/2026/ }));
     let dialog = screen.getByRole("dialog");
     expect(previewSrc(dialog)).toBe("https://cloudinary.example/preview/1.jpg");
     expect(within(dialog).queryByRole("button", { name: "Previous photo" })).not.toBeInTheDocument();
@@ -94,7 +94,7 @@ describe("PhotoGalleryGrid", () => {
     const user = userEvent.setup();
     render(<PhotoGalleryGrid photos={[threePhotos[0]!]} />);
 
-    await user.click(screen.getByRole("button", { name: /View photo from 10 Aug 2026/ }));
+    await user.click(screen.getByRole("button", { name: /View photo from 10\/Aug\/2026/ }));
 
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).queryByRole("button", { name: "Previous photo" })).not.toBeInTheDocument();
@@ -105,7 +105,7 @@ describe("PhotoGalleryGrid", () => {
     const user = userEvent.setup();
     render(<PhotoGalleryGrid photos={threePhotos} />);
 
-    await user.click(screen.getByRole("button", { name: /View photo from 10 Aug 2026/ }));
+    await user.click(screen.getByRole("button", { name: /View photo from 10\/Aug\/2026/ }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Close" }));
@@ -116,7 +116,7 @@ describe("PhotoGalleryGrid", () => {
     const user = userEvent.setup();
     render(<PhotoGalleryGrid photos={threePhotos} />);
 
-    await user.click(screen.getByRole("button", { name: /View photo from 10 Aug 2026/ }));
+    await user.click(screen.getByRole("button", { name: /View photo from 10\/Aug\/2026/ }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
@@ -127,7 +127,7 @@ describe("PhotoGalleryGrid", () => {
     const user = userEvent.setup();
     render(<PhotoGalleryGrid photos={threePhotos} />);
 
-    await user.click(screen.getByRole("button", { name: /View photo from 10 Aug 2026/ }));
+    await user.click(screen.getByRole("button", { name: /View photo from 10\/Aug\/2026/ }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
 
     const backdrop = document.querySelector('[role="presentation"]');

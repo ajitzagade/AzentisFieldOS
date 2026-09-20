@@ -1,5 +1,6 @@
 import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
+import { formatDate, formatDateTime } from "@/lib/format";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { FeedItem, PhotoGalleryItem } from "@azentisfieldos/shared";
@@ -167,19 +168,6 @@ const STATUS_BADGE: Record<Site["status"], { variant: "success" | "warning" | "n
   ON_HOLD: { variant: "warning", label: "On Hold" },
   COMPLETED: { variant: "neutral", label: "Completed" },
 };
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("en-IN", {
-    day: "numeric",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-}
 
 const feedColumns: DataTableColumn<FeedItem>[] = [
   { header: "Date", cell: (item) => <span className="text-ink-500">{formatDateTime(item.occurredAt)}</span> },

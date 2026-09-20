@@ -1,4 +1,5 @@
 import { createPurchaseSchema } from "@azentisfieldos/shared";
+import { optionalNumber } from "../../../../lib/parse-helpers";
 
 // The single FormData→schema coercion for the Purchase form (AD-7): the
 // Server Action parses with this before hitting the API, and the client
@@ -16,12 +17,6 @@ type ParseResult =
   | { success: true; data: ReturnType<typeof createPurchaseSchema.parse> }
   | { success: false; error: { flatten(): { fieldErrors: Record<string, string[]> } } };
 
-function optionalNumber(formData: FormData, name: string): number | undefined {
-  const raw = formData.get(name);
-  if (raw === null || String(raw).trim() === "") return undefined;
-  return Number(raw);
-}
-
 export function parsePurchaseForm(formData: FormData): ParseResult {
   const parsed = createPurchaseSchema.safeParse({
     vendorId: formData.get("vendorId"),
@@ -29,8 +24,8 @@ export function parsePurchaseForm(formData: FormData): ParseResult {
     destination: formData.get("destination"),
     siteId: formData.get("siteId") || undefined,
     quantity: Number(formData.get("quantity")),
-    rate: optionalNumber(formData, "rate"),
-    totalAmount: optionalNumber(formData, "totalAmount"),
+    rate: optionalNumber(formData.get("rate")),
+    totalAmount: optionalNumber(formData.get("totalAmount")),
     invoiceOrChallanNo: formData.get("invoiceOrChallanNo") || undefined,
     challanPhotoUrl: formData.get("challanPhotoUrl") || undefined,
     paymentStatus: formData.get("paymentStatus") || undefined,

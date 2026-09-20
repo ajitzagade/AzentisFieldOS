@@ -74,7 +74,7 @@ describe("AppShell", () => {
     expect(within(sidebar).getByRole("link", { name: /Inventory/ })).toBeInTheDocument();
     expect(within(sidebar).getByRole("link", { name: /Machinery & Vehicles/ })).toBeInTheDocument();
     expect(within(sidebar).getByRole("link", { name: /Reports/ })).toBeInTheDocument();
-    expect(within(sidebar).getByRole("link", { name: /Waste & Disposal/ })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("link", { name: /Waste Material/ })).toBeInTheDocument();
 
     // Settings pinned
     expect(within(sidebar).getByRole("link", { name: /Settings/ })).toBeInTheDocument();

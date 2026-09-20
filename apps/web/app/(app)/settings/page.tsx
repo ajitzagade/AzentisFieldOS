@@ -122,7 +122,7 @@ export default async function SettingsPage() {
           </div>
           <p className="mb-6 text-body-sm text-ink-500">
             Everyone with access to this deployment. Invite a teammate as an Owner/Admin or Site
-            Supervisor — the two roles this platform has (AD-11) — and change an active user&apos;s role
+            Engineer — the two roles this platform has (AD-11) — and change an active user&apos;s role
             at any time.
           </p>
           <UsersRolesSection users={users} currentUserId={me.id} />

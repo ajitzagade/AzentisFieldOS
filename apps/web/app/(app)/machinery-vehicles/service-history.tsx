@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 import { Badge, DataTable, GearIcon, PencilIcon, type DataTableColumn, type DataTableMobileCard } from "@azentisfieldos/ui";
 
@@ -9,10 +10,6 @@ export interface ServiceLogEntry {
   notes: string | null;
   cost: string | null;
   serviceDate: string;
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function kindBadge(kind: ServiceLogKind) {

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SUBMITTED_DSR_WHERE } from '../common/superseded-dsrs';
+import { formatDate } from './format-date';
 
 // Story 13.1 (FR-32): compiles a DailyReport's `content` payload from a
 // DailySiteReport and its relations, plus the current BrandingConfig row.
@@ -17,7 +18,9 @@ export interface ReportBrandingSnapshot {
 
 export interface ReportContent {
   siteName: string;
-  // Calendar day being reported, YYYY-MM-DD.
+  // Calendar day being reported, already formatted for display (DD/MMM/YYYY)
+  // at compile time — senders (report-senders.ts) interpolate this straight
+  // into the emailed HTML/subject, so it must never be a raw ISO string.
   reportDate: string;
   branding: ReportBrandingSnapshot;
   work: {
@@ -146,7 +149,7 @@ export class ReportCompilerService {
 
     return {
       siteName: dsr.site.name,
-      reportDate: dsr.reportDate.toISOString().slice(0, 10),
+      reportDate: formatDate(dsr.reportDate),
       branding,
       work: {
         completed: dsr.workCompleted,

@@ -33,7 +33,9 @@ export const dsrRmcEntrySchema = z.object({
   vendorId: z.string(),
   quantityM3: z.number().positive(),
   grade: z.string().min(1),
-  ratePerM3: z.number().positive(),
+  // Nullable (client-readiness batch, goal 1) — a delivery may be recorded
+  // before pricing is known; totalAmount then stays null (see dsr.service).
+  ratePerM3: z.number().positive().optional(),
   // totalAmount is server-computed (quantityM3 * ratePerM3) — never
   // accepted from the client.
   clientGeneratedId: z.string().optional(),
@@ -48,13 +50,68 @@ export const dsrExpenseSchema = z.object({
   clientGeneratedId: z.string().optional(),
 });
 
-export const dsrEquipmentUsedSchema = z.object({
-  type: z.enum(["MACHINERY", "VEHICLE"]),
-  id: z.string(),
-  name: z.string(),
-});
+export const dsrEquipmentUsedSchema = z
+  .object({
+    type: z.enum(["MACHINERY", "VEHICLE", "OTHER"]),
+    // Present for MACHINERY/VEHICLE (a Machinery/Vehicle register id);
+    // absent for OTHER — a free-text vehicle/equipment that never touches
+    // either register (client-readiness batch, goal 2).
+    id: z.string().optional(),
+    name: z.string().optional(),
+    // Optional per-row note (goal 5). Doubles as the OTHER variant's
+    // required free-text description instead of a separate field.
+    description: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === "OTHER") {
+      if (!data.description || data.description.trim() === "") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["description"],
+          message: "A description is required for Other Vehicle",
+        });
+      }
+    } else {
+      if (!data.id) {
+        ctx.addIssue({ code: "custom", path: ["id"], message: "id is required" });
+      }
+      if (!data.name) {
+        ctx.addIssue({ code: "custom", path: ["name"], message: "name is required" });
+      }
+    }
+  });
 
 export type DsrEquipmentUsed = z.infer<typeof dsrEquipmentUsedSchema>;
+
+// Free-text Category (human-confirmed — a lookup table would be premature,
+// same reasoning as WasteDisposal.wasteType). `total` is derived
+// client-side (men + women) and never submitted as its own field.
+export const dsrLabourEntrySchema = z
+  .object({
+    category: z.string().min(1),
+    men: z.number().int().nonnegative(),
+    women: z.number().int().nonnegative(),
+    clientGeneratedId: z.string().optional(),
+  })
+  // Defense-in-depth (client-readiness batch review): the web forms already
+  // filter out a men=0/women=0 row before submitting, but that filter used
+  // to compare the raw string form value (`"0"` is truthy) — a direct API
+  // call must not be able to record a category with nobody in it either.
+  .refine((d) => d.men > 0 || d.women > 0, {
+    message: "At least one worker required",
+  });
+
+export type DsrLabourEntry = z.infer<typeof dsrLabourEntrySchema>;
+
+// Picks from the existing Subcontractor register; workNote is a free-text
+// note about what the Subcontractor did that day.
+export const dsrSubcontractorEntrySchema = z.object({
+  subcontractorId: z.string(),
+  workNote: z.string().optional(),
+  clientGeneratedId: z.string().optional(),
+});
+
+export type DsrSubcontractorEntry = z.infer<typeof dsrSubcontractorEntrySchema>;
 
 export const createDsrSchema = z.object({
   siteId: z.string(),
@@ -70,6 +127,8 @@ export const createDsrSchema = z.object({
   rmcEntries: z.array(dsrRmcEntrySchema).default([]),
   expenses: z.array(dsrExpenseSchema).default([]),
   equipmentUsed: z.array(dsrEquipmentUsedSchema).default([]),
+  subcontractorEntries: z.array(dsrSubcontractorEntrySchema).default([]),
+  labourEntries: z.array(dsrLabourEntrySchema).default([]),
 });
 
 export type CreateDsrInput = z.infer<typeof createDsrSchema>;

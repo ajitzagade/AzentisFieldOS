@@ -10,6 +10,7 @@ import { LabourReportsService } from './labour-reports.service';
 import { MachineryVehicleReportsService } from './machinery-reports.service';
 import { FinancialReportsService } from './financial-reports.service';
 import { ReportDeliveryService } from './report-delivery.service';
+import { formatDate } from './format-date';
 import {
   DEFAULT_BRANDING,
   type ReportContent,
@@ -164,7 +165,7 @@ export class ReportSchedulesService {
     const label = `${schedule.reportType.replace(/_/g, ' / ')} Report`;
     return {
       siteName: label,
-      reportDate: `${range.from} → ${range.to}`,
+      reportDate: `${formatDate(range.from)} → ${formatDate(range.to)}`,
       branding: DEFAULT_BRANDING,
       work: {
         completed: null,

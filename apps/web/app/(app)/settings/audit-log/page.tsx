@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { formatDateTime } from "@/lib/format";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -47,19 +48,6 @@ async function getJSON<T>(path: string): Promise<T> {
     throw new Error(`Failed to load ${path} (${res.status})`);
   }
   return res.json();
-}
-
-function formatDateTime(iso: string): string {
-  // Rendered server-side — pin the tenant's zone (same convention as the
-  // dashboard heading) or a UTC host shifts every timestamp by 5.5 hours.
-  return new Date(iso).toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "Asia/Kolkata",
-  });
 }
 
 const METHOD_BADGE: Record<AuditLogRow["method"], { variant: "success" | "warning" | "danger"; label: string }> = {

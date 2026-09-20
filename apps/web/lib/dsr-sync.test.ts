@@ -20,6 +20,8 @@ function basePayload(overrides: Partial<CreateDsrInput> = {}): CreateDsrInput {
     rmcEntries: [],
     expenses: [],
     equipmentUsed: [],
+    subcontractorEntries: [],
+    labourEntries: [],
     ...overrides,
   };
 }

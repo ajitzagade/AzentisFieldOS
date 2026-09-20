@@ -23,7 +23,7 @@ import {
   UserIcon,
   useSubmitConfirmation,
 } from "@azentisfieldos/ui";
-import type { CreateDsrInput } from "@azentisfieldos/shared";
+import { dsrEquipmentUsedSchema, type CreateDsrInput } from "@azentisfieldos/shared";
 import { uploadPhoto } from "../../../../lib/photo-upload";
 import { useAuthedFetch } from "../../../../lib/use-authed-fetch";
 import { useDsrReferenceData } from "../../../../lib/use-dsr-reference-data";
@@ -31,6 +31,7 @@ import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-si
 import { MaterialQuickCreateModal } from "../../materials/_components/material-quick-create-modal";
 import { TeamMemberQuickCreateModal } from "../../team/_components/team-member-quick-create-modal";
 import { VendorQuickCreateModal } from "../../vendors/_components/vendor-quick-create-modal";
+import { SubcontractorQuickCreateModal } from "../../subcontractors/_components/subcontractor-quick-create-modal";
 
 interface SiteOption {
   id: string;
@@ -66,9 +67,28 @@ interface ExpenseRow {
 }
 
 interface EquipmentRow {
-  type: "MACHINERY" | "VEHICLE";
+  type: "MACHINERY" | "VEHICLE" | "OTHER";
+  // Present for MACHINERY/VEHICLE (a register id); a client-only random id
+  // for OTHER rows (React key / remove-matching only — never resolved
+  // against the Vehicle register, goal 2).
   id: string;
   name: string;
+  // Optional per-row note (goal 5); the OTHER variant's free-text vehicle
+  // description lives here too instead of a separate field.
+  description?: string;
+}
+
+interface SubcontractorRow {
+  clientGeneratedId: string;
+  subcontractorId: string | null;
+  workNote: string;
+}
+
+interface LabourRow {
+  clientGeneratedId: string;
+  category: string;
+  men: string;
+  women: string;
 }
 
 interface PhotoItem {
@@ -76,6 +96,17 @@ interface PhotoItem {
   file: File;
   previewUrl: string;
   status: "pending" | "uploading" | "uploaded" | "failed";
+}
+
+// The shared schema (AD-7) is the one place "a description is required for
+// Other Vehicle" is defined — reused here instead of leaning on the native
+// `required` attribute alone, which a whitespace-only value slips past
+// (finding: OTHER row's description had no inline error, unlike a proper
+// AD-7-wired field).
+function equipmentDescriptionError(row: { type: EquipmentRow["type"]; description?: string }): string | undefined {
+  const result = dsrEquipmentUsedSchema.safeParse(row);
+  if (result.success) return undefined;
+  return result.error.flatten().fieldErrors.description?.[0];
 }
 
 export interface DsrFormInitialValues {
@@ -88,6 +119,8 @@ export interface DsrFormInitialValues {
   rmcEntries: Omit<RmcRow, "clientGeneratedId">[];
   expenses: Omit<ExpenseRow, "clientGeneratedId">[];
   equipmentUsed: EquipmentRow[];
+  subcontractorEntries?: Omit<SubcontractorRow, "clientGeneratedId">[];
+  labourEntries?: Omit<LabourRow, "clientGeneratedId">[];
 }
 
 // Rows carry a client-generated id from the moment they exist in the form
@@ -155,6 +188,11 @@ export function DsrDesktopForm({
   const [expenses, setExpenses] = useState<ExpenseRow[]>(() => withRowIds(initial?.expenses));
   const [equipmentUsed, setEquipmentUsed] = useState<EquipmentRow[]>(initial?.equipmentUsed ?? []);
   const [newEquipmentId, setNewEquipmentId] = useState<string | null>(null);
+  const [subcontractorEntries, setSubcontractorEntries] = useState<SubcontractorRow[]>(() =>
+    withRowIds(initial?.subcontractorEntries),
+  );
+  const [subcontractorQuickCreateRow, setSubcontractorQuickCreateRow] = useState<number | null>(null);
+  const [labourEntries, setLabourEntries] = useState<LabourRow[]>(() => withRowIds(initial?.labourEntries));
 
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -197,6 +235,12 @@ export function DsrDesktopForm({
     setCrew((rows) => rows.map((r) => (r.teamMemberId === teamMemberId ? { ...r, attended: !r.attended } : r)));
   }
 
+  // Goal 6: matches the mobile form's Remove — a crew member added by
+  // mistake can be dropped before submitting.
+  function removeCrewMember(teamMemberId: string) {
+    setCrew((rows) => rows.filter((r) => r.teamMemberId !== teamMemberId));
+  }
+
   function addCrewMember(teamMemberId: string | null) {
     setNewCrewId(teamMemberId);
     if (!teamMemberId) return;
@@ -214,11 +258,24 @@ export function DsrDesktopForm({
     if (!optionValue) return;
     const option = reference.equipmentOptions.find((o) => o.value === optionValue);
     if (!option) return;
+    if (option.equipmentType === "OTHER") {
+      // Goal 2: no register id to resolve — a fresh free-text row.
+      setEquipmentUsed((rows) => [
+        ...rows,
+        { type: "OTHER", id: crypto.randomUUID(), name: "Other Vehicle", description: "" },
+      ]);
+      setNewEquipmentId(null);
+      return;
+    }
     const id = optionValue.split(":")[1] ?? optionValue;
     setEquipmentUsed((rows) =>
       rows.some((r) => r.id === id) ? rows : [...rows, { type: option.equipmentType, id, name: option.name }],
     );
     setNewEquipmentId(null);
+  }
+
+  function updateEquipmentDescription(id: string, description: string) {
+    setEquipmentUsed((rows) => rows.map((r) => (r.id === id ? { ...r, description } : r)));
   }
 
   function addPhotoFiles(fileList: FileList | null) {
@@ -316,14 +373,17 @@ export function DsrDesktopForm({
             quantity: Number(c.quantity),
             activityReference: c.activityReference || undefined,
           })),
+        // Goal 1: rate is optional — a blank ratePerM3 no longer drops the
+        // row, it just submits without one and the server stores
+        // totalAmount as null.
         rmcEntries: rmcEntries
-          .filter((r) => r.vendorId && r.quantityM3 && r.grade && r.ratePerM3)
+          .filter((r) => r.vendorId && r.quantityM3 && r.grade)
           .map((r) => ({
             clientGeneratedId: r.clientGeneratedId,
             vendorId: r.vendorId!,
             quantityM3: Number(r.quantityM3),
             grade: r.grade,
-            ratePerM3: Number(r.ratePerM3),
+            ratePerM3: r.ratePerM3 ? Number(r.ratePerM3) : undefined,
           })),
         expenses: expenses
           .filter((e) => e.categoryId && e.amount)
@@ -334,6 +394,23 @@ export function DsrDesktopForm({
             description: e.description || undefined,
           })),
         equipmentUsed,
+        // Goal 5: only complete rows submit, same rule every other
+        // sub-record array here follows.
+        subcontractorEntries: subcontractorEntries
+          .filter((s) => s.subcontractorId)
+          .map((s) => ({
+            clientGeneratedId: s.clientGeneratedId,
+            subcontractorId: s.subcontractorId!,
+            workNote: s.workNote || undefined,
+          })),
+        labourEntries: labourEntries
+          .filter((l) => l.category && (Number(l.men) > 0 || Number(l.women) > 0))
+          .map((l) => ({
+            clientGeneratedId: l.clientGeneratedId,
+            category: l.category,
+            men: Number(l.men) || 0,
+            women: Number(l.women) || 0,
+          })),
       };
 
       const path = mode === "correct" ? `/dsr/${originalId}/correct` : `/dsr`;
@@ -448,6 +525,9 @@ export function DsrDesktopForm({
                 {row.name ?? "Crew member"}
               </label>
               {row.attended ? <Badge variant="success">Present</Badge> : <Badge variant="neutral">Absent</Badge>}
+              <Button type="button" variant="ghost" size="sm" onClick={() => removeCrewMember(row.teamMemberId)}>
+                Remove
+              </Button>
             </li>
           ))}
         </ul>
@@ -660,18 +740,33 @@ export function DsrDesktopForm({
         {equipmentUsed.length > 0 ? (
           <ul className="mb-3 flex flex-col gap-2">
             {equipmentUsed.map((row) => (
-              <li key={row.id} className="flex items-center gap-2">
-                <TruckIcon className="size-4 text-ink-500" />
-                <span className="flex-1 text-body-sm text-ink-900">{row.name}</span>
-                <Badge variant="neutral">{row.type === "MACHINERY" ? "Machinery" : "Vehicle"}</Badge>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEquipmentUsed((rows) => rows.filter((r) => r.id !== row.id))}
-                >
-                  Remove
-                </Button>
+              <li key={row.id} className="mb-2 flex flex-col gap-2 border-b border-border-hairline pb-2 last:border-b-0">
+                <div className="flex items-center gap-2">
+                  <TruckIcon className="size-4 text-ink-500" />
+                  <span className="flex-1 text-body-sm text-ink-900">
+                    {row.type === "OTHER" ? "Other Vehicle" : row.name}
+                  </span>
+                  <Badge variant="neutral">
+                    {row.type === "MACHINERY" ? "Machinery" : row.type === "VEHICLE" ? "Vehicle" : "Other"}
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEquipmentUsed((rows) => rows.filter((r) => r.id !== row.id))}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                <TextField
+                  label={row.type === "OTHER" ? "Describe this vehicle" : "Notes"}
+                  hint={row.type === "OTHER" ? undefined : "Optional"}
+                  required={row.type === "OTHER"}
+                  placeholder={row.type === "OTHER" ? "e.g. Hired dumper — MH12 AB 1234" : "e.g. Used for excavation"}
+                  value={row.description ?? ""}
+                  onChange={(e) => updateEquipmentDescription(row.id, e.target.value)}
+                  error={equipmentDescriptionError(row)}
+                />
               </li>
             ))}
           </ul>
@@ -690,6 +785,127 @@ export function DsrDesktopForm({
               : "No matching Machinery or Vehicle in the registers"
           }
         />
+      </Card>
+
+      <Card className="mb-4">
+        <h2 className="mb-3 text-card-title text-ink-900">Subcontractors on site</h2>
+        {subcontractorEntries.map((row, index) => (
+          <div
+            key={row.clientGeneratedId}
+            className="mb-3 grid grid-cols-1 gap-x-3 border-b border-border-hairline sm:grid-cols-12 sm:items-start"
+          >
+            <ComboboxField
+              label="Subcontractor"
+              className="sm:col-span-5"
+              options={reference.subcontractorOptions}
+              value={row.subcontractorId}
+              onValueChange={(value) =>
+                setSubcontractorEntries((rows) =>
+                  // Same dedupe pattern as the crew/equipment pickers: a
+                  // Subcontractor already picked in another row can't be
+                  // picked again for this one.
+                  value && rows.some((r, i) => i !== index && r.subcontractorId === value)
+                    ? rows
+                    : rows.map((r, i) => (i === index ? { ...r, subcontractorId: value } : r)),
+                )
+              }
+              loading={reference.loading}
+              placeholder="Type a Subcontractor name…"
+              emptyMessage={reference.loadFailed ? "Couldn't load Subcontractors — try reloading" : "No matching Subcontractor"}
+              onCreateNew={() => setSubcontractorQuickCreateRow(index)}
+              createNewLabel="+ Add Subcontractor"
+            />
+            <div className="sm:col-span-5">
+              <TextField
+                label="Work note"
+                hint="Optional"
+                placeholder="e.g. Shuttering — 2nd floor"
+                value={row.workNote}
+                onChange={(e) =>
+                  setSubcontractorEntries((rows) => rows.map((r, i) => (i === index ? { ...r, workNote: e.target.value } : r)))
+                }
+              />
+            </div>
+            <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
+              <Button type="button" variant="ghost" onClick={() => setSubcontractorEntries((rows) => rows.filter((_, i) => i !== index))}>
+                Remove
+              </Button>
+            </div>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() =>
+            setSubcontractorEntries((rows) => [
+              ...rows,
+              { clientGeneratedId: crypto.randomUUID(), subcontractorId: null, workNote: "" },
+            ])
+          }
+        >
+          <PlusIcon className="size-4" />
+          Add subcontractor
+        </Button>
+      </Card>
+
+      <Card className="mb-4">
+        <h2 className="mb-3 text-card-title text-ink-900">Labour</h2>
+        {labourEntries.map((row, index) => (
+          <div
+            key={row.clientGeneratedId}
+            className="mb-3 grid grid-cols-1 gap-x-3 border-b border-border-hairline sm:grid-cols-12 sm:items-start"
+          >
+            <div className="sm:col-span-5">
+              <TextField
+                label="Category"
+                placeholder="e.g. Mason, Helper"
+                value={row.category}
+                onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, category: e.target.value } : r)))}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <TextField
+                label="Men"
+                type="number"
+                min={0}
+                step="1"
+                value={row.men}
+                onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, men: e.target.value } : r)))}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <TextField
+                label="Women"
+                type="number"
+                min={0}
+                step="1"
+                value={row.women}
+                onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, women: e.target.value } : r)))}
+              />
+            </div>
+            <div className="sm:col-span-2 text-body-sm text-ink-500 sm:mt-6">
+              Total: {(Number(row.men) || 0) + (Number(row.women) || 0)}
+            </div>
+            <div className="sm:col-span-1 sm:mt-6 sm:justify-self-end">
+              <Button type="button" variant="ghost" onClick={() => setLabourEntries((rows) => rows.filter((_, i) => i !== index))}>
+                Remove
+              </Button>
+            </div>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() =>
+            setLabourEntries((rows) => [
+              ...rows,
+              { clientGeneratedId: crypto.randomUUID(), category: "", men: "", women: "" },
+            ])
+          }
+        >
+          <PlusIcon className="size-4" />
+          Add labour
+        </Button>
       </Card>
 
       <Card className="mb-4">
@@ -812,6 +1028,8 @@ export function DsrDesktopForm({
         <ConfirmDialogRow label="Materials consumed" value={consumptions.filter((c) => c.materialSizeId && c.quantity).length} />
         <ConfirmDialogRow label="RMC deliveries" value={rmcEntries.filter((r) => r.vendorId && r.quantityM3).length} />
         <ConfirmDialogRow label="Expenses" value={expenses.filter((e) => e.categoryId && e.amount).length} />
+        <ConfirmDialogRow label="Subcontractors" value={subcontractorEntries.filter((s) => s.subcontractorId).length} />
+        <ConfirmDialogRow label="Labour" value={labourEntries.filter((l) => l.category && (Number(l.men) > 0 || Number(l.women) > 0)).length} />
         <ConfirmDialogRow label="Reason" value={reason || "—"} />
       </ConfirmDialog>
 
@@ -850,6 +1068,22 @@ export function DsrDesktopForm({
             setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vendorId: vendor.id } : r)));
           }
           setVendorQuickCreateRow(null);
+        }}
+      />
+      <SubcontractorQuickCreateModal
+        open={subcontractorQuickCreateRow !== null}
+        onOpenChange={(open) => {
+          if (!open) setSubcontractorQuickCreateRow(null);
+        }}
+        onSuccess={(subcontractor) => {
+          reference.addSubcontractorOption({ value: subcontractor.id, label: subcontractor.name });
+          const index = subcontractorQuickCreateRow;
+          if (index !== null) {
+            setSubcontractorEntries((rows) =>
+              rows.map((r, i) => (i === index ? { ...r, subcontractorId: subcontractor.id } : r)),
+            );
+          }
+          setSubcontractorQuickCreateRow(null);
         }}
       />
     </form>

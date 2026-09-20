@@ -108,7 +108,7 @@ export default async function AllPaymentsPage({
       <div className="mb-8">
         <h1 className="text-page-title text-ink-900">All Payments</h1>
         <p className="text-body-sm text-ink-500">
-          Every payment in one place — Employee, Subcontractor, Vendor, RMC, Waste Disposal and Expenses
+          Every payment in one place — Employee, Subcontractor, Vendor, RMC, Waste Material and Expenses
         </p>
       </div>
 

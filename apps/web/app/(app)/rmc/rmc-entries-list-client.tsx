@@ -24,8 +24,10 @@ export interface RmcEntryRow {
   id: string;
   quantityM3: string;
   grade: string;
-  ratePerM3: string;
-  totalAmount: string;
+  // Nullable (client-readiness batch, goal 1): a Supervisor may record a
+  // delivery before pricing is known — mirrors D7's Purchase pattern.
+  ratePerM3: string | null;
+  totalAmount: string | null;
   invoiceOrChallanNo: string | null;
   challanPhotoUrl: string | null;
   deliveredAt: string;
@@ -51,13 +53,18 @@ const columns: DataTableColumn<RmcEntryRow>[] = [
   {
     header: "Rate / m³",
     align: "right",
-    cell: (row) => formatMoney(Number(row.ratePerM3)),
+    // D7: an unpriced delivery has no rate yet — pending, never ₹0.
+    cell: (row) => (row.ratePerM3 === null ? <span className="text-ink-500">—</span> : formatMoney(Number(row.ratePerM3))),
     sortKey: "ratePerM3",
   },
   {
     header: "Total",
     align: "right",
-    cell: (row) => <span className="font-semibold text-gold-700">{formatMoney(Number(row.totalAmount))}</span>,
+    cell: (row) => (
+      <span className="font-semibold text-gold-700">
+        {row.totalAmount === null ? <span className="text-ink-500">—</span> : formatMoney(Number(row.totalAmount))}
+      </span>
+    ),
     sortKey: "totalAmount",
   },
   {

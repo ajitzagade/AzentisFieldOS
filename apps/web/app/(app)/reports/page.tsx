@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { formatDate, formatDateTime } from "@/lib/format";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import type { FeedItem, PhotoGalleryItem } from "@azentisfieldos/shared";
@@ -430,24 +431,6 @@ async function getFinancialReport(params: {
 // ---------------------------------------------------------------------------
 // Formatting
 // ---------------------------------------------------------------------------
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function formatMoney(amount: number) {
   const sign = amount < 0 ? "−" : "";
   return `${sign}₹${Math.abs(amount).toLocaleString("en-IN")}`;
@@ -1329,7 +1312,7 @@ const siteBreakdownColumns: DataTableColumn<FinancialSiteRow>[] = [
     cell: (r) => <span className="tabular-nums">{formatMoney(r.expenses)}</span>,
   },
   {
-    header: "Waste & Disposal",
+    header: "Waste Material",
     align: "right",
     cell: (r) => <span className="tabular-nums">{formatMoney(r.wasteDisposal)}</span>,
   },
@@ -1371,7 +1354,7 @@ function scopedCategoryRows(
     { key: "expenses", category: "Expenses", amount: scope.expenses },
     {
       key: "wasteDisposal",
-      category: "Waste & Disposal",
+      category: "Waste Material",
       amount: scope.wasteDisposal,
     },
     { key: "total", category: "Total", amount: scope.total, emphasis: true },
@@ -1468,7 +1451,7 @@ function FinancialReportView({
             Per-Site Breakdown
           </h2>
           <p className="mb-3 text-body-sm text-ink-500">
-            Material, RMC, Expenses, and Waste &amp; Disposal attribute to a
+            Material, RMC, Expenses, and Waste Material attribute to a
             Site. Labour and Machinery/Vehicle are Contractor-level only (see
             the totals above).
           </p>

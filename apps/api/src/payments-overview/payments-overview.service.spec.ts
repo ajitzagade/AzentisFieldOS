@@ -180,9 +180,68 @@ describe('PaymentsOverviewService.list', () => {
     );
     expect(prisma.wasteDisposal.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ paymentStatus: { not: null } }),
+        where: expect.objectContaining({ ownership: 'HIRED' }),
       }),
     );
+  });
+
+  it('surfaces a pricing-pending original RMC delivery and Waste Material trip as PRICING_PENDING, but not their corrections', async () => {
+    const prisma = makePrisma({
+      rmcEntry: [
+        {
+          id: 'rmc1',
+          deliveredAt: new Date('2026-09-10'),
+          totalAmount: null,
+          correctsId: null,
+          grade: 'M25',
+          quantityM3: { toString: () => '20' },
+          vendor: { name: 'Anand RMC Suppliers' },
+          site: { name: 'Site A' },
+        },
+        {
+          id: 'rmc2',
+          deliveredAt: new Date('2026-09-09'),
+          totalAmount: null,
+          correctsId: 'rmc0',
+          grade: 'M25',
+          quantityM3: { toString: () => '5' },
+          vendor: { name: 'Anand RMC Suppliers' },
+          site: { name: 'Site A' },
+        },
+      ],
+      wasteDisposal: [
+        {
+          id: 'wd1',
+          disposedAt: new Date('2026-09-08'),
+          totalAmount: null,
+          paymentStatus: null,
+          correctsId: null,
+          wasteType: 'Debris',
+          vendor: { name: 'Balaji Transport' },
+          site: { name: 'Site A' },
+        },
+      ],
+    });
+    const service = makeService(prisma);
+
+    const result = await service.list({});
+
+    const byId = Object.fromEntries(result.rows.map((r) => [r.id, r]));
+    expect(byId.rmc1).toMatchObject({
+      amount: null,
+      status: 'PRICING_PENDING',
+      isCorrection: false,
+    });
+    expect(byId.rmc2).toMatchObject({
+      amount: null,
+      status: null,
+      isCorrection: true,
+    });
+    expect(byId.wd1).toMatchObject({
+      amount: null,
+      status: 'PRICING_PENDING',
+      isCorrection: false,
+    });
   });
 
   it('status=PENDING queries only pending Employee Payments and unpriced original Purchases', async () => {
@@ -307,9 +366,9 @@ describe('PaymentsOverviewService.list', () => {
 });
 
 describe('PaymentsOverviewService.summary', () => {
-  it('sums paid vs outstanding buckets and counts (never sums) unpriced Purchases', async () => {
+  it('sums paid vs outstanding buckets and counts (never sums) unpriced Purchases, RMC deliveries, and Waste Material trips', async () => {
     const prisma = makePrisma(
-      { purchaseCount: 3 },
+      { purchaseCount: 3, rmcEntryCount: 2, wasteDisposalCount: 1 },
       {
         // Call order within summary(): payment paid, payment pending;
         // purchase PAID, purchase UNPAID+PARTIAL; waste PAID, waste owed.
@@ -338,9 +397,15 @@ describe('PaymentsOverviewService.summary', () => {
     expect(summary).toEqual({
       paidTotal: 5000 + 10000 + 1000 + 300 + 200 + 700 + 800,
       outstandingTotal: 2000 + 4000 + 500,
-      pendingPricingCount: 3,
+      pendingPricingCount: 3 + 2 + 1,
     });
     expect(prisma.purchase.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({ totalAmount: null, correctsId: null }),
+    });
+    expect(prisma.rmcEntry.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({ totalAmount: null, correctsId: null }),
+    });
+    expect(prisma.wasteDisposal.count).toHaveBeenCalledWith({
       where: expect.objectContaining({ totalAmount: null, correctsId: null }),
     });
   });

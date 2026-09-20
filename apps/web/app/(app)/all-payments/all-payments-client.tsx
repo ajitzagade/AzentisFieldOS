@@ -52,7 +52,7 @@ const KIND_LABELS: Record<PaymentOverviewKind, string> = {
   SUBCONTRACTOR: "Subcontractor",
   PURCHASE: "Purchase",
   RMC: "RMC",
-  WASTE_DISPOSAL: "Waste Disposal",
+  WASTE_DISPOSAL: "Waste Material",
   VENDOR_ADVANCE: "Vendor Advance",
   EXPENSE: "Expense",
 };

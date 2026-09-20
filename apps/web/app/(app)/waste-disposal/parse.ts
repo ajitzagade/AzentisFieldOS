@@ -1,4 +1,5 @@
 import { createWasteDisposalSchema } from "@azentisfieldos/shared";
+import { optionalNumber } from "../../../lib/parse-helpers";
 
 // The schema nests the optional advance to the hired Vendor under
 // `advance`, but the form's fields (and errorFor keys) are flat — remap
@@ -27,7 +28,7 @@ export function parseWasteDisposalForm(formData: FormData) {
     vehicleId: formData.get("vehicleId") || undefined,
     vehicleDetails: formData.get("vehicleDetails") || undefined,
     tripCount: Number(formData.get("tripCount")),
-    ratePerTrip: Number(formData.get("ratePerTrip")),
+    ratePerTrip: optionalNumber(formData.get("ratePerTrip")),
     otherCharges: otherChargesRaw ? Number(otherChargesRaw) : undefined,
     disposalLocation: formData.get("disposalLocation") || undefined,
     paymentStatus: formData.get("paymentStatus") || undefined,

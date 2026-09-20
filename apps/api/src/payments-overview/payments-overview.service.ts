@@ -189,8 +189,14 @@ export class PaymentsOverviewService {
       ...(nameContains ? { vendor: { name: nameContains } } : {}),
       // HIRED trips only — an OWN-asset disposal has no counterparty being
       // paid, so it isn't a "payment" in this feed (it stays on the Waste &
-      // Disposal page as a cost record).
-      paymentStatus: status ?? { not: null },
+      // Disposal page as a cost record). Filtered on `ownership` directly
+      // rather than "paymentStatus is set": a pricing-pending HIRED trip
+      // (goal 1) also has a null paymentStatus (all-or-none with
+      // ratePerTrip), and the old proxy silently dropped it from this feed
+      // alongside genuine OWN rows instead of surfacing it as Pricing
+      // pending.
+      ownership: 'HIRED',
+      ...(status ? { paymentStatus: status } : {}),
     };
     const vendorAdvanceWhere: Prisma.VendorAdvanceWhereInput = {
       ...(dateRange ? { givenAt: dateRange } : {}),
@@ -431,7 +437,14 @@ export class PaymentsOverviewService {
         siteName: w.site.name,
         detail: w.wasteType,
         amount: w.totalAmount,
-        status: (w.paymentStatus as PaymentOverviewStatus | null) ?? null,
+        // Same D7-style convention as Purchase/RMC: a pricing-pending
+        // original (null totalAmount, and therefore null paymentStatus too
+        // — the all-or-none group) surfaces as Pricing pending rather than
+        // a blank status; a correction row stays untracked (null).
+        status:
+          w.totalAmount === null && w.correctsId === null
+            ? 'PRICING_PENDING'
+            : ((w.paymentStatus as PaymentOverviewStatus | null) ?? null),
         isCorrection: w.correctsId !== null,
         refs: {},
       })),
@@ -467,7 +480,14 @@ export class PaymentsOverviewService {
         siteName: r.site.name,
         detail: `${r.grade} — ${r.quantityM3.toString()} m³`,
         amount: r.totalAmount,
-        status: null,
+        // A pricing-pending original (goal 1) surfaces the same way
+        // Purchase's D7 pattern does; a correction row is a signed delta
+        // with no pricing of its own, so it stays untracked (null), same
+        // as every other RMC row.
+        status:
+          r.totalAmount === null && r.correctsId === null
+            ? 'PRICING_PENDING'
+            : null,
         isCorrection: r.correctsId !== null,
         refs: {},
       })),
@@ -514,7 +534,9 @@ export class PaymentsOverviewService {
       vendorAdvances,
       subcontractorPayments,
       expenses,
-      pendingPricingCount,
+      pendingPricingPurchaseCount,
+      pendingPricingRmcCount,
+      pendingPricingWasteDisposalCount,
     ] = await Promise.all([
       this.prisma.payment.aggregate({
         where: {
@@ -585,6 +607,23 @@ export class PaymentsOverviewService {
           ...(dateRange ? { purchasedAt: dateRange } : {}),
         },
       }),
+      // Goal 1: RMC deliveries and Waste Material trips can also be
+      // pricing-pending now — the aggregate must not undercount by only
+      // ever looking at Purchase.
+      this.prisma.rmcEntry.count({
+        where: {
+          totalAmount: null,
+          correctsId: null,
+          ...(dateRange ? { deliveredAt: dateRange } : {}),
+        },
+      }),
+      this.prisma.wasteDisposal.count({
+        where: {
+          totalAmount: null,
+          correctsId: null,
+          ...(dateRange ? { disposedAt: dateRange } : {}),
+        },
+      }),
     ]);
 
     return {
@@ -600,7 +639,10 @@ export class PaymentsOverviewService {
         decimal(pendingPayments._sum.netPayable) +
         decimal(owedPurchases._sum.totalAmount) +
         decimal(owedWaste._sum.totalAmount),
-      pendingPricingCount,
+      pendingPricingCount:
+        pendingPricingPurchaseCount +
+        pendingPricingRmcCount +
+        pendingPricingWasteDisposalCount,
     };
   }
 }

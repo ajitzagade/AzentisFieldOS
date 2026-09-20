@@ -35,7 +35,7 @@ export const FEED_TYPE_CONFIG: Record<
   MACHINERY_MOVEMENT: { label: "Machinery", icon: GearIcon, badgeVariant: "neutral" },
   VEHICLE_MOVEMENT: { label: "Vehicle", icon: TruckIcon, badgeVariant: "neutral" },
   // Money-moving (per-trip disposal cost) — gold, same rule as Purchase/RMC.
-  WASTE_DISPOSAL: { label: "Waste Disposal", icon: TruckIcon, badgeVariant: "gold" },
+  WASTE_DISPOSAL: { label: "Waste Material", icon: TruckIcon, badgeVariant: "gold" },
   // Epic 18 (Subcontractor Management): a Site Contract's creation/status
   // change is an agreement event, not money-moving — neutral, same as DSR/
   // Movement. Work Entry is a quantity (trips/pipes/units), also neutral —

@@ -23,8 +23,13 @@ import {
   WifiOffIcon,
 } from "@azentisfieldos/ui";
 import { SiteField } from "../../_components/site-field";
-import type { CreateDsrInput } from "@azentisfieldos/shared";
-import { clearDsrAutosave, loadDsrAutosave, saveDsrAutosave } from "../../../../lib/dsr-autosave";
+import { dsrEquipmentUsedSchema, type CreateDsrInput } from "@azentisfieldos/shared";
+import {
+  clearDsrAutosave,
+  loadDsrAutosave,
+  loadMostRecentDsrAutosave,
+  saveDsrAutosave,
+} from "../../../../lib/dsr-autosave";
 import { isQueued, localDsrKey, queueDsr, withClientGeneratedIds } from "../../../../lib/offline-db";
 import { syncQueuedDsrs } from "../../../../lib/dsr-sync";
 import { uploadPhoto } from "../../../../lib/photo-upload";
@@ -34,6 +39,7 @@ import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-si
 import { MaterialQuickCreateModal } from "../../materials/_components/material-quick-create-modal";
 import { TeamMemberQuickCreateModal } from "../../team/_components/team-member-quick-create-modal";
 import { VendorQuickCreateModal } from "../../vendors/_components/vendor-quick-create-modal";
+import { SubcontractorQuickCreateModal } from "../../subcontractors/_components/subcontractor-quick-create-modal";
 
 interface SiteOption {
   id: string;
@@ -69,9 +75,39 @@ interface ExpenseRow {
 }
 
 interface EquipmentRow {
-  type: "MACHINERY" | "VEHICLE";
+  type: "MACHINERY" | "VEHICLE" | "OTHER";
+  // Present for MACHINERY/VEHICLE (a register id); a client-only random id
+  // for OTHER rows (React key / remove-matching only — never resolved
+  // against the Vehicle register, goal 2).
   id: string;
   name: string;
+  // Optional per-row note (goal 5); the OTHER variant's free-text vehicle
+  // description lives here too instead of a separate field.
+  description?: string;
+}
+
+interface SubcontractorRow {
+  clientGeneratedId: string;
+  subcontractorId: string | null;
+  workNote: string;
+}
+
+interface LabourRow {
+  clientGeneratedId: string;
+  category: string;
+  men: string;
+  women: string;
+}
+
+// The shared schema (AD-7) is the one place "a description is required for
+// Other Vehicle" is defined — reused here instead of leaning on the native
+// `required` attribute alone, which a whitespace-only value slips past
+// (finding: OTHER row's description had no inline error, unlike a proper
+// AD-7-wired field).
+function equipmentDescriptionError(row: { type: EquipmentRow["type"]; description?: string }): string | undefined {
+  const result = dsrEquipmentUsedSchema.safeParse(row);
+  if (result.success) return undefined;
+  return result.error.flatten().fieldErrors.description?.[0];
 }
 
 interface PhotoItem {
@@ -88,6 +124,8 @@ interface PhotoItem {
 // any photos already attached to the draft row (gallery-hidden until Finalize).
 interface DraftResponse {
   id: string;
+  siteId: string;
+  reportDate: string;
   workCompleted: string | null;
   issuesBlockers: string | null;
   workRecords: { teamMemberId: string; attended: boolean }[];
@@ -102,10 +140,13 @@ interface DraftResponse {
     vendorId: string;
     quantityM3: number;
     grade: string;
-    ratePerM3: number;
+    // Nullable (goal 1) — a delivery may be recorded before pricing exists.
+    ratePerM3: number | null;
   }[];
   expenses: { clientGeneratedId?: string; categoryId: string; amount: number; description?: string }[];
   equipmentUsed: EquipmentRow[];
+  subcontractorEntries: { clientGeneratedId?: string; subcontractorId: string; workNote?: string }[];
+  labourEntries: { clientGeneratedId?: string; category: string; men: number; women: number }[];
   photos: { id: string; url: string }[];
 }
 
@@ -126,6 +167,8 @@ interface DsrAutosaveData {
   rmcEntries: RmcRow[];
   expenses: ExpenseRow[];
   equipmentUsed: EquipmentRow[];
+  subcontractorEntries: SubcontractorRow[];
+  labourEntries: LabourRow[];
   hadPhotos: boolean;
 }
 
@@ -171,6 +214,9 @@ function NewDsrForm() {
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [equipmentUsed, setEquipmentUsed] = useState<EquipmentRow[]>([]);
   const [newEquipmentId, setNewEquipmentId] = useState<string | null>(null);
+  const [subcontractorEntries, setSubcontractorEntries] = useState<SubcontractorRow[]>([]);
+  const [subcontractorQuickCreateRow, setSubcontractorQuickCreateRow] = useState<number | null>(null);
+  const [labourEntries, setLabourEntries] = useState<LabourRow[]>([]);
 
   // FR-30: photos are staged locally as they're captured (like every other
   // field) and uploaded once the DSR itself has synced and has a real id —
@@ -252,6 +298,23 @@ function NewDsrForm() {
 
   const currentKeyRef = useRef(localDsrKey(siteId, reportDate));
 
+  // Client-readiness batch (goal 8): shared by the mount-time restore below
+  // AND the per-Site/Date-change effect further down, so "restore this
+  // pair's autosaved data" is one code path, not two that could drift.
+  function applyAutosaveSnapshot(d: DsrAutosaveData, savedAt: number) {
+    setWorkCompleted(d.workCompleted ?? "");
+    setIssuesBlockers(d.issuesBlockers ?? "");
+    setCrew(Array.isArray(d.crew) ? d.crew : []);
+    setConsumptions(Array.isArray(d.consumptions) ? d.consumptions : []);
+    setRmcEntries(Array.isArray(d.rmcEntries) ? d.rmcEntries : []);
+    setExpenses(Array.isArray(d.expenses) ? d.expenses : []);
+    setEquipmentUsed(Array.isArray(d.equipmentUsed) ? d.equipmentUsed : []);
+    setSubcontractorEntries(Array.isArray(d.subcontractorEntries) ? d.subcontractorEntries : []);
+    setLabourEntries(Array.isArray(d.labourEntries) ? d.labourEntries : []);
+    setRestoredHadPhotos(Boolean(d.hadPhotos));
+    setRestoredAutosaveAt(savedAt);
+  }
+
   // Restore an interrupted session once per mount, before the draft-resume
   // effect below is allowed to run. A deep-linked ?siteId= for a DIFFERENT
   // Site is an explicit navigation intent — don't hijack it with a restore.
@@ -259,10 +322,17 @@ function NewDsrForm() {
   // must NOT feed useState initializers ("use client" pages still server-
   // render; localStorage-derived initial state would hydration-mismatch),
   // and the one cascading re-render it triggers is the restore itself.
+  // Client-readiness batch (goal 8): autosave is now keyed per (siteId,
+  // reportDate) — at mount there's no pair yet to key off (the whole point
+  // is discovering which one), so this scans every stored pair for the most
+  // recently written one via loadMostRecentDsrAutosave. Once a pair is
+  // known, every later read goes through the keyed lookup in the
+  // Site/Date-change effect below, so switching between two already-known
+  // pairs never cross-contaminates.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (autosaveChecked) return;
-    const snapshot = loadDsrAutosave<DsrAutosaveData>();
+    const snapshot = loadMostRecentDsrAutosave<DsrAutosaveData>();
     const deepLinkedSiteId = searchParams.get("siteId");
     if (
       snapshot &&
@@ -272,15 +342,7 @@ function NewDsrForm() {
       const d = snapshot.data;
       setSiteId(d.siteId);
       if (d.reportDate) setReportDate(d.reportDate);
-      setWorkCompleted(d.workCompleted ?? "");
-      setIssuesBlockers(d.issuesBlockers ?? "");
-      setCrew(Array.isArray(d.crew) ? d.crew : []);
-      setConsumptions(Array.isArray(d.consumptions) ? d.consumptions : []);
-      setRmcEntries(Array.isArray(d.rmcEntries) ? d.rmcEntries : []);
-      setExpenses(Array.isArray(d.expenses) ? d.expenses : []);
-      setEquipmentUsed(Array.isArray(d.equipmentUsed) ? d.equipmentUsed : []);
-      setRestoredHadPhotos(Boolean(d.hadPhotos));
-      setRestoredAutosaveAt(snapshot.savedAt);
+      applyAutosaveSnapshot(d, snapshot.savedAt);
       skipCrewDefaultsOnceRef.current = true;
     }
     setAutosaveChecked(true);
@@ -302,20 +364,22 @@ function NewDsrForm() {
       consumptions.length > 0 ||
       rmcEntries.length > 0 ||
       expenses.length > 0 ||
-      equipmentUsed.length > 0;
+      equipmentUsed.length > 0 ||
+      subcontractorEntries.length > 0 ||
+      labourEntries.length > 0;
     if (!hasContent) {
       // The user deliberately emptied a form this session had snapshotted
       // (or restored) — a kept snapshot would resurrect the deleted
       // entries on the next visit.
       if (hasWrittenAutosaveRef.current || restoredAutosaveAt !== null) {
-        clearDsrAutosave();
+        clearDsrAutosave(siteId, reportDate);
         hasWrittenAutosaveRef.current = false;
       }
       return;
     }
     const timer = setTimeout(() => {
       hasWrittenAutosaveRef.current = true;
-      saveDsrAutosave<DsrAutosaveData>({
+      saveDsrAutosave<DsrAutosaveData>(siteId, reportDate, {
         siteId,
         reportDate,
         workCompleted,
@@ -325,6 +389,8 @@ function NewDsrForm() {
         rmcEntries,
         expenses,
         equipmentUsed,
+        subcontractorEntries,
+        labourEntries,
         hadPhotos: photos.some((p) => p.file),
       });
     }, 800);
@@ -340,6 +406,8 @@ function NewDsrForm() {
     rmcEntries,
     expenses,
     equipmentUsed,
+    subcontractorEntries,
+    labourEntries,
     photos,
     syncState,
     isSubmitting,
@@ -404,7 +472,7 @@ function NewDsrForm() {
       setRestoredAutosaveAt(null);
       setRestoredHadPhotos(false);
     }
-    clearDsrAutosave();
+    clearDsrAutosave(draft.siteId, draft.reportDate);
     setDraftId(draft.id);
     setIsResumedDraft(true);
     setDailySiteReportId(draft.id);
@@ -432,7 +500,7 @@ function NewDsrForm() {
         vendorId: r.vendorId,
         quantityM3: String(r.quantityM3),
         grade: r.grade,
-        ratePerM3: String(r.ratePerM3),
+        ratePerM3: r.ratePerM3 != null ? String(r.ratePerM3) : "",
       })),
     );
     setExpenses(
@@ -444,6 +512,21 @@ function NewDsrForm() {
       })),
     );
     setEquipmentUsed(draft.equipmentUsed ?? []);
+    setSubcontractorEntries(
+      (draft.subcontractorEntries ?? []).map((s) => ({
+        clientGeneratedId: s.clientGeneratedId ?? crypto.randomUUID(),
+        subcontractorId: s.subcontractorId,
+        workNote: s.workNote ?? "",
+      })),
+    );
+    setLabourEntries(
+      (draft.labourEntries ?? []).map((l) => ({
+        clientGeneratedId: l.clientGeneratedId ?? crypto.randomUUID(),
+        category: l.category,
+        men: String(l.men),
+        women: String(l.women),
+      })),
+    );
     setPhotos(
       draft.photos.map((p) => ({ localId: p.id, previewUrl: p.url, status: "uploaded" as const })),
     );
@@ -486,6 +569,32 @@ function NewDsrForm() {
       // A just-restored autosave session already carries its crew checklist
       // — skip the defaults exactly once so it isn't overwritten.
       if (skipCrewDefaults) return;
+
+      // Client-readiness batch (goal 8): no server DRAFT for this pair —
+      // this pair's own local autosave (if any) restores next, covering a
+      // mid-session switch back to a Site+Date that has unsaved local
+      // progress but no server draft. Checked AFTER the server draft (which
+      // stays authoritative, per prefillFromDraft's own comment above).
+      const localSnapshot = loadDsrAutosave<DsrAutosaveData>(siteId, reportDate);
+      if (localSnapshot) {
+        applyAutosaveSnapshot(localSnapshot.data, localSnapshot.savedAt);
+        return;
+      }
+
+      // Client-readiness batch (goal 8): neither a server draft nor a local
+      // snapshot exists for this pair — every field resets to blank/
+      // defaults, not just crew, or stale state from whatever Site+Date was
+      // previously being edited would otherwise bleed into this one.
+      setRestoredAutosaveAt(null);
+      setRestoredHadPhotos(false);
+      setWorkCompleted("");
+      setIssuesBlockers("");
+      setConsumptions([]);
+      setRmcEntries([]);
+      setExpenses([]);
+      setEquipmentUsed([]);
+      setSubcontractorEntries([]);
+      setLabourEntries([]);
       try {
         const res = await authedFetch(`/dsr/defaults?siteId=${siteId}&date=${reportDate}`);
         const defaults = (await res.json()) as { teamMemberId: string; name: string }[];
@@ -508,6 +617,13 @@ function NewDsrForm() {
     setCrew((rows) => rows.map((r) => (r.teamMemberId === teamMemberId ? { ...r, attended: !r.attended } : r)));
   }
 
+  // Goal 6: a crew member added by mistake (or who turns out not to be on
+  // this report) can be removed before submitting — same "Remove" pattern
+  // already used for Consumptions/RMC/Expenses rows.
+  function removeCrewMember(teamMemberId: string) {
+    setCrew((rows) => rows.filter((r) => r.teamMemberId !== teamMemberId));
+  }
+
   function addCrewMember(teamMemberId: string | null) {
     setNewCrewId(teamMemberId);
     if (!teamMemberId) return;
@@ -527,11 +643,26 @@ function NewDsrForm() {
     if (!optionValue) return;
     const option = reference.equipmentOptions.find((o) => o.value === optionValue);
     if (!option) return;
+    if (option.equipmentType === "OTHER") {
+      // Goal 2: no register id to resolve — a fresh free-text row the
+      // Supervisor fills in below. The id here is a client-only key, never
+      // looked up against the Vehicle register.
+      setEquipmentUsed((rows) => [
+        ...rows,
+        { type: "OTHER", id: crypto.randomUUID(), name: "Other Vehicle", description: "" },
+      ]);
+      setNewEquipmentId(null);
+      return;
+    }
     const id = optionValue.split(":")[1] ?? optionValue;
     setEquipmentUsed((rows) =>
       rows.some((r) => r.id === id) ? rows : [...rows, { type: option.equipmentType, id, name: option.name }],
     );
     setNewEquipmentId(null);
+  }
+
+  function updateEquipmentDescription(id: string, description: string) {
+    setEquipmentUsed((rows) => rows.map((r) => (r.id === id ? { ...r, description } : r)));
   }
 
   // Returns whether the upload landed — the caller (Finalize) needs to know so
@@ -601,14 +732,17 @@ function NewDsrForm() {
           quantity: Number(c.quantity),
           activityReference: c.activityReference || undefined,
         })),
+      // Goal 1: rate is optional — a blank ratePerM3 no longer drops the
+      // row (it used to be part of this filter), it just submits without
+      // one and the server stores totalAmount as null.
       rmcEntries: rmcEntries
-        .filter((r) => r.vendorId && r.quantityM3 && r.grade && r.ratePerM3)
+        .filter((r) => r.vendorId && r.quantityM3 && r.grade)
         .map((r) => ({
           clientGeneratedId: r.clientGeneratedId,
           vendorId: r.vendorId!,
           quantityM3: Number(r.quantityM3),
           grade: r.grade,
-          ratePerM3: Number(r.ratePerM3),
+          ratePerM3: r.ratePerM3 ? Number(r.ratePerM3) : undefined,
         })),
       expenses: expenses
         .filter((e) => e.categoryId && e.amount)
@@ -619,6 +753,23 @@ function NewDsrForm() {
           description: e.description || undefined,
         })),
       equipmentUsed,
+      // Goal 5: only complete rows submit — same "half-filled row is
+      // dropped" rule every other sub-record array here follows.
+      subcontractorEntries: subcontractorEntries
+        .filter((s) => s.subcontractorId)
+        .map((s) => ({
+          clientGeneratedId: s.clientGeneratedId,
+          subcontractorId: s.subcontractorId!,
+          workNote: s.workNote || undefined,
+        })),
+      labourEntries: labourEntries
+        .filter((l) => l.category && (Number(l.men) > 0 || Number(l.women) > 0))
+        .map((l) => ({
+          clientGeneratedId: l.clientGeneratedId,
+          category: l.category,
+          men: Number(l.men) || 0,
+          women: Number(l.women) || 0,
+        })),
     });
   }
 
@@ -647,7 +798,7 @@ function NewDsrForm() {
       setDraftSaved(true);
       // The entries now live in the server-side draft — the local safety-net
       // snapshot has served its purpose.
-      clearDsrAutosave();
+      clearDsrAutosave(siteId, reportDate);
       setRestoredAutosaveAt(null);
       // Upload any staged photos not yet on the server against the draft row.
       for (const photo of photos) {
@@ -722,7 +873,7 @@ function NewDsrForm() {
       setDraftId(null);
       setIsResumedDraft(false);
       setSyncState("synced");
-      clearDsrAutosave();
+      clearDsrAutosave(siteId, reportDate);
       setRestoredAutosaveAt(null);
     } finally {
       setIsSubmitting(false);
@@ -759,12 +910,14 @@ function NewDsrForm() {
       setRmcEntries([]);
       setExpenses([]);
       setEquipmentUsed([]);
+      setSubcontractorEntries([]);
+      setLabourEntries([]);
       for (const photo of photos) {
         if (photo.file) URL.revokeObjectURL(photo.previewUrl);
       }
       setPhotos([]);
       // A discarded report's local snapshot must not resurrect it.
-      clearDsrAutosave();
+      clearDsrAutosave(siteId, reportDate);
       setRestoredAutosaveAt(null);
     } catch {
       setError("Couldn't discard this draft — check your connection and try again.");
@@ -799,7 +952,7 @@ function NewDsrForm() {
       } catch {
         await queueDsr(payload);
         setSyncState("queued");
-        clearDsrAutosave();
+        clearDsrAutosave(siteId, reportDate);
         setRestoredAutosaveAt(null);
         return;
       }
@@ -812,7 +965,7 @@ function NewDsrForm() {
       if (res.status >= 500) {
         await queueDsr(payload);
         setSyncState("queued");
-        clearDsrAutosave();
+        clearDsrAutosave(siteId, reportDate);
         setRestoredAutosaveAt(null);
         return;
       }
@@ -830,7 +983,7 @@ function NewDsrForm() {
       const dsr = (await res.json()) as { id: string };
       setDailySiteReportId(dsr.id);
       setSyncState("synced");
-      clearDsrAutosave();
+      clearDsrAutosave(siteId, reportDate);
       setRestoredAutosaveAt(null);
       for (const photo of photos) {
         if (photo.status !== "uploaded" && photo.file) {
@@ -874,7 +1027,7 @@ function NewDsrForm() {
             <button
               type="button"
               onClick={() => {
-                clearDsrAutosave();
+                clearDsrAutosave(siteId, reportDate);
                 window.location.reload();
               }}
               className="font-medium text-accent-teal-700 underline"
@@ -952,6 +1105,9 @@ function NewDsrForm() {
                   {row.name ?? "Crew member"}
                 </label>
                 {row.attended ? <Badge variant="success">Present</Badge> : <Badge variant="neutral">Absent</Badge>}
+                <Button type="button" variant="ghost" size="sm" onClick={() => removeCrewMember(row.teamMemberId)}>
+                  Remove
+                </Button>
               </li>
             ))}
           </ul>
@@ -1169,18 +1325,36 @@ function NewDsrForm() {
           {equipmentUsed.length > 0 ? (
             <ul className="mb-3 flex flex-col gap-2">
               {equipmentUsed.map((row) => (
-                <li key={row.id} className="flex items-center gap-2">
-                  <TruckIcon className="size-4 text-ink-500" />
-                  <span className="flex-1 text-body-sm text-ink-900">{row.name}</span>
-                  <Badge variant="neutral">{row.type === "MACHINERY" ? "Machinery" : "Vehicle"}</Badge>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEquipmentUsed((rows) => rows.filter((r) => r.id !== row.id))}
-                  >
-                    Remove
-                  </Button>
+                <li key={row.id} className="mb-2 flex flex-col gap-2 border-b border-border-hairline pb-2 last:border-b-0">
+                  <div className="flex items-center gap-2">
+                    <TruckIcon className="size-4 text-ink-500" />
+                    <span className="flex-1 text-body-sm text-ink-900">
+                      {row.type === "OTHER" ? "Other Vehicle" : row.name}
+                    </span>
+                    <Badge variant="neutral">
+                      {row.type === "MACHINERY" ? "Machinery" : row.type === "VEHICLE" ? "Vehicle" : "Other"}
+                    </Badge>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEquipmentUsed((rows) => rows.filter((r) => r.id !== row.id))}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                  {/* Goal 2: "Other Vehicle" has no register entry — the
+                      description IS the record. Goal 5: every row also gets
+                      an optional note. */}
+                  <TextField
+                    label={row.type === "OTHER" ? "Describe this vehicle" : "Notes"}
+                    hint={row.type === "OTHER" ? undefined : "Optional"}
+                    required={row.type === "OTHER"}
+                    placeholder={row.type === "OTHER" ? "e.g. Hired dumper — MH12 AB 1234" : "e.g. Used for excavation"}
+                    value={row.description ?? ""}
+                    onChange={(e) => updateEquipmentDescription(row.id, e.target.value)}
+                    error={equipmentDescriptionError(row)}
+                  />
                 </li>
               ))}
             </ul>
@@ -1199,6 +1373,127 @@ function NewDsrForm() {
                 : "No matching Machinery or Vehicle in the registers"
             }
           />
+        </Card>
+
+        <Card className="mb-4">
+          <h2 className="mb-3 text-card-title text-ink-900">Subcontractors on site</h2>
+          {subcontractorEntries.map((row, index) => (
+            <div
+              key={row.clientGeneratedId}
+              className="mb-3 grid grid-cols-1 gap-x-3 border-b border-border-hairline sm:grid-cols-12 sm:items-start"
+            >
+              <ComboboxField
+                label="Subcontractor"
+                className="sm:col-span-5"
+                options={reference.subcontractorOptions}
+                value={row.subcontractorId}
+                onValueChange={(value) =>
+                  setSubcontractorEntries((rows) =>
+                    // Same dedupe pattern as the crew/equipment pickers: a
+                    // Subcontractor already picked in another row can't be
+                    // picked again for this one.
+                    value && rows.some((r, i) => i !== index && r.subcontractorId === value)
+                      ? rows
+                      : rows.map((r, i) => (i === index ? { ...r, subcontractorId: value } : r)),
+                  )
+                }
+                loading={reference.loading}
+                placeholder="Type a Subcontractor name…"
+                emptyMessage={reference.loadFailed ? "Couldn't load Subcontractors — check your connection" : "No matching Subcontractor"}
+                onCreateNew={() => setSubcontractorQuickCreateRow(index)}
+                createNewLabel="+ Add Subcontractor"
+              />
+              <div className="sm:col-span-5">
+                <TextField
+                  label="Work note"
+                  hint="Optional"
+                  placeholder="e.g. Shuttering — 2nd floor"
+                  value={row.workNote}
+                  onChange={(e) =>
+                    setSubcontractorEntries((rows) => rows.map((r, i) => (i === index ? { ...r, workNote: e.target.value } : r)))
+                  }
+                />
+              </div>
+              <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
+                <Button type="button" variant="ghost" onClick={() => setSubcontractorEntries((rows) => rows.filter((_, i) => i !== index))}>
+                  Remove
+                </Button>
+              </div>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() =>
+              setSubcontractorEntries((rows) => [
+                ...rows,
+                { clientGeneratedId: crypto.randomUUID(), subcontractorId: null, workNote: "" },
+              ])
+            }
+          >
+            <PlusIcon className="size-4" />
+            Add subcontractor
+          </Button>
+        </Card>
+
+        <Card className="mb-4">
+          <h2 className="mb-3 text-card-title text-ink-900">Labour</h2>
+          {labourEntries.map((row, index) => (
+            <div
+              key={row.clientGeneratedId}
+              className="mb-3 grid grid-cols-1 gap-x-3 border-b border-border-hairline sm:grid-cols-12 sm:items-start"
+            >
+              <div className="sm:col-span-5">
+                <TextField
+                  label="Category"
+                  placeholder="e.g. Mason, Helper"
+                  value={row.category}
+                  onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, category: e.target.value } : r)))}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <TextField
+                  label="Men"
+                  type="number"
+                  min={0}
+                  step="1"
+                  value={row.men}
+                  onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, men: e.target.value } : r)))}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <TextField
+                  label="Women"
+                  type="number"
+                  min={0}
+                  step="1"
+                  value={row.women}
+                  onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, women: e.target.value } : r)))}
+                />
+              </div>
+              <div className="sm:col-span-2 text-body-sm text-ink-500 sm:mt-6">
+                Total: {(Number(row.men) || 0) + (Number(row.women) || 0)}
+              </div>
+              <div className="sm:col-span-1 sm:mt-6 sm:justify-self-end">
+                <Button type="button" variant="ghost" onClick={() => setLabourEntries((rows) => rows.filter((_, i) => i !== index))}>
+                  Remove
+                </Button>
+              </div>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() =>
+              setLabourEntries((rows) => [
+                ...rows,
+                { clientGeneratedId: crypto.randomUUID(), category: "", men: "", women: "" },
+              ])
+            }
+          >
+            <PlusIcon className="size-4" />
+            Add labour
+          </Button>
         </Card>
 
         <Card className="mb-4">
@@ -1394,10 +1689,9 @@ function NewDsrForm() {
         <ConfirmDialogRow
           label="RMC entries"
           // Same predicate buildPayload uses — the count the user confirms
-          // must be the count that submits.
-          value={String(
-            rmcEntries.filter((r) => r.vendorId && r.quantityM3 && r.grade && r.ratePerM3).length,
-          )}
+          // must be the count that submits. Rate is optional (goal 1), so
+          // it's no longer part of this predicate.
+          value={String(rmcEntries.filter((r) => r.vendorId && r.quantityM3 && r.grade).length)}
         />
         <ConfirmDialogRow
           label="Expenses"
@@ -1410,6 +1704,14 @@ function NewDsrForm() {
             .toLocaleString("en-IN")}`}
         />
         <ConfirmDialogRow label="Equipment used" value={String(equipmentUsed.length)} />
+        <ConfirmDialogRow
+          label="Subcontractors"
+          value={String(subcontractorEntries.filter((s) => s.subcontractorId).length)}
+        />
+        <ConfirmDialogRow
+          label="Labour"
+          value={String(labourEntries.filter((l) => l.category && (Number(l.men) > 0 || Number(l.women) > 0)).length)}
+        />
         <ConfirmDialogRow label="Photos" value={String(photos.length)} />
       </ConfirmDialog>
 
@@ -1448,6 +1750,22 @@ function NewDsrForm() {
             setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, vendorId: vendor.id } : r)));
           }
           setVendorQuickCreateRow(null);
+        }}
+      />
+      <SubcontractorQuickCreateModal
+        open={subcontractorQuickCreateRow !== null}
+        onOpenChange={(open) => {
+          if (!open) setSubcontractorQuickCreateRow(null);
+        }}
+        onSuccess={(subcontractor) => {
+          reference.addSubcontractorOption({ value: subcontractor.id, label: subcontractor.name });
+          const index = subcontractorQuickCreateRow;
+          if (index !== null) {
+            setSubcontractorEntries((rows) =>
+              rows.map((r, i) => (i === index ? { ...r, subcontractorId: subcontractor.id } : r)),
+            );
+          }
+          setSubcontractorQuickCreateRow(null);
         }}
       />
     </div>

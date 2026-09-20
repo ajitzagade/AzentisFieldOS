@@ -11,6 +11,7 @@ import {
   type DataTableColumn,
   type DataTableMobileCard,
 } from "@azentisfieldos/ui";
+import { formatDateTime as formatDateTimeShared } from "@/lib/format";
 import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import {
   REPORT_SCHEDULE_FREQUENCIES,
@@ -60,13 +61,7 @@ const FREQUENCY_LABELS: Record<string, string> = {
 
 function formatDateTime(iso: string | null) {
   if (!iso) return "Never run";
-  return new Date(iso).toLocaleString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return formatDateTimeShared(iso);
 }
 
 function SubmitButton() {

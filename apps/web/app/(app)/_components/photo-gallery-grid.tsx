@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Dialog } from "@base-ui-components/react/dialog";
+import { formatDate } from "@/lib/format";
 import type { PhotoGalleryItem } from "@azentisfieldos/shared";
 import { Button, ChevronRightIcon } from "@azentisfieldos/ui";
 
@@ -12,13 +13,6 @@ import { Button, ChevronRightIcon } from "@azentisfieldos/ui";
 // date/uploader; the image is a durable Cloudinary CDN URL (already
 // downsized/format-negotiated server-side by getThumbnailUrl), not a
 // build-time static asset next/image's optimizer is set up for here.
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 // Click-to-preview lightbox: the grid owns its own open/selected state
 // (openIndex into the same `photos` array it was already given — never a
