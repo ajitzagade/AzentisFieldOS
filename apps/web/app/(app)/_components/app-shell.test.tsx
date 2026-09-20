@@ -179,7 +179,7 @@ describe("AppShell", () => {
     expect(screen.getAllByRole("link", { name: /Home/ }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("link", { name: /Dashboard/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Vendors/ })).not.toBeInTheDocument();
-    expect(screen.getAllByText("Materials").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Movements").length).toBeGreaterThan(0);
     // Settings hard-404s for a Supervisor, so it must not appear as a link.
     expect(screen.queryByRole("link", { name: /Settings/ })).not.toBeInTheDocument();
     expect(screen.getByText("content")).toBeInTheDocument();
@@ -262,8 +262,9 @@ describe("AppShell — PWA install", () => {
     await waitFor(() => expect(event.prompt).toHaveBeenCalledTimes(1));
   });
   // The bottom quick-bar is the Supervisor's primary one-tap mobile layer —
-  // pin its presence, its four destinations, and its absence for Owners.
-  it("renders the Supervisor quick-bar with its four fixed destinations", () => {
+  // pin its presence, its two fixed links + "+"/Search/More slots (mirrors
+  // OwnerQuickBar's 5-slot shape), and its absence for Owners.
+  it("renders the Supervisor quick-bar with its two fixed links plus Quick Add, Search, and More", () => {
     mockPathname = "/";
     render(
       <AppShell role="SITE_SUPERVISOR">
@@ -273,9 +274,87 @@ describe("AppShell — PWA install", () => {
 
     const bar = screen.getByRole("navigation", { name: "Quick actions" });
     const links = within(bar).getAllByRole("link");
-    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/", "/dsr/new", "/movements", "/help"]);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/", "/dsr/new"]);
     // "Report" deep-links the entry form, not the log.
     expect(within(bar).getByRole("link", { name: /Report/ })).toHaveAttribute("href", "/dsr/new");
+
+    expect(within(bar).getByRole("button", { name: "Quick Add" })).toBeInTheDocument();
+    expect(within(bar).getByRole("button", { name: "Search" })).toBeInTheDocument();
+    expect(within(bar).getByRole("button", { name: "More" })).toBeInTheDocument();
+  });
+
+  it('tapping "+" on the Supervisor bar opens Quick Add filtered to non-Owner-only actions', async () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="SITE_SUPERVISOR">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    const bar = screen.getByRole("navigation", { name: "Quick actions" });
+    fireEvent.click(within(bar).getByRole("button", { name: "Quick Add" }));
+
+    expect(await screen.findByText("New Daily Report")).toBeInTheDocument();
+    expect(screen.getByText("Add Purchase")).toBeInTheDocument();
+    // ownerOnly actions must never appear — a Supervisor should never see,
+    // let alone tap into, an action whose write path 403s for their role.
+    expect(screen.queryByText("Employee Payment")).not.toBeInTheDocument();
+    expect(screen.queryByText("Record Advance")).not.toBeInTheDocument();
+    expect(screen.queryByText("Add Subcontractor")).not.toBeInTheDocument();
+    expect(screen.queryByText("Review & Price")).not.toBeInTheDocument();
+    expect(screen.queryByText("Open Settings")).not.toBeInTheDocument();
+  });
+
+  it("navigating from the Supervisor's Quick Add sheet routes to the action's href and closes the sheet", async () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="SITE_SUPERVISOR">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    const bar = screen.getByRole("navigation", { name: "Quick actions" });
+    fireEvent.click(within(bar).getByRole("button", { name: "Quick Add" }));
+    fireEvent.click(await screen.findByText("Add Purchase"));
+
+    expect(pushMock).toHaveBeenCalledWith("/movements/purchases/new");
+    await waitFor(() => expect(screen.queryByText("Add Purchase")).not.toBeInTheDocument());
+  });
+
+  it('tapping "Search" on the Supervisor bar opens the same global search palette', async () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="SITE_SUPERVISOR">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const bar = screen.getByRole("navigation", { name: "Quick actions" });
+    fireEvent.click(within(bar).getByRole("button", { name: "Search" }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
+  it('tapping "More" on the Supervisor bar opens the full sidebar drawer, where Materials and Help now live', () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="SITE_SUPERVISOR">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    const toggle = screen.getByRole("button", { name: /Open navigation menu/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    const bar = screen.getByRole("navigation", { name: "Quick actions" });
+    fireEvent.click(within(bar).getByRole("button", { name: "More" }));
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const drawer = document.getElementById("app-mobile-nav");
+    expect(drawer).not.toBeNull();
+    expect(within(drawer as HTMLElement).getByRole("link", { name: /Movements/ })).toBeInTheDocument();
+    expect(within(drawer as HTMLElement).getByRole("link", { name: /Help/ })).toBeInTheDocument();
   });
 
   // Story 19.4: OWNER_ADMIN now gets its own "Quick actions" bar (a

@@ -318,44 +318,104 @@ function SidebarNav({
   );
 }
 
-// The Supervisor's persistent mobile bottom bar (simplicity review 2026-09-01):
-// the one-tap layer the hamburger drawer can't provide. Four fixed items,
-// thumb-reachable, visible on every screen below `lg`. Active state pairs
-// color with weight + aria-current (never color alone — accessibility floor).
-function SupervisorQuickBar({ pathname }: { pathname: string }) {
+// The Supervisor's persistent mobile bottom bar. Originally four fixed
+// one-tap items (simplicity review 2026-09-01); revised to mirror
+// OwnerQuickBar's 5-slot shape (2 links + "+" + Search + More) for
+// cross-role consistency — Home/Report stay one-tap, "+" opens the same
+// curated quick-actions sheet Owner uses (SEARCH_ACTIONS filtered to the
+// non-ownerOnly subset, so a Supervisor never sees — and never 403s tapping
+// — an Owner-only action), Materials/Help moved into the drawer ("More").
+// Unlike OwnerQuickBar, no action here has a null href (the one that does,
+// Record Advance, is ownerOnly and therefore filtered out) — so selection is
+// always a plain navigation, no in-place modal case to handle.
+function SupervisorQuickBar({
+  pathname,
+  onOpenSearch,
+  onOpenNav,
+}: {
+  pathname: string;
+  onOpenSearch: () => void;
+  onOpenNav: () => void;
+}) {
+  const router = useRouter();
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+
+  const quickAddItems = SEARCH_ACTIONS.filter((action) => !action.ownerOnly).map((action) => ({
+    id: action.id,
+    title: action.title,
+    description: action.description,
+    icon: ACTION_ICONS[action.id],
+  }));
+
+  function handleQuickAddSelect(id: string) {
+    const action = SEARCH_ACTIONS.find((item) => item.id === id);
+    setQuickAddOpen(false);
+    if (action?.href) {
+      router.push(action.href);
+    }
+  }
+
+  const itemClassName =
+    "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-caption font-medium text-ink-500 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:text-ink-700 focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none";
+
   return (
-    <nav
-      aria-label="Quick actions"
-      className="fixed inset-x-0 bottom-0 z-30 bg-surface-1 shadow-(--shadow-bar-top) pb-[env(safe-area-inset-bottom)] lg:hidden"
-    >
-      <div className="flex">
-        {SUPERVISOR_QUICK_BAR_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(pathname, item.href);
-          return (
-            <QuickBarLink
-              key={item.href}
-              href={item.href}
-              active={active}
-              className={cn(
-                "flex min-h-14 flex-1 items-center justify-center text-caption transition-colors duration-(--default-transition-duration) ease-(--ease-standard) focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none",
-                active ? "font-semibold text-accent-teal-700" : "font-medium text-ink-500 hover:text-ink-700",
-              )}
-            >
-              <span
+    <>
+      <nav
+        aria-label="Quick actions"
+        className="fixed inset-x-0 bottom-0 z-30 bg-surface-1 shadow-(--shadow-bar-top) pb-[env(safe-area-inset-bottom)] lg:hidden"
+      >
+        <div className="flex">
+          {SUPERVISOR_QUICK_BAR_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(pathname, item.href);
+            return (
+              <QuickBarLink
+                key={item.href}
+                href={item.href}
+                active={active}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-full px-3 py-1 transition-colors duration-(--default-transition-duration) ease-(--ease-standard)",
-                  active && "bg-accent-teal-100",
+                  "flex min-h-14 flex-1 items-center justify-center text-caption font-medium text-ink-500 transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:text-ink-700 focus-visible:ring-3 focus-visible:ring-accent-teal-100 focus-visible:outline-none",
+                  active && "font-semibold text-accent-teal-700 hover:text-accent-teal-700",
                 )}
               >
-                <Icon className="size-5" />
-                {item.label}
-              </span>
-            </QuickBarLink>
-          );
-        })}
-      </div>
-    </nav>
+                <span
+                  className={cn(
+                    "flex flex-col items-center gap-0.5 rounded-full px-3 py-1 transition-colors duration-(--default-transition-duration) ease-(--ease-standard)",
+                    active && "bg-accent-teal-100",
+                  )}
+                >
+                  <Icon className="size-5" />
+                  {item.label}
+                </span>
+              </QuickBarLink>
+            );
+          })}
+
+          <button type="button" onClick={() => setQuickAddOpen(true)} aria-label="Quick Add" className={itemClassName}>
+            <span className="-mt-6 flex size-10 items-center justify-center rounded-full bg-accent-teal-700 text-white shadow-2">
+              <PlusIcon className="size-5" />
+            </span>
+          </button>
+
+          <button type="button" onClick={onOpenSearch} className={itemClassName}>
+            <SearchIcon className="size-5" />
+            Search
+          </button>
+
+          <button type="button" onClick={onOpenNav} className={itemClassName}>
+            <MenuIcon className="size-5" />
+            More
+          </button>
+        </div>
+      </nav>
+
+      <QuickAddSheet
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        items={quickAddItems}
+        onSelect={handleQuickAddSelect}
+      />
+    </>
   );
 }
 
@@ -613,7 +673,13 @@ function SidebarShell({
           <div className="max-w-310">{children}</div>
         </main>
 
-        {role === "SITE_SUPERVISOR" ? <SupervisorQuickBar pathname={pathname} /> : null}
+        {role === "SITE_SUPERVISOR" ? (
+          <SupervisorQuickBar
+            pathname={pathname}
+            onOpenSearch={() => search.setOpen(true)}
+            onOpenNav={() => setNavOpen(true)}
+          />
+        ) : null}
         {role === "OWNER_ADMIN" ? (
           <OwnerQuickBar
             pathname={pathname}

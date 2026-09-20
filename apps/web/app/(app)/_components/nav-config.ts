@@ -124,15 +124,17 @@ export const SUPERVISOR_NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-// The Supervisor's mobile bottom quick-bar: the persistent one-tap layer the
-// hamburger drawer can't provide. Four items max — thumb-reachable, no
-// scrolling, no overflow menu. "Report" goes straight to the entry form
-// (the #1 daily task), not the log.
+// The Supervisor's mobile bottom quick-bar's two plain-link slots — mirrors
+// OWNER_QUICK_BAR_LINKS's shape (2 links + "+" + Search + More, the "+" and
+// remaining slots rendered inline in SupervisorQuickBar, same reasoning as
+// OwnerQuickBar). "Report" goes straight to the entry form (the #1 daily
+// task), not the log. Materials and Help — previously two of this bar's
+// four fixed slots — moved into the hamburger drawer (SUPERVISOR_NAV_GROUPS
+// / HELP_NAV_ITEM below) to make room for "+", matching Owner's layout;
+// both stay one tap further away, never removed.
 export const SUPERVISOR_QUICK_BAR_ITEMS: NavItem[] = [
   { href: "/", label: "Home", icon: HomeIcon },
   { href: "/dsr/new", label: "Report", icon: ClipboardIcon },
-  { href: "/movements", label: "Materials", icon: BoxIcon },
-  { href: "/help", label: "Help", icon: HelpCircleIcon },
 ];
 
 // The Owner mobile quick-bar's two plain-link slots (Story 19.4) — Dashboard
