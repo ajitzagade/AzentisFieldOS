@@ -10,10 +10,12 @@ export const createPurchaseSchema = z
     destination: purchaseDestinationSchema,
     siteId: z.uuid().optional(),
     quantity: z.number(),
-    // Pricing is optional as a GROUP (decision D7, 2026-09-01): a Site
-    // Supervisor's inward entry carries no money fields at all — the
-    // Owner/Admin completes them later via completePurchasePricingSchema.
-    // Either all three arrive together or none do (enforced below).
+    // Pricing is optional (decision D7, 2026-09-01): a Site Supervisor's
+    // inward entry carries no money fields at all — the Owner/Admin
+    // completes them later via completePurchasePricingSchema. totalAmount
+    // and paymentStatus travel together as a group (enforced below); rate
+    // is independently optional — a Supervisor may know the rate without
+    // knowing the total, or vice versa, and neither should block saving.
     rate: z.number().positive().optional(),
     totalAmount: z.number().positive().optional(),
     invoiceOrChallanNo: z.string().min(1).optional(),
@@ -43,10 +45,12 @@ export const createPurchaseSchema = z
       });
     }
 
-    // D7: rate / totalAmount / paymentStatus travel together — a priced
-    // entry has all three, an unpriced ("Pricing pending") entry has none.
+    // D7: totalAmount / paymentStatus travel together — totalAmount IS NULL
+    // is the single source of truth for "Pricing pending" everywhere else in
+    // the app, so paymentStatus must never be recorded without it (or vice
+    // versa). Rate is intentionally NOT part of this group — it's optional
+    // independent of the other two.
     const pricingFields = [
-      ["rate", data.rate],
       ["totalAmount", data.totalAmount],
       ["paymentStatus", data.paymentStatus],
     ] as const;
@@ -57,7 +61,7 @@ export const createPurchaseSchema = z
           ctx.addIssue({
             code: "custom",
             path: [field],
-            message: "Rate, Total Amount and Payment Status go together — fill all three, or leave pricing to be added later",
+            message: "Total Amount and Payment Status go together — fill both, or leave pricing to be added later",
           });
         }
       }

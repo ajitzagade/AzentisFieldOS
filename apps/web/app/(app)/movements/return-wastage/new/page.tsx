@@ -42,7 +42,7 @@ export default async function NewReturnWastagePage() {
 
   return (
     <div className="max-w-160">
-      <h1 className="mb-6 text-page-title text-ink-900">Record Wastage / Return</h1>
+      <h1 className="mb-6 text-page-title text-ink-900">Record Material Wastage / Return</h1>
       <ReturnWastageForm mode="new" materialSizes={materialSizes} sites={sites} />
     </div>
   );

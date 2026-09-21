@@ -65,7 +65,7 @@ export default async function NewPurchasePage() {
 
   return (
     <div className="max-w-160">
-      <h1 className="mb-6 text-page-title text-ink-900">Record Purchase</h1>
+      <h1 className="mb-6 text-page-title text-ink-900">Record Material Purchase</h1>
       {/* D7: a Supervisor records the physical facts only — the pricing card
           is Owner/Admin's, completed later via the pricing queue. */}
       <PurchaseForm

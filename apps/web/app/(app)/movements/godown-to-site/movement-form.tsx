@@ -317,7 +317,7 @@ export function MovementForm({
       ) : null}
 
       <SubmitButton
-        label={mode === "correct" ? "Submit Correction" : kind === "SITE_TO_SITE" ? "Record Transfer" : "Record Movement"}
+        label={mode === "correct" ? "Submit Correction" : kind === "SITE_TO_SITE" ? "Record Material Transfer" : "Record Material Movement"}
         correcting={mode === "correct"}
       />
 

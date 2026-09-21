@@ -122,11 +122,11 @@ export default async function InventoryPage() {
         <div className="action-button-row">
           <Link href="/movements/godown-to-site/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <ArrowsIcon className="size-4" />
-            Record Movement
+            Record Material Movement
           </Link>
           <Link href="/movements/purchases/new" className={cn(buttonVariants({ variant: "primary" }))}>
             <PlusIcon className="size-4" />
-            Record Purchase
+            Record Material Purchase
           </Link>
         </div>
       </div>

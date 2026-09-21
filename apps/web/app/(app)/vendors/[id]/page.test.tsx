@@ -76,7 +76,7 @@ describe("VendorDetailPage", () => {
 
     // Rendered once in the md+ table's empty panel and once in the
     // below-md mobile card's empty panel.
-    expect(screen.getAllByText("No Purchases recorded yet for this Vendor.")).toHaveLength(2);
+    expect(screen.getAllByText("No Material Purchases recorded yet for this Vendor.")).toHaveLength(2);
   });
 
   it("renders every Purchase with Material, Quantity, Amount, Invoice/Challan #, and Payment status", async () => {

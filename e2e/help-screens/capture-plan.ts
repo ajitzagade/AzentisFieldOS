@@ -143,12 +143,12 @@ export const CAPTURE_PLANS: GuideCapturePlan[] = [
   {
     guideId: "record-consumption",
     steps: [
-      // "Open Movements, then Record Consumption" — the decision point the
-      // reader must find is the Record Consumption action on Movements.
+      // "Open Movements, then Record Material Consumption" — the decision
+      // point the reader must find is that action on Movements.
       {
         goto: "/movements",
-        targetDescription: 'link "Record Consumption" on Movements',
-        target: (page) => page.getByRole("link", { name: "Record Consumption" }).filter({ visible: true }),
+        targetDescription: 'link "Record Material Consumption" on Movements',
+        target: (page) => page.getByRole("link", { name: "Record Material Consumption" }).filter({ visible: true }),
       },
       {
         goto: "/movements/consumption/new",
@@ -182,8 +182,8 @@ export const CAPTURE_PLANS: GuideCapturePlan[] = [
       },
       {
         goto: "/movements/consumption/new",
-        targetDescription: 'button "Record Consumption"',
-        target: (page) => page.getByRole("button", { name: "Record Consumption" }),
+        targetDescription: 'button "Record Material Consumption"',
+        target: (page) => page.getByRole("button", { name: "Record Material Consumption" }),
       },
     ],
   },
@@ -234,8 +234,8 @@ export const CAPTURE_PLANS: GuideCapturePlan[] = [
       navStep("Movements", 'sidebar link "Movements"'),
       {
         goto: "/movements",
-        targetDescription: 'link "Record Purchase" on Movements',
-        target: (page) => page.getByRole("link", { name: "Record Purchase" }).filter({ visible: true }),
+        targetDescription: 'link "Record Material Purchase" on Movements',
+        target: (page) => page.getByRole("link", { name: "Record Material Purchase" }).filter({ visible: true }),
       },
       {
         goto: "/movements/purchases/new",
@@ -331,8 +331,8 @@ export const CAPTURE_PLANS: GuideCapturePlan[] = [
       },
       {
         goto: "/movements/purchases/new",
-        targetDescription: 'button "Record Purchase"',
-        target: (page) => page.getByRole("button", { name: "Record Purchase" }),
+        targetDescription: 'button "Record Material Purchase"',
+        target: (page) => page.getByRole("button", { name: "Record Material Purchase" }),
       },
     ],
   },

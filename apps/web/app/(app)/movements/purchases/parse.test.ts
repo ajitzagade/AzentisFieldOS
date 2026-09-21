@@ -23,12 +23,11 @@ describe("parsePurchaseForm — pricing visibility contract", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects an Owner submission (pricingShown=1) that leaves pricing blank", () => {
+  it("rejects an Owner submission (pricingShown=1) that leaves totalAmount/paymentStatus blank", () => {
     const result = parsePurchaseForm(formData({ ...physicalFacts, pricingShown: "1" }));
     expect(result.success).toBe(false);
     if (!result.success) {
       const errors = result.error.flatten().fieldErrors;
-      expect(errors.rate?.[0]).toBe("Rate is required");
       expect(errors.totalAmount?.[0]).toBe("Total Amount is required");
       expect(errors.paymentStatus?.[0]).toBe("Payment Status is required");
     }
@@ -41,8 +40,20 @@ describe("parsePurchaseForm — pricing visibility contract", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects a partial pricing group even without the flag (schema all-or-none)", () => {
+  it("accepts an Owner submission with totalAmount/paymentStatus but no rate", () => {
+    const result = parsePurchaseForm(
+      formData({ ...physicalFacts, pricingShown: "1", totalAmount: "19500", paymentStatus: "UNPAID" }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts rate alone without the flag (rate is independently optional)", () => {
     const result = parsePurchaseForm(formData({ ...physicalFacts, rate: "390" }));
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a partial totalAmount/paymentStatus group even without the flag (schema all-or-none)", () => {
+    const result = parsePurchaseForm(formData({ ...physicalFacts, totalAmount: "19500" }));
     expect(result.success).toBe(false);
   });
 });

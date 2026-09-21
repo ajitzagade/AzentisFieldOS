@@ -255,7 +255,7 @@ export function ConsumptionForm({
         </p>
       ) : null}
 
-      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Consumption"} correcting={mode === "correct"} />
+      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Material Consumption"} correcting={mode === "correct"} />
 
       <ConfirmDialog
         open={confirmation.open}

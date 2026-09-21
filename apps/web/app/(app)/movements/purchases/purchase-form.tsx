@@ -332,12 +332,12 @@ export function PurchaseForm({
         {pricingRendered ? (
           <>
             {/* Tells the shared parser that pricing is visible here and
-                therefore required — a Supervisor's form omits all of this. */}
+                therefore required — a Supervisor's form omits all of this.
+                Rate itself stays optional even here (it may be unknown). */}
             <input type="hidden" name="pricingShown" value="1" />
             <AmountField
               label="Rate"
               name="rate"
-              required
               value={rate}
               onChange={(e) => {
                 setRate(e.target.value);
@@ -449,7 +449,7 @@ export function PurchaseForm({
         </p>
       ) : null}
 
-      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Purchase"} correcting={mode === "correct"} />
+      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Material Purchase"} correcting={mode === "correct"} />
 
       <ConfirmDialog
         open={confirmation.open}

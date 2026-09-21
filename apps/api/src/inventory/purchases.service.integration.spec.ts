@@ -104,6 +104,43 @@ describeIfDb('PurchasesService (integration)', () => {
     ).toHaveLength(0);
   });
 
+  // Regression (2026-09-22): a real end-to-end run hit a DB-level CHECK
+  // constraint (Purchase_pricing_all_or_none, added 20260902000100) that
+  // still enforced rate as part of the all-or-none group after the Zod
+  // schema had already been relaxed to make it independently optional —
+  // a mocked *.service.spec.ts test can never exercise a real CHECK
+  // constraint, only this integration test against the live DB can.
+  it('accepts a Purchase with totalAmount/paymentStatus but no rate (rate is independently optional at the DB layer too)', async () => {
+    const purchase = await service.create({
+      vendorId,
+      materialSizeId,
+      destination: 'GODOWN',
+      quantity: 10,
+      totalAmount: 5000,
+      paymentStatus: 'PAID',
+      purchasedAt: '2026-09-21',
+    });
+
+    expect(purchase.id).toBeDefined();
+    expect(purchase.rate).toBeNull();
+    expect(purchase.totalAmount?.toString()).toBe('5000');
+  });
+
+  it('still rejects totalAmount without paymentStatus at the DB layer (the pair that must still travel together)', async () => {
+    await expect(
+      prisma.purchase.create({
+        data: {
+          vendorId,
+          materialSizeId,
+          destination: 'GODOWN',
+          quantity: 10,
+          totalAmount: 5000,
+          purchasedAt: new Date('2026-09-21'),
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
   it("a SITE-destined Purchase (Story 5.3's direct Vendor->Site flow, FR-10) persists receiverName and increases that Site's SiteStock and never touches GodownStock", async () => {
     const purchase = await service.create({
       vendorId,

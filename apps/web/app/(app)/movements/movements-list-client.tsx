@@ -307,23 +307,23 @@ export function MovementsListClient({
           </Link>
           <Link href="/movements/godown-to-site/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <PlusIcon className="size-4" />
-            Record Movement
+            Record Material Movement
           </Link>
           <Link href="/movements/site-to-site/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <PlusIcon className="size-4" />
-            Record Transfer
+            Record Material Transfer
           </Link>
           <Link href="/movements/consumption/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <PlusIcon className="size-4" />
-            Record Consumption
+            Record Material Consumption
           </Link>
           <Link href="/movements/return-wastage/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <PlusIcon className="size-4" />
-            Record Wastage / Return
+            Record Material Wastage / Return
           </Link>
           <Link href="/movements/purchases/new" className={cn(buttonVariants({ variant: "primary" }))}>
             <PlusIcon className="size-4" />
-            Record Purchase
+            Record Material Purchase
           </Link>
         </div>
       </div>
@@ -374,11 +374,11 @@ export function MovementsListClient({
               : {
                   status: "empty",
                   icon: <ArrowsIcon />,
-                  message: "No Purchases, movements, consumption, or wastage/return recorded yet.",
+                  message: "No Material Purchases, Movements, Consumption, or Wastage/Return recorded yet.",
                   action: (
                     <Link href="/movements/purchases/new" className={cn(buttonVariants({ variant: "primary" }))}>
                       <PlusIcon className="size-4" />
-                      Record your first Purchase
+                      Record your first Material Purchase
                     </Link>
                   ),
                 }

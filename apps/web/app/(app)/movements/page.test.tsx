@@ -165,8 +165,8 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getAllByText(/No Purchases, movements, consumption, or wastage\/return recorded yet\./)).toHaveLength(2);
-    expect(screen.getAllByRole("link", { name: /Record your first Purchase/ })[0]).toHaveAttribute("href", "/movements/purchases/new");
+    expect(screen.getAllByText(/No Material Purchases, Movements, Consumption, or Wastage\/Return recorded yet\./)).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Record your first Material Purchase/ })[0]).toHaveAttribute("href", "/movements/purchases/new");
   });
 
   it("links the header actions to every entry form", async () => {
@@ -174,12 +174,12 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getByRole("link", { name: /Record Purchase/ })).toHaveAttribute("href", "/movements/purchases/new");
-    expect(screen.getByRole("link", { name: /Record Movement/ })).toHaveAttribute("href", "/movements/godown-to-site/new");
+    expect(screen.getByRole("link", { name: /Record Material Purchase/ })).toHaveAttribute("href", "/movements/purchases/new");
+    expect(screen.getByRole("link", { name: /Record Material Movement/ })).toHaveAttribute("href", "/movements/godown-to-site/new");
     expect(screen.getByRole("link", { name: /Direct Vendor → Site/ })).toHaveAttribute("href", "/movements/vendor-to-site/new");
-    expect(screen.getByRole("link", { name: /Record Transfer/ })).toHaveAttribute("href", "/movements/site-to-site/new");
-    expect(screen.getByRole("link", { name: /Record Consumption/ })).toHaveAttribute("href", "/movements/consumption/new");
-    expect(screen.getByRole("link", { name: /Record Wastage \/ Return/ })).toHaveAttribute("href", "/movements/return-wastage/new");
+    expect(screen.getByRole("link", { name: /Record Material Transfer/ })).toHaveAttribute("href", "/movements/site-to-site/new");
+    expect(screen.getByRole("link", { name: /Record Material Consumption/ })).toHaveAttribute("href", "/movements/consumption/new");
+    expect(screen.getByRole("link", { name: /Record Material Wastage \/ Return/ })).toHaveAttribute("href", "/movements/return-wastage/new");
   });
 
   it("renders a neutral Consumption badge, the Site as flow, and a muted dash for Received Qty", async () => {

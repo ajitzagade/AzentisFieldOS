@@ -26,7 +26,7 @@ describe("PurchaseForm", () => {
     expect(screen.getByLabelText("Material / Size")).toHaveAttribute("role", "combobox");
     expect(screen.getByLabelText("Quantity")).toBeInTheDocument();
     expect(screen.queryByLabelText("Site")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Record Purchase" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Record Material Purchase" })).toBeInTheDocument();
   });
 
   it("shows the Site picker only when destination is switched to Site", async () => {
@@ -165,7 +165,7 @@ describe("PurchaseForm — preserves typed values when the Server Action returns
     await user.type(screen.getByLabelText("Quantity"), "50");
     await user.type(screen.getByLabelText("Rate"), "390");
 
-    await user.click(screen.getByRole("button", { name: "Record Purchase" }));
+    await user.click(screen.getByRole("button", { name: "Record Material Purchase" }));
 
     await screen.findByText("A Purchase with this Vendor and Invoice/Challan number already exists");
 

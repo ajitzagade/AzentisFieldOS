@@ -65,7 +65,7 @@ export default async function NewSiteToSiteTransferPage({
 
   return (
     <div className="max-w-160">
-      <h1 className="mb-6 text-page-title text-ink-900">Record Site → Site Transfer</h1>
+      <h1 className="mb-6 text-page-title text-ink-900">Record Site → Site Material Transfer</h1>
       <MovementForm
         mode="new"
         kind="SITE_TO_SITE"

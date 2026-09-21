@@ -168,8 +168,24 @@ describe('ZodValidationPipe(createPurchaseSchema)', () => {
     ).not.toThrow();
   });
 
-  it('rejects a partial pricing group (rate without totalAmount/paymentStatus)', () => {
+  // Rate is independently optional — it is NOT part of the
+  // totalAmount/paymentStatus all-or-none group.
+  it('accepts rate alone without totalAmount/paymentStatus', () => {
     const { totalAmount: _t, paymentStatus: _p, ...partial } = base;
+    expect(() =>
+      pipe.transform({ ...partial, destination: 'GODOWN' }),
+    ).not.toThrow();
+  });
+
+  it('accepts totalAmount/paymentStatus without rate', () => {
+    const { rate: _r, ...partial } = base;
+    expect(() =>
+      pipe.transform({ ...partial, destination: 'GODOWN' }),
+    ).not.toThrow();
+  });
+
+  it('rejects a partial pricing group (totalAmount without paymentStatus)', () => {
+    const { paymentStatus: _p, ...partial } = base;
     expect(() => pipe.transform({ ...partial, destination: 'GODOWN' })).toThrow(
       BadRequestException,
     );

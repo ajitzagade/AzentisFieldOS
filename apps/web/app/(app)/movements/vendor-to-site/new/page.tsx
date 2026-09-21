@@ -67,7 +67,7 @@ export default async function NewVendorToSitePurchasePage() {
 
   return (
     <div className="max-w-160">
-      <h1 className="mb-6 text-page-title text-ink-900">Record Direct Vendor → Site Purchase</h1>
+      <h1 className="mb-6 text-page-title text-ink-900">Record Direct Vendor → Site Material Purchase</h1>
       {/* D7: same rule as Record Purchase — pricing is the Owner's. */}
       <PurchaseForm
         mode="new"

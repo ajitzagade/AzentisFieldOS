@@ -6,13 +6,14 @@ import { optionalNumber } from "../../../../lib/parse-helpers";
 // form runs the same function pre-submit for instant inline errors — one
 // validator, two run sites.
 //
-// Pricing (rate / totalAmount / paymentStatus) is optional as a group
-// (decision D7): the Supervisor form doesn't render those fields at all, so
-// they're absent from FormData and the entry is recorded "Pricing pending".
-// The Owner form renders them and marks itself with the hidden
-// `pricingShown` flag — with the flag present, missing pricing is a
+// Pricing (totalAmount / paymentStatus) is optional as a group (decision
+// D7): the Supervisor form doesn't render those fields at all, so they're
+// absent from FormData and the entry is recorded "Pricing pending". The
+// Owner form renders them and marks itself with the hidden `pricingShown`
+// flag — with the flag present, missing totalAmount/paymentStatus is a
 // validation error here (the Owner must price what they can see), even
-// though the shared schema itself allows an unpriced entry.
+// though the shared schema itself allows an unpriced entry. Rate is
+// independently optional even when pricingShown — it may not be known.
 type ParseResult =
   | { success: true; data: ReturnType<typeof createPurchaseSchema.parse> }
   | { success: false; error: { flatten(): { fieldErrors: Record<string, string[]> } } };
@@ -40,7 +41,6 @@ export function parsePurchaseForm(formData: FormData): ParseResult {
 
   if (parsed.success && formData.get("pricingShown") === "1") {
     const missing: Record<string, string[]> = {};
-    if (parsed.data.rate === undefined) missing.rate = ["Rate is required"];
     if (parsed.data.totalAmount === undefined) missing.totalAmount = ["Total Amount is required"];
     if (parsed.data.paymentStatus === undefined) missing.paymentStatus = ["Payment Status is required"];
     if (Object.keys(missing).length > 0) {

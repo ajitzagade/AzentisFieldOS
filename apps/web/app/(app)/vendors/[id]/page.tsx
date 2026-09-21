@@ -430,7 +430,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
         rowKey={(purchase) => purchase.id}
         state={
           purchases.length === 0
-            ? { status: "empty", icon: <ClipboardIcon />, message: "No Purchases recorded yet for this Vendor." }
+            ? { status: "empty", icon: <ClipboardIcon />, message: "No Material Purchases recorded yet for this Vendor." }
             : { status: "success", rows: purchases }
         }
       />

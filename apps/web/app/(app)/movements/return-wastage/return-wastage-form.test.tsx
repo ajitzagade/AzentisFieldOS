@@ -20,7 +20,7 @@ describe("ReturnWastageForm", () => {
     expect(screen.getByRole("option", { name: "Return" })).toBeInTheDocument();
     expect(screen.getByLabelText("Site")).toBeInTheDocument();
     expect(screen.getByLabelText("Quantity")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Record Entry" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Record Material Entry" })).toBeInTheDocument();
   });
 
   it("uses the searchable Site picker in new mode, and marks quantity for the decimal keyboard", () => {

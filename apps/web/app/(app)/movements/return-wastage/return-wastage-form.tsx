@@ -248,7 +248,7 @@ export function ReturnWastageForm({
         </p>
       ) : null}
 
-      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Entry"} correcting={mode === "correct"} />
+      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Material Entry"} correcting={mode === "correct"} />
 
       <ConfirmDialog
         open={confirmation.open}

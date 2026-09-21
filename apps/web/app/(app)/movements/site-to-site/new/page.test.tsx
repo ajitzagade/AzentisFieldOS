@@ -47,7 +47,7 @@ describe("NewSiteToSiteTransferPage", () => {
 
     expect(screen.getByLabelText("Source Site")).toBeInTheDocument();
     expect(screen.getByLabelText("Destination Site")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Record Transfer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Record Material Transfer" })).toBeInTheDocument();
   });
 
   it("prefills the Material/Size and Source Site from ?materialSizeId=/?sourceSiteId= (Story 16.3)", async () => {

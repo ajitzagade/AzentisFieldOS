@@ -115,7 +115,7 @@ describe("MovementsListClient", () => {
     renderClient({ rows: [], total: 0 });
     // Rendered as both the desktop table panel and the mobile card panel.
     expect(
-      screen.getAllByText(/No Purchases, movements, consumption, or wastage\/return recorded yet\./),
+      screen.getAllByText(/No Material Purchases, Movements, Consumption, or Wastage\/Return recorded yet\./),
     ).toHaveLength(2);
   });
 
@@ -135,7 +135,7 @@ describe("MovementsListClient", () => {
 
     expect(screen.getAllByText("No entries match your search or filters.")).toHaveLength(2);
     expect(
-      screen.queryByText(/No Purchases, movements, consumption, or wastage\/return recorded yet\./),
+      screen.queryByText(/No Material Purchases, Movements, Consumption, or Wastage\/Return recorded yet\./),
     ).not.toBeInTheDocument();
   });
 
