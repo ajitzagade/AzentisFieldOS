@@ -31,6 +31,7 @@ function makeContent(overrides: Partial<ReportContent> = {}): ReportContent {
     materials: [
       { material: 'Cement', size: 'OPC 53', quantity: 40, unit: 'Bags' },
     ],
+    materialsReceived: [],
     rmc: { loads: 1, totalQuantityM3: 6, grades: ['M25'] },
     equipmentUsed: [],
     expenses: { total: 18600 },
@@ -79,6 +80,29 @@ describe('renderReportEmailHtml — branding (Patch 1, FR-32)', () => {
     const html = renderReportEmailHtml(makeContent());
     expect(html).not.toContain('<img');
     expect(html).toContain('Sandeep Enterprises');
+  });
+});
+
+describe('renderReportEmailHtml — Materials Received (inventory→DSR sync fix)', () => {
+  it('renders a Materials Received row from live Purchase/Movement activity', () => {
+    const html = renderReportEmailHtml(
+      makeContent({
+        materialsReceived: [
+          { material: 'Cement', size: 'OPC 53', quantity: 50, unit: 'Bags' },
+        ],
+      }),
+    );
+    expect(html).toContain('Materials Received');
+    expect(html).toContain('Cement (OPC 53) — 50 Bags');
+  });
+
+  it('shows "None recorded" when nothing was received that day', () => {
+    const html = renderReportEmailHtml(makeContent({ materialsReceived: [] }));
+    const receivedRowIndex = html.indexOf('Materials Received');
+    const consumedRowIndex = html.indexOf('Materials Consumed');
+    expect(html.slice(receivedRowIndex, consumedRowIndex)).toContain(
+      'None recorded',
+    );
   });
 });
 

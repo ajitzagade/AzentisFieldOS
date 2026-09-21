@@ -23,6 +23,7 @@ import { applySiteStockDelta } from '../inventory/stock-delta';
 import { StorageService } from '../storage/storage.service';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 import { getSiteActivityFeed } from '../sites/site-activity-feed';
+import { getSiteMaterialActivity } from '../sites/site-material-activity';
 import { createWorkEntry } from '../subcontractors/work-entry-write';
 
 // Production incident (2026-09-19): a DSR with a realistic number of crew
@@ -1722,8 +1723,32 @@ export class DsrService {
       from: reportDateStr,
       to: reportDateStr,
     });
+    // Inventory→DSR sync fix (2026-09-21): material activity (Purchase,
+    // Movement, and standalone Consumption/RMC/Waste Material/Wastage-Return
+    // — i.e. anything recorded outside this DSR form) now gets its own
+    // proper section instead of a generic side list, so it merges into
+    // "Materials Received"/"Materials Consumed"/"RMC"/"Waste Material"
+    // wherever the frontend renders those. Non-material types (Work Record,
+    // Expense, machinery/vehicle movement, Site Contract, Work Entry,
+    // Subcontractor Payment, another DSR) still fall back to the generic
+    // "Other activity" card.
+    const MATERIAL_FEED_TYPES = new Set([
+      'PURCHASE',
+      'MOVEMENT',
+      'CONSUMPTION',
+      'RMC',
+      'WASTE_DISPOSAL',
+      'RETURN_WASTAGE',
+    ]);
     const otherActivity = feed.filter(
-      (item) => !ownKeys.has(`${item.type}:${item.id}`),
+      (item) =>
+        !ownKeys.has(`${item.type}:${item.id}`) &&
+        !MATERIAL_FEED_TYPES.has(item.type),
+    );
+    const materialActivity = await getSiteMaterialActivity(
+      this.prisma,
+      dsr.siteId,
+      dsr.reportDate,
     );
 
     return {
@@ -1731,6 +1756,11 @@ export class DsrService {
       photos,
       correctedById: correction?.id ?? null,
       otherActivity,
+      materialsReceived: materialActivity.materialsReceived,
+      standaloneConsumptions: materialActivity.standaloneConsumptions,
+      standaloneRmcEntries: materialActivity.standaloneRmcEntries,
+      standaloneWasteDisposals: materialActivity.standaloneWasteDisposals,
+      standaloneWastageReturns: materialActivity.standaloneWastageReturns,
     };
   }
 }

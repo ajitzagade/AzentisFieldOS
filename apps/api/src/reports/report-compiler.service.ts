@@ -3,6 +3,25 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SUBMITTED_DSR_WHERE } from '../common/superseded-dsrs';
 import { formatDate } from './format-date';
+import {
+  getSiteMaterialActivity,
+  type SiteMaterialActivity,
+} from '../sites/site-material-activity';
+
+// Inventory→DSR sync fix (2026-09-21): a Purchase/Movement/standalone
+// Consumption/RMC entry recorded outside the DSR form used to be completely
+// absent from the compiled/emailed report — no query for them existed at
+// all here. buildContent() stays a pure function (report-compiler.service.spec.ts
+// exercises it directly with a fixture DSR and no DB) by taking the
+// already-fetched activity as a parameter, defaulting to empty so existing
+// callers/tests keep working unchanged.
+const EMPTY_MATERIAL_ACTIVITY: SiteMaterialActivity = {
+  materialsReceived: [],
+  standaloneConsumptions: [],
+  standaloneRmcEntries: [],
+  standaloneWasteDisposals: [],
+  standaloneWastageReturns: [],
+};
 
 // Story 13.1 (FR-32): compiles a DailyReport's `content` payload from a
 // DailySiteReport and its relations, plus the current BrandingConfig row.
@@ -33,6 +52,15 @@ export interface ReportContent {
   };
   labour: { present: number; total: number };
   materials: {
+    material: string;
+    size: string;
+    quantity: number;
+    unit: string;
+  }[];
+  // Inventory→DSR sync fix (2026-09-21): Purchases and inbound Movements —
+  // the DSR form itself never had a "materials received" concept, so this
+  // is always sourced from the live Site+date query, never the DSR form.
+  materialsReceived: {
     material: string;
     size: string;
     quantity: number;
@@ -125,21 +153,48 @@ export class ReportCompilerService {
   buildContent(
     dsr: DsrForCompile,
     branding: ReportBrandingSnapshot,
+    materialActivity: SiteMaterialActivity = EMPTY_MATERIAL_ACTIVITY,
   ): ReportContent {
-    const materials = dsr.consumptions.map((consumption) => ({
-      material: consumption.materialSize.material.name,
-      size: consumption.materialSize.label,
-      quantity: toNum(consumption.quantity),
-      unit: consumption.materialSize.material.unit.name,
+    const materials = [
+      ...dsr.consumptions.map((consumption) => ({
+        material: consumption.materialSize.material.name,
+        size: consumption.materialSize.label,
+        quantity: toNum(consumption.quantity),
+        unit: consumption.materialSize.material.unit.name,
+      })),
+      ...materialActivity.standaloneConsumptions.map((c) => ({
+        material: c.materialName,
+        size: c.sizeLabel,
+        quantity: c.quantity,
+        unit: c.unitName,
+      })),
+    ];
+
+    const materialsReceived = materialActivity.materialsReceived.map((m) => ({
+      material: m.materialName,
+      size: m.sizeLabel,
+      quantity: m.quantity,
+      unit: m.unitName,
     }));
 
-    const grades = [...new Set(dsr.rmcEntries.map((entry) => entry.grade))];
+    const grades = [
+      ...new Set([
+        ...dsr.rmcEntries.map((entry) => entry.grade),
+        ...materialActivity.standaloneRmcEntries.map((entry) => entry.grade),
+      ]),
+    ];
     const rmc = {
-      loads: dsr.rmcEntries.length,
-      totalQuantityM3: dsr.rmcEntries.reduce(
-        (sum, entry) => sum + toNum(entry.quantityM3),
-        0,
-      ),
+      loads:
+        dsr.rmcEntries.length + materialActivity.standaloneRmcEntries.length,
+      totalQuantityM3:
+        dsr.rmcEntries.reduce(
+          (sum, entry) => sum + toNum(entry.quantityM3),
+          0,
+        ) +
+        materialActivity.standaloneRmcEntries.reduce(
+          (sum, entry) => sum + entry.quantityM3,
+          0,
+        ),
       grades,
     };
 
@@ -164,6 +219,7 @@ export class ReportCompilerService {
         total: dsr.workRecords.length,
       },
       materials,
+      materialsReceived,
       rmc,
       equipmentUsed,
       expenses: {
@@ -188,7 +244,12 @@ export class ReportCompilerService {
     if (existing) return existing;
 
     const branding = await this.getBrandingSnapshot();
-    const content = this.buildContent(dsr, branding);
+    const materialActivity = await getSiteMaterialActivity(
+      this.prisma,
+      dsr.siteId,
+      dsr.reportDate,
+    );
+    const content = this.buildContent(dsr, branding, materialActivity);
     return this.prisma.dailyReport.create({
       data: {
         siteId: dsr.siteId,

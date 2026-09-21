@@ -58,6 +58,12 @@ function fullDsr(overrides: Record<string, unknown> = {}) {
     photos: [{ id: "p-1", url: "https://r2.example/p1.jpg", createdAt: "2026-08-11T10:00:00Z" }],
     // Client-readiness batch (2026-09-20), goal 2.
     otherActivity: [],
+    // Inventory→DSR sync fix (2026-09-21).
+    materialsReceived: [],
+    standaloneConsumptions: [],
+    standaloneRmcEntries: [],
+    standaloneWasteDisposals: [],
+    standaloneWastageReturns: [],
     ...overrides,
   };
 }
@@ -129,6 +135,67 @@ describe("DsrDetailPage", () => {
     expect(screen.getByText("No expenses logged for this report.")).toBeInTheDocument();
     expect(screen.getByText("No Waste Material logged for this report.")).toBeInTheDocument();
     expect(screen.getByText("No photos attached to this report.")).toBeInTheDocument();
+    expect(screen.getByText("No materials received logged for this Site on this date.")).toBeInTheDocument();
+    expect(screen.getByText("No material wastage or returns logged for this Site on this date.")).toBeInTheDocument();
+  });
+
+  // Inventory→DSR sync fix (2026-09-21): a Purchase/Movement/standalone
+  // Consumption/RMC/Waste/Wastage-Return recorded outside this DSR's own
+  // form must show up in this report's own sections, not a generic list.
+  it("merges Materials Received and standalone material activity into their own sections", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () =>
+        fullDsr({
+          materialsReceived: [
+            {
+              id: "mr-1",
+              occurredAt: "2026-08-11T08:00:00Z",
+              materialName: "Steel",
+              sizeLabel: "12mm",
+              unitName: "Kg",
+              quantity: 200,
+              amount: 14000,
+              summary: "from Shree Balaji Traders",
+              source: "PURCHASE",
+            },
+          ],
+          standaloneConsumptions: [
+            {
+              id: "sc-1",
+              occurredAt: "2026-08-11T09:00:00Z",
+              materialName: "Sand",
+              sizeLabel: "River sand",
+              unitName: "m3",
+              quantity: 5,
+              amount: null,
+              summary: "consumed on site",
+            },
+          ],
+          standaloneWastageReturns: [
+            {
+              id: "sw-1",
+              occurredAt: "2026-08-11T11:00:00Z",
+              materialName: "Bricks",
+              sizeLabel: "Standard",
+              unitName: "Nos",
+              quantity: 50,
+              amount: null,
+              summary: "wastage",
+              kind: "WASTAGE",
+            },
+          ],
+        }),
+    }) as unknown as typeof fetch;
+
+    await renderDetailPage("dsr-1");
+
+    expect(screen.getByText(/Steel \(12mm\)/)).toBeInTheDocument();
+    expect(screen.getByText(/from Shree Balaji Traders/)).toBeInTheDocument();
+    expect(screen.getByText(/Sand \(River sand\)/)).toBeInTheDocument();
+    expect(screen.getByText("via Consumption")).toBeInTheDocument();
+    expect(screen.getByText(/Bricks \(Standard\)/)).toBeInTheDocument();
+    expect(screen.getByText("Wastage")).toBeInTheDocument();
   });
 
   it("calls notFound() for a report ID that doesn't exist", async () => {

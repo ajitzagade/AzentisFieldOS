@@ -27,6 +27,16 @@ function makeService(
         overrides.dailyReportCreate ??
         vi.fn().mockResolvedValue({ id: 'report1' }),
     },
+    // compile() live-queries the same Site+date material activity buildContent
+    // merges in (inventory→DSR sync fix) — empty by default here since these
+    // tests aren't exercising that merge (see report-compiler.service.spec.ts's
+    // buildContent tests above for that).
+    purchase: { findMany: vi.fn().mockResolvedValue([]) },
+    movement: { findMany: vi.fn().mockResolvedValue([]) },
+    consumption: { findMany: vi.fn().mockResolvedValue([]) },
+    rmcEntry: { findMany: vi.fn().mockResolvedValue([]) },
+    wasteDisposal: { findMany: vi.fn().mockResolvedValue([]) },
+    returnWastage: { findMany: vi.fn().mockResolvedValue([]) },
   };
   const service = new ReportCompilerService(
     prisma as unknown as ConstructorParameters<typeof ReportCompilerService>[0],
@@ -94,6 +104,7 @@ describe('ReportCompilerService.buildContent', () => {
         unit: 'Bags',
       },
     ]);
+    expect(content.materialsReceived).toEqual([]);
     expect(content.rmc).toEqual({
       loads: 2,
       totalQuantityM3: 12,
@@ -102,6 +113,65 @@ describe('ReportCompilerService.buildContent', () => {
     expect(content.equipmentUsed).toEqual(['JCB 3DX']);
     expect(content.expenses).toEqual({ total: 18600 });
     expect(content.photos).toEqual({ count: 2 });
+  });
+
+  it('merges live Purchase/Movement/standalone Consumption/RMC activity when provided (inventory→DSR sync fix)', () => {
+    const { service } = makeService();
+
+    const content = service.buildContent(makeDsr(), branding, {
+      materialsReceived: [
+        {
+          id: 'purchase1',
+          occurredAt: '2026-08-11T08:00:00.000Z',
+          materialName: 'Steel',
+          sizeLabel: '12mm',
+          unitName: 'Kg',
+          quantity: 200,
+          amount: 14000,
+          summary: 'from Shree Balaji Traders',
+          source: 'PURCHASE',
+        },
+      ],
+      standaloneConsumptions: [
+        {
+          id: 'consumption1',
+          occurredAt: '2026-08-11T09:00:00.000Z',
+          materialName: 'Sand',
+          sizeLabel: 'River sand',
+          unitName: 'm3',
+          quantity: 5,
+          amount: null,
+          summary: 'consumed on site',
+        },
+      ],
+      standaloneRmcEntries: [
+        {
+          id: 'rmc1',
+          occurredAt: '2026-08-11T10:00:00.000Z',
+          vendorName: 'ABC RMC',
+          grade: 'M30',
+          quantityM3: 4,
+          totalAmount: null,
+        },
+      ],
+      standaloneWasteDisposals: [],
+      standaloneWastageReturns: [],
+    });
+
+    expect(content.materialsReceived).toEqual([
+      { material: 'Steel', size: '12mm', quantity: 200, unit: 'Kg' },
+    ]);
+    // The DSR-form consumption and the standalone one both appear — the
+    // whole point of the fix (previously the standalone one was invisible).
+    expect(content.materials).toEqual([
+      { material: 'Cement', size: 'OPC 53 Grade', quantity: 40, unit: 'Bags' },
+      { material: 'Sand', size: 'River sand', quantity: 5, unit: 'm3' },
+    ]);
+    expect(content.rmc).toEqual({
+      loads: 3,
+      totalQuantityM3: 16,
+      grades: ['M25', 'M30'],
+    });
   });
 
   it('handles Prisma Decimal values via toNumber()', () => {

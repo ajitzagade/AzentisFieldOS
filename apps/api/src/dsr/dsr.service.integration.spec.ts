@@ -2612,9 +2612,15 @@ describeIfDb('DsrService (integration)', () => {
 
       const detail = await service.findOne(dsr.id);
 
+      // Inventory→DSR sync fix (2026-09-21): material activity types no
+      // longer land in the generic otherActivity feed — they get their own
+      // proper section instead.
       expect(detail.otherActivity.some((item) => item.id === purchase.id)).toBe(
-        true,
+        false,
       );
+      expect(
+        detail.materialsReceived.some((item) => item.id === purchase.id),
+      ).toBe(true);
       expect(
         detail.otherActivity.some(
           (item) => item.type === 'DSR' && item.id === dsr.id,
@@ -2733,6 +2739,13 @@ describeIfDb('DsrService (integration)', () => {
             item.type === 'WORK_ENTRY' && item.id === originalWorkEntryId,
         ),
       ).toBe(false);
+      // The same ancestor exclusion must hold in its new proper home too —
+      // otherwise the pre-correction row would double-count there instead.
+      expect(
+        detail.standaloneWasteDisposals.some(
+          (item) => item.id === originalWasteId,
+        ),
+      ).toBe(false);
     });
 
     it('renders no otherActivity (empty array, no error) when nothing else was recorded that day', async () => {
@@ -2751,6 +2764,91 @@ describeIfDb('DsrService (integration)', () => {
 
       const detail = await service.findOne(dsr.id);
       expect(detail.otherActivity).toEqual([]);
+      expect(detail.materialsReceived).toEqual([]);
+      expect(detail.standaloneConsumptions).toEqual([]);
+      expect(detail.standaloneRmcEntries).toEqual([]);
+      expect(detail.standaloneWasteDisposals).toEqual([]);
+      expect(detail.standaloneWastageReturns).toEqual([]);
+    });
+  });
+
+  describe('findOne(): materialsReceived / standalone material sections (inventory→DSR sync fix, 2026-09-21)', () => {
+    it('surfaces a standalone Movement, Consumption, RMC entry, and Wastage/Return for the same Site+date', async () => {
+      const dsr = await create({
+        siteId,
+        reportDate: '2026-11-05',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+
+      const movement = await prisma.movement.create({
+        data: {
+          kind: 'GODOWN_TO_SITE',
+          materialSizeId,
+          destinationSiteId: siteId,
+          sentQuantity: 10,
+          movedAt: new Date('2026-11-05'),
+        },
+      });
+      const consumption = await prisma.consumption.create({
+        data: {
+          siteId,
+          materialSizeId,
+          quantity: 3,
+          recordedByUserId: testUserId,
+          consumedAt: new Date('2026-11-05'),
+        },
+      });
+      const rmc = await prisma.rmcEntry.create({
+        data: {
+          siteId,
+          vendorId,
+          quantityM3: 2,
+          grade: 'M25',
+          deliveredAt: new Date('2026-11-05'),
+        },
+      });
+      const wastage = await prisma.returnWastage.create({
+        data: {
+          siteId,
+          materialSizeId,
+          kind: 'WASTAGE',
+          quantity: 1,
+          recordedAt: new Date('2026-11-05'),
+        },
+      });
+
+      const detail = await service.findOne(dsr.id);
+
+      expect(
+        detail.materialsReceived.some(
+          (item) => item.id === movement.id && item.source === 'MOVEMENT',
+        ),
+      ).toBe(true);
+      expect(
+        detail.standaloneConsumptions.some(
+          (item) => item.id === consumption.id,
+        ),
+      ).toBe(true);
+      expect(
+        detail.standaloneRmcEntries.some((item) => item.id === rmc.id),
+      ).toBe(true);
+      expect(
+        detail.standaloneWastageReturns.some(
+          (item) => item.id === wastage.id && item.kind === 'WASTAGE',
+        ),
+      ).toBe(true);
+
+      await prisma.returnWastage.deleteMany({ where: { id: wastage.id } });
+      await prisma.rmcEntry.deleteMany({ where: { id: rmc.id } });
+      await prisma.consumption.deleteMany({ where: { id: consumption.id } });
+      await prisma.movement.deleteMany({ where: { id: movement.id } });
     });
   });
 });

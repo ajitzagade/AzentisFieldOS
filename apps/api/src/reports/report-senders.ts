@@ -46,6 +46,13 @@ export function renderReportEmailHtml(content: ReportContent): string {
           `${escapeHtml(m.material)} (${escapeHtml(m.size)}) — ${m.quantity} ${escapeHtml(m.unit)}`,
       )
       .join('; ') || 'None recorded';
+  const materialsReceived =
+    content.materialsReceived
+      .map(
+        (m) =>
+          `${escapeHtml(m.material)} (${escapeHtml(m.size)}) — ${m.quantity} ${escapeHtml(m.unit)}`,
+      )
+      .join('; ') || 'None recorded';
   const rmc =
     content.rmc.loads > 0
       ? `${content.rmc.loads} load(s), ${content.rmc.grades.map(escapeHtml).join(', ')} — ${content.rmc.totalQuantityM3} m³`
@@ -72,6 +79,7 @@ export function renderReportEmailHtml(content: ReportContent): string {
       'Labour Present',
       `${content.labour.present} of ${content.labour.total}`,
     ),
+    row('Materials Received', materialsReceived),
     row('Materials Consumed', materials),
     row('RMC Delivered', rmc),
     row(

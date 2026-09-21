@@ -177,6 +177,7 @@ export class ReportSchedulesService {
       },
       labour: { present: 0, total: 0 },
       materials: [],
+      materialsReceived: [],
       rmc: { loads: 0, totalQuantityM3: 0, grades: [] },
       equipmentUsed: [],
       expenses: { total: 0 },

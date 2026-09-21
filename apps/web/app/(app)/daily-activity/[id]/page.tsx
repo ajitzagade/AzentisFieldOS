@@ -57,6 +57,48 @@ interface PhotoDetail {
   createdAt: string;
 }
 
+// Inventory→DSR sync fix (2026-09-21): material activity recorded outside
+// this DSR's own form — Purchase/Movement (never DSR-form-materializable at
+// all) and standalone Consumption/RMC/Waste Material/Wastage-Return (this
+// DSR's own materialized rows, and this DSR itself, are already excluded
+// server-side, same as otherActivity below).
+interface MaterialRowDetail {
+  id: string;
+  occurredAt: string;
+  materialName: string;
+  sizeLabel: string;
+  unitName: string;
+  quantity: number;
+  amount: number | null;
+  summary: string;
+}
+
+interface MaterialsReceivedRowDetail extends MaterialRowDetail {
+  source: "PURCHASE" | "MOVEMENT";
+}
+
+interface WastageReturnRowDetail extends MaterialRowDetail {
+  kind: "WASTAGE" | "RETURN";
+}
+
+interface StandaloneRmcRowDetail {
+  id: string;
+  occurredAt: string;
+  vendorName: string;
+  grade: string;
+  quantityM3: number;
+  totalAmount: number | null;
+}
+
+interface StandaloneWasteRowDetail {
+  id: string;
+  occurredAt: string;
+  wasteType: string;
+  tripCount: number;
+  vendorName: string | null;
+  totalAmount: number | null;
+}
+
 interface DsrDetail {
   id: string;
   site: { id: string; name: string };
@@ -96,8 +138,15 @@ interface DsrDetail {
   // Client-readiness batch (2026-09-20), goal 2: same-day Site activity
   // recorded outside this DSR (this DSR's own materialized rows, and this
   // DSR itself, are already excluded server-side) — so "did my entries
-  // sync" is answerable without leaving this page.
+  // sync" is answerable without leaving this page. Narrowed (2026-09-21) to
+  // non-material types only — material activity now has its own sections
+  // below instead of hiding in this generic list.
   otherActivity: FeedItem[];
+  materialsReceived: MaterialsReceivedRowDetail[];
+  standaloneConsumptions: MaterialRowDetail[];
+  standaloneRmcEntries: StandaloneRmcRowDetail[];
+  standaloneWasteDisposals: StandaloneWasteRowDetail[];
+  standaloneWastageReturns: WastageReturnRowDetail[];
 }
 
 async function getDsrDetail(id: string): Promise<DsrDetail | null> {
@@ -221,16 +270,50 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
           )}
         </Card>
 
+        {/* Inventory→DSR sync fix (2026-09-21): the DSR form never had a
+            "materials received" concept — Purchases and inbound/outbound
+            Movements touching this Site on this date are always live-queried,
+            never DSR-materialized. */}
+        <Card>
+          <h2 className="mb-3 text-card-title text-ink-900">Materials Received</h2>
+          {dsr.materialsReceived.length === 0 ? (
+            <p className="text-body-sm text-ink-500">No materials received logged for this Site on this date.</p>
+          ) : (
+            <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
+              {dsr.materialsReceived.map((m) => (
+                <li key={m.id} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                  <span>
+                    {m.materialName} ({m.sizeLabel}){" "}
+                    <span className="text-caption text-ink-500">
+                      via {m.source === "PURCHASE" ? "Purchase" : "Movement"} — {m.summary}
+                    </span>
+                  </span>
+                  <span className="text-ink-500">{m.quantity} {m.unitName}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
         <Card>
           <h2 className="mb-3 text-card-title text-ink-900">Materials consumed</h2>
-          {dsr.consumptions.length === 0 ? (
+          {dsr.consumptions.length === 0 && dsr.standaloneConsumptions.length === 0 ? (
             <p className="text-body-sm text-ink-500">No materials logged for this report.</p>
           ) : (
             <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
               {dsr.consumptions.map((c) => (
-                <li key={c.id} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                <li key={`dsr-${c.id}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
                   <span>
                     {c.materialSize.material.name} ({c.materialSize.label})
+                  </span>
+                  <span className="text-ink-500">{c.quantity}</span>
+                </li>
+              ))}
+              {dsr.standaloneConsumptions.map((c) => (
+                <li key={`standalone-${c.id}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                  <span>
+                    {c.materialName} ({c.sizeLabel}){" "}
+                    <span className="text-caption text-ink-500">via Consumption</span>
                   </span>
                   <span className="text-ink-500">{c.quantity}</span>
                 </li>
@@ -241,12 +324,12 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
 
         <Card>
           <h2 className="mb-3 text-card-title text-ink-900">RMC (ready-mix concrete) used</h2>
-          {dsr.rmcEntries.length === 0 ? (
+          {dsr.rmcEntries.length === 0 && dsr.standaloneRmcEntries.length === 0 ? (
             <p className="text-body-sm text-ink-500">No RMC delivery logged for this report.</p>
           ) : (
             <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
               {dsr.rmcEntries.map((r) => (
-                <li key={r.id} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                <li key={`dsr-${r.id}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
                   <span>
                     {r.vendor.name} — {r.grade}
                   </span>
@@ -259,18 +342,31 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                   </span>
                 </li>
               ))}
+              {dsr.standaloneRmcEntries.map((r) => (
+                <li key={`standalone-${r.id}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                  <span>
+                    {r.vendorName} — {r.grade} <span className="text-caption text-ink-500">via RMC</span>
+                  </span>
+                  <span className="text-ink-500">
+                    {r.quantityM3} m³ ·{" "}
+                    <span className="font-semibold text-gold-700">
+                      {r.totalAmount === null ? <span className="text-ink-500">Pricing pending</span> : `₹${r.totalAmount.toLocaleString("en-IN")}`}
+                    </span>
+                  </span>
+                </li>
+              ))}
             </ul>
           )}
         </Card>
 
         <Card>
           <h2 className="mb-3 text-card-title text-ink-900">Waste Material</h2>
-          {dsr.wasteDisposalEntries.length === 0 ? (
+          {dsr.wasteDisposalEntries.length === 0 && dsr.standaloneWasteDisposals.length === 0 ? (
             <p className="text-body-sm text-ink-500">No Waste Material logged for this report.</p>
           ) : (
             <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
               {dsr.wasteDisposalEntries.map((w) => (
-                <li key={w.id} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                <li key={`dsr-${w.id}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
                   <span>
                     {w.wasteType} — {w.tripCount} trip{Math.abs(w.tripCount) === 1 ? "" : "s"}
                     {w.vendor ? ` (${w.vendor.name})` : " (own vehicle)"}
@@ -286,6 +382,43 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                       <span className="font-semibold text-gold-700">{formatMoney(w.totalAmount)}</span>
                     )}
                   </span>
+                </li>
+              ))}
+              {dsr.standaloneWasteDisposals.map((w) => (
+                <li key={`standalone-${w.id}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                  <span>
+                    {w.wasteType} — {w.tripCount} trip{Math.abs(w.tripCount) === 1 ? "" : "s"}
+                    {w.vendorName ? ` (${w.vendorName})` : " (own vehicle)"}{" "}
+                    <span className="text-caption text-ink-500">via Waste Material</span>
+                  </span>
+                  <span className="text-ink-500">
+                    {w.totalAmount === null ? (
+                      <span className="text-ink-500">Pricing pending</span>
+                    ) : (
+                      <span className="font-semibold text-gold-700">{formatMoney(w.totalAmount)}</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        {/* Inventory→DSR sync fix (2026-09-21): the DSR form has no wastage/
+            return concept at all — every row here is always live-queried. */}
+        <Card>
+          <h2 className="mb-3 text-card-title text-ink-900">Material Wastage / Returns</h2>
+          {dsr.standaloneWastageReturns.length === 0 ? (
+            <p className="text-body-sm text-ink-500">No material wastage or returns logged for this Site on this date.</p>
+          ) : (
+            <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
+              {dsr.standaloneWastageReturns.map((r) => (
+                <li key={r.id} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                  <span>
+                    {r.materialName} ({r.sizeLabel}){" "}
+                    <span className="text-caption text-ink-500">{r.kind === "WASTAGE" ? "Wastage" : "Return"}</span>
+                  </span>
+                  <span className="text-ink-500">{r.quantity} {r.unitName}</span>
                 </li>
               ))}
             </ul>
@@ -404,7 +537,13 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
             getSiteActivityFeed() powers, narrowed to this DSR's own
             Site+date and filtered to exclude this DSR's own materialized
             rows, so "did my entries sync" is answerable without leaving
-            this page. */}
+            this page. Narrowed further (2026-09-21, inventory→DSR sync fix):
+            material activity types (Purchase/Movement/Consumption/RMC/Waste
+            Material/Wastage-Return) are excluded here — they have their own
+            sections above now — so this card only ever shows non-material
+            same-day activity (Work Record, Expense, machinery/vehicle
+            movement, Site Contract, Work Entry, Subcontractor Payment,
+            another DSR). */}
         <Card>
           <h2 className="mb-3 text-card-title text-ink-900">Other activity at this Site on this date</h2>
           {dsr.otherActivity.length === 0 ? (
