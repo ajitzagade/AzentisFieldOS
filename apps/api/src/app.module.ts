@@ -12,6 +12,7 @@ import { StorageModule } from './storage/storage.module';
 import { MaterialsModule } from './materials/materials.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { TeamModule } from './team/team.module';
+import { LabourPaymentsModule } from './labour-payments/labour-payments.module';
 import { AssetsModule } from './assets/assets.module';
 import { VendorsModule } from './vendors/vendors.module';
 import { SubcontractorsModule } from './subcontractors/subcontractors.module';
@@ -38,6 +39,7 @@ import { PushNotificationsModule } from './push-notifications/push-notifications
     MaterialsModule,
     InventoryModule,
     TeamModule,
+    LabourPaymentsModule,
     AssetsModule,
     VendorsModule,
     SubcontractorsModule,

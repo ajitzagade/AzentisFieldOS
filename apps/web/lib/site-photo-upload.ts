@@ -11,6 +11,7 @@ export async function uploadSitePhoto(
   authedFetch: AuthedFetch,
   siteId: string,
   file: File,
+  options: { category?: "GENERAL" | "MEASUREMENT"; description?: string } = {},
 ): Promise<{ storageKey: string }> {
   const [presignRes, compressedFile] = await Promise.all([
     authedFetch(`/photos/site-presign`, {
@@ -54,7 +55,12 @@ export async function uploadSitePhoto(
   const confirmRes = await authedFetch(`/photos`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ siteId, storageKey }),
+    body: JSON.stringify({
+      siteId,
+      storageKey,
+      category: options.category,
+      description: options.description,
+    }),
   });
   if (!confirmRes.ok) {
     throw new Error("Could not confirm this photo's upload");

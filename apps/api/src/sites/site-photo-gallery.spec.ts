@@ -112,6 +112,35 @@ describe('getSitePhotoGallery', () => {
     });
   });
 
+  // Measurement (2026-09-21): category/description pass straight through.
+  it("includes a Measurement photo's category and description", async () => {
+    const prisma = {
+      photo: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'photo-measurement',
+            storageKey: 'site/site-1/m.jpg',
+            dailySiteReportId: null,
+            dailySiteReport: null,
+            uploadedBy: { name: 'Ramesh Yadav' },
+            createdAt: new Date('2026-08-13T09:00:00Z'),
+            category: 'MEASUREMENT',
+            description: 'Foundation depth at Ch. 4+200',
+          },
+        ]),
+      },
+    } as unknown as PrismaService;
+    const getThumbnailUrl = vi.fn(() => Promise.resolve('https://cdn/x.jpg'));
+    const storage = { getThumbnailUrl } as unknown as StorageService;
+
+    const gallery = await getSitePhotoGallery(prisma, storage, 'site-1');
+
+    expect(gallery[0]).toMatchObject({
+      category: 'MEASUREMENT',
+      description: 'Foundation depth at Ch. 4+200',
+    });
+  });
+
   it('returns an empty array for a Site with no photos, not an error', async () => {
     const prisma = {
       photo: { findMany: vi.fn().mockResolvedValue([]) },

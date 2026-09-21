@@ -19,4 +19,8 @@ export interface PhotoGalleryItem {
   dailySiteReportId: string | null;
   uploaderName: string;
   createdAt: string;
+  /** Measurement (2026-09-21) — GENERAL for every ordinary upload. */
+  category: "GENERAL" | "MEASUREMENT";
+  /** Only ever set for a MEASUREMENT photo today. */
+  description: string | null;
 }

@@ -257,6 +257,36 @@ describe('StorageService.confirmUpload', () => {
       ),
     ).rejects.toThrow(NotFoundException);
   });
+
+  // Measurement (2026-09-21): a direct-to-Site upload can carry a category
+  // and description — persisted straight through to the Photo row.
+  it('persists category and description on a Measurement upload', async () => {
+    const photoCreate = vi.fn().mockResolvedValue({ id: 'photo-1' });
+    const service = makeService({
+      site: { findUnique: vi.fn().mockResolvedValue({ id: 'site-1' }) },
+      photo: { create: photoCreate },
+    });
+
+    await service.confirmUpload(
+      {
+        siteId: 'site-1',
+        storageKey: 'site/site-1/m.jpg',
+        category: 'MEASUREMENT',
+        description: 'Foundation depth at Ch. 4+200',
+      },
+      'user-1',
+    );
+
+    expect(photoCreate).toHaveBeenCalledWith({
+      data: {
+        siteId: 'site-1',
+        storageKey: 'site/site-1/m.jpg',
+        uploadedByUserId: 'user-1',
+        category: 'MEASUREMENT',
+        description: 'Foundation depth at Ch. 4+200',
+      },
+    });
+  });
 });
 
 describe('StorageService.getThumbnailUrl', () => {

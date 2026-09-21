@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Dialog } from "@base-ui-components/react/dialog";
 import { formatDate } from "@/lib/format";
 import type { PhotoGalleryItem } from "@azentisfieldos/shared";
-import { Button, ChevronRightIcon } from "@azentisfieldos/ui";
+import { Button, CheckCircleIcon, ChevronRightIcon, cn } from "@azentisfieldos/ui";
 
 // Epic 3's chronological Site photo gallery layout, extracted once Story 13.2's
 // Site Reports view needed the same grid the Site Photos page (Story 3.3)
@@ -21,7 +21,25 @@ import { Button, ChevronRightIcon } from "@azentisfieldos/ui";
 // QuickCreateModal's Dialog.Root/Portal/Backdrop/Popup exactly (same Base
 // UI primitive, same z-50/backdrop/surface classes) — this is a viewer, not
 // a confirmation, so it's the plain Dialog, not AlertDialog.
-export function PhotoGalleryGrid({ photos }: { photos: PhotoGalleryItem[] }) {
+//
+// Print (2026-09-21): `selectable` is opt-in (only the Site Photos page's
+// full gallery turns it on — the Site detail preview strip and the Site
+// Report's read-only grid are unaffected). Selection is controlled by the
+// caller (selectedIds/onToggleSelect) so it — not this component — owns
+// what happens with the selection (the print-layout picker + navigation).
+// A tile click toggles selection instead of opening the lightbox while
+// selectable is on, since printing needs a target set, not a preview.
+export function PhotoGalleryGrid({
+  photos,
+  selectable = false,
+  selectedIds,
+  onToggleSelect,
+}: {
+  photos: PhotoGalleryItem[];
+  selectable?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+}) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const activePhoto = openIndex !== null ? photos[openIndex] : undefined;
@@ -68,34 +86,53 @@ export function PhotoGalleryGrid({ photos }: { photos: PhotoGalleryItem[] }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-        {photos.map((photo, index) => (
-          <figure
-            key={photo.id}
-            className="overflow-hidden rounded-md border border-border-hairline bg-surface-1"
-          >
-            <div className="aspect-square bg-surface-2">
-              <button
-                type="button"
-                onClick={() => setOpenIndex(index)}
-                aria-label={`View photo from ${formatDate(photo.reportDate)}`}
-                className="block size-full"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- a
-                    durable Cloudinary CDN URL, not a build-time static asset
-                    next/image's optimizer is set up for here. */}
-                <img
-                  src={photo.url}
-                  alt=""
-                  loading="lazy"
-                  className="size-full object-cover"
-                />
-              </button>
-            </div>
-            <figcaption className="p-2 text-caption text-ink-500">
-              {formatDate(photo.reportDate)} · {photo.uploaderName}
-            </figcaption>
-          </figure>
-        ))}
+        {photos.map((photo, index) => {
+          const checked = selectedIds?.has(photo.id) ?? false;
+          return (
+            <figure
+              key={photo.id}
+              className="overflow-hidden rounded-md border border-border-hairline bg-surface-1"
+            >
+              <div className="relative aspect-square bg-surface-2">
+                <button
+                  type="button"
+                  onClick={() => (selectable ? onToggleSelect?.(photo.id) : setOpenIndex(index))}
+                  aria-pressed={selectable ? checked : undefined}
+                  aria-label={
+                    selectable
+                      ? `${checked ? "Deselect" : "Select"} photo from ${formatDate(photo.reportDate)}`
+                      : `View photo from ${formatDate(photo.reportDate)}`
+                  }
+                  className="block size-full"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a
+                      durable Cloudinary CDN URL, not a build-time static asset
+                      next/image's optimizer is set up for here. */}
+                  <img
+                    src={photo.url}
+                    alt=""
+                    loading="lazy"
+                    className={cn("size-full object-cover", selectable && checked && "opacity-70")}
+                  />
+                </button>
+                {selectable ? (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "pointer-events-none absolute top-2 right-2 flex size-6 items-center justify-center rounded-full border-2 bg-surface-1/90",
+                      checked ? "border-accent-teal-700 bg-accent-teal-700 text-white" : "border-border-strong text-transparent",
+                    )}
+                  >
+                    <CheckCircleIcon className="size-4" />
+                  </span>
+                ) : null}
+              </div>
+              <figcaption className="p-2 text-caption text-ink-500">
+                {formatDate(photo.reportDate)} · {photo.uploaderName}
+              </figcaption>
+            </figure>
+          );
+        })}
       </div>
 
       <Dialog.Root

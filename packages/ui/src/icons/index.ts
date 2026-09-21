@@ -37,3 +37,4 @@ export * from "./hash-icon";
 export * from "./user-icon";
 export * from "./menu-icon";
 export * from "./x-icon";
+export * from "./printer-icon";

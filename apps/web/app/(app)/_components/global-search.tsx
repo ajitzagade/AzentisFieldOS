@@ -10,6 +10,7 @@ import {
   BarChartIcon,
   BoxIcon,
   BuildingIcon,
+  CameraIcon,
   CheckCircleIcon,
   ClipboardIcon,
   DropletIcon,
@@ -34,6 +35,7 @@ import { useClientValidation } from "@/lib/use-client-validation";
 import { entityHref } from "@/lib/entity-href";
 import { parseCreateAdvanceForm } from "@/app/(app)/team/[id]/advances/parse";
 import { createAdvanceQuickAction } from "@/app/(app)/team/[id]/advances/actions";
+import { MeasurementQuickEntryPanel } from "./measurement-quick-entry-panel";
 import { useGlobalSearch } from "../../../lib/use-global-search";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -62,6 +64,7 @@ export const ACTION_ICONS: Record<string, ReactNode> = {
   "add-machinery": <GearIcon />,
   "add-vehicle": <TruckIcon />,
   "view-attendance": <UsersIcon />,
+  "add-measurement": <CameraIcon />,
 };
 
 export interface GlobalSearchController {
@@ -79,6 +82,9 @@ export interface GlobalSearchController {
    * owned here (not inside GlobalSearchDialog) so handleSelect can flip it. */
   advanceModalOpen: boolean;
   setAdvanceModalOpen: (open: boolean) => void;
+  /** Measurement (2026-09-21) — same href:null in-place-modal pattern. */
+  measurementModalOpen: boolean;
+  setMeasurementModalOpen: (open: boolean) => void;
 }
 
 // Story 19.3: lets a descendant that can't call useGlobalSearchController()
@@ -116,6 +122,7 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [advanceModalOpen, setAdvanceModalOpen] = useState(false);
+  const [measurementModalOpen, setMeasurementModalOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -461,7 +468,9 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       const action = matchedActions.find((a) => a.id === item.id);
       setOpen(false);
       if (!action) return;
-      if (action.href === null) {
+      if (action.id === "add-measurement") {
+        setMeasurementModalOpen(true);
+      } else if (action.href === null) {
         // Record Advance — opens 19.1's modal in place, no navigation.
         setAdvanceModalOpen(true);
       } else {
@@ -648,6 +657,8 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
     handleSeeAll,
     advanceModalOpen,
     setAdvanceModalOpen,
+    measurementModalOpen,
+    setMeasurementModalOpen,
   };
 }
 
@@ -785,6 +796,7 @@ export function GlobalSearchDialog({ controller }: { controller: GlobalSearchCon
         onSeeAll={controller.handleSeeAll}
       />
       <AdvanceQuickEntryPanel open={controller.advanceModalOpen} onOpenChange={controller.setAdvanceModalOpen} />
+      <MeasurementQuickEntryPanel open={controller.measurementModalOpen} onOpenChange={controller.setMeasurementModalOpen} />
     </>
   );
 }

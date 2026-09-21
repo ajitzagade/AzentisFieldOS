@@ -156,6 +156,8 @@ export class StorageService {
           dailySiteReportId: input.dailySiteReportId,
           storageKey: input.storageKey,
           uploadedByUserId,
+          category: input.category,
+          description: input.description,
         },
       });
     }
@@ -169,7 +171,13 @@ export class StorageService {
       throw new NotFoundException(`Site ${siteId} not found`);
     }
     return this.prisma.photo.create({
-      data: { siteId, storageKey: input.storageKey, uploadedByUserId },
+      data: {
+        siteId,
+        storageKey: input.storageKey,
+        uploadedByUserId,
+        category: input.category,
+        description: input.description,
+      },
     });
   }
 

@@ -160,6 +160,7 @@ model Site {
   wasteDisposals       WasteDisposal[]
   siteContracts        SiteContract[]
   photos               Photo[]
+  dailyLabourAttendance DailyLabourAttendance[]
 }
 
 // ---------- Material catalog (FR-4..FR-7) ----------
@@ -633,6 +634,116 @@ model Payment {
   @@index([status])
 }
 
+// ---------- Labour Payment (decoupled daily-wage labour, 2026-09-21) ----------
+// A separate system from TeamMember/Advance/Payment above, by explicit
+// decision — daily-wage labour paid on a weekly cycle, tracked independently
+// of the salaried Team & Labour / Employee Payments modules so neither
+// forks the other's behavior. Same AD-9 append-only + materialized-balance
+// conventions as Advance/AdvanceAdjustment/Payment above, applied here.
+
+model DailyLabourer {
+  id                        String   @id @default(uuid(7))
+  name                      String
+  // Free text (e.g. "Mason", "Helper") — matches DailySiteReport's
+  // labourEntries.category convention (packages/shared/src/schemas/
+  // daily-site-report.ts), no lookup table.
+  category                  String
+  defaultPerDayAmount       Decimal?
+  isActive                  Boolean  @default(true)
+  // AD-9's materialized, write-path-only balance — same class of column as
+  // TeamMember.outstandingAdvanceBalance above.
+  outstandingAdvanceBalance Decimal  @default(0)
+  createdAt                 DateTime @default(now())
+
+  attendance DailyLabourAttendance[]
+  advances   DailyLabourAdvance[]
+  payments   DailyLabourWeeklyPayment[]
+}
+
+// Append-only (AD-9). One row per Labourer per Site per date — a correction
+// inserts a fresh row (never edits an existing one), same reasoning as
+// WorkRecord above; a weekly payment's totalEarned must resolve to only the
+// current (non-superseded) row per date, never both (see
+// current-labour-rows.ts).
+model DailyLabourAttendance {
+  id               String        @id @default(uuid(7))
+  labourerId       String
+  labourer         DailyLabourer @relation(fields: [labourerId], references: [id])
+  siteId           String
+  site             Site          @relation(fields: [siteId], references: [id])
+  workDate         DateTime      @db.Date
+  attended         Boolean       @default(true)
+  perDayAmount     Decimal
+  createdAt        DateTime      @default(now())
+  correctsId       String?
+  correctionReason String? // required when correctsId is set
+
+  @@index([labourerId, workDate])
+  @@index([siteId, workDate])
+}
+
+// Append-only (AD-9) — same shape as Advance above, scoped to DailyLabourer.
+model DailyLabourAdvance {
+  id               String        @id @default(uuid(7))
+  labourerId       String
+  labourer         DailyLabourer @relation(fields: [labourerId], references: [id])
+  amount           Decimal
+  description      String?
+  givenAt          DateTime
+  createdAt        DateTime      @default(now())
+  correctsId       String?
+  correctionReason String? // required when correctsId is set
+
+  adjustments DailyLabourAdvanceAdjustment[]
+
+  @@index([labourerId, givenAt])
+}
+
+// Append-only (AD-9) — same shape as AdvanceAdjustment above. `amount` must
+// never exceed the Labourer's current outstandingAdvanceBalance — enforced
+// in the service layer at the same transaction boundary that writes this
+// row (FR-23's equivalent for this module).
+model DailyLabourAdvanceAdjustment {
+  id                String                    @id @default(uuid(7))
+  advanceId         String
+  advance           DailyLabourAdvance        @relation(fields: [advanceId], references: [id])
+  paymentId         String?
+  payment           DailyLabourWeeklyPayment? @relation(fields: [paymentId], references: [id])
+  amount            Decimal
+  note              String?
+  adjustedAt        DateTime
+  createdAt         DateTime                  @default(now())
+  correctsId        String?
+  correctionReason  String? // required when correctsId is set
+
+  @@index([advanceId, adjustedAt])
+}
+
+// Append-only (AD-9). One row per (labourerId, weekStartDate=Monday)
+// settlement — totalEarned is server-computed from that week's current
+// DailyLabourAttendance rows, never trusted from the request body (same
+// FR-24 rule Payment.netPayable follows above). The advance-adjusted
+// amount, if any, lives on the linked DailyLabourAdvanceAdjustment row, not
+// a duplicated column here — same relation-only pattern Payment uses above.
+model DailyLabourWeeklyPayment {
+  id               String        @id @default(uuid(7))
+  labourerId       String
+  labourer         DailyLabourer @relation(fields: [labourerId], references: [id])
+  weekStartDate    DateTime      @db.Date
+  weekEndDate      DateTime      @db.Date
+  totalEarned      Decimal
+  amountPaid       Decimal
+  status           String // PAID | PARTIAL | UNPAID
+  paidAt           DateTime?
+  createdAt        DateTime      @default(now())
+  correctsId       String?
+  correctionReason String? // required when correctsId is set
+
+  advanceAdjustments DailyLabourAdvanceAdjustment[]
+
+  @@index([labourerId, weekStartDate])
+}
+
 // ---------- RMC (FR-26..FR-27) ----------
 
 model RmcEntry {
@@ -764,6 +875,14 @@ model DailySiteReport {
   // `migrate deploy`, never `migrate dev` (which would drift-drop it).
 }
 
+// Measurement (2026-09-21): a dedicated category so measurement photos are
+// easy to find/filter separately from general site photos — GENERAL is the
+// default for every existing/ordinary upload path.
+enum PhotoCategory {
+  GENERAL
+  MEASUREMENT
+}
+
 // A Photo attaches to exactly one of DailySiteReport or Site — never both,
 // never neither (enforced in StorageService.confirmUpload, the only write
 // path). Both FKs are nullable to support the two independent entry
@@ -781,6 +900,10 @@ model Photo {
   uploadedByUserId  String
   uploadedBy        User             @relation(fields: [uploadedByUserId], references: [id])
   createdAt         DateTime         @default(now())
+  category          PhotoCategory    @default(GENERAL)
+  // Only ever set for a MEASUREMENT upload today — a general photo has no
+  // caption UI (avoids scope creep into a general captioning feature).
+  description       String?
 
   @@index([siteId, createdAt])
 }

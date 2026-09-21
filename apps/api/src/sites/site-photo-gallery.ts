@@ -62,6 +62,8 @@ export async function getSitePhotoGallery(
         dailySiteReportId: photo.dailySiteReportId,
         uploaderName: photo.uploadedBy.name,
         createdAt: photo.createdAt.toISOString(),
+        category: photo.category,
+        description: photo.description,
       };
     }),
   );

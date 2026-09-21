@@ -17,6 +17,7 @@ export * from "./schemas/work-record";
 export * from "./schemas/advance";
 export * from "./schemas/advance-adjustment";
 export * from "./schemas/payment";
+export * from "./schemas/labour-payment";
 export * from "./schemas/machinery-type";
 export * from "./schemas/vehicle-type";
 export * from "./schemas/machinery";

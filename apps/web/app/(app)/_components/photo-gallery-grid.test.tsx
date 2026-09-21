@@ -13,6 +13,8 @@ function makePhoto(overrides: Partial<PhotoGalleryItem>): PhotoGalleryItem {
     dailySiteReportId: "dsr-1",
     uploaderName: "Ramesh Yadav",
     createdAt: "2026-08-10T10:00:00.000Z",
+    category: "GENERAL",
+    description: null,
     ...overrides,
   };
 }

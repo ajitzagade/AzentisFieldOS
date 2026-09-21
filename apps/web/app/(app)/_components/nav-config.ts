@@ -3,6 +3,8 @@ import {
   BarChartIcon,
   BoxIcon,
   BuildingIcon,
+  CalendarIcon,
+  CameraIcon,
   ClipboardIcon,
   DropletIcon,
   GearIcon,
@@ -23,7 +25,21 @@ export interface NavItem {
   href: string;
   label: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
+  /** When set, SidebarNav renders this as a button that opens the named
+   * modal in place instead of navigating (href is an inert "#" for these —
+   * only "measurement" exists today). */
+  modalId?: "measurement";
 }
+
+// Measurement (2026-09-21): a persistent side-menu entry (not just the
+// Quick Add sheet / global search) per the explicit ask — opens the same
+// MeasurementQuickEntryPanel those two also share (app-shell.tsx).
+export const MEASUREMENT_NAV_ITEM: NavItem = {
+  href: "#measurement",
+  label: "Measurement",
+  icon: CameraIcon,
+  modalId: "measurement",
+};
 
 export interface NavGroup {
   label: string;
@@ -60,6 +76,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/movements", label: "Movements", icon: ArrowsIcon },
       { href: "/materials", label: "Materials", icon: LayersIcon },
       { href: "/waste-disposal", label: "Waste Material", icon: AlertTriangleIcon },
+      MEASUREMENT_NAV_ITEM,
     ],
   },
   {
@@ -69,6 +86,10 @@ export const NAV_GROUPS: NavGroup[] = [
       // Renamed from "Payments" (2026-09-19): this surface is Team-Member
       // pay only — the cross-source feed lives at /all-payments (Money).
       { href: "/payments", label: "Employee Payments", icon: WalletIcon },
+      // Labour Payment (2026-09-21): a separate, decoupled system for
+      // daily-wage labour paid weekly — deliberately not merged with the
+      // Team Member/Employee Payments surfaces above.
+      { href: "/labour-payments", label: "Labour Payment", icon: CalendarIcon },
     ],
   },
   {
@@ -116,11 +137,15 @@ export const SUPERVISOR_NAV_GROUPS: NavGroup[] = [
       { href: "/inventory", label: "Inventory", icon: BoxIcon },
       { href: "/movements", label: "Movements", icon: ArrowsIcon },
       { href: "/waste-disposal", label: "Waste Material", icon: AlertTriangleIcon },
+      MEASUREMENT_NAV_ITEM,
     ],
   },
   {
     label: "People",
-    items: [{ href: "/team", label: "Team & Attendance", icon: UsersIcon }],
+    items: [
+      { href: "/team", label: "Team & Attendance", icon: UsersIcon },
+      { href: "/labour-payments", label: "Labour Payment", icon: CalendarIcon },
+    ],
   },
 ];
 

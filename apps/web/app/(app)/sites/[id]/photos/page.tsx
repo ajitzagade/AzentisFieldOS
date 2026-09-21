@@ -2,9 +2,8 @@ import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { PhotoGalleryItem } from "@azentisfieldos/shared";
-import { CameraIcon, EmptyState } from "@azentisfieldos/ui";
 import type { Site } from "../../page";
-import { PhotoGalleryGrid } from "../../../_components/photo-gallery-grid";
+import { SitePhotoGalleryTabs } from "../_components/site-photo-gallery-tabs";
 import { SitePhotoUploadButton } from "../_components/site-photo-upload-button";
 
 async function getSite(id: string): Promise<Pick<Site, "id" | "name"> | null> {
@@ -50,14 +49,7 @@ export default async function SitePhotosPage({ params }: { params: Promise<{ id:
         <SitePhotoUploadButton siteId={site.id} />
       </div>
 
-      {photos.length === 0 ? (
-        <EmptyState
-          icon={<CameraIcon />}
-          message="No photos yet for this Site — they arrive with Daily Reports, or upload one directly above."
-        />
-      ) : (
-        <PhotoGalleryGrid photos={photos} />
-      )}
+      <SitePhotoGalleryTabs siteId={site.id} photos={photos} />
     </>
   );
 }

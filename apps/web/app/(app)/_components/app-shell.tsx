@@ -30,6 +30,7 @@ import {
   type NavItem,
 } from "./nav-config";
 import { FlashToast } from "./flash-toast";
+import { MeasurementQuickEntryPanel } from "./measurement-quick-entry-panel";
 import {
   ACTION_ICONS,
   AdvanceQuickEntryPanel,
@@ -108,9 +109,41 @@ function useIntentPrefetch() {
   };
 }
 
-function NavLink({ item, active, onNavigate }: { item: NavItem; active: boolean; onNavigate?: () => void }) {
+function NavLink({
+  item,
+  active,
+  onNavigate,
+  onOpenMeasurement,
+}: {
+  item: NavItem;
+  active: boolean;
+  onNavigate?: () => void;
+  /** Only used when item.modalId === "measurement" — see nav-config.ts. */
+  onOpenMeasurement?: () => void;
+}) {
   const Icon = item.icon;
   const { prefetch, onPointerEnter, onFocus, onTouchStart } = useIntentPrefetch();
+  const className = cn(
+    "flex items-center gap-3 rounded-md px-3 py-2 text-body-sm font-medium transition-colors duration-(--default-transition-duration) ease-(--ease-standard)",
+    active ? "bg-accent-teal-700 text-white" : "text-ink-on-accent/80 hover:bg-white/10 hover:text-ink-on-accent",
+  );
+
+  if (item.modalId === "measurement") {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          onOpenMeasurement?.();
+          onNavigate?.();
+        }}
+        className={cn("w-full text-left", className)}
+      >
+        <Icon className="size-4 shrink-0" />
+        {item.label}
+      </button>
+    );
+  }
+
   return (
     <Link
       href={item.href}
@@ -119,10 +152,7 @@ function NavLink({ item, active, onNavigate }: { item: NavItem; active: boolean;
       onPointerEnter={onPointerEnter}
       onFocus={onFocus}
       onTouchStart={onTouchStart}
-      className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2 text-body-sm font-medium transition-colors duration-(--default-transition-duration) ease-(--ease-standard)",
-        active ? "bg-accent-teal-700 text-white" : "text-ink-on-accent/80 hover:bg-white/10 hover:text-ink-on-accent",
-      )}
+      className={className}
     >
       <Icon className="size-4 shrink-0" />
       {item.label}
@@ -173,6 +203,7 @@ function SidebarNav({
   pwaAvailable,
   onRequestInstall,
   onOpenSearch,
+  onOpenMeasurement,
   pushNotifications,
 }: {
   pathname: string;
@@ -183,6 +214,7 @@ function SidebarNav({
   pwaAvailable: boolean;
   onRequestInstall: () => void;
   onOpenSearch: () => void;
+  onOpenMeasurement: () => void;
   pushNotifications: PushNotifications;
 }) {
   // Task-first trim for the Supervisor (simplicity review 2026-09-01): six
@@ -225,7 +257,13 @@ function SidebarNav({
         <div key={group.label}>
           <div className="px-2 pt-4 pb-1 text-eyebrow text-ink-on-accent/50 uppercase">{group.label}</div>
           {group.items.map((item) => (
-            <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} onNavigate={onNavigate} />
+            <NavLink
+              key={item.href}
+              item={item}
+              active={isActive(pathname, item.href)}
+              onNavigate={onNavigate}
+              onOpenMeasurement={onOpenMeasurement}
+            />
           ))}
         </div>
       ))}
@@ -325,9 +363,10 @@ function SidebarNav({
 // curated quick-actions sheet Owner uses (SEARCH_ACTIONS filtered to the
 // non-ownerOnly subset, so a Supervisor never sees — and never 403s tapping
 // — an Owner-only action), Materials/Help moved into the drawer ("More").
-// Unlike OwnerQuickBar, no action here has a null href (the one that does,
-// Record Advance, is ownerOnly and therefore filtered out) — so selection is
-// always a plain navigation, no in-place modal case to handle.
+// Measurement (2026-09-21) is the first non-ownerOnly action with a null
+// href — unlike Record Advance (ownerOnly, filtered out here), it DOES
+// reach this bar, so this now has the same in-place-modal case OwnerQuickBar
+// always had.
 function SupervisorQuickBar({
   pathname,
   onOpenSearch,
@@ -339,6 +378,7 @@ function SupervisorQuickBar({
 }) {
   const router = useRouter();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [measurementOpen, setMeasurementOpen] = useState(false);
 
   const quickAddItems = SEARCH_ACTIONS.filter((action) => !action.ownerOnly).map((action) => ({
     id: action.id,
@@ -350,7 +390,10 @@ function SupervisorQuickBar({
   function handleQuickAddSelect(id: string) {
     const action = SEARCH_ACTIONS.find((item) => item.id === id);
     setQuickAddOpen(false);
-    if (action?.href) {
+    if (!action) return;
+    if (action.id === "add-measurement") {
+      setMeasurementOpen(true);
+    } else if (action.href) {
       router.push(action.href);
     }
   }
@@ -415,6 +458,7 @@ function SupervisorQuickBar({
         items={quickAddItems}
         onSelect={handleQuickAddSelect}
       />
+      <MeasurementQuickEntryPanel open={measurementOpen} onOpenChange={setMeasurementOpen} />
     </>
   );
 }
@@ -439,6 +483,7 @@ function OwnerQuickBar({
   const router = useRouter();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [advanceOpen, setAdvanceOpen] = useState(false);
+  const [measurementOpen, setMeasurementOpen] = useState(false);
 
   // Same curated list Story 19.2's Search/Action palette shows
   // (packages/shared's SEARCH_ACTIONS) — no second curated-actions list.
@@ -453,7 +498,9 @@ function OwnerQuickBar({
     const action = SEARCH_ACTIONS.find((item) => item.id === id);
     setQuickAddOpen(false);
     if (!action) return;
-    if (action.href === null) {
+    if (action.id === "add-measurement") {
+      setMeasurementOpen(true);
+    } else if (action.href === null) {
       // Record Advance — opens 19.1's shared modal in place, no navigation.
       setAdvanceOpen(true);
     } else {
@@ -522,6 +569,7 @@ function OwnerQuickBar({
         onSelect={handleQuickAddSelect}
       />
       <AdvanceQuickEntryPanel open={advanceOpen} onOpenChange={setAdvanceOpen} />
+      <MeasurementQuickEntryPanel open={measurementOpen} onOpenChange={setMeasurementOpen} />
     </>
   );
 }
@@ -546,6 +594,9 @@ function SidebarShell({
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const pushNotifications = usePushNotifications();
   const search = useGlobalSearchController(role);
+  // Measurement (2026-09-21): one modal instance shared by both SidebarNav
+  // renders (desktop rail + mobile drawer) — not duplicated per render.
+  const [measurementOpen, setMeasurementOpen] = useState(false);
 
   async function handleConfirmInstall() {
     setInstallDialogOpen(false);
@@ -594,6 +645,7 @@ function SidebarShell({
             pwaAvailable={pwaInstall.available}
             onRequestInstall={() => setInstallDialogOpen(true)}
             onOpenSearch={() => search.setOpen(true)}
+            onOpenMeasurement={() => setMeasurementOpen(true)}
             pushNotifications={pushNotifications}
           />
         </aside>
@@ -655,11 +707,14 @@ function SidebarShell({
                 pwaAvailable={pwaInstall.available}
                 onRequestInstall={() => setInstallDialogOpen(true)}
                 onOpenSearch={() => search.setOpen(true)}
+                onOpenMeasurement={() => setMeasurementOpen(true)}
                 pushNotifications={pushNotifications}
               />
             </aside>
           </div>
         ) : null}
+
+        <MeasurementQuickEntryPanel open={measurementOpen} onOpenChange={setMeasurementOpen} />
 
         {/* Content gets extra bottom padding below lg for both roles so their
             respective fixed quick-bar never covers the last row / submit
