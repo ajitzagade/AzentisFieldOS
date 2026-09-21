@@ -17,6 +17,7 @@ describe('DsrController', () => {
     correct: ReturnType<typeof vi.fn>;
     getCrewDefaults: ReturnType<typeof vi.fn>;
     listByDate: ReturnType<typeof vi.fn>;
+    listMyDrafts: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
   };
 
@@ -26,6 +27,7 @@ describe('DsrController', () => {
       correct: vi.fn(),
       getCrewDefaults: vi.fn(),
       listByDate: vi.fn(),
+      listMyDrafts: vi.fn(),
       findOne: vi.fn(),
     };
 
@@ -121,5 +123,15 @@ describe('DsrController', () => {
 
     expect(service.findOne).toHaveBeenCalledWith('dsr-1');
     expect(result).toEqual({ id: 'dsr-1' });
+  });
+
+  // "My Drafts" quick-resume (2026-09-21, deferred-work.md).
+  it('listMyDrafts delegates to DsrService.listMyDrafts with the current user id', async () => {
+    service.listMyDrafts.mockResolvedValue([{ id: 'draft-1' }]);
+
+    const result = await controller.listMyDrafts(currentUser);
+
+    expect(service.listMyDrafts).toHaveBeenCalledWith(currentUser.id);
+    expect(result).toEqual([{ id: 'draft-1' }]);
   });
 });

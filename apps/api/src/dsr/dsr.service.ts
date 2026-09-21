@@ -775,6 +775,33 @@ export class DsrService {
     });
   }
 
+  // "My Drafts" quick-resume (2026-09-21, deferred-work.md): every open
+  // DRAFT belonging to the caller, across every Site/date — the discovery
+  // layer the original spec-dsr-drafts backbone deliberately deferred (that
+  // spec only ever resumes the ONE draft matching the form's currently
+  // selected site+date; there was no way to find one you'd forgotten about).
+  // Deliberately lightweight (site name + date + last-saved time), same
+  // "list, not detail" reasoning as listByDate — this backs a small Home-
+  // page prompt, not a full report view. Scoped to submittedByUserId, same
+  // privacy rule as getDraft: a draft is never visible to anyone but its
+  // author, including another Owner/Admin.
+  async listMyDrafts(submittedByUserId: string) {
+    return this.prisma.dailySiteReport.findMany({
+      where: {
+        submittedByUserId,
+        status: DsrStatus.DRAFT,
+        correctsId: null,
+      },
+      select: {
+        id: true,
+        reportDate: true,
+        updatedAt: true,
+        site: { select: { id: true, name: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
   // spec-dsr-drafts: Resume. Returns the caller's own private DRAFT for a
   // (siteId, date) so the entry form can pre-fill — narrative + equipmentUsed
   // from columns, sub-records from draftContent, plus any photos already

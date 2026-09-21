@@ -1582,6 +1582,75 @@ describeIfDb('DsrService (integration)', () => {
       expect(row.status).toBe('DRAFT');
       expect(await prisma.rmcEntry.count({ where: { siteId } })).toBe(0);
     });
+
+    // "My Drafts" quick-resume (2026-09-21, deferred-work.md): the
+    // discovery layer the backbone above deliberately deferred — every open
+    // draft belonging to the caller, across every Site/date, ordered by
+    // last-saved (most recent first).
+    describe('listMyDrafts', () => {
+      it("lists only the caller's own open drafts, across Sites, most-recently-saved first", async () => {
+        const otherSite = await prisma.site.create({
+          data: { name: 'Second Site for listMyDrafts', location: 'Elsewhere' },
+        });
+
+        await service.saveDraft(draftInput('2026-09-10'), testUserId);
+        // A second save (different Site) — updatedAt must reflect the LATER
+        // save, not createdAt (which would incorrectly rank this first if
+        // ordering used createdAt, since it's the same as the first save's
+        // approximate wall-clock time in a fast test run — updatedAt is
+        // the one field save-in-place actually moves each time).
+        await service.saveDraft(
+          { ...draftInput('2026-09-11'), siteId: otherSite.id },
+          testUserId,
+        );
+        // Re-save the FIRST draft again, so it becomes the most recent by
+        // updatedAt despite being created first.
+        await new Promise((r) => setTimeout(r, 10));
+        await service.saveDraft(draftInput('2026-09-10', 99), testUserId);
+
+        const drafts = await service.listMyDrafts(testUserId);
+
+        expect(drafts.map((d) => d.site.id)).toEqual([siteId, otherSite.id]);
+        expect(drafts[0]?.reportDate.toISOString().slice(0, 10)).toBe(
+          '2026-09-10',
+        );
+
+        await prisma.dailySiteReport.deleteMany({
+          where: { siteId: otherSite.id },
+        });
+        await prisma.site.deleteMany({ where: { id: otherSite.id } });
+      });
+
+      it("never includes another user's drafts, submitted reports, or a Finalized (now-submitted) draft", async () => {
+        // Another user's own draft.
+        await service.saveDraft(draftInput('2026-09-12'), otherUserId);
+        // This user's own SUBMITTED report (not a draft).
+        await create(draftInput('2026-09-13'));
+        // This user's own draft, then finalized — no longer a draft.
+        const { id: finalizedId } = await service.saveDraft(
+          draftInput('2026-09-14'),
+          testUserId,
+        );
+        await service.finalizeDraft(finalizedId, testUserId);
+
+        const drafts = await service.listMyDrafts(testUserId);
+
+        expect(drafts.some((d) => d.id === finalizedId)).toBe(false);
+        expect(
+          drafts.every(
+            (d) =>
+              !['2026-09-12', '2026-09-13'].includes(
+                d.reportDate.toISOString().slice(0, 10),
+              ),
+          ),
+        ).toBe(true);
+      });
+
+      it('returns an empty array when the caller has no open drafts', async () => {
+        const drafts = await service.listMyDrafts(testUserId);
+        expect(drafts).toEqual([]);
+      });
+    });
   });
 
   // spec-dsr-activity-sync-detail-panel, goal 3: mirrors the RMC

@@ -475,3 +475,12 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: `_bmad-output/implementation-artifacts/spec-dsr-activity-sync-detail-panel.md`
   summary: Negative correction-delta rows (Waste Material tripCount, Subcontractor quantity) render on the DSR detail page with no visual indication they're signed deltas rather than absolute values (e.g. "Debris — -2 trips").
   evidence: apps/web/app/(app)/daily-activity/[id]/page.tsx's Waste Material/Subcontractor list sections. Needs a broader design pass on how correction-delta rows are displayed across the DSR detail page, not a one-line fix.
+
+## Deferred from: "My Drafts" quick-resume (2026-09-21)
+
+- source_spec: (no formal spec — built ad hoc against a deferred-work.md entry, then reviewed)
+  summary: When a Supervisor has exactly one open DSR draft anywhere (any Site/date, however old), the Home hero permanently swaps from "Start Daily Report" to "Continue Daily Report" pointing at that draft, with no Discard/"start new" affordance visible on Home itself (Discard only renders in ResumeDraftsList, gated on 2+ drafts).
+  evidence: apps/web/app/(app)/_components/supervisor-home.tsx's heroTask/singleDraft logic. A forgotten stale draft for one Site can silently hijack the one-tap daily-report flow for an unrelated Site with no escape hatch short of opening the form and finding Discard buried inside it. Fails safe (no data loss), but is a real workflow-friction gap — needs a product decision (e.g. a "Start new" secondary link, or only auto-swap for a recent draft) before fixing.
+- source_spec: (same feature)
+  summary: `listMyDrafts` ordering test (`dsr.service.integration.spec.ts`) uses a fixed 10ms `setTimeout` between two saveDraft calls to force distinct `updatedAt` values — a latent, low-probability flakiness source rather than a hard guarantee.
+  evidence: apps/api/src/dsr/dsr.service.integration.spec.ts's listMyDrafts describe block. Low risk given Postgres TIMESTAMP(3) millisecond resolution, but not deterministic under CI load.

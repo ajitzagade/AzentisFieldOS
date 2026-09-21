@@ -60,6 +60,16 @@ export class DsrController {
     return this.dsrService.saveDraft(body, user.id);
   }
 
+  // "My Drafts" quick-resume (2026-09-21): every open draft belonging to the
+  // caller, across every Site/date — backs the Home page's "Continue" prompt.
+  // Declared before `:id` (a static path), same discipline as `draft` below.
+  @Get('drafts')
+  @UseGuards(RolesGuard)
+  @Roles('SITE_SUPERVISOR', 'OWNER_ADMIN')
+  listMyDrafts(@CurrentUser() user: AuthUser) {
+    return this.dsrService.listMyDrafts(user.id);
+  }
+
   // spec-dsr-drafts: Resume — the authenticated user's own persisted draft (if
   // any) for a (site,date), for the entry form to pre-fill. Drafts are private
   // per supervisor, so the caller's id scopes the lookup. Declared before

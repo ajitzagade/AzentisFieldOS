@@ -704,6 +704,12 @@ model DailySiteReport {
   safetyObservations String?
   notes             String?
   createdAt         DateTime @default(now())
+  // "My Drafts" quick-resume (2026-09-21): the only reliable "last touched"
+  // signal for a DRAFT — Save Draft upserts the same row in place, so
+  // createdAt never moves past the first save. Also generally useful (every
+  // other transaction-history model already has one), so added unscoped to
+  // drafts specifically.
+  updatedAt         DateTime @updatedAt
 
   workRecords   WorkRecord[]
   consumptions  Consumption[]
@@ -746,6 +752,10 @@ model DailySiteReport {
   // supersededDsrIds() (apps/api/src/common/superseded-dsrs.ts) scans this
   // column on nearly every read path across the system.
   @@index([correctsId])
+  // "My Drafts" quick-resume (2026-09-21): listMyDrafts() scans across every
+  // Site for one user's own open drafts — no siteId to narrow by, so the
+  // existing [siteId, reportDate, status] index doesn't serve this query.
+  @@index([submittedByUserId, status])
   // NOTE (spec-dsr-drafts): a PARTIAL UNIQUE index enforcing "one open DRAFT
   // per (siteId, reportDate, submittedByUserId)" lives in migration
   // 20260918100000_dsr_draft_private_unique_index and is intentionally NOT

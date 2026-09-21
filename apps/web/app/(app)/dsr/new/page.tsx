@@ -287,7 +287,16 @@ function NewDsrForm() {
   // Site detail's "Today's DSR" action deep-links here with ?siteId= so
   // the Site arrives pre-selected (Site → Today's DSR → report).
   const [siteId, setSiteId] = useState(() => searchParams.get("siteId") ?? "");
-  const [reportDate, setReportDate] = useState(todayDate());
+  // "My Drafts" quick-resume (2026-09-21) deep-links here with ?date= too —
+  // a Resume link must land on the DRAFT's own date, not today's, or the
+  // draft-lookup effect below (keyed on siteId+reportDate) would silently
+  // miss it and the user would see a blank form instead of their draft.
+  // Loosely validated (YYYY-MM-DD) so a malformed/hand-edited URL degrades
+  // to today rather than an Invalid Date reaching the server.
+  const [reportDate, setReportDate] = useState(() => {
+    const deepLinkedDate = searchParams.get("date");
+    return deepLinkedDate && /^\d{4}-\d{2}-\d{2}$/.test(deepLinkedDate) ? deepLinkedDate : todayDate();
+  });
   const [workCompleted, setWorkCompleted] = useState("");
   const [issuesBlockers, setIssuesBlockers] = useState("");
 
@@ -486,10 +495,20 @@ function NewDsrForm() {
     if (autosaveChecked) return;
     const snapshot = loadMostRecentDsrAutosave<DsrAutosaveData>();
     const deepLinkedSiteId = searchParams.get("siteId");
+    // "My Drafts" quick-resume (2026-09-21): same guard, extended to date —
+    // a stale local autosave snapshot for the same Site but a DIFFERENT date
+    // must not silently override an explicitly deep-linked ?date= (the
+    // server DRAFT lookup below is keyed on the deep-linked pair; letting
+    // the snapshot win here would resume the wrong day's draft).
+    const deepLinkedDate = searchParams.get("date");
+    // Review fix (simplification scan): one named predicate instead of two
+    // copy-pasted `!param || param === value` clauses.
+    const matchesDeepLink = (param: string | null, value: string) => !param || param === value;
     if (
       snapshot &&
       snapshot.data.siteId &&
-      (!deepLinkedSiteId || deepLinkedSiteId === snapshot.data.siteId)
+      matchesDeepLink(deepLinkedSiteId, snapshot.data.siteId) &&
+      matchesDeepLink(deepLinkedDate, snapshot.data.reportDate)
     ) {
       const d = snapshot.data;
       setSiteId(d.siteId);

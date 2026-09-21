@@ -130,6 +130,62 @@ describe("NewDsrPage", () => {
     expect(screen.getByRole("button", { name: "Submit Daily Report" })).toBeEnabled();
   });
 
+  // "My Drafts" quick-resume (2026-09-21, deferred-work.md): a Resume link
+  // from the Home page's drafts prompt deep-links both siteId AND date — the
+  // draft-lookup effect is keyed on the (site,date) pair, so a Resume link
+  // that only carried siteId would silently miss the draft and show a blank
+  // form instead.
+  it("pre-selects both Site and date from the ?siteId=&date= deep link (My Drafts → Continue)", async () => {
+    searchParams.current = new URLSearchParams("siteId=site-2&date=2026-09-10");
+    mockFetchRouter({
+      sites: [
+        { id: "site-1", name: "NH-48" },
+        { id: "site-2", name: "Metro Depot" },
+      ],
+      draft: {
+        id: "draft-9",
+        siteId: "site-2",
+        reportDate: "2026-09-10",
+        workCompleted: "Shuttering work",
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+        photos: [],
+      },
+    });
+
+    render(<NewDsrPage />);
+
+    await waitFor(() => expect(screen.getByLabelText("Site")).toHaveValue("Metro Depot"));
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-09-10");
+    // Confirms the draft-lookup effect actually fired with the deep-linked
+    // date, not today's — and picked up the draft it found.
+    await screen.findByDisplayValue("Shuttering work");
+
+    const draftLookupCall = (global.fetch as unknown as { mock: { calls: [string][] } }).mock.calls.find(
+      ([url]) => String(url).includes("/dsr/draft?"),
+    );
+    expect(draftLookupCall?.[0]).toContain("siteId=site-2");
+    expect(draftLookupCall?.[0]).toContain("date=2026-09-10");
+  });
+
+  // A malformed/hand-edited ?date= must never reach the server as an
+  // Invalid Date — falls back to today, same as having no date param at all.
+  it("falls back to today's date when the ?date= deep link is malformed", async () => {
+    searchParams.current = new URLSearchParams("siteId=site-2&date=not-a-date");
+    mockFetchRouter({ sites: [{ id: "site-2", name: "Metro Depot" }] });
+
+    render(<NewDsrPage />);
+
+    await waitFor(() => expect(screen.getByLabelText("Site")).toHaveValue("Metro Depot"));
+    expect(screen.getByLabelText("Date")).toHaveValue(new Date().toISOString().slice(0, 10));
+  });
+
   it("pre-populates the crew checklist from the defaults endpoint once a Site and date are set", async () => {
     mockFetchRouter({
       sites: [{ id: "site-1", name: "NH-48" }],
@@ -768,6 +824,61 @@ describe("NewDsrPage", () => {
     expect(screen.getByLabelText("Work completed")).toHaveValue("");
     // ...and the other session's snapshot is preserved, not clobbered.
     expect(window.localStorage.getItem(autosaveKey("site-1", today()))).not.toBeNull();
+  });
+
+  // "My Drafts" quick-resume (2026-09-21): same guard as above, extended to
+  // date — a stale local snapshot for the SAME Site but a DIFFERENT date
+  // must not silently override an explicitly deep-linked ?date=, or a
+  // Resume link would land on the wrong day's (empty) form instead of the
+  // draft it was pointed at.
+  it("does not hijack a deep-linked ?date= for the same Site with a same-Site-different-date snapshot", async () => {
+    window.localStorage.setItem(
+      autosaveKey("site-1", "2026-01-01"),
+      JSON.stringify({
+        savedAt: Date.now(),
+        data: {
+          siteId: "site-1",
+          reportDate: "2026-01-01",
+          workCompleted: "Stale entries from a different day",
+          issuesBlockers: "",
+          crew: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          hadPhotos: false,
+        },
+      }),
+    );
+    searchParams.current = new URLSearchParams("siteId=site-1&date=2026-09-10");
+    mockFetchRouter({
+      sites: [{ id: "site-1", name: "NH-48" }],
+      draft: {
+        id: "draft-9",
+        siteId: "site-1",
+        reportDate: "2026-09-10",
+        workCompleted: "The actual draft being resumed",
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+        photos: [],
+      },
+    });
+
+    render(<NewDsrPage />);
+
+    // Deep-linked date wins: the form stays on 2026-09-10 and resumes the
+    // real server draft for that date, never the stale 2026-01-01 snapshot.
+    await waitFor(() => expect(screen.getByLabelText("Date")).toHaveValue("2026-09-10"));
+    await screen.findByDisplayValue("The actual draft being resumed");
+    expect(screen.queryByDisplayValue("Stale entries from a different day")).not.toBeInTheDocument();
+    // The other day's snapshot is preserved, not clobbered.
+    expect(window.localStorage.getItem(autosaveKey("site-1", "2026-01-01"))).not.toBeNull();
   });
 
   // Client-readiness batch (goal 8): the actual reported bug — switching

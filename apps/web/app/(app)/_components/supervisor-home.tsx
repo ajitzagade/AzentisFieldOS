@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { formatDateTime } from "@/lib/format";
 import Link from "next/link";
 import type { ComponentType, SVGProps } from "react";
 import {
@@ -19,6 +20,7 @@ import {
   buttonVariants,
   cn,
 } from "@azentisfieldos/ui";
+import { ResumeDraftsList, type DraftSummary } from "./resume-drafts-list";
 
 // The Site Supervisor's landing surface (simplicity review 2026-09-01):
 // task-first, not rollup-first. A supervisor opens the app to DO one of a
@@ -45,6 +47,23 @@ async function getTodaySafe(): Promise<TodayActivity | null> {
     return (await res.json()) as TodayActivity;
   } catch {
     return null;
+  }
+}
+
+// "My Drafts" quick-resume (2026-09-21, deferred-work.md): the discovery
+// layer the original spec-dsr-drafts backbone deliberately deferred — a
+// Supervisor who gets interrupted mid-report and can't recall which Site or
+// date they left off on previously had no way to find their draft again
+// short of guessing. Same fail-open reasoning as getTodaySafe: a transient
+// read failure must never block the task grid, so this degrades to "no
+// drafts" rather than throwing.
+async function getMyDraftsSafe(): Promise<DraftSummary[]> {
+  try {
+    const res = await authedFetch("/dsr/drafts", { cache: "no-store" });
+    if (!res.ok) return [];
+    return (await res.json()) as DraftSummary[];
+  } catch {
+    return [];
   }
 }
 
@@ -83,7 +102,7 @@ const MORE_TASKS: HomeTask[] = [
 ];
 
 export async function SupervisorHome() {
-  const today = await getTodaySafe();
+  const [today, drafts] = await Promise.all([getTodaySafe(), getMyDraftsSafe()]);
 
   const heading = new Date().toLocaleDateString("en-IN", {
     weekday: "long",
@@ -93,6 +112,25 @@ export async function SupervisorHome() {
   });
 
   const missing = today?.sitesMissingDsrToday ?? [];
+
+  // "My Drafts" quick-resume: the exactly-one-draft case is handled for
+  // free by swapping the hero itself to "Continue" — same tap, same
+  // position, zero new UI. Two or more can't collapse onto one button (which
+  // Site would it resume?), so THAT case gets its own list below instead —
+  // see ResumeDraftsList's own comment for why.
+  const singleDraft = drafts.length === 1 ? drafts[0] : null;
+  const heroTask: HomeTask = singleDraft
+    ? {
+        href: `/dsr/new?siteId=${singleDraft.site.id}&date=${singleDraft.reportDate.slice(0, 10)}`,
+        label: "Continue Daily Report",
+        hint: `${singleDraft.site.name} — saved ${formatDateTime(singleDraft.updatedAt)}`,
+        icon: ClipboardIcon,
+      }
+    : HERO_TASK;
+  // Review fix (simplification scan): extracted alongside heroTask itself,
+  // matching PRIMARY_TASKS/MORE_TASKS' own `const Icon = task.icon` idiom
+  // below instead of rendering the `heroTask.icon` member expression inline.
+  const HeroIcon = heroTask.icon;
 
   return (
     <>
@@ -143,19 +181,29 @@ export async function SupervisorHome() {
       ) : null}
 
       {/* Approved layout 1A: Daily Report as a full-width filled hero card,
-          the remaining tasks in a two-up grid below it. */}
-      <Link href={HERO_TASK.href} className="block">
+          the remaining tasks in a two-up grid below it. When exactly one
+          draft is open, this SAME card becomes the resume affordance —
+          "My Drafts" quick-resume, 2026-09-21. */}
+      <Link href={heroTask.href} className="block">
         <Card
           interactive
           className="flex items-center gap-3 border-accent-teal-700 bg-accent-teal-700 py-4 text-white"
         >
-          <HERO_TASK.icon className="size-6 shrink-0" />
+          <HeroIcon className="size-6 shrink-0" />
           <div>
-            <div className="text-body font-semibold">{HERO_TASK.label}</div>
-            <p className="mt-0.5 text-caption text-white/75">{HERO_TASK.hint}</p>
+            <div className="text-body font-semibold">{heroTask.label}</div>
+            <p className="mt-0.5 text-caption text-white/75">{heroTask.hint}</p>
           </div>
         </Card>
       </Link>
+
+      {/* Two-or-more-drafts case only — a single draft is already the hero
+          above. */}
+      {drafts.length > 1 ? (
+        <div className="mt-6">
+          <ResumeDraftsList drafts={drafts} />
+        </div>
+      ) : null}
 
       <div className="mt-3 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         {PRIMARY_TASKS.map((task) => {
