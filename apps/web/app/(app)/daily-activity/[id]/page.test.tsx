@@ -65,6 +65,7 @@ function fullDsr(overrides: Record<string, unknown> = {}) {
     standaloneWasteDisposals: [],
     standaloneWastageReturns: [],
     standaloneExpenses: [],
+    standaloneWorkEntries: [],
     ...overrides,
   };
 }
@@ -208,6 +209,15 @@ describe("DsrDetailPage", () => {
               amount: 350,
             },
           ],
+          standaloneWorkEntries: [
+            {
+              id: "swe-1",
+              occurredAt: "2026-08-11T13:00:00Z",
+              subcontractorName: "Balaji Shuttering Works",
+              quantity: 25,
+              note: "Shuttering — 3rd floor",
+            },
+          ],
         }),
     }) as unknown as typeof fetch;
 
@@ -231,6 +241,13 @@ describe("DsrDetailPage", () => {
     expect(screen.getByText("via Expense")).toBeInTheDocument();
     // DSR-form expense (4200) + standalone (350) = 4550.
     expect(screen.getByText(/4,550/)).toBeInTheDocument();
+    // Inventory→DSR sync fix, extended (2026-09-22): a Work Entry recorded
+    // directly on the Site Contract page (not through this DSR form) merges
+    // into "Subcontractors on site" the same way every other standalone
+    // activity type already does.
+    expect(screen.getByText(/Balaji Shuttering Works/)).toBeInTheDocument();
+    expect(screen.getByText(/Shuttering — 3rd floor/)).toBeInTheDocument();
+    expect(screen.getByText("via Site Contract")).toBeInTheDocument();
   });
 
   it("calls notFound() for a report ID that doesn't exist", async () => {

@@ -22,6 +22,7 @@ const EMPTY_MATERIAL_ACTIVITY: SiteMaterialActivity = {
   standaloneWasteDisposals: [],
   standaloneWastageReturns: [],
   standaloneExpenses: [],
+  standaloneWorkEntries: [],
 };
 
 // Story 13.1 (FR-32): compiles a DailyReport's `content` payload from a
@@ -233,8 +234,14 @@ export class ReportCompilerService {
         // same total — the whole point being the Owner sees one true
         // figure for the day without the Supervisor re-entering it here.
         total:
-          dsr.expenses.reduce((sum, expense) => sum + toNum(expense.amount), 0) +
-          materialActivity.standaloneExpenses.reduce((sum, expense) => sum + expense.amount, 0),
+          dsr.expenses.reduce(
+            (sum, expense) => sum + toNum(expense.amount),
+            0,
+          ) +
+          materialActivity.standaloneExpenses.reduce(
+            (sum, expense) => sum + expense.amount,
+            0,
+          ),
       },
       photos: { count: dsr.photos.length },
     };

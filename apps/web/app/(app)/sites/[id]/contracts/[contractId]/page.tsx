@@ -50,6 +50,7 @@ interface WorkEntryRow {
   quantity: string;
   workDate: string;
   note: string | null;
+  correctsId: string | null;
 }
 
 interface SubcontractorPaymentRow {
@@ -135,7 +136,15 @@ function renderWorkEntryAction(entry: WorkEntryRow, siteId: string, contractId: 
 
 function workEntryColumns(siteId: string, contractId: string): DataTableColumn<WorkEntryRow>[] {
   return [
-    { header: "Date", cell: (entry) => <span className="text-ink-500">{formatDate(entry.workDate)}</span> },
+    {
+      header: "Date",
+      cell: (entry) => (
+        <span className="flex items-center gap-1.5">
+          <span className="text-ink-500">{formatDate(entry.workDate)}</span>
+          {entry.correctsId ? <Badge variant="warning">Correction</Badge> : null}
+        </span>
+      ),
+    },
     { header: "Quantity", align: "right", cell: (entry) => <span className="tabular-nums">{entry.quantity}</span> },
     { header: "Note", cell: (entry) => entry.note ?? <span className="text-ink-500">—</span> },
     { header: "", align: "right", cell: (entry) => renderWorkEntryAction(entry, siteId, contractId) },
@@ -144,7 +153,12 @@ function workEntryColumns(siteId: string, contractId: string): DataTableColumn<W
 
 function workEntryMobileCard(siteId: string, contractId: string): DataTableMobileCard<WorkEntryRow> {
   return {
-    primary: (entry) => formatDate(entry.workDate),
+    primary: (entry) => (
+      <span className="flex flex-wrap items-center gap-1.5">
+        {formatDate(entry.workDate)}
+        {entry.correctsId ? <Badge variant="warning">Correction</Badge> : null}
+      </span>
+    ),
     omitHeaders: ["Date"],
     action: (entry) => renderWorkEntryAction(entry, siteId, contractId),
   };

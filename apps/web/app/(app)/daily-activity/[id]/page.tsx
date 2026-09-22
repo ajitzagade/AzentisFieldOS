@@ -111,6 +111,14 @@ interface StandaloneExpenseRowDetail {
   amount: number;
 }
 
+interface StandaloneWorkEntryRowDetail {
+  id: string;
+  occurredAt: string;
+  subcontractorName: string;
+  quantity: number;
+  note: string | null;
+}
+
 interface DsrDetail {
   id: string;
   site: { id: string; name: string };
@@ -160,6 +168,7 @@ interface DsrDetail {
   standaloneWasteDisposals: StandaloneWasteRowDetail[];
   standaloneWastageReturns: WastageReturnRowDetail[];
   standaloneExpenses: StandaloneExpenseRowDetail[];
+  standaloneWorkEntries: StandaloneWorkEntryRowDetail[];
 }
 
 async function getDsrDetail(id: string): Promise<DsrDetail | null> {
@@ -468,12 +477,12 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
 
         <Card>
           <h2 className="mb-3 text-card-title text-ink-900">Subcontractors on site</h2>
-          {subcontractorEntries.length === 0 ? (
+          {subcontractorEntries.length === 0 && dsr.standaloneWorkEntries.length === 0 ? (
             <p className="text-body-sm text-ink-500">No Subcontractors tagged for this report.</p>
           ) : (
             <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
               {subcontractorEntries.map((s, index) => (
-                <li key={`${s.subcontractorId}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                <li key={`dsr-${s.subcontractorId}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
                   <span>
                     {subcontractorNames.get(s.subcontractorId) ?? "Subcontractor"}
                     {/* goal 4: a picked Site Contract + quantity created a real
@@ -485,6 +494,21 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                     ) : null}
                   </span>
                   <span className="text-ink-500">{s.workNote ?? "—"}</span>
+                </li>
+              ))}
+              {/* Inventory→DSR sync fix, extended (2026-09-22): a Work Entry
+                  recorded directly on the Site Contract page (Epic 18), not
+                  through this DSR form, used to be invisible here — every
+                  other activity type recorded outside the DSR already had
+                  this merge, this one didn't. */}
+              {dsr.standaloneWorkEntries.map((w) => (
+                <li key={`standalone-${w.id}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                  <span>
+                    {w.subcontractorName}
+                    <span className="ml-2 text-ink-500">— {w.quantity} logged</span>{" "}
+                    <span className="text-caption text-ink-500">via Site Contract</span>
+                  </span>
+                  <span className="text-ink-500">{w.note ?? "—"}</span>
                 </li>
               ))}
             </ul>

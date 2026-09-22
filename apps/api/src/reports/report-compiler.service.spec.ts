@@ -38,6 +38,7 @@ function makeService(
     wasteDisposal: { findMany: vi.fn().mockResolvedValue([]) },
     returnWastage: { findMany: vi.fn().mockResolvedValue([]) },
     expense: { findMany: vi.fn().mockResolvedValue([]) },
+    subcontractorWorkEntry: { findMany: vi.fn().mockResolvedValue([]) },
   };
   const service = new ReportCompilerService(
     prisma as unknown as ConstructorParameters<typeof ReportCompilerService>[0],
@@ -167,10 +168,17 @@ describe('ReportCompilerService.buildContent', () => {
           amount: 500,
         },
       ],
+      standaloneWorkEntries: [],
     });
 
     expect(content.materialsReceived).toEqual([
-      { material: 'Steel', size: '12mm', quantity: 200, unit: 'Kg', pending: false },
+      {
+        material: 'Steel',
+        size: '12mm',
+        quantity: 200,
+        unit: 'Kg',
+        pending: false,
+      },
     ]);
     // The DSR-form consumption and the standalone one both appear — the
     // whole point of the fix (previously the standalone one was invisible).
@@ -232,11 +240,24 @@ describe('ReportCompilerService.buildContent', () => {
       standaloneWasteDisposals: [],
       standaloneWastageReturns: [],
       standaloneExpenses: [],
+      standaloneWorkEntries: [],
     });
 
     expect(content.materialsReceived).toEqual([
-      { material: 'Cement', size: '50kg', quantity: 8, unit: 'Bag', pending: false },
-      { material: 'Sand', size: 'River sand', quantity: 12, unit: 'm3', pending: true },
+      {
+        material: 'Cement',
+        size: '50kg',
+        quantity: 8,
+        unit: 'Bag',
+        pending: false,
+      },
+      {
+        material: 'Sand',
+        size: 'River sand',
+        quantity: 12,
+        unit: 'm3',
+        pending: true,
+      },
     ]);
   });
 

@@ -758,7 +758,7 @@ export function DsrDesktopForm({
                   onChange={(e) => setConsumptions((rows) => rows.map((r, i) => (i === index ? { ...r, quantity: e.target.value } : r)))}
                 />
               </div>
-              <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
+              <div className="sm:col-span-2 sm:self-end sm:justify-self-end">
                 <Button type="button" variant="ghost" onClick={() => setConsumptions((rows) => rows.filter((_, i) => i !== index))}>
                   Remove
                 </Button>
@@ -837,7 +837,7 @@ export function DsrDesktopForm({
                 onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, ratePerM3: e.target.value } : r)))}
               />
             </div>
-            <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
+            <div className="sm:col-span-2 sm:self-end sm:justify-self-end">
               <Button type="button" variant="ghost" onClick={() => setRmcEntries((rows) => rows.filter((_, i) => i !== index))}>
                 Remove
               </Button>
@@ -891,7 +891,7 @@ export function DsrDesktopForm({
                 onChange={(e) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, description: e.target.value } : r)))}
               />
             </div>
-            <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
+            <div className="sm:col-span-2 sm:self-end sm:justify-self-end">
               <Button type="button" variant="ghost" onClick={() => setExpenses((rows) => rows.filter((_, i) => i !== index))}>
                 Remove
               </Button>
@@ -1030,7 +1030,7 @@ export function DsrDesktopForm({
                     setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, equipmentValue: value ?? "" } : r)))
                   }
                   placeholder="Type a machine name or vehicle number…"
-                  hint="Optional — only if one of your own assets did the trips"
+                  hint="Optional — only for your own vehicle/machine"
                   emptyMessage={
                     reference.loadFailed ? "Couldn't load the registers — try reloading" : "No matching Machinery or Vehicle"
                   }
@@ -1061,7 +1061,7 @@ export function DsrDesktopForm({
               <div className="sm:col-span-2">
                 <AmountField
                   label="Rate per trip"
-                  hint="Optional — leave blank if pricing isn't known yet"
+                  hint="Optional — leave blank if unpriced"
                   value={row.ratePerTrip}
                   onChange={(e) => {
                     const next = e.target.value;
@@ -1086,7 +1086,7 @@ export function DsrDesktopForm({
               <div className="sm:col-span-2">
                 <AmountField
                   label="Other charges"
-                  hint="Optional — loading / JCB / toll etc."
+                  hint="Optional — loading, JCB, toll"
                   value={row.otherCharges}
                   onChange={(e) =>
                     setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, otherCharges: e.target.value } : r)))
@@ -1144,7 +1144,7 @@ export function DsrDesktopForm({
                   onChange={(e) => setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, notes: e.target.value } : r)))}
                 />
               </div>
-              <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
+              <div className="sm:col-span-2 sm:self-end sm:justify-self-end">
                 <Button type="button" variant="ghost" onClick={() => setWasteEntries((rows) => rows.filter((_, i) => i !== index))}>
                   Remove
                 </Button>
@@ -1241,7 +1241,7 @@ export function DsrDesktopForm({
             <div className="sm:col-span-5">
               <ComboboxField
                 label="Site Contract"
-                hint="Optional — link this entry to a Site Contract to record completed quantity"
+                hint="Optional — links to a Site Contract for quantity tracking"
                 options={siteContractOptionsFor(row)}
                 value={row.siteContractId}
                 onValueChange={(value) =>
@@ -1267,7 +1267,7 @@ export function DsrDesktopForm({
                 }
               />
             </div>
-            <div className="sm:col-span-2 sm:mt-6 sm:justify-self-end">
+            <div className="sm:col-span-2 sm:self-end sm:justify-self-end">
               <Button type="button" variant="ghost" onClick={() => setSubcontractorEntries((rows) => rows.filter((_, i) => i !== index))}>
                 Remove
               </Button>
@@ -1327,7 +1327,7 @@ export function DsrDesktopForm({
             <div className="sm:col-span-2 text-body-sm text-ink-500 sm:mt-6">
               Total: {(Number(row.men) || 0) + (Number(row.women) || 0)}
             </div>
-            <div className="sm:col-span-1 sm:mt-6 sm:justify-self-end">
+            <div className="sm:col-span-1 sm:self-end sm:justify-self-end">
               <Button type="button" variant="ghost" onClick={() => setLabourEntries((rows) => rows.filter((_, i) => i !== index))}>
                 Remove
               </Button>

@@ -927,6 +927,10 @@ model Photo {
   // Only ever set for a MEASUREMENT upload today — a general photo has no
   // caption UI (avoids scope creep into a general captioning feature).
   description       String?
+  // Soft delete — same rule as Site.deletedAt/Vendor.deletedAt, for a
+  // wrongly-uploaded photo. The Cloudinary asset itself is left in place
+  // (storage cost is negligible; every read path already filters this out).
+  deletedAt         DateTime?
 
   @@index([siteId, createdAt])
 }

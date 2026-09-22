@@ -1731,9 +1731,14 @@ export class DsrService {
     // wherever the frontend renders those. Extended 2026-09-22: a standalone
     // Expense (the /expenses module, not this DSR's own form) gets the same
     // treatment, merging into the "Expenses" section/total instead of a
-    // generic side list. Non-material, non-Expense types (Work Record,
-    // machinery/vehicle movement, Site Contract, Work Entry, Subcontractor
-    // Payment, another DSR) still fall back to the generic "Other activity" card.
+    // generic side list. Extended again (2026-09-22): a standalone Work
+    // Entry (the Site Contract page, Epic 18) was the one activity type
+    // still asymmetric with its DSR-embedded counterpart — WasteDisposal
+    // etc. all had this merge, Work Entry didn't — merges into
+    // "Subcontractors on site" instead of the generic card now too.
+    // Non-material, non-Expense, non-Work-Entry types (Work Record,
+    // machinery/vehicle movement, Site Contract, Subcontractor Payment,
+    // another DSR) still fall back to the generic "Other activity" card.
     const MERGED_FEED_TYPES = new Set([
       'PURCHASE',
       'MOVEMENT',
@@ -1742,6 +1747,7 @@ export class DsrService {
       'WASTE_DISPOSAL',
       'RETURN_WASTAGE',
       'EXPENSE',
+      'WORK_ENTRY',
     ]);
     const otherActivity = feed.filter(
       (item) =>
@@ -1765,6 +1771,7 @@ export class DsrService {
       standaloneWasteDisposals: materialActivity.standaloneWasteDisposals,
       standaloneWastageReturns: materialActivity.standaloneWastageReturns,
       standaloneExpenses: materialActivity.standaloneExpenses,
+      standaloneWorkEntries: materialActivity.standaloneWorkEntries,
     };
   }
 }

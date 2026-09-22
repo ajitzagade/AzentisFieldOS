@@ -69,6 +69,14 @@ export interface StandaloneExpenseRow {
   amount: number;
 }
 
+export interface StandaloneWorkEntryRow {
+  id: string;
+  occurredAt: string;
+  subcontractorName: string;
+  quantity: number;
+  note: string | null;
+}
+
 export interface SiteMaterialActivity {
   materialsReceived: MaterialsReceivedRow[];
   standaloneConsumptions: MaterialRow[];
@@ -76,6 +84,7 @@ export interface SiteMaterialActivity {
   standaloneWasteDisposals: StandaloneWasteRow[];
   standaloneWastageReturns: WastageReturnRow[];
   standaloneExpenses: StandaloneExpenseRow[];
+  standaloneWorkEntries: StandaloneWorkEntryRow[];
 }
 
 function dayBounds(date: Date): { gte: Date; lt: Date } {
@@ -122,6 +131,7 @@ export async function getSiteMaterialActivity(
     wasteDisposals,
     returnWastages,
     expenses,
+    workEntries,
   ] = await Promise.all([
     prisma.purchase.findMany({
       where: { siteId, purchasedAt: bounds },
@@ -169,6 +179,17 @@ export async function getSiteMaterialActivity(
     prisma.expense.findMany({
       where: { siteId, incurredAt: bounds, dailySiteReportId: null },
       include: { category: true },
+    }),
+    // A standalone Work Entry (Epic 18's Site Contract page) has no siteId
+    // column of its own — it's reached only through its Site Contract, same
+    // as every other Site Contract query in this codebase.
+    prisma.subcontractorWorkEntry.findMany({
+      where: {
+        siteContract: { siteId },
+        workDate: bounds,
+        dailySiteReportId: null,
+      },
+      include: { siteContract: { include: { subcontractor: true } } },
     }),
   ]);
 
@@ -259,6 +280,16 @@ export async function getSiteMaterialActivity(
     amount: toNum(e.amount),
   }));
 
+  const standaloneWorkEntries: StandaloneWorkEntryRow[] = workEntries.map(
+    (w) => ({
+      id: w.id,
+      occurredAt: w.workDate.toISOString(),
+      subcontractorName: w.siteContract.subcontractor.name,
+      quantity: toNum(w.quantity),
+      note: w.note,
+    }),
+  );
+
   return {
     materialsReceived,
     standaloneConsumptions,
@@ -266,5 +297,6 @@ export async function getSiteMaterialActivity(
     standaloneWasteDisposals,
     standaloneWastageReturns,
     standaloneExpenses,
+    standaloneWorkEntries,
   };
 }
