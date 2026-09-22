@@ -10,7 +10,7 @@ export function parseMovementForm(formData: FormData) {
     kind: formData.get("kind"),
     materialSizeId: formData.get("materialSizeId"),
     sourceSiteId: formData.get("sourceSiteId") || undefined,
-    destinationSiteId: formData.get("destinationSiteId"),
+    destinationSiteId: formData.get("destinationSiteId") || undefined,
     sentQuantity: Number(formData.get("sentQuantity")),
     vehicleDetails: formData.get("vehicleDetails") || undefined,
     personResponsible: formData.get("personResponsible") || undefined,

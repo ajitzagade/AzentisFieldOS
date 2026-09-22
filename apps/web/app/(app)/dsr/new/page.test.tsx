@@ -109,7 +109,7 @@ describe("NewDsrPage", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
     expect(screen.getByText("Crew present today")).toBeInTheDocument();
-    expect(screen.getByText("Materials consumed")).toBeInTheDocument();
+    expect(screen.getByText("Materials Used")).toBeInTheDocument();
     expect(screen.getByText("RMC (ready-mix concrete) used")).toBeInTheDocument();
     expect(screen.getByText("Expenses")).toBeInTheDocument();
     expect(screen.getByText("Equipment used today")).toBeInTheDocument();

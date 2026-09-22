@@ -405,7 +405,7 @@ function SupervisorQuickBar({
     <>
       <nav
         aria-label="Quick actions"
-        className="fixed inset-x-0 bottom-0 z-30 bg-surface-1 shadow-(--shadow-bar-top) pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 bg-surface-1 shadow-(--shadow-bar-top) pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden"
       >
         <div className="flex">
           {SUPERVISOR_QUICK_BAR_ITEMS.map((item) => {
@@ -515,7 +515,7 @@ function OwnerQuickBar({
     <>
       <nav
         aria-label="Quick actions"
-        className="fixed inset-x-0 bottom-0 z-30 bg-surface-1 shadow-(--shadow-bar-top) pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 bg-surface-1 shadow-(--shadow-bar-top) pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden"
       >
         <div className="flex">
           {OWNER_QUICK_BAR_LINKS.map((item) => {
@@ -630,13 +630,13 @@ function SidebarShell({
     // Dashboard's Server Component tree, via dashboard-search-button.tsx) —
     // never a second independent controller instance.
     <GlobalSearchContext.Provider value={{ open: () => search.setOpen(true) }}>
-      <div className="flex min-h-screen flex-col lg:h-screen lg:flex-row lg:overflow-hidden">
+      <div className="flex min-h-screen flex-col lg:h-screen lg:flex-row lg:overflow-hidden print:block print:h-auto print:overflow-visible">
         {/* Desktop rail — shown from lg up. The shell pins it to the viewport
             (lg:h-screen + lg:overflow-hidden on the root) and each pane scrolls
             on its own: the rail keeps its full nav reachable however long the
             page content is, and the content scrolls without carrying the rail
             off-screen. */}
-        <aside className="hidden w-62 shrink-0 flex-col gap-1 overflow-y-auto bg-accent-navy-800 px-4 py-6 text-ink-on-accent lg:flex">
+        <aside className="hidden w-62 shrink-0 flex-col gap-1 overflow-y-auto bg-accent-navy-800 px-4 py-6 text-ink-on-accent lg:flex print:hidden">
           <SidebarNav
             pathname={pathname}
             role={role}
@@ -654,7 +654,7 @@ function SidebarShell({
             quick-bars' pb-safe-area: viewportFit "cover" (app/layout.tsx)
             draws content under the notch/status bar, so without this the bar
             renders partly behind it, worst on an installed (standalone) PWA. */}
-        <header className="flex items-center gap-3 border-b border-border-hairline bg-surface-1 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-3 lg:hidden">
+        <header className="flex items-center gap-3 border-b border-border-hairline bg-surface-1 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-3 lg:hidden print:hidden">
           <button
             type="button"
             onClick={() => setNavOpen(true)}
@@ -676,7 +676,7 @@ function SidebarShell({
 
         {/* Mobile drawer + scrim — below lg only, mounted while open. */}
         {navOpen ? (
-          <div className="lg:hidden">
+          <div className="lg:hidden print:hidden">
             <button
               type="button"
               aria-label="Close navigation menu"
@@ -721,11 +721,11 @@ function SidebarShell({
             button of a page. */}
         <main
           className={cn(
-            "flex-1 px-4 py-6 lg:overflow-y-auto lg:px-10 lg:py-8",
-            (role === "SITE_SUPERVISOR" || role === "OWNER_ADMIN") && "pb-24 lg:pb-8",
+            "flex-1 px-4 py-6 lg:overflow-y-auto lg:px-10 lg:py-8 print:overflow-visible print:p-0",
+            (role === "SITE_SUPERVISOR" || role === "OWNER_ADMIN") && "pb-24 lg:pb-8 print:pb-0",
           )}
         >
-          <div className="max-w-310">{children}</div>
+          <div className="max-w-310 print:max-w-none">{children}</div>
         </main>
 
         {role === "SITE_SUPERVISOR" ? (

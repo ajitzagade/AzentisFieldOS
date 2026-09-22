@@ -101,7 +101,7 @@
       }
     },
     "4": {
-      "stepTitle": "Consumption Date",
+      "stepTitle": "Used Date",
       "mobile": {
         "image": "/help-screens/record-consumption/4.mobile.png",
         "imageW": 390,
@@ -176,7 +176,7 @@
       }
     },
     "7": {
-      "stepTitle": "Record Material Consumption",
+      "stepTitle": "Record Material Used",
       "mobile": {
         "image": "/help-screens/record-consumption/7.mobile.png",
         "imageW": 390,

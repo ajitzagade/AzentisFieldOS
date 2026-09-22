@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent } from "react";
-import { Button, CameraIcon } from "@azentisfieldos/ui";
+import { Button, CameraIcon, PhotoThumbnail } from "@azentisfieldos/ui";
 import { uploadChallanPhoto } from "../../../lib/challan-upload";
 import { useAuthedFetch } from "../../../lib/use-authed-fetch";
 
@@ -47,8 +47,7 @@ export function ChallanPhotoField({
       <div className="flex items-center gap-4">
         <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border-hairline bg-surface-2">
           {photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- runtime-uploaded photo, not a build-time asset
-            <img src={photoUrl} alt="Challan" className="size-full object-cover" />
+            <PhotoThumbnail src={photoUrl} alt="Challan" eager className="size-full object-cover" />
           ) : (
             <CameraIcon className="size-5 text-ink-500" />
           )}

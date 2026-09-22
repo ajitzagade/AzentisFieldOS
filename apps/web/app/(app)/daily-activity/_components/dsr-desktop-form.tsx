@@ -27,7 +27,7 @@ import { dsrEquipmentUsedSchema, type CreateDsrInput } from "@azentisfieldos/sha
 import { uploadPhoto } from "../../../../lib/photo-upload";
 import { useAuthedFetch } from "../../../../lib/use-authed-fetch";
 import { useDsrReferenceData } from "../../../../lib/use-dsr-reference-data";
-import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
+import { stockStatus, useGodownStock, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { MaterialQuickCreateModal } from "../../materials/_components/material-quick-create-modal";
 import { TeamMemberQuickCreateModal } from "../../team/_components/team-member-quick-create-modal";
 import { VendorQuickCreateModal } from "../../vendors/_components/vendor-quick-create-modal";
@@ -256,9 +256,15 @@ export function DsrDesktopForm({
   // FR-14: current availability at the selected Site, inside the Material
   // picker options and under each selected Material.
   const siteStock = useSiteStock(siteId);
+  // A Material with real Godown balance that was simply never moved/
+  // purchased to this Site would otherwise show a bare "No stock" —
+  // indistinguishable from not existing at all (real end-to-end report,
+  // 2026-09-22).
+  const godownStock = useGodownStock();
+  const elsewhereGodown = { label: "Godown", stock: godownStock };
   const materialOptions = useMemo(
-    () => (siteId ? withStockMeta(reference.materialOptions, siteStock) : reference.materialOptions),
-    [reference.materialOptions, siteId, siteStock],
+    () => (siteId ? withStockMeta(reference.materialOptions, siteStock, elsewhereGodown) : reference.materialOptions),
+    [reference.materialOptions, siteId, siteStock, godownStock],
   );
   const [reportDate, setReportDate] = useState(initial?.reportDate ?? todayDate());
   const [workCompleted, setWorkCompleted] = useState(initial?.workCompleted ?? "");
@@ -718,10 +724,10 @@ export function DsrDesktopForm({
       </Card>
 
       <Card className="mb-4">
-        <h2 className="mb-3 text-card-title text-ink-900">Materials consumed</h2>
+        <h2 className="mb-3 text-card-title text-ink-900">Materials Used</h2>
         {consumptions.map((row, index) => {
           const stock = siteId
-            ? stockStatus({ stock: siteStock, materialSizeId: row.materialSizeId, quantity: row.quantity, location: "this Site" })
+            ? stockStatus({ stock: siteStock, materialSizeId: row.materialSizeId, quantity: row.quantity, location: "this Site", elsewhere: elsewhereGodown })
             : undefined;
           return (
             <div
@@ -1460,7 +1466,7 @@ export function DsrDesktopForm({
         onConfirm={confirmation.confirm}
       >
         <ConfirmDialogRow label="Crew present" value={crew.filter((c) => c.attended).length} />
-        <ConfirmDialogRow label="Materials consumed" value={consumptions.filter((c) => c.materialSizeId && c.quantity).length} />
+        <ConfirmDialogRow label="Materials Used" value={consumptions.filter((c) => c.materialSizeId && c.quantity).length} />
         <ConfirmDialogRow label="RMC deliveries" value={rmcEntries.filter((r) => r.vendorId && r.quantityM3).length} />
         <ConfirmDialogRow label="Expenses" value={expenses.filter((e) => e.categoryId && e.amount).length} />
         <ConfirmDialogRow label="Waste Material" value={wasteEntries.filter(isWasteRowComplete).length} />

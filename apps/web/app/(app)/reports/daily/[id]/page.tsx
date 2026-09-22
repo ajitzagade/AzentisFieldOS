@@ -146,7 +146,7 @@ export default async function DailyReportPage({
             label="Labour Count"
             value={`${content.labour.present} present of ${content.labour.total} recorded`}
           />
-          <ReportSection label="Materials Consumed" value={materials} />
+          <ReportSection label="Materials Used" value={materials} />
           <ReportSection label="RMC Delivered" value={rmc} />
           <ReportSection
             label="Expenses Logged"

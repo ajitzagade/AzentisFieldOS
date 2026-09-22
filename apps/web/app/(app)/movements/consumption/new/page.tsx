@@ -58,7 +58,7 @@ export default async function NewConsumptionPage({
   return (
     <div className="max-w-160">
       <h1 className="mb-6 flex items-center gap-2 text-page-title text-ink-900">
-        Record Material Consumption
+        Record Material Used
         {CONSUMPTION_HELP ? <HelpBubble>{CONSUMPTION_HELP.explanation}</HelpBubble> : null}
       </h1>
       <ConsumptionForm

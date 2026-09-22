@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Dialog } from "@base-ui-components/react/dialog";
 import { formatDate } from "@/lib/format";
 import type { PhotoGalleryItem } from "@azentisfieldos/shared";
-import { Button, CheckCircleIcon, ChevronRightIcon, cn } from "@azentisfieldos/ui";
+import { Button, CheckCircleIcon, ChevronRightIcon, PhotoThumbnail, cn } from "@azentisfieldos/ui";
 
 // Epic 3's chronological Site photo gallery layout, extracted once Story 13.2's
 // Site Reports view needed the same grid the Site Photos page (Story 3.3)
@@ -105,13 +105,9 @@ export function PhotoGalleryGrid({
                   }
                   className="block size-full"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- a
-                      durable Cloudinary CDN URL, not a build-time static asset
-                      next/image's optimizer is set up for here. */}
-                  <img
+                  <PhotoThumbnail
                     src={photo.url}
                     alt=""
-                    loading="lazy"
                     className={cn("size-full object-cover", selectable && checked && "opacity-70")}
                   />
                 </button>
@@ -148,12 +144,10 @@ export function PhotoGalleryGrid({
             {activePhoto ? (
               <>
                 <div className="relative flex min-h-0 flex-1 items-center justify-center bg-surface-2 p-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- see
-                      the grid thumbnail's own note above; same durable CDN URL,
-                      just the larger previewUrl rendition. */}
-                  <img
+                  <PhotoThumbnail
                     src={activePhoto.previewUrl}
                     alt=""
+                    eager
                     className="max-h-[75vh] max-w-full object-contain"
                   />
                   {hasPrevious ? (

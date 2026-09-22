@@ -88,7 +88,7 @@ export default async function CorrectConsumptionPage({ params }: { params: Promi
         </Link>{" "}
         / Correct
       </div>
-      <h1 className="mb-6 text-page-title text-ink-900">Correct Consumption</h1>
+      <h1 className="mb-6 text-page-title text-ink-900">Correct Material Used</h1>
       <ConsumptionForm mode="correct" correctsId={consumption.id} materialSizes={materialSizes} sites={sites} initial={initial} />
     </div>
   );

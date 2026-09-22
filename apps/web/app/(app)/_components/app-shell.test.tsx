@@ -510,3 +510,43 @@ describe("AppShell — sign-out clears device-local state (Story 19.6)", () => {
     expect(window.localStorage.getItem("azentisfieldos:recently-viewed")).toBeNull();
   });
 });
+
+// Regression (2026-09-22): a real print (e.g. the Photo Gallery's print
+// view) rendered the full desktop rail, mobile header, and mobile bottom
+// bar right alongside the printed content — none of the shell chrome had
+// ever been told to hide for print. Confirmed from a real exported PDF; a
+// fixed-position element (the bottom bar) overlapping the printed page's
+// own text even corrupted the extracted text layer (interleaved
+// characters from both). Pin `print:hidden` on every shell chrome element
+// so this can't silently regress again.
+describe("AppShell — hides all shell chrome when printing (2026-09-22)", () => {
+  it("marks the desktop sidebar, mobile header, and mobile bottom bar print:hidden", () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="OWNER_ADMIN">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    const sidebar = screen.getByRole("complementary");
+    expect(sidebar.className).toContain("print:hidden");
+
+    const header = document.querySelector("header");
+    expect(header?.className).toContain("print:hidden");
+
+    const quickBar = screen.getByRole("navigation", { name: "Quick actions" });
+    expect(quickBar.className).toContain("print:hidden");
+  });
+
+  it("marks the Supervisor's mobile bottom bar print:hidden too", () => {
+    mockPathname = "/";
+    render(
+      <AppShell role="SITE_SUPERVISOR">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    const quickBar = screen.getByRole("navigation", { name: "Quick actions" });
+    expect(quickBar.className).toContain("print:hidden");
+  });
+});

@@ -18,7 +18,7 @@ describe("ConsumptionForm", () => {
     expect(screen.getByLabelText("Site")).toBeInTheDocument();
     expect(screen.getByLabelText("Material / Size")).toBeInTheDocument();
     expect(screen.getByLabelText("Quantity")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Record Material Consumption" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Record Material Used" })).toBeInTheDocument();
   });
 
   it("uses the searchable Site picker (not a native select) in new mode", () => {

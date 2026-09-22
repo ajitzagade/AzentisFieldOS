@@ -58,6 +58,7 @@ export const ACTION_ICONS: Record<string, ReactNode> = {
   "open-reports": <BarChartIcon />,
   "open-settings": <GearIcon />,
   "record-movement": <ArrowsIcon />,
+  "record-transfer": <ArrowsIcon />,
   "record-consumption": <LayersIcon />,
   "record-wastage": <RotateCcwIcon />,
   "record-waste-disposal": <AlertTriangleIcon />,
@@ -294,16 +295,14 @@ export function useGlobalSearchController(role: Role): GlobalSearchController {
       items: (data?.movements?.results ?? []).map((movement) => ({
         id: movement.id,
         label: movement.materialName,
-        description: movement.sourceSiteName
-          ? `${movement.sourceSiteName} → ${movement.destinationSiteName}`
-          : `Godown → ${movement.destinationSiteName}`,
+        description: `${movement.sourceSiteName ?? "Godown"} → ${movement.destinationSiteName ?? "Godown"}`,
         icon: <ArrowsIcon />,
       })),
       total: data?.movements?.total ?? 0,
     },
     {
       key: "consumptions",
-      label: "Consumption",
+      label: "Material Used",
       items: (data?.consumptions?.results ?? []).map((consumption) => ({
         id: consumption.id,
         label: consumption.materialName,

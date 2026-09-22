@@ -208,6 +208,6 @@ describe("InventoryPage", () => {
 
     await renderInventoryPage();
 
-    expect(screen.getByRole("link", { name: "Record Material Movement" })).toHaveAttribute("href", "/movements/godown-to-site/new");
+    expect(screen.getByRole("link", { name: "Godown to Site" })).toHaveAttribute("href", "/movements/godown-to-site/new");
   });
 });

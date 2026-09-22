@@ -134,7 +134,8 @@ interface MovementTxn {
   movedAt: string;
   sentQuantity: string;
   sourceSite: { name: string } | null;
-  destinationSite: { name: string };
+  // null for a SITE_TO_GODOWN Movement (destination is the Godown, no Site).
+  destinationSite: { name: string } | null;
   materialSize: MaterialSizeRef;
 }
 interface ConsumptionTxn {
@@ -581,13 +582,13 @@ function mergeTransactions(report: InventoryReport): TransactionRow[] {
       date: m.movedAt,
       type: "Movement",
       material: materialLabel(m.materialSize),
-      site: `${m.sourceSite?.name ?? "Godown"} → ${m.destinationSite.name}`,
+      site: `${m.sourceSite?.name ?? "Godown"} → ${m.destinationSite?.name ?? "Godown"}`,
       quantity: `${m.sentQuantity} ${m.materialSize.material.unit.name}`,
     })),
     ...report.consumptions.map((c): TransactionRow => ({
       key: `co-${c.id}`,
       date: c.consumedAt,
-      type: "Consumption",
+      type: "Used",
       material: materialLabel(c.materialSize),
       site: c.site.name,
       quantity: `${c.quantity} ${c.materialSize.material.unit.name}`,

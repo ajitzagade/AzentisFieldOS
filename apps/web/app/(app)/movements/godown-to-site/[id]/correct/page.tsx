@@ -18,9 +18,10 @@ interface MaterialListItem {
 
 interface MovementForCorrection {
   id: string;
-  kind: "GODOWN_TO_SITE" | "SITE_TO_SITE";
+  kind: "GODOWN_TO_SITE" | "SITE_TO_SITE" | "SITE_TO_GODOWN";
   sourceSiteId: string | null;
-  destinationSiteId: string;
+  // null for a SITE_TO_GODOWN Movement (destination is the Godown, no Site).
+  destinationSiteId: string | null;
   // Prisma Decimal — serialized as a string over JSON.
   sentQuantity: string;
   vehicleDetails: string | null;
@@ -81,7 +82,7 @@ export default async function CorrectMovementPage({ params }: { params: Promise<
   const initial: MovementFormInitialValues = {
     materialSizeId: movement.materialSize.id,
     sourceSiteId: movement.sourceSiteId ?? undefined,
-    destinationSiteId: movement.destinationSiteId,
+    destinationSiteId: movement.destinationSiteId ?? undefined,
     // The original sent quantity — correct mode shows it so the user types
     // the corrected value and the form derives the signed delta.
     sentQuantity: Number(movement.sentQuantity),

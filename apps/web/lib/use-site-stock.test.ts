@@ -72,6 +72,58 @@ describe("stockStatus", () => {
     const stock = lookup({ ms1: { quantity: 80 } });
     expect(stockStatus({ stock, materialSizeId: "ms1", quantity: "abc", location: "this Site" })?.insufficient).toBe(false);
   });
+
+  // Regression (2026-09-22): a real end-to-end report showed a bare "No
+  // stock" for every Material in a DSR's Materials Consumed picker, even
+  // ones with real balance at the Godown — confusing enough to be read as
+  // a data bug. Root cause was never a fetch/matching defect (verified live
+  // against a real Site with real Cement stock, which showed correctly);
+  // it's that a Material never moved/purchased to THIS Site legitimately
+  // has zero SiteStock. The fix is to say where it actually is instead of
+  // leaving "No stock" ambiguous between "doesn't exist" and "not here yet".
+  describe("elsewhere reference (root cause: 'No stock' looked like data loss, not a location mismatch)", () => {
+    it("names the Godown when the Site has no balance row but the Godown does", () => {
+      const stock = lookup({});
+      const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 500, unit: "Bag" } }) };
+      expect(stockStatus({ stock, materialSizeId: "ms1", location: "this Site", elsewhere })).toEqual({
+        text: "No stock recorded at this Site — 500 Bag available at Godown",
+        tone: "warning",
+        insufficient: false,
+      });
+    });
+
+    it("names the Godown when the Site's recorded balance is zero but the Godown has some", () => {
+      const stock = lookup({ ms1: { quantity: 0 } });
+      const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 40 } }) };
+      expect(stockStatus({ stock, materialSizeId: "ms1", location: "this Site", elsewhere })?.text).toBe(
+        "No stock available at this Site — 40 available at Godown",
+      );
+    });
+
+    it("stays a bare 'No stock' when the elsewhere location also has none", () => {
+      const stock = lookup({});
+      const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 0 } }) };
+      expect(stockStatus({ stock, materialSizeId: "ms1", location: "this Site", elsewhere })?.text).toBe(
+        "No stock recorded at this Site",
+      );
+    });
+
+    it("never claims elsewhere-stock while the elsewhere lookup is itself still loading", () => {
+      const stock = lookup({});
+      const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 500 } }, true) };
+      expect(stockStatus({ stock, materialSizeId: "ms1", location: "this Site", elsewhere })?.text).toBe(
+        "No stock recorded at this Site",
+      );
+    });
+
+    it("does not mention elsewhere at all once the Site itself has stock", () => {
+      const stock = lookup({ ms1: { quantity: 10, unit: "Bag" } });
+      const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 500 } }) };
+      expect(stockStatus({ stock, materialSizeId: "ms1", location: "this Site", elsewhere })?.text).toBe(
+        "10 Bag available at this Site",
+      );
+    });
+  });
 });
 
 describe("useSiteStock", () => {
@@ -177,6 +229,16 @@ describe("withStockMeta", () => {
     expect(withStockMeta(options, stock)).toEqual([
       { value: "ms1", label: "Cement — 50kg", meta: "1,200 Bag", metaTone: "default" },
       { value: "ms2", label: "TMT Steel — 12mm", meta: "No stock", metaTone: "warning" },
+    ]);
+  });
+
+  // Regression (2026-09-22) — see the matching stockStatus describe block above.
+  it("shows the elsewhere balance instead of a bare 'No stock' when the Site has none but the Godown does", () => {
+    const stock = lookup({ ms1: { quantity: 1200, unit: "Bag" } });
+    const elsewhere = { label: "Godown", stock: lookup({ ms2: { quantity: 30 } }) };
+    expect(withStockMeta(options, stock, elsewhere)).toEqual([
+      { value: "ms1", label: "Cement — 50kg", meta: "1,200 Bag", metaTone: "default" },
+      { value: "ms2", label: "TMT Steel — 12mm", meta: "30 at Godown", metaTone: "warning" },
     ]);
   });
 });

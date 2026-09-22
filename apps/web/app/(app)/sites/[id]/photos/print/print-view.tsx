@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import type { PhotoGalleryItem } from "@azentisfieldos/shared";
-import { Button, PrinterIcon, cn } from "@azentisfieldos/ui";
+import { Button, PhotoThumbnail, PrinterIcon, cn } from "@azentisfieldos/ui";
 import { formatDate } from "@/lib/format";
 
 const GRID_CLASS: Record<number, string> = {
@@ -21,12 +21,9 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 function PhotoCell({ siteName, photo }: { siteName: string; photo: PhotoGalleryItem }) {
   return (
-    <figure className="flex min-h-0 flex-col overflow-hidden border border-border-hairline p-2">
+    <figure className="flex min-h-0 flex-col overflow-hidden border border-border-hairline p-2 print:break-inside-avoid">
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-surface-2">
-        {/* eslint-disable-next-line @next/next/no-img-element -- a durable
-            Cloudinary CDN URL, not a build-time static asset; object-fit:
-            contain here (never cropped) is the whole point of this view. */}
-        <img src={photo.previewUrl} alt="" className="max-h-full max-w-full object-contain" />
+        <PhotoThumbnail src={photo.previewUrl} alt="" eager className="max-h-full max-w-full object-contain" />
       </div>
       <figcaption className="mt-1 shrink-0 text-caption text-ink-500">
         {siteName} · {formatDate(photo.reportDate)}
@@ -57,9 +54,23 @@ export function PhotoPrintView({
   }, [photos.length]);
 
   const pages = chunk(photos, layout);
+  // A4 (297mm) minus the @page margin below on both edges = 273mm. A fixed
+  // physical height, not `vh` (2026-09-22 regression: `100vh` in print
+  // context doesn't reliably map to the actual printable page height across
+  // browsers/print-to-PDF paths — real exports showed only one photo
+  // landing per page regardless of the chosen layout, with the rest either
+  // blank-padded or overflowing onto extra pages). Every deployment targets
+  // Indian tenants (AGENTS.md) — A4 is the standard size here; this would
+  // need to become a user choice if that ever stops being a safe default.
+  const PAGE_HEIGHT_CLASS = "print:h-[273mm]";
 
   return (
     <div>
+      {/* @page (not a Tailwind utility) fixes the physical page size/margin
+          that PAGE_HEIGHT_CLASS's math above is based on — without it the
+          browser's own default margins (which vary by browser/OS) would
+          silently invalidate that math. */}
+      <style>{"@page { size: A4; margin: 12mm; }"}</style>
       <div className="print:hidden mb-4 flex items-center justify-between gap-3">
         <Link href={`/sites/${siteId}/photos`} className="text-body-sm text-accent-teal-700 underline">
           ← Back to Site Photos
@@ -77,7 +88,8 @@ export function PhotoPrintView({
           <div
             key={pageIndex}
             className={cn(
-              "mb-6 grid gap-2 print:mb-0 print:h-screen print:gap-1 print:break-after-page last:print:break-after-auto",
+              "mb-6 grid gap-2 print:mb-0 print:gap-1 print:break-after-page last:print:break-after-auto",
+              PAGE_HEIGHT_CLASS,
               GRID_CLASS[layout] ?? GRID_CLASS[1],
             )}
           >

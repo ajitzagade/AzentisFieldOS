@@ -115,7 +115,7 @@ describe("MovementsListClient", () => {
     renderClient({ rows: [], total: 0 });
     // Rendered as both the desktop table panel and the mobile card panel.
     expect(
-      screen.getAllByText(/No Material Purchases, Movements, Consumption, or Wastage\/Return recorded yet\./),
+      screen.getAllByText(/No Material Purchases, Movements, Material Used, or Wastage\/Return recorded yet\./),
     ).toHaveLength(2);
   });
 
@@ -135,7 +135,7 @@ describe("MovementsListClient", () => {
 
     expect(screen.getAllByText("No entries match your search or filters.")).toHaveLength(2);
     expect(
-      screen.queryByText(/No Material Purchases, Movements, Consumption, or Wastage\/Return recorded yet\./),
+      screen.queryByText(/No Material Purchases, Movements, Material Used, or Wastage\/Return recorded yet\./),
     ).not.toBeInTheDocument();
   });
 
@@ -189,5 +189,21 @@ describe("MovementsListClient — D7 pricing pending", () => {
     // badge's exact text, so an unscoped queryByText would false-positive.
     expect(within(screen.getByRole("table")).queryByText("Pricing pending")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Add Pricing/ })).not.toBeInTheDocument();
+  });
+
+  // Attach Bill (2026-09-22): Owner/Admin only, offered on every Purchase
+  // row (not just unpriced ones) — a Purchase is already valid and complete
+  // with zero bills attached, so this is never gated on pricing status.
+  it("offers Attach Bill on a Purchase row to an Owner", () => {
+    renderClient({ rows: [unpricedPurchase], total: 1, canPrice: true });
+    expect(screen.getAllByRole("link", { name: /Attach Bill/ })[0]).toHaveAttribute(
+      "href",
+      "/movements/purchases/p9/bill",
+    );
+  });
+
+  it("hides Attach Bill from a Supervisor", () => {
+    renderClient({ rows: [unpricedPurchase], total: 1 });
+    expect(screen.queryByRole("link", { name: /Attach Bill/ })).not.toBeInTheDocument();
   });
 });

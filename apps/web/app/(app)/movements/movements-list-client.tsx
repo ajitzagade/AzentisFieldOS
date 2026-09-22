@@ -12,6 +12,7 @@ import {
   CorrectAction,
   DataTable,
   PlusIcon,
+  ReceiptIcon,
   RotateCcwIcon,
   SelectField,
   TextField,
@@ -37,6 +38,7 @@ interface MovementRow {
   correctHref: string;
   confirmReceiptHref?: string;
   pricingHref?: string;
+  billHref?: string;
 }
 
 interface PurchaseListItem {
@@ -56,7 +58,8 @@ interface MovementListItem {
   receivedQuantity: string | null;
   movedAt: string;
   sourceSite: { id: string; name: string } | null;
-  destinationSite: { id: string; name: string };
+  // null for a SITE_TO_GODOWN Movement (destination is the Godown, no Site).
+  destinationSite: { id: string; name: string } | null;
   materialSize: { label: string; material: { name: string; unit: { name: string } } };
 }
 
@@ -119,6 +122,10 @@ function purchaseToMovementRow(purchase: PurchaseListItem, canPrice: boolean): M
     date: formatDate(purchase.purchasedAt),
     correctHref: `/movements/purchases/${purchase.id}/correct`,
     pricingHref: pricingPending && canPrice ? `/movements/purchases/${purchase.id}/pricing` : undefined,
+    // Attach Bill (2026-09-22): Owner/Admin only, entirely optional — `canPrice`
+    // is this row set's existing "is Owner/Admin" flag, reused rather than a
+    // second identically-scoped prop.
+    billHref: canPrice ? `/movements/purchases/${purchase.id}/bill` : undefined,
   };
 }
 
@@ -138,7 +145,7 @@ function movementToMovementRow(movement: MovementListItem): MovementRow {
       <span className="inline-flex items-center gap-1">
         {movement.sourceSite?.name ?? "Godown"}
         <ChevronRightIcon className="size-3 text-ink-500" />
-        {movement.destinationSite.name}
+        {movement.destinationSite?.name ?? "Godown"}
       </span>
     ),
     sentQty,
@@ -161,7 +168,7 @@ function consumptionToMovementRow(consumption: ConsumptionListItem): MovementRow
   return {
     id: consumption.id,
     sortKey: new Date(consumption.consumedAt).getTime(),
-    typeBadge: <Badge variant="neutral">Consumption</Badge>,
+    typeBadge: <Badge variant="neutral">Used</Badge>,
     material: materialLabel,
     flow: consumption.site.name,
     sentQty: qty,
@@ -223,6 +230,12 @@ const columns: DataTableColumn<MovementRow>[] = [
             Add Pricing
           </Link>
         ) : null}
+        {r.billHref ? (
+          <Link href={r.billHref} className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
+            <ReceiptIcon className="size-4" />
+            Attach Bill
+          </Link>
+        ) : null}
         <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={r.correctHref} />
       </div>
     ),
@@ -238,25 +251,38 @@ const mobileCard: DataTableMobileCard<MovementRow> = {
   ),
   omitHeaders: ["Type", "Material"],
   action: (r) => <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={r.correctHref} />,
-  footer: (r) =>
-    r.pricingHref ? (
-      <Link href={r.pricingHref} className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
-        <WalletIcon className="size-4" />
-        Add Pricing
-      </Link>
-    ) : r.confirmReceiptHref ? (
-      <Link href={r.confirmReceiptHref} className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
-        <CheckCircleIcon className="size-4" />
-        Confirm Receipt
-      </Link>
-    ) : null,
+  footer: (r) => {
+    if (!r.pricingHref && !r.confirmReceiptHref && !r.billHref) return null;
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {r.pricingHref ? (
+          <Link href={r.pricingHref} className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
+            <WalletIcon className="size-4" />
+            Add Pricing
+          </Link>
+        ) : null}
+        {r.confirmReceiptHref ? (
+          <Link href={r.confirmReceiptHref} className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
+            <CheckCircleIcon className="size-4" />
+            Confirm Receipt
+          </Link>
+        ) : null}
+        {r.billHref ? (
+          <Link href={r.billHref} className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
+            <ReceiptIcon className="size-4" />
+            Attach Bill
+          </Link>
+        ) : null}
+      </div>
+    );
+  },
 };
 
 const TYPE_OPTIONS = [
   { value: "", label: "All types" },
   { value: "PURCHASE", label: "Purchase" },
   { value: "MOVEMENT", label: "Movement" },
-  { value: "CONSUMPTION", label: "Consumption" },
+  { value: "CONSUMPTION", label: "Used" },
   { value: "RETURN_WASTAGE", label: "Wastage / Return" },
   // Story 19.5: Dashboard gap-flag deep link for >1 pending Purchase —
   // unpriced originals only (apps/api's movements-log.service.ts folds in
@@ -297,7 +323,7 @@ export function MovementsListClient({
         <div>
           <h1 className="text-page-title text-ink-900">Movements</h1>
           <p className="text-body-sm text-ink-500">
-            Purchases, Godown &amp; Site transfers, Consumption and Wastage / Returns — every entry is permanent history
+            Purchases, Godown &amp; Site transfers, Material Used and Wastage / Returns — every entry is permanent history
           </p>
         </div>
         <div className="action-button-row justify-end">
@@ -307,15 +333,19 @@ export function MovementsListClient({
           </Link>
           <Link href="/movements/godown-to-site/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <PlusIcon className="size-4" />
-            Record Material Movement
+            Godown to Site
           </Link>
           <Link href="/movements/site-to-site/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <PlusIcon className="size-4" />
-            Record Material Transfer
+            Transfer Site to Site
+          </Link>
+          <Link href="/movements/site-to-godown/new" className={cn(buttonVariants({ variant: "secondary" }))}>
+            <PlusIcon className="size-4" />
+            Site to Godown
           </Link>
           <Link href="/movements/consumption/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <PlusIcon className="size-4" />
-            Record Material Consumption
+            Record Material Used
           </Link>
           <Link href="/movements/return-wastage/new" className={cn(buttonVariants({ variant: "secondary" }))}>
             <PlusIcon className="size-4" />
@@ -374,7 +404,7 @@ export function MovementsListClient({
               : {
                   status: "empty",
                   icon: <ArrowsIcon />,
-                  message: "No Material Purchases, Movements, Consumption, or Wastage/Return recorded yet.",
+                  message: "No Material Purchases, Movements, Material Used, or Wastage/Return recorded yet.",
                   action: (
                     <Link href="/movements/purchases/new" className={cn(buttonVariants({ variant: "primary" }))}>
                       <PlusIcon className="size-4" />

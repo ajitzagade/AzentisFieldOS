@@ -137,6 +137,22 @@ export interface StockStatus {
   insufficient: boolean;
 }
 
+/** A second location to check when the primary one has none — so "No
+ * stock" never reads as "doesn't exist anywhere" when it's really "hasn't
+ * been moved/purchased to this location yet" (a real, reported point of
+ * confusion: a Material with real balance at the Godown showed a bare "No
+ * stock" for a Site that simply never received it). */
+export interface ElsewhereStock {
+  label: string;
+  stock: StockLookup;
+}
+
+function elsewhereEntry(materialSizeId: string, elsewhere?: ElsewhereStock): StockEntry | undefined {
+  if (!elsewhere || elsewhere.stock.loading) return undefined;
+  const entry = elsewhere.stock.bySizeId.get(materialSizeId);
+  return entry && entry.quantity > 0 ? entry : undefined;
+}
+
 // One shared wording for every Material picker in the app: what is
 // available at the chosen location right now, and — once a quantity is
 // typed — whether that entry would overdraw it. The warning is advisory;
@@ -146,22 +162,28 @@ export function stockStatus({
   materialSizeId,
   quantity,
   location,
+  elsewhere,
 }: {
   stock: StockLookup;
   materialSizeId: string | null | undefined;
   quantity?: string;
   location: string;
+  elsewhere?: ElsewhereStock;
 }): { text: string; tone: FieldHintTone; insufficient: boolean } | undefined {
   if (!materialSizeId) return undefined;
   if (stock.loading) {
     return { text: "Checking available stock…", tone: "default", insufficient: false };
   }
   const entry = stock.bySizeId.get(materialSizeId);
+  const elsewhereHint = (() => {
+    const found = elsewhereEntry(materialSizeId, elsewhere);
+    return found ? ` — ${formatQuantity(found)} available at ${elsewhere?.label}` : "";
+  })();
   if (!entry) {
-    return { text: `No stock recorded at ${location}`, tone: "warning", insufficient: false };
+    return { text: `No stock recorded at ${location}${elsewhereHint}`, tone: "warning", insufficient: false };
   }
   if (entry.quantity <= 0) {
-    return { text: `No stock available at ${location}`, tone: "warning", insufficient: false };
+    return { text: `No stock available at ${location}${elsewhereHint}`, tone: "warning", insufficient: false };
   }
   const available = formatQuantity(entry);
   const entered = Number(quantity);
@@ -179,11 +201,19 @@ export function stockStatus({
 // so availability is visible while searching — before anything is chosen.
 // While the balances are still loading the options stay meta-free rather
 // than claiming "No stock".
-export function withStockMeta(options: ComboboxFieldOption[], stock: StockLookup): ComboboxFieldOption[] {
+export function withStockMeta(
+  options: ComboboxFieldOption[],
+  stock: StockLookup,
+  elsewhere?: ElsewhereStock,
+): ComboboxFieldOption[] {
   if (stock.loading) return options;
   return options.map((option) => {
     const entry = stock.bySizeId.get(option.value);
     if (!entry || entry.quantity <= 0) {
+      const found = elsewhereEntry(option.value, elsewhere);
+      if (found) {
+        return { ...option, meta: `${formatQuantity(found)} at ${elsewhere?.label}`, metaTone: "warning" as const };
+      }
       return { ...option, meta: "No stock", metaTone: "warning" as const };
     }
     return { ...option, meta: formatQuantity(entry), metaTone: "default" as const };

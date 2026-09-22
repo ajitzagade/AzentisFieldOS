@@ -44,6 +44,11 @@ export function SitePhotoGalleryTabs({ siteId, photos }: { siteId: string; photo
   }
 
   function printWithLayout(layout: number) {
+    // Closed immediately, not left to unmount on navigation — a client-side
+    // route transition isn't instant, so without this the dropdown stayed
+    // visibly open (reported: "should get close to avoid the multiple
+    // clicks") long enough to invite a second, confusing click.
+    setLayoutPickerOpen(false);
     const ids = Array.from(selectedIds).join(",");
     router.push(`/sites/${siteId}/photos/print?ids=${encodeURIComponent(ids)}&layout=${layout}`);
   }

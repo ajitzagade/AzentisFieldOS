@@ -82,7 +82,7 @@ export default async function MaterialsPage({
         <div>
           <h1 className="text-page-title text-ink-900">Materials</h1>
           <p className="text-body-sm text-ink-500">
-            Configure Categories and their Materials — used throughout Purchases, Movements, Consumption, and Daily Reports
+            Configure Categories and their Materials — used throughout Purchases, Movements, Material Used, and Daily Reports
           </p>
         </div>
         <div className="action-button-row">

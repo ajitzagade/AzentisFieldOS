@@ -22,7 +22,7 @@ import {
   formValue,
   useSubmitConfirmation,
 } from "@azentisfieldos/ui";
-import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
+import { stockStatus, useGodownStock, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { useClientValidation } from "../../../../lib/use-client-validation";
 import { requireOriginal } from "../../../../lib/require-original";
 import { usePreventFormResetOnError } from "../../../../lib/use-prevent-form-reset-on-error";
@@ -99,6 +99,12 @@ export function ConsumptionForm({
   const [quantity, setQuantity] = useState("");
   const [materialQuickCreateOpen, setMaterialQuickCreateOpen] = useState(false);
   const siteStock = useSiteStock(selectedSiteId || null);
+  // A Material with real Godown balance that was simply never moved/
+  // purchased to this Site would otherwise show a bare "No stock" —
+  // indistinguishable from not existing at all (real end-to-end report,
+  // 2026-09-22).
+  const godownStock = useGodownStock();
+  const elsewhereGodown = { label: "Godown", stock: godownStock };
 
   // Availability is shown inside the picker options while searching and as
   // a hint once chosen; typing a quantity beyond the balance flips the hint
@@ -106,14 +112,15 @@ export function ConsumptionForm({
   // so the overdraw comparison only applies to new entries.
   const materialOptions = useMemo(() => {
     const base = materialSizes.map((m) => ({ value: m.id, label: m.label, description: m.description }));
-    return selectedSiteId ? withStockMeta(base, siteStock) : base;
-  }, [materialSizes, selectedSiteId, siteStock]);
+    return selectedSiteId ? withStockMeta(base, siteStock, elsewhereGodown) : base;
+  }, [materialSizes, selectedSiteId, siteStock, godownStock]);
   const stock = selectedSiteId
     ? stockStatus({
         stock: siteStock,
         materialSizeId: selectedMaterialSizeId || null,
         quantity: mode === "new" ? quantity : undefined,
         location: "this Site",
+        elsewhere: elsewhereGodown,
       })
     : undefined;
 
@@ -142,7 +149,7 @@ export function ConsumptionForm({
             Filing a correction
           </h2>
           <p className="mb-3 text-body-sm text-warning-700">
-            This creates a new, linked entry — the original Consumption is never edited or deleted (AD-9).
+            This creates a new, linked entry — the original Material Used record is never edited or deleted (AD-9).
           </p>
           <input type="hidden" name="correctsId" value={correctsId} />
           <TextField
@@ -227,7 +234,7 @@ export function ConsumptionForm({
           />
         )}
         <TextField
-          label="Consumption Date"
+          label="Used Date"
           name="consumedAt"
           type="date"
           required
@@ -255,7 +262,7 @@ export function ConsumptionForm({
         </p>
       ) : null}
 
-      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Material Consumption"} correcting={mode === "correct"} />
+      <SubmitButton label={mode === "correct" ? "Submit Correction" : "Record Material Used"} correcting={mode === "correct"} />
 
       <ConfirmDialog
         open={confirmation.open}

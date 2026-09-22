@@ -168,7 +168,7 @@ export default async function RmcPage({
       <section className="mt-12">
         <h2 className="mb-2 text-section-header text-ink-900">RMC Reporting</h2>
         <p className="mb-6 text-body-sm text-ink-500">
-          Consumption and cost, sliced by day, Site, or Vendor — every total reconciles to the individual deliveries above.
+          Usage and cost, sliced by day, Site, or Vendor — every total reconciles to the individual deliveries above.
         </p>
 
         <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Group RMC reporting by">

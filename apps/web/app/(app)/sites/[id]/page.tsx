@@ -361,7 +361,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
               className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
             >
               <PlusIcon className="size-4" />
-              Record Material Consumption
+              Record Material Used
             </Link>
             <Link
               href={`/expenses/new?siteId=${site.id}`}

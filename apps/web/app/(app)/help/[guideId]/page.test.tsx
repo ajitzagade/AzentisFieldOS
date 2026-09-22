@@ -50,7 +50,7 @@ describe("GuidePage screenshots", () => {
     expect(screen.getAllByRole("img")).toHaveLength(2);
     // The text-only steps still render their full card content.
     expect(screen.getByText("Open Movements")).toBeInTheDocument();
-    expect(screen.getByText("Record Material Consumption")).toBeInTheDocument();
+    expect(screen.getByText("Record Material Used")).toBeInTheDocument();
   });
 
   it("renders a guide with no manifest entries at all with zero screenshots", async () => {

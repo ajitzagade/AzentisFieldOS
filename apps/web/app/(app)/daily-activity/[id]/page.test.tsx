@@ -64,6 +64,7 @@ function fullDsr(overrides: Record<string, unknown> = {}) {
     standaloneRmcEntries: [],
     standaloneWasteDisposals: [],
     standaloneWastageReturns: [],
+    standaloneExpenses: [],
     ...overrides,
   };
 }
@@ -198,6 +199,15 @@ describe("DsrDetailPage", () => {
               kind: "WASTAGE",
             },
           ],
+          standaloneExpenses: [
+            {
+              id: "se-1",
+              occurredAt: "2026-08-11T12:00:00Z",
+              categoryName: "Transport",
+              description: "Site visit taxi",
+              amount: 350,
+            },
+          ],
         }),
     }) as unknown as typeof fetch;
 
@@ -206,7 +216,7 @@ describe("DsrDetailPage", () => {
     expect(screen.getByText(/Steel \(12mm\)/)).toBeInTheDocument();
     expect(screen.getByText(/from Shree Balaji Traders/)).toBeInTheDocument();
     expect(screen.getByText(/Sand \(River sand\)/)).toBeInTheDocument();
-    expect(screen.getByText("via Consumption")).toBeInTheDocument();
+    expect(screen.getByText("via Material Used")).toBeInTheDocument();
     expect(screen.getByText(/Bricks \(Standard\)/)).toBeInTheDocument();
     expect(screen.getByText("Wastage")).toBeInTheDocument();
     // Regression (2026-09-22): a Movement not yet confirmed at the
@@ -214,6 +224,13 @@ describe("DsrDetailPage", () => {
     // yet the verified received amount, and can still change.
     expect(screen.getByText(/Gravel \(20mm\)/)).toBeInTheDocument();
     expect(screen.getByText("Pending confirmation")).toBeInTheDocument();
+    // Auto-sync Expenses (2026-09-22): a standalone Expense (the /expenses
+    // module, not this DSR's own form) merges into the same section and
+    // total — the user never has to re-enter it here.
+    expect(screen.getByText(/Site visit taxi/)).toBeInTheDocument();
+    expect(screen.getByText("via Expense")).toBeInTheDocument();
+    // DSR-form expense (4200) + standalone (350) = 4550.
+    expect(screen.getByText(/4,550/)).toBeInTheDocument();
   });
 
   it("calls notFound() for a report ID that doesn't exist", async () => {

@@ -23,7 +23,7 @@ import {
   TruckIcon,
   UserIcon,
 } from "@azentisfieldos/ui";
-import { stockStatus, useStock, withStockMeta } from "../../../../lib/use-site-stock";
+import { stockStatus, useGodownStock, useStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { useClientValidation } from "../../../../lib/use-client-validation";
 import { requireOriginal } from "../../../../lib/require-original";
 import { usePreventFormResetOnError } from "../../../../lib/use-prevent-form-reset-on-error";
@@ -84,8 +84,10 @@ export function MovementForm({
   mode: "new" | "correct";
   /** Story 5.4: SITE_TO_SITE reuses this same form/schema/service with a
    * Source Site picker instead of an implicit Godown source — not a
-   * duplicated field list (AD-7). */
-  kind?: "GODOWN_TO_SITE" | "SITE_TO_SITE";
+   * duplicated field list (AD-7). SITE_TO_GODOWN (2026-09-22) reuses it
+   * again: a Source Site picker, same as SITE_TO_SITE, but no Destination
+   * Site picker at all — the destination is implicitly the Godown. */
+  kind?: "GODOWN_TO_SITE" | "SITE_TO_SITE" | "SITE_TO_GODOWN";
   correctsId?: string;
   materialSizes: MaterialSizeOption[];
   sites: SiteOption[];
@@ -120,16 +122,25 @@ export function MovementForm({
     kind === "GODOWN_TO_SITE" ? { kind: "godown" } : sourceSiteId ? { kind: "site", siteId: sourceSiteId } : null,
   );
   const sourceKnown = kind === "GODOWN_TO_SITE" || Boolean(sourceSiteId);
+  // SITE_TO_SITE only: a Material with real Godown balance that was simply
+  // never moved to this source Site would otherwise show a bare "No
+  // stock" — indistinguishable from not existing at all (real end-to-end
+  // report, 2026-09-22). Not applicable to GODOWN_TO_SITE, whose source
+  // already IS the Godown.
+  const godownStockForElsewhere = useGodownStock(kind === "SITE_TO_SITE");
+  const elsewhereGodown =
+    kind === "SITE_TO_SITE" ? { label: "Godown", stock: godownStockForElsewhere } : undefined;
   const materialOptions = useMemo(() => {
     const base = materialSizes.map((m) => ({ value: m.id, label: m.label, description: m.description }));
-    return sourceKnown ? withStockMeta(base, sourceStock) : base;
-  }, [materialSizes, sourceKnown, sourceStock]);
+    return sourceKnown ? withStockMeta(base, sourceStock, elsewhereGodown) : base;
+  }, [materialSizes, sourceKnown, sourceStock, elsewhereGodown]);
   const stock = sourceKnown
     ? stockStatus({
         stock: sourceStock,
         materialSizeId: materialSizeId || null,
         quantity: mode === "new" ? sentQuantity : undefined,
         location: sourceLocation,
+        elsewhere: elsewhereGodown,
       })
     : undefined;
   // Restate the picked Material's unit on the quantity label so "50" is
@@ -161,7 +172,7 @@ export function MovementForm({
       ) : null}
 
       <Card className="mb-4">
-        {kind === "SITE_TO_SITE" ? (
+        {kind === "SITE_TO_SITE" || kind === "SITE_TO_GODOWN" ? (
           mode === "correct" ? (
             <>
               <SelectField
@@ -206,7 +217,9 @@ export function MovementForm({
           placeholder="Type a Material name…"
           hint={
             stock?.text ??
-            (kind === "SITE_TO_SITE" && !sourceSiteId ? "Pick a Source Site to see its available stock" : undefined)
+            ((kind === "SITE_TO_SITE" || kind === "SITE_TO_GODOWN") && !sourceSiteId
+              ? "Pick a Source Site to see its available stock"
+              : undefined)
           }
           hintTone={stock?.tone}
           emptyMessage="No matching Material"
@@ -216,7 +229,7 @@ export function MovementForm({
         />
         <input type="hidden" name="materialSizeId" value={materialSizeId} />
 
-        {mode === "correct" ? (
+        {kind === "SITE_TO_GODOWN" ? null : mode === "correct" ? (
           <>
             <SelectField
               label="Destination Site"
@@ -317,7 +330,15 @@ export function MovementForm({
       ) : null}
 
       <SubmitButton
-        label={mode === "correct" ? "Submit Correction" : kind === "SITE_TO_SITE" ? "Record Material Transfer" : "Record Material Movement"}
+        label={
+          mode === "correct"
+            ? "Submit Correction"
+            : kind === "SITE_TO_SITE"
+              ? "Transfer Site to Site"
+              : kind === "SITE_TO_GODOWN"
+                ? "Site to Godown"
+                : "Godown to Site"
+        }
         correcting={mode === "correct"}
       />
 

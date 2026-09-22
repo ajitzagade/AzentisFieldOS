@@ -165,7 +165,7 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getAllByText(/No Material Purchases, Movements, Consumption, or Wastage\/Return recorded yet\./)).toHaveLength(2);
+    expect(screen.getAllByText(/No Material Purchases, Movements, Material Used, or Wastage\/Return recorded yet\./)).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: /Record your first Material Purchase/ })[0]).toHaveAttribute("href", "/movements/purchases/new");
   });
 
@@ -175,10 +175,10 @@ describe("MovementsPage", () => {
     await renderMovementsPage();
 
     expect(screen.getByRole("link", { name: /Record Material Purchase/ })).toHaveAttribute("href", "/movements/purchases/new");
-    expect(screen.getByRole("link", { name: /Record Material Movement/ })).toHaveAttribute("href", "/movements/godown-to-site/new");
+    expect(screen.getByRole("link", { name: /^Godown to Site$/ })).toHaveAttribute("href", "/movements/godown-to-site/new");
     expect(screen.getByRole("link", { name: /Direct Vendor → Site/ })).toHaveAttribute("href", "/movements/vendor-to-site/new");
-    expect(screen.getByRole("link", { name: /Record Material Transfer/ })).toHaveAttribute("href", "/movements/site-to-site/new");
-    expect(screen.getByRole("link", { name: /Record Material Consumption/ })).toHaveAttribute("href", "/movements/consumption/new");
+    expect(screen.getByRole("link", { name: /Transfer Site to Site/ })).toHaveAttribute("href", "/movements/site-to-site/new");
+    expect(screen.getByRole("link", { name: /Record Material Used/ })).toHaveAttribute("href", "/movements/consumption/new");
     expect(screen.getByRole("link", { name: /Record Material Wastage \/ Return/ })).toHaveAttribute("href", "/movements/return-wastage/new");
   });
 
@@ -202,7 +202,7 @@ describe("MovementsPage", () => {
     await renderMovementsPage();
 
     const table = within(screen.getByRole("table"));
-    expect(table.getByText("Consumption")).toBeInTheDocument();
+    expect(table.getByText("Used")).toBeInTheDocument();
     expect(table.getByText("RCC Pipe (600mm)")).toBeInTheDocument();
     expect(table.getByText("Sector 12 Metro Depot")).toBeInTheDocument();
     expect(table.getByText("6 Pcs")).toBeInTheDocument();

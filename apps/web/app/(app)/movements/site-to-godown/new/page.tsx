@@ -30,10 +30,11 @@ async function getMaterials(): Promise<MaterialListItem[]> {
   return res.json();
 }
 
-// FR-11: Movement.kind = SITE_TO_SITE against the exact same Movement
-// model/schema/service/form Story 5.2 built for GODOWN_TO_SITE — not a
-// new transaction type (Story 5.4 Dev Notes).
-export default async function NewSiteToSiteTransferPage({
+// Site to Godown (2026-09-22): returning excess/unused material from a Site
+// back to the central Godown — Movement.kind = SITE_TO_GODOWN against the
+// exact same Movement model/schema/service/form GODOWN_TO_SITE and
+// SITE_TO_SITE already use, not a new transaction type (AD-7).
+export default async function NewSiteToGodownPage({
   searchParams,
 }: {
   searchParams?: Promise<{ materialSizeId?: string; sourceSiteId?: string }>;
@@ -53,9 +54,6 @@ export default async function NewSiteToSiteTransferPage({
     })),
   );
 
-  // Story 16.3: the Material-availability page deep-links here with the
-  // exact Material Size and source Site already known — this page had no
-  // prefill support at all before this story.
   const prefillMaterialSizeId = materialSizes.some((m) => m.id === materialSizeId) ? materialSizeId : undefined;
   const prefillSourceSiteId = sites.some((s) => s.id === sourceSiteId) ? sourceSiteId : undefined;
   const initial =
@@ -65,10 +63,10 @@ export default async function NewSiteToSiteTransferPage({
 
   return (
     <div className="max-w-160">
-      <h1 className="mb-6 text-page-title text-ink-900">Transfer Site to Site</h1>
+      <h1 className="mb-6 text-page-title text-ink-900">Site to Godown</h1>
       <MovementForm
         mode="new"
-        kind="SITE_TO_SITE"
+        kind="SITE_TO_GODOWN"
         materialSizes={materialSizes}
         sites={sites}
         initial={initial}

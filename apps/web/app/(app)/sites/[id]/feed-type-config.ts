@@ -27,7 +27,7 @@ export const FEED_TYPE_CONFIG: Record<
   DSR: { label: "Report", icon: ClipboardIcon, badgeVariant: "neutral" },
   MOVEMENT: { label: "Movement", icon: ArrowsIcon, badgeVariant: "neutral" },
   PURCHASE: { label: "Purchase", icon: BoxIcon, badgeVariant: "gold" },
-  CONSUMPTION: { label: "Consumption", icon: BoxIcon, badgeVariant: "neutral" },
+  CONSUMPTION: { label: "Used", icon: BoxIcon, badgeVariant: "neutral" },
   RETURN_WASTAGE: { label: "Return/Wastage", icon: ArrowsIcon, badgeVariant: "neutral" },
   WORK_RECORD: { label: "Work Record", icon: UsersIcon, badgeVariant: "neutral" },
   EXPENSE: { label: "Expense", icon: ReceiptIcon, badgeVariant: "gold" },

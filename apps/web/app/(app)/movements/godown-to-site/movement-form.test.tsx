@@ -18,7 +18,7 @@ describe("MovementForm", () => {
     expect(screen.getByLabelText("Material / Size")).toBeInTheDocument();
     expect(screen.getByLabelText("Destination Site")).toBeInTheDocument();
     expect(screen.getByLabelText("Sent Quantity")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Record Material Movement" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Godown to Site" })).toBeInTheDocument();
   });
 
   it("uses the searchable Site picker for the Destination Site in new mode, and marks quantity for the decimal keyboard", () => {
@@ -80,11 +80,11 @@ describe("MovementForm", () => {
     expect(document.querySelector('input[name="sentQuantity"]')).toHaveValue("-20");
   });
 
-  it("Story 5.4: with kind='SITE_TO_SITE', shows a Source Site picker and labels the submit button Record Transfer", () => {
+  it("Story 5.4: with kind='SITE_TO_SITE', shows a Source Site picker and labels the submit button Transfer Site to Site", () => {
     render(<MovementForm mode="new" kind="SITE_TO_SITE" materialSizes={materialSizes} sites={sites} />);
 
     expect(screen.getByLabelText("Source Site")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Record Material Transfer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Transfer Site to Site" })).toBeInTheDocument();
   });
 
   it("submits Source and Destination Sites under distinct field names for a SITE_TO_SITE transfer", () => {

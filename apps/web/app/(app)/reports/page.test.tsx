@@ -247,7 +247,7 @@ describe("ReportsPage — Site & Inventory report tabs (Story 13.2)", () => {
     expect(screen.getByText("Low-stock Alerts")).toBeInTheDocument();
     expect(screen.getByText("Current Stock")).toBeInTheDocument();
     expect(screen.getByText("Transaction History")).toBeInTheDocument();
-    expect(screen.getAllByText("Consumption")).toHaveLength(2);
+    expect(screen.getAllByText("Used")).toHaveLength(2);
     expect(screen.getAllByText("Cement (50kg)")).toHaveLength(2);
     expect(inventoryUrl).toContain("siteId=site1");
     expect(inventoryUrl).toContain("materialId=mat1");

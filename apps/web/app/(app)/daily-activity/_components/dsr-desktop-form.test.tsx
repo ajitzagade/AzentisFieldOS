@@ -37,6 +37,7 @@ vi.mock("@/lib/use-dsr-reference-data", () => ({
 
 vi.mock("@/lib/use-site-stock", () => ({
   useSiteStock: () => ({ bySizeId: new Map(), loading: false }),
+  useGodownStock: () => ({ bySizeId: new Map(), loading: false }),
   stockStatus: () => null,
   withStockMeta: (options: unknown) => options,
 }));

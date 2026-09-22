@@ -87,6 +87,23 @@ describe("SitePhotoGalleryTabs", () => {
     expect(pushMock).toHaveBeenCalledWith("/sites/site-1/photos/print?ids=p1&layout=4");
   });
 
+  // Regression (2026-09-22): the layout dropdown used to stay visibly open
+  // after choosing a layout (only unmounting once the route transition
+  // finished), inviting a confusing second click.
+  it("closes the layout dropdown immediately after choosing a layout", async () => {
+    const user = userEvent.setup();
+    render(<SitePhotoGalleryTabs siteId="site-1" photos={[makePhoto({ id: "p1", reportDate: "2026-08-10" })]} />);
+
+    await user.click(screen.getByRole("button", { name: "Select to print" }));
+    await user.click(screen.getByRole("button", { name: /Select photo from 10\/Aug\/2026/ }));
+    await user.click(screen.getByRole("button", { name: "Print" }));
+    expect(screen.getByRole("button", { name: "2 per page" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "2 per page" }));
+
+    expect(screen.queryByRole("button", { name: "2 per page" })).not.toBeInTheDocument();
+  });
+
   it("does not show the Print trigger until at least one photo is selected", async () => {
     const user = userEvent.setup();
     render(<SitePhotoGalleryTabs siteId="site-1" photos={[makePhoto({ id: "p1" })]} />);

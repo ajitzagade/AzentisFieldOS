@@ -69,7 +69,7 @@ export default async function NewMovementPage({
 
   return (
     <div className="max-w-160">
-      <h1 className="mb-6 text-page-title text-ink-900">Record Godown → Site Material Movement</h1>
+      <h1 className="mb-6 text-page-title text-ink-900">Godown to Site</h1>
       <MovementForm mode="new" materialSizes={materialSizes} sites={sites} initial={initial} teamNames={teamNames} />
     </div>
   );

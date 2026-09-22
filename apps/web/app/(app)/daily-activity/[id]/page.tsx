@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import type { DsrEquipmentUsed, FeedItem } from "@azentisfieldos/shared";
-import { AlertTriangleIcon, Badge, Card, RotateCcwIcon, buttonVariants, cn } from "@azentisfieldos/ui";
+import { AlertTriangleIcon, Badge, Card, PhotoThumbnail, RotateCcwIcon, buttonVariants, cn } from "@azentisfieldos/ui";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { FEED_TYPE_CONFIG } from "../../sites/[id]/feed-type-config";
 
@@ -103,6 +103,14 @@ interface StandaloneWasteRowDetail {
   totalAmount: number | null;
 }
 
+interface StandaloneExpenseRowDetail {
+  id: string;
+  occurredAt: string;
+  categoryName: string;
+  description: string | null;
+  amount: number;
+}
+
 interface DsrDetail {
   id: string;
   site: { id: string; name: string };
@@ -151,6 +159,7 @@ interface DsrDetail {
   standaloneRmcEntries: StandaloneRmcRowDetail[];
   standaloneWasteDisposals: StandaloneWasteRowDetail[];
   standaloneWastageReturns: WastageReturnRowDetail[];
+  standaloneExpenses: StandaloneExpenseRowDetail[];
 }
 
 async function getDsrDetail(id: string): Promise<DsrDetail | null> {
@@ -193,7 +202,13 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
   }
 
   const presentCount = dsr.workRecords.filter((w) => w.attended).length;
-  const expensesTotal = dsr.expenses.reduce((sum, e) => sum + e.amount, 0);
+  // Auto-sync Expenses (2026-09-22): a standalone Expense (the /expenses
+  // module, not this DSR's own form) counts toward the same total — the
+  // whole point being the Owner sees one true figure without the
+  // Supervisor re-entering it here.
+  const expensesTotal =
+    dsr.expenses.reduce((sum, e) => sum + e.amount, 0) +
+    dsr.standaloneExpenses.reduce((sum, e) => sum + e.amount, 0);
   const subcontractorEntries = dsr.subcontractorEntries ?? [];
   const labourEntries = dsr.labourEntries ?? [];
   const subcontractorNames =
@@ -303,7 +318,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
         </Card>
 
         <Card>
-          <h2 className="mb-3 text-card-title text-ink-900">Materials consumed</h2>
+          <h2 className="mb-3 text-card-title text-ink-900">Materials Used</h2>
           {dsr.consumptions.length === 0 && dsr.standaloneConsumptions.length === 0 ? (
             <p className="text-body-sm text-ink-500">No materials logged for this report.</p>
           ) : (
@@ -320,7 +335,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                 <li key={`standalone-${c.id}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
                   <span>
                     {c.materialName} ({c.sizeLabel}){" "}
-                    <span className="text-caption text-ink-500">via Consumption</span>
+                    <span className="text-caption text-ink-500">via Material Used</span>
                   </span>
                   <span className="text-ink-500">{c.quantity}</span>
                 </li>
@@ -497,17 +512,25 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
         <Card>
           <h2 className="mb-3 text-card-title text-ink-900">
             Expenses{" "}
-            {dsr.expenses.length > 0 ? (
+            {dsr.expenses.length > 0 || dsr.standaloneExpenses.length > 0 ? (
               <span className="font-semibold text-gold-700">— ₹{expensesTotal.toLocaleString("en-IN")}</span>
             ) : null}
           </h2>
-          {dsr.expenses.length === 0 ? (
+          {dsr.expenses.length === 0 && dsr.standaloneExpenses.length === 0 ? (
             <p className="text-body-sm text-ink-500">No expenses logged for this report.</p>
           ) : (
             <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
               {dsr.expenses.map((e) => (
-                <li key={e.id} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                <li key={`dsr-${e.id}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
                   <span>{e.description ?? e.category.name}</span>
+                  <span className="font-semibold text-gold-700">₹{e.amount.toLocaleString("en-IN")}</span>
+                </li>
+              ))}
+              {dsr.standaloneExpenses.map((e) => (
+                <li key={`standalone-${e.id}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                  <span>
+                    {e.description ?? e.categoryName} <span className="text-caption text-ink-500">via Expense</span>
+                  </span>
                   <span className="font-semibold text-gold-700">₹{e.amount.toLocaleString("en-IN")}</span>
                 </li>
               ))}
@@ -523,15 +546,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
               {dsr.photos.map((photo) => (
                 <div key={photo.id} className="aspect-square overflow-hidden rounded-md border border-border-hairline bg-surface-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- a
-                      durable Cloudinary CDN URL, same reasoning as story
-                      3.3's gallery page. */}
-                  <img
-                    src={photo.url}
-                    alt=""
-                    loading="lazy"
-                    className="size-full object-cover"
-                  />
+                  <PhotoThumbnail src={photo.url} alt="" className="size-full object-cover" />
                 </div>
               ))}
             </div>

@@ -22,7 +22,7 @@ import {
   SelectField,
   TextField,
 } from "@azentisfieldos/ui";
-import { stockStatus, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
+import { stockStatus, useGodownStock, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { useClientValidation } from "../../../../lib/use-client-validation";
 import { requireOriginal } from "../../../../lib/require-original";
 import { usePreventFormResetOnError } from "../../../../lib/use-prevent-form-reset-on-error";
@@ -104,16 +104,23 @@ export function ReturnWastageForm({
   const [quantity, setQuantity] = useState("");
   const [materialQuickCreateOpen, setMaterialQuickCreateOpen] = useState(false);
   const siteStock = useSiteStock(siteId || null);
+  // A Material with real Godown balance that was simply never moved/
+  // purchased to this Site would otherwise show a bare "No stock" —
+  // indistinguishable from not existing at all (real end-to-end report,
+  // 2026-09-22).
+  const godownStock = useGodownStock();
+  const elsewhereGodown = { label: "Godown", stock: godownStock };
   const materialOptions = useMemo(() => {
     const base = materialSizes.map((m) => ({ value: m.id, label: m.label, description: m.description }));
-    return siteId ? withStockMeta(base, siteStock) : base;
-  }, [materialSizes, siteId, siteStock]);
+    return siteId ? withStockMeta(base, siteStock, elsewhereGodown) : base;
+  }, [materialSizes, siteId, siteStock, godownStock]);
   const stock = siteId
     ? stockStatus({
         stock: siteStock,
         materialSizeId: materialSizeId || null,
         quantity: mode === "new" ? quantity : undefined,
         location: "this Site",
+        elsewhere: elsewhereGodown,
       })
     : undefined;
   // Restate the picked Material's unit on the quantity label so "50" is
