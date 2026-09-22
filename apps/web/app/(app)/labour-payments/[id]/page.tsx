@@ -1,5 +1,4 @@
 import { authedFetch } from "@/lib/api";
-import { currentRole } from "@/lib/current-role";
 import { notFound } from "next/navigation";
 import { LabourerDetailClient, type WeeklyPaymentLedgerRow } from "./_components/labourer-detail-client";
 import type { AdvanceOption } from "./_components/weekly-payment-form-modal";
@@ -53,16 +52,10 @@ export default async function LabourerDetailPage({ params }: { params: Promise<{
   if (!labourer) {
     notFound();
   }
-  const [role, sites, advances, ledger] = await Promise.all([
-    currentRole(),
-    getSites(),
-    getAdvances(id),
-    getLedger(id),
-  ]);
+  const [sites, advances, ledger] = await Promise.all([getSites(), getAdvances(id), getLedger(id)]);
 
   return (
     <LabourerDetailClient
-      role={role}
       labourerId={labourer.id}
       labourerName={labourer.name}
       category={labourer.category}

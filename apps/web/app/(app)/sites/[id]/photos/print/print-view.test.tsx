@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PhotoGalleryItem } from "@azentisfieldos/shared";
 import { PhotoPrintView } from "./print-view";
@@ -29,17 +29,27 @@ describe("PhotoPrintView", () => {
     window.print = originalPrint;
   });
 
-  it("triggers the native print dialog once on mount when there are photos", () => {
-    render(
+  it("waits for every photo to finish loading before triggering the native print dialog", async () => {
+    const { container } = render(
       <PhotoPrintView
         siteId="site-1"
         siteName="NH-48"
-        photos={[makePhoto({ id: "p1" })]}
-        layout={1}
+        photos={[makePhoto({ id: "p1" }), makePhoto({ id: "p2" })]}
+        layout={2}
       />,
     );
+    const images = container.querySelectorAll("img");
+    expect(images).toHaveLength(2);
 
-    expect(window.print).toHaveBeenCalledTimes(1);
+    // Regression (2026-09-22): printing used to fire immediately on mount,
+    // before the Cloudinary <img> tags had actually loaded — the print
+    // preview/PDF then captured them as blank boxes.
+    expect(window.print).not.toHaveBeenCalled();
+    fireEvent.load(images[0]!);
+    expect(window.print).not.toHaveBeenCalled();
+
+    fireEvent.load(images[1]!);
+    await waitFor(() => expect(window.print).toHaveBeenCalledTimes(1));
   });
 
   it("does not trigger print automatically when nothing was selected", () => {
@@ -60,7 +70,7 @@ describe("PhotoPrintView", () => {
     );
 
     // 3 photos at 2-per-page = 2 page groups.
-    const pageGroups = container.querySelectorAll(":scope > div > div.grid");
+    const pageGroups = container.querySelectorAll("div.grid");
     expect(pageGroups).toHaveLength(2);
     expect(container.querySelectorAll("img")).toHaveLength(3);
     expect(screen.getByText(/NH-48 · 10\/Aug\/2026/)).toBeInTheDocument();
@@ -70,9 +80,12 @@ describe("PhotoPrintView", () => {
   it("re-triggers printing from the manual Print button", async () => {
     const { default: userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup();
-    render(<PhotoPrintView siteId="site-1" siteName="NH-48" photos={[makePhoto({ id: "p1" })]} layout={1} />);
+    const { container } = render(
+      <PhotoPrintView siteId="site-1" siteName="NH-48" photos={[makePhoto({ id: "p1" })]} layout={1} />,
+    );
+    fireEvent.load(container.querySelector("img")!);
+    await waitFor(() => expect(window.print).toHaveBeenCalledTimes(1));
 
-    expect(window.print).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole("button", { name: "Print" }));
 
     expect(window.print).toHaveBeenCalledTimes(2);

@@ -82,7 +82,7 @@ describe("SitePhotosPrintPage", () => {
     const { container } = await renderPrintPage("site-1", { ids: "p1,p2", layout: "9" });
 
     // layout=1 -> one photo per page group -> 2 distinct grid groups.
-    const pageGroups = container.querySelectorAll(":scope > div > div.grid");
+    const pageGroups = container.querySelectorAll("div.grid");
     expect(pageGroups).toHaveLength(2);
   });
 

@@ -27,7 +27,6 @@ const sites = [{ id: "site-1", name: "NH-48" }];
 function renderClient(overrides: Partial<Parameters<typeof LabourerDetailClient>[0]> = {}) {
   return render(
     <LabourerDetailClient
-      role="OWNER_ADMIN"
       labourerId="l1"
       labourerName="Ramesh Kumar"
       category="Mason"
@@ -70,24 +69,9 @@ describe("LabourerDetailClient", () => {
     );
   });
 
-  it("shows Make Payment only for OWNER_ADMIN, not SITE_SUPERVISOR", async () => {
-    const { rerender } = renderClient({ role: "OWNER_ADMIN" });
+  it("shows Make Payment regardless of role — both roles manage Labour Payment end to end", async () => {
+    renderClient();
     expect(screen.getByRole("button", { name: /Make Payment/ })).toBeInTheDocument();
-
-    rerender(
-      <LabourerDetailClient
-        role="SITE_SUPERVISOR"
-        labourerId="l1"
-        labourerName="Ramesh Kumar"
-        category="Mason"
-        defaultPerDayAmount={800}
-        outstandingBalance={500}
-        sites={sites}
-        advances={[]}
-        ledger={[]}
-      />,
-    );
-    expect(screen.queryByRole("button", { name: /Make Payment/ })).not.toBeInTheDocument();
   });
 
   it("opens the attendance modal for a day with no existing entry, pre-filled with that date", async () => {

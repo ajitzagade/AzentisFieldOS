@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import type { PhotoGalleryItem } from "@azentisfieldos/shared";
 import { Button, PhotoThumbnail, PrinterIcon, cn } from "@azentisfieldos/ui";
@@ -49,8 +49,38 @@ export function PhotoPrintView({
   photos: PhotoGalleryItem[];
   layout: number;
 }) {
+  const pageContainerRef = useRef<HTMLDivElement>(null);
+
+  // Bug (2026-09-22): auto-printing the instant this mounted fired
+  // window.print() while the Cloudinary <img> tags were still fetching, so
+  // the browser's print preview/PDF captured them as blank boxes — clicking
+  // the manual "Print" button below worked because by then the images had
+  // already finished loading in the page itself. Wait for every photo in
+  // this print run to actually load (or fail) before printing.
   useEffect(() => {
-    if (photos.length > 0) window.print();
+    if (photos.length === 0) return;
+    const container = pageContainerRef.current;
+    if (!container) return;
+    const images = Array.from(container.querySelectorAll("img"));
+    let cancelled = false;
+    Promise.all(
+      images.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete) {
+              resolve();
+              return;
+            }
+            img.addEventListener("load", () => resolve(), { once: true });
+            img.addEventListener("error", () => resolve(), { once: true });
+          }),
+      ),
+    ).then(() => {
+      if (!cancelled) window.print();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [photos.length]);
 
   const pages = chunk(photos, layout);
@@ -84,20 +114,22 @@ export function PhotoPrintView({
       {photos.length === 0 ? (
         <p className="print:hidden text-body-sm text-ink-500">No photos selected.</p>
       ) : (
-        pages.map((pagePhotos, pageIndex) => (
-          <div
-            key={pageIndex}
-            className={cn(
-              "mb-6 grid gap-2 print:mb-0 print:gap-1 print:break-after-page last:print:break-after-auto",
-              PAGE_HEIGHT_CLASS,
-              GRID_CLASS[layout] ?? GRID_CLASS[1],
-            )}
-          >
-            {pagePhotos.map((photo) => (
-              <PhotoCell key={photo.id} siteName={siteName} photo={photo} />
-            ))}
-          </div>
-        ))
+        <div ref={pageContainerRef}>
+          {pages.map((pagePhotos, pageIndex) => (
+            <div
+              key={pageIndex}
+              className={cn(
+                "mb-6 grid gap-2 print:mb-0 print:gap-1 print:break-after-page last:print:break-after-auto",
+                PAGE_HEIGHT_CLASS,
+                GRID_CLASS[layout] ?? GRID_CLASS[1],
+              )}
+            >
+              {pagePhotos.map((photo) => (
+                <PhotoCell key={photo.id} siteName={siteName} photo={photo} />
+              ))}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

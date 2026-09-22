@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ROLES_KEY } from '../auth/roles.decorator';
 import { DailyLabourWeeklyPaymentsController } from './daily-labour-weekly-payments.controller';
 import { DailyLabourWeeklyPaymentsService } from './daily-labour-weekly-payments.service';
 
@@ -23,17 +22,6 @@ describe('DailyLabourWeeklyPaymentsController', () => {
     controller = module.get<DailyLabourWeeklyPaymentsController>(
       DailyLabourWeeklyPaymentsController,
     );
-  });
-
-  // Money-movement settlement is the boundary this module's Owner-gating
-  // depends on — pin the metadata so deleting the decorator fails a test,
-  // same convention as purchases.controller.spec's completePricing check.
-  it('create is restricted to OWNER_ADMIN via @Roles metadata', () => {
-    const roles = Reflect.getMetadata(
-      ROLES_KEY,
-      DailyLabourWeeklyPaymentsController.prototype.create,
-    ) as string[] | undefined;
-    expect(roles).toEqual(['OWNER_ADMIN']);
   });
 
   it('create delegates to the service', async () => {

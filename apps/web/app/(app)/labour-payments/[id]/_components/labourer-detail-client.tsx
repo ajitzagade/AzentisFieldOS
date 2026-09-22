@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Role } from "@azentisfieldos/shared";
 import { Badge, Button, ChevronRightIcon, PlusIcon, WalletIcon } from "@azentisfieldos/ui";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useAuthedFetch } from "@/lib/use-authed-fetch";
@@ -42,7 +41,6 @@ function toNum(value: unknown): number {
 }
 
 export function LabourerDetailClient({
-  role,
   labourerId,
   labourerName,
   category,
@@ -52,7 +50,6 @@ export function LabourerDetailClient({
   advances,
   ledger,
 }: {
-  role: Role;
   labourerId: string;
   labourerName: string;
   category: string;
@@ -142,12 +139,10 @@ export function LabourerDetailClient({
               <ChevronRightIcon className="size-4" />
             </Button>
           </div>
-          {role === "OWNER_ADMIN" ? (
-            <Button type="button" onClick={() => setPaymentModalOpen(true)}>
-              <WalletIcon className="size-4" />
-              Make Payment
-            </Button>
-          ) : null}
+          <Button type="button" onClick={() => setPaymentModalOpen(true)}>
+            <WalletIcon className="size-4" />
+            Make Payment
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-7">
@@ -239,22 +234,20 @@ export function LabourerDetailClient({
         />
       ) : null}
 
-      {role === "OWNER_ADMIN" ? (
-        <WeeklyPaymentFormModal
-          open={paymentModalOpen}
-          onOpenChange={setPaymentModalOpen}
-          labourerId={labourerId}
-          weekStartDate={weekStart}
-          weekLabel={`${formatDate(weekStart)} – ${formatDate(weekEnd)}`}
-          totalEarned={totalEarnedThisWeek}
-          outstandingBalance={outstandingBalance}
-          advances={advances}
-          onSuccess={() => {
-            setPaymentModalOpen(false);
-            refreshAfterSave();
-          }}
-        />
-      ) : null}
+      <WeeklyPaymentFormModal
+        open={paymentModalOpen}
+        onOpenChange={setPaymentModalOpen}
+        labourerId={labourerId}
+        weekStartDate={weekStart}
+        weekLabel={`${formatDate(weekStart)} – ${formatDate(weekEnd)}`}
+        totalEarned={totalEarnedThisWeek}
+        outstandingBalance={outstandingBalance}
+        advances={advances}
+        onSuccess={() => {
+          setPaymentModalOpen(false);
+          refreshAfterSave();
+        }}
+      />
     </div>
   );
 }
