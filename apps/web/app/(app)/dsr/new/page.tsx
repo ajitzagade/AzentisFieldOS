@@ -1400,7 +1400,7 @@ function NewDsrForm() {
                     onChange={(e) => setConsumptions((rows) => rows.map((r, i) => (i === index ? { ...r, quantity: e.target.value } : r)))}
                   />
                 </div>
-                <div className="sm:col-span-2 sm:self-end sm:justify-self-end">
+                <div className="sm:col-span-12 flex sm:justify-end">
                   <Button type="button" variant="ghost" onClick={() => setConsumptions((rows) => rows.filter((_, i) => i !== index))}>
                     Remove
                   </Button>
@@ -1479,7 +1479,7 @@ function NewDsrForm() {
                   onChange={(e) => setRmcEntries((rows) => rows.map((r, i) => (i === index ? { ...r, ratePerM3: e.target.value } : r)))}
                 />
               </div>
-              <div className="sm:col-span-1 sm:self-end sm:justify-self-end">
+              <div className="sm:col-span-12 flex sm:justify-end">
                 <Button type="button" variant="ghost" onClick={() => setRmcEntries((rows) => rows.filter((_, i) => i !== index))}>
                   Remove
                 </Button>
@@ -1533,7 +1533,7 @@ function NewDsrForm() {
                   onChange={(e) => setExpenses((rows) => rows.map((r, i) => (i === index ? { ...r, description: e.target.value } : r)))}
                 />
               </div>
-              <div className="sm:col-span-2 sm:self-end sm:justify-self-end">
+              <div className="sm:col-span-12 flex sm:justify-end">
                 <Button type="button" variant="ghost" onClick={() => setExpenses((rows) => rows.filter((_, i) => i !== index))}>
                   Remove
                 </Button>
@@ -1757,7 +1757,7 @@ function NewDsrForm() {
                               { value: "PARTIAL", label: "Partial" },
                               { value: "PAID", label: "Paid" },
                             ]
-                          : [{ value: "", label: "— (pricing pending)" }]
+                          : [{ value: "", label: "—" }]
                       }
                     />
                   </div>
@@ -1791,7 +1791,7 @@ function NewDsrForm() {
                     onChange={(e) => setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, notes: e.target.value } : r)))}
                   />
                 </div>
-                <div className="sm:col-span-2 sm:self-end sm:justify-self-end">
+                <div className="sm:col-span-12 flex sm:justify-end">
                   <Button type="button" variant="ghost" onClick={() => setWasteEntries((rows) => rows.filter((_, i) => i !== index))}>
                     Remove
                   </Button>
@@ -1914,7 +1914,7 @@ function NewDsrForm() {
                   }
                 />
               </div>
-              <div className="sm:col-span-2 sm:self-end sm:justify-self-end">
+              <div className="sm:col-span-12 flex sm:justify-end">
                 <Button type="button" variant="ghost" onClick={() => setSubcontractorEntries((rows) => rows.filter((_, i) => i !== index))}>
                   Remove
                 </Button>
@@ -1974,7 +1974,7 @@ function NewDsrForm() {
               <div className="sm:col-span-2 text-body-sm text-ink-500 sm:mt-6">
                 Total: {(Number(row.men) || 0) + (Number(row.women) || 0)}
               </div>
-              <div className="sm:col-span-1 sm:self-end sm:justify-self-end">
+              <div className="sm:col-span-12 flex sm:justify-end">
                 <Button type="button" variant="ghost" onClick={() => setLabourEntries((rows) => rows.filter((_, i) => i !== index))}>
                   Remove
                 </Button>

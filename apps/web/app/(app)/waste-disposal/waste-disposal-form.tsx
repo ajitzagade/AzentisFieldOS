@@ -417,7 +417,7 @@ export function WasteDisposalForm({
                     { value: "PARTIAL", label: "Partial" },
                     { value: "PAID", label: "Paid" },
                   ]
-                : [{ value: "", label: "— (pricing pending)" }]
+                : [{ value: "", label: "—" }]
             }
             error={fieldError("paymentStatus")}
           />
