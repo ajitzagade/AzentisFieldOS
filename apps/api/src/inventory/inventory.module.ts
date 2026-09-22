@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { StorageModule } from '../storage/storage.module';
 import { PurchasesController } from './purchases.controller';
 import { PurchasesService } from './purchases.service';
 import { MovementsController } from './movements.controller';
@@ -13,6 +14,7 @@ import { MovementsLogController } from './movements-log.controller';
 import { MovementsLogService } from './movements-log.service';
 
 @Module({
+  imports: [StorageModule],
   controllers: [
     PurchasesController,
     MovementsController,

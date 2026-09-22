@@ -1,14 +1,18 @@
-import { Body, Controller, Post, UsePipes } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards, UsePipes } from '@nestjs/common';
 import {
   confirmPhotoUploadSchema,
   presignPhotoUploadSchema,
+  presignPurchaseBillUploadSchema,
   presignSitePhotoUploadSchema,
   type ConfirmPhotoUploadInput,
   type PresignPhotoUploadInput,
+  type PresignPurchaseBillUploadInput,
   type PresignSitePhotoUploadInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { StorageService } from './storage.service';
 
 @Controller('photos')
@@ -24,6 +28,17 @@ export class StorageController {
   @Post('challan/presign')
   presignChallan() {
     return this.storageService.presignChallanUpload();
+  }
+
+  // Attach Bill (2026-09-22): Owner/Admin only, same reasoning as the
+  // confirm step below — a bill is optional record-keeping, but attaching
+  // one is still a write a Supervisor shouldn't be able to trigger.
+  @Post('purchase-bill/presign')
+  @UseGuards(RolesGuard)
+  @Roles('OWNER_ADMIN')
+  @UsePipes(new ZodValidationPipe(presignPurchaseBillUploadSchema))
+  presignPurchaseBill(@Body() body: PresignPurchaseBillUploadInput) {
+    return this.storageService.presignPurchaseBillUpload(body);
   }
 
   // Direct-to-Site upload (2026-09-20) — a photo captured but not uploaded

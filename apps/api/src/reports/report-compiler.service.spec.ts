@@ -37,6 +37,7 @@ function makeService(
     rmcEntry: { findMany: vi.fn().mockResolvedValue([]) },
     wasteDisposal: { findMany: vi.fn().mockResolvedValue([]) },
     returnWastage: { findMany: vi.fn().mockResolvedValue([]) },
+    expense: { findMany: vi.fn().mockResolvedValue([]) },
   };
   const service = new ReportCompilerService(
     prisma as unknown as ConstructorParameters<typeof ReportCompilerService>[0],
@@ -157,6 +158,15 @@ describe('ReportCompilerService.buildContent', () => {
       ],
       standaloneWasteDisposals: [],
       standaloneWastageReturns: [],
+      standaloneExpenses: [
+        {
+          id: 'expense1',
+          occurredAt: '2026-08-11T11:00:00.000Z',
+          categoryName: 'Fuel',
+          description: 'Diesel top-up',
+          amount: 500,
+        },
+      ],
     });
 
     expect(content.materialsReceived).toEqual([
@@ -173,6 +183,10 @@ describe('ReportCompilerService.buildContent', () => {
       totalQuantityM3: 16,
       grades: ['M25', 'M30'],
     });
+    // Auto-sync Expenses (2026-09-22): the DSR-form expense (18600, from
+    // makeDsr()'s own fixture) and the standalone one (500) both count —
+    // the whole point being the Owner sees one true total for the day.
+    expect(content.expenses).toEqual({ total: 19100 });
   });
 
   // Regression (2026-09-22): a real end-to-end run confirmed a Godown->Site
@@ -217,6 +231,7 @@ describe('ReportCompilerService.buildContent', () => {
       standaloneRmcEntries: [],
       standaloneWasteDisposals: [],
       standaloneWastageReturns: [],
+      standaloneExpenses: [],
     });
 
     expect(content.materialsReceived).toEqual([

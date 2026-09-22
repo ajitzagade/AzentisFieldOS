@@ -80,7 +80,7 @@ export function renderReportEmailHtml(content: ReportContent): string {
       `${content.labour.present} of ${content.labour.total}`,
     ),
     row('Materials Received', materialsReceived),
-    row('Materials Consumed', materials),
+    row('Materials Used', materials),
     row('RMC Delivered', rmc),
     row(
       'Expenses Logged',

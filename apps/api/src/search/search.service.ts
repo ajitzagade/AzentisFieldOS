@@ -294,7 +294,7 @@ export class SearchService {
       (movement) => [
         movement.materialSize.material.name,
         movement.sourceSite?.name ?? '',
-        movement.destinationSite.name,
+        movement.destinationSite?.name ?? '',
         movement.notes ?? '',
       ],
     ).slice(0, INLINE_LIMIT);
@@ -500,7 +500,7 @@ export class SearchService {
           id: movement.id,
           materialName: movement.materialSize.material.name,
           sourceSiteName: movement.sourceSite?.name ?? null,
-          destinationSiteName: movement.destinationSite.name,
+          destinationSiteName: movement.destinationSite?.name ?? null,
         })),
         total: movementResult.total,
       },

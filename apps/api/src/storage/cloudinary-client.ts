@@ -26,12 +26,29 @@ export { cloudinary };
 // BrandingConfig.logoUrl, denormalized into every compiled report and rendered
 // as an <img src>) never goes stale. Because we set an explicit `public_id` on
 // upload, this URL is deterministic and can be predicted before the bytes land.
-export function cloudinaryUrl(publicId: string): string {
+function resolveCloudName(): string {
   const cloudName =
-    cloudinary.config().cloud_name ??
-    process.env.CLOUDINARY_CLOUD_NAME ??
-    'cloud';
-  return `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`;
+    cloudinary.config().cloud_name ?? process.env.CLOUDINARY_CLOUD_NAME;
+  if (!cloudName) {
+    // A stored Photo row always outlives the moment it was uploaded — if
+    // this deployment's Cloudinary config is missing or wrong by the time
+    // someone reopens the report, every existing photo silently 404s with
+    // no trace of why (found via a real "broken thumbnail" report,
+    // 2026-09-22). The literal 'cloud' fallback below guarantees exactly
+    // that 404 — logging loudly here is the only way this ever gets
+    // noticed and fixed, since throwing would take down the whole
+    // Daily Report/Photo Gallery response over a single missing image.
+    // eslint-disable-next-line no-console -- deliberate ops-visible diagnostic, not a debug leftover
+    console.error(
+      'Cloudinary is not configured (CLOUDINARY_CLOUD_NAME/CLOUDINARY_URL missing) — every stored photo URL will 404.',
+    );
+    return 'cloud';
+  }
+  return cloudName;
+}
+
+export function cloudinaryUrl(publicId: string): string {
+  return `https://res.cloudinary.com/${resolveCloudName()}/image/upload/${publicId}`;
 }
 
 // A downsized, format-negotiated delivery URL for thumbnail/grid contexts

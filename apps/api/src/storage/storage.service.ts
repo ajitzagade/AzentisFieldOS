@@ -6,6 +6,7 @@ import {
 import type {
   ConfirmPhotoUploadInput,
   PresignPhotoUploadInput,
+  PresignPurchaseBillUploadInput,
   PresignSitePhotoUploadInput,
 } from '@azentisfieldos/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -91,6 +92,23 @@ export class StorageService {
     }
 
     const publicId = `site/${input.siteId}/${crypto.randomUUID()}`;
+    return this.signUpload(publicId, 'jpg,jpeg,png,webp,heic,heif');
+  }
+
+  // Attach Bill (2026-09-22): same sign→POST→confirm flow as presignUpload,
+  // scoped to an existing Purchase instead of a DSR. Owner/Admin-gated at
+  // the controller (this method itself has no side effects — it only
+  // exists so the presign step also 404s on a bad purchaseId rather than
+  // minting a signature for a document that could never be attached).
+  async presignPurchaseBillUpload(input: PresignPurchaseBillUploadInput) {
+    const purchase = await this.prisma.purchase.findUnique({
+      where: { id: input.purchaseId },
+    });
+    if (!purchase) {
+      throw new NotFoundException(`Purchase ${input.purchaseId} not found`);
+    }
+
+    const publicId = `purchase-bill/${input.purchaseId}/${crypto.randomUUID()}`;
     return this.signUpload(publicId, 'jpg,jpeg,png,webp,heic,heif');
   }
 

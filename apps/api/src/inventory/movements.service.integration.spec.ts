@@ -104,6 +104,70 @@ describeIfDb('MovementsService (integration)', () => {
     expect(stock?.quantity.toString()).toBe('70');
   });
 
+  // Regression (2026-09-22): a mandatory separate "Confirm Receipt" step
+  // used to gate every Movement's destination credit, even though it just
+  // re-confirmed the same number entered at creation in the overwhelming
+  // majority of cases (reported directly as unnecessary friction). This is
+  // the replacement contract: create() itself credits the destination
+  // immediately (receivedQuantity = sentQuantity), matching how a Purchase
+  // already credits its destination immediately — no separate row/step.
+  it('immediately credits the destination Site — receivedQuantity = sentQuantity, no pending gate', async () => {
+    await prisma.godownStock.create({
+      data: { materialSizeId, quantity: 100 },
+    });
+
+    const movement = await service.create({
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId,
+      destinationSiteId,
+      sentQuantity: 30,
+      movedAt: '2026-08-13',
+    });
+
+    expect(movement.receivedQuantity?.toString()).toBe('30');
+    const destinationStock = await prisma.siteStock.findUnique({
+      where: {
+        siteId_materialSizeId: { siteId: destinationSiteId, materialSizeId },
+      },
+    });
+    expect(destinationStock?.quantity.toString()).toBe('30');
+  });
+
+  it("a correction's signed delta adjusts both the source (decrement) and destination (increment) together", async () => {
+    await prisma.godownStock.create({
+      data: { materialSizeId, quantity: 100 },
+    });
+    const original = await service.create({
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId,
+      destinationSiteId,
+      sentQuantity: 30,
+      movedAt: '2026-08-13',
+    });
+
+    // Recount: only 25 actually left the Godown / arrived at the Site.
+    await service.create({
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId,
+      destinationSiteId,
+      sentQuantity: -5,
+      movedAt: '2026-08-13',
+      correctsId: original.id,
+      reason: 'Recount: 5 short of the original delivery',
+    });
+
+    const godown = await prisma.godownStock.findUnique({
+      where: { materialSizeId },
+    });
+    expect(godown?.quantity.toString()).toBe('75');
+    const destinationStock = await prisma.siteStock.findUnique({
+      where: {
+        siteId_materialSizeId: { siteId: destinationSiteId, materialSizeId },
+      },
+    });
+    expect(destinationStock?.quantity.toString()).toBe('25');
+  });
+
   it('rejects a Movement that would take GodownStock below zero, without inserting the row (no orphan ledger entry)', async () => {
     await prisma.godownStock.create({ data: { materialSizeId, quantity: 10 } });
 
@@ -159,17 +223,25 @@ describeIfDb('MovementsService (integration)', () => {
     ).toHaveLength(3);
   });
 
-  it('confirmReceipt increments SiteStock by receivedQuantity, leaving the sent/received gap visible', async () => {
-    await prisma.godownStock.create({
-      data: { materialSizeId, quantity: 100 },
+  // confirmReceipt is no longer reachable from service.create() (which now
+  // credits the destination immediately, see above) — it only still exists
+  // to resolve Movement rows created before this change, which are seeded
+  // directly here (bypassing the service) to stand in for that legacy state.
+  async function seedLegacyPendingMovement(sentQuantity: number) {
+    return prisma.movement.create({
+      data: {
+        kind: 'GODOWN_TO_SITE',
+        materialSizeId,
+        destinationSiteId,
+        sentQuantity,
+        receivedQuantity: null,
+        movedAt: new Date('2026-08-13'),
+      },
     });
-    const movement = await service.create({
-      kind: 'GODOWN_TO_SITE',
-      materialSizeId,
-      destinationSiteId,
-      sentQuantity: 30,
-      movedAt: '2026-08-13',
-    });
+  }
+
+  it('confirmReceipt increments SiteStock by receivedQuantity, leaving the sent/received gap visible (legacy pending row)', async () => {
+    const movement = await seedLegacyPendingMovement(30);
 
     const updated = await service.confirmReceipt(movement.id, {
       receivedQuantity: 25,
@@ -184,17 +256,8 @@ describeIfDb('MovementsService (integration)', () => {
     expect(stock?.quantity.toString()).toBe('25');
   });
 
-  it('rejects confirming receipt twice for the same Movement', async () => {
-    await prisma.godownStock.create({
-      data: { materialSizeId, quantity: 100 },
-    });
-    const movement = await service.create({
-      kind: 'GODOWN_TO_SITE',
-      materialSizeId,
-      destinationSiteId,
-      sentQuantity: 30,
-      movedAt: '2026-08-13',
-    });
+  it('rejects confirming receipt twice for the same Movement (legacy pending row)', async () => {
+    const movement = await seedLegacyPendingMovement(30);
     await service.confirmReceipt(movement.id, { receivedQuantity: 30 });
 
     await expect(
@@ -209,17 +272,8 @@ describeIfDb('MovementsService (integration)', () => {
     expect(stock?.quantity.toString()).toBe('30');
   });
 
-  it('never double-counts SiteStock when confirmReceipt is called concurrently for the same Movement (review fix)', async () => {
-    await prisma.godownStock.create({
-      data: { materialSizeId, quantity: 100 },
-    });
-    const movement = await service.create({
-      kind: 'GODOWN_TO_SITE',
-      materialSizeId,
-      destinationSiteId,
-      sentQuantity: 30,
-      movedAt: '2026-08-13',
-    });
+  it('never double-counts SiteStock when confirmReceipt is called concurrently for the same Movement (review fix, legacy pending row)', async () => {
+    const movement = await seedLegacyPendingMovement(30);
 
     const results = await Promise.allSettled([
       service.confirmReceipt(movement.id, { receivedQuantity: 28 }),
@@ -337,7 +391,7 @@ describeIfDb('MovementsService (integration)', () => {
     ).toHaveLength(3);
   });
 
-  it("Story 5.4: confirmReceipt on a SITE_TO_SITE Movement increments the destination Site's SiteStock, independent of the source Site's balance", async () => {
+  it("Story 5.4: a SITE_TO_SITE Movement immediately credits the destination Site's SiteStock, independent of the source Site's balance", async () => {
     await prisma.siteStock.create({
       data: { siteId: sourceSiteId, materialSizeId, quantity: 100 },
     });
@@ -348,6 +402,37 @@ describeIfDb('MovementsService (integration)', () => {
       destinationSiteId,
       sentQuantity: 30,
       movedAt: '2026-08-13',
+    });
+
+    expect(movement.receivedQuantity?.toString()).toBe('30');
+    const destinationStock = await prisma.siteStock.findUnique({
+      where: {
+        siteId_materialSizeId: { siteId: destinationSiteId, materialSizeId },
+      },
+    });
+    expect(destinationStock?.quantity.toString()).toBe('30');
+    const sourceStock = await prisma.siteStock.findUnique({
+      where: {
+        siteId_materialSizeId: { siteId: sourceSiteId, materialSizeId },
+      },
+    });
+    expect(sourceStock?.quantity.toString()).toBe('70');
+  });
+
+  it("Story 5.4: confirmReceipt on a SITE_TO_SITE Movement increments the destination Site's SiteStock, independent of the source Site's balance (legacy pending row)", async () => {
+    await prisma.siteStock.create({
+      data: { siteId: sourceSiteId, materialSizeId, quantity: 100 },
+    });
+    const movement = await prisma.movement.create({
+      data: {
+        kind: 'SITE_TO_SITE',
+        materialSizeId,
+        sourceSiteId,
+        destinationSiteId,
+        sentQuantity: 30,
+        receivedQuantity: null,
+        movedAt: new Date('2026-08-13'),
+      },
     });
 
     await service.confirmReceipt(movement.id, { receivedQuantity: 28 });
@@ -363,6 +448,6 @@ describeIfDb('MovementsService (integration)', () => {
         siteId_materialSizeId: { siteId: sourceSiteId, materialSizeId },
       },
     });
-    expect(sourceStock?.quantity.toString()).toBe('70');
+    expect(sourceStock?.quantity.toString()).toBe('100');
   });
 });

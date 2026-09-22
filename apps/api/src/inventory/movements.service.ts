@@ -23,8 +23,23 @@ import { dateRangeBounds } from '../common/date-range';
 import { paginationParams } from '../common/pagination';
 import { decrementStockWithFloorCheck } from './stock-delta';
 
-// FR-9: Owner/Admin records a Godown-to-Site (and, from Story 5.4,
-// Site-to-Site) Movement in two steps — sent now, received on confirmation.
+// Client-readiness fix (2026-09-22): a Movement used to require a real,
+// separate "Confirm Receipt" step at the destination before its stock ever
+// landed there — an extra mandatory click that, in the overwhelming
+// majority of cases, just re-confirmed the exact number already entered at
+// creation, with zero information gained (reported directly: "if the entry
+// has already been recorded successfully, avoid an unnecessary
+// confirmation step"). The one real reason this existed — a shortfall/
+// damage-in-transit gap must stay visible, never silently reconciled to
+// the sent amount — is still fully available: `create()` now credits the
+// destination immediately (`receivedQuantity` = `sentQuantity`, same as a
+// Purchase crediting its destination immediately), and a real discrepancy
+// discovered later goes through the ALREADY-existing Correct flow (a
+// signed-delta row, AD-9) instead of a bespoke pending gate. `confirmReceipt`
+// itself is kept, unchanged, purely so the (fewer over time) Movement rows
+// created before this change that are still sitting at `receivedQuantity:
+// null` remain resolvable — no new row will ever be created in that state
+// again.
 @Injectable()
 export class MovementsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -47,7 +62,7 @@ export class MovementsService {
         original.kind !== input.kind ||
         original.materialSizeId !== input.materialSizeId ||
         original.sourceSiteId !== (input.sourceSiteId ?? null) ||
-        original.destinationSiteId !== input.destinationSiteId
+        original.destinationSiteId !== (input.destinationSiteId ?? null)
       ) {
         throw new BadRequestException(
           "A correction's kind, Material Size, and Site(s) must match the Movement it corrects",
@@ -56,17 +71,28 @@ export class MovementsService {
     }
 
     const isGodownToSite = input.kind === 'GODOWN_TO_SITE';
+    const isSiteToGodown = input.kind === 'SITE_TO_GODOWN';
 
     try {
       return await this.prisma.$transaction(async (tx) => {
         const movement = await tx.movement.create({
-          data: { ...input, movedAt: new Date(input.movedAt) },
+          data: {
+            ...input,
+            movedAt: new Date(input.movedAt),
+            // Immediate credit, not a pending gate — see this class's own
+            // header comment. A correction still submits its own signed
+            // `sentQuantity` delta (validated to match the original's
+            // kind/Material Size/Site(s) above), which this mirrors onto
+            // `receivedQuantity` so the two never drift apart on a
+            // corrected row either.
+            receivedQuantity: input.sentQuantity,
+          },
         });
 
         // Story 5.2's canonical floor check (extracted in Story 5.5 once a
         // third call site needed it) targets Godown (GODOWN_TO_SITE) or
-        // the sending Site (SITE_TO_SITE) — same technique, different
-        // target.
+        // the sending Site (SITE_TO_SITE / SITE_TO_GODOWN) — same
+        // technique, different target.
         await decrementStockWithFloorCheck(
           tx,
           isGodownToSite
@@ -81,6 +107,36 @@ export class MovementsService {
             ? 'Not enough Godown Stock for this Movement.'
             : "Not enough of the source Site's Stock for this Movement.",
         );
+
+        // The destination's credit — a signed delta on a correction,
+        // exactly mirroring the source-side decrement above, so a
+        // corrected Movement adjusts both ends of the transfer together.
+        // SITE_TO_GODOWN's destination is the Godown itself (no Site row).
+        if (isSiteToGodown) {
+          await tx.godownStock.upsert({
+            where: { materialSizeId: input.materialSizeId },
+            update: { quantity: { increment: input.sentQuantity } },
+            create: {
+              materialSizeId: input.materialSizeId,
+              quantity: input.sentQuantity,
+            },
+          });
+        } else {
+          await tx.siteStock.upsert({
+            where: {
+              siteId_materialSizeId: {
+                siteId: input.destinationSiteId!,
+                materialSizeId: input.materialSizeId,
+              },
+            },
+            update: { quantity: { increment: input.sentQuantity } },
+            create: {
+              siteId: input.destinationSiteId!,
+              materialSizeId: input.materialSizeId,
+              quantity: input.sentQuantity,
+            },
+          });
+        }
 
         return movement;
       });
@@ -119,16 +175,21 @@ export class MovementsService {
         );
       }
 
+      // confirmReceipt only ever resolves a legacy GODOWN_TO_SITE/SITE_TO_SITE
+      // row created before SITE_TO_GODOWN existed (create() now credits every
+      // kind's destination immediately — see this class's header comment) —
+      // destinationSiteId is guaranteed non-null for every row this method
+      // can ever be called on.
       await tx.siteStock.upsert({
         where: {
           siteId_materialSizeId: {
-            siteId: movement.destinationSiteId,
+            siteId: movement.destinationSiteId!,
             materialSizeId: movement.materialSizeId,
           },
         },
         update: { quantity: { increment: input.receivedQuantity } },
         create: {
-          siteId: movement.destinationSiteId,
+          siteId: movement.destinationSiteId!,
           materialSizeId: movement.materialSizeId,
           quantity: input.receivedQuantity,
         },

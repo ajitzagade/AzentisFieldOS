@@ -279,9 +279,117 @@ describe('PurchasesService.findOne', () => {
   });
 
   it('returns the Purchase when found', async () => {
-    const service = makeFindOneService(vi.fn().mockResolvedValue({ id: 'p1' }));
+    const service = makeFindOneService(
+      vi.fn().mockResolvedValue({ id: 'p1', bills: [] }),
+    );
 
-    await expect(service.findOne('p1')).resolves.toEqual({ id: 'p1' });
+    await expect(service.findOne('p1')).resolves.toEqual({ id: 'p1', bills: [] });
+  });
+
+  // Attach Bill (2026-09-22): a bill's `uploadedBy` relation is a full User
+  // row, including passwordHash — this must never reach the response, only
+  // the name (mirroring site-photo-gallery.ts's own uploaderName mapping).
+  it("maps each bill to a resolved URL and the uploader's name — never the raw User relation (passwordHash)", async () => {
+    const findUnique = vi.fn().mockResolvedValue({
+      id: 'p1',
+      bills: [
+        {
+          id: 'bill1',
+          storageKey: 'purchase-bill/p1/abc',
+          createdAt: new Date('2026-09-22T00:00:00.000Z'),
+          uploadedBy: { name: 'Sandeep', passwordHash: 'should-never-appear' },
+        },
+      ],
+    });
+    const prisma = { purchase: { findUnique } };
+    const storage = {
+      getThumbnailUrl: vi.fn().mockResolvedValue('https://cdn.example.com/bill.jpg'),
+    };
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      { sendToRole: () => Promise.resolve(undefined) } as unknown as ConstructorParameters<
+        typeof PurchasesService
+      >[1],
+      storage as unknown as ConstructorParameters<typeof PurchasesService>[2],
+    );
+
+    const result = await service.findOne('p1');
+
+    expect(storage.getThumbnailUrl).toHaveBeenCalledWith('purchase-bill/p1/abc', 1200);
+    expect(result.bills).toEqual([
+      {
+        id: 'bill1',
+        url: 'https://cdn.example.com/bill.jpg',
+        uploadedByName: 'Sandeep',
+        createdAt: new Date('2026-09-22T00:00:00.000Z'),
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain('passwordHash');
+  });
+});
+
+describe('PurchasesService.attachBill', () => {
+  it('creates a PurchaseBill row and never touches the Purchase row itself (AD-9)', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({ id: 'p1' });
+    const purchaseBillCreate = vi.fn().mockResolvedValue({
+      id: 'bill1',
+      storageKey: 'purchase-bill/p1/abc',
+      createdAt: new Date('2026-09-22T00:00:00.000Z'),
+      uploadedBy: { name: 'Sandeep' },
+    });
+    const purchaseUpdate = vi.fn();
+    const prisma = {
+      purchase: { findUnique: purchaseFindUnique, update: purchaseUpdate },
+      purchaseBill: { create: purchaseBillCreate },
+    };
+    const storage = {
+      getThumbnailUrl: vi.fn().mockResolvedValue('https://cdn.example.com/bill.jpg'),
+    };
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      { sendToRole: () => Promise.resolve(undefined) } as unknown as ConstructorParameters<
+        typeof PurchasesService
+      >[1],
+      storage as unknown as ConstructorParameters<typeof PurchasesService>[2],
+    );
+
+    const result = await service.attachBill('p1', 'purchase-bill/p1/abc', 'u1');
+
+    expect(purchaseBillCreate).toHaveBeenCalledWith({
+      data: {
+        purchaseId: 'p1',
+        storageKey: 'purchase-bill/p1/abc',
+        uploadedByUserId: 'u1',
+      },
+      include: { uploadedBy: { select: { name: true } } },
+    });
+    expect(purchaseUpdate).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      id: 'bill1',
+      url: 'https://cdn.example.com/bill.jpg',
+      uploadedByName: 'Sandeep',
+      createdAt: new Date('2026-09-22T00:00:00.000Z'),
+    });
+  });
+
+  it('throws NotFoundException for a Purchase id that does not exist, without writing anything', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue(null);
+    const purchaseBillCreate = vi.fn();
+    const prisma = {
+      purchase: { findUnique: purchaseFindUnique },
+      purchaseBill: { create: purchaseBillCreate },
+    };
+    const service = new PurchasesService(
+      prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
+      { sendToRole: () => Promise.resolve(undefined) } as unknown as ConstructorParameters<
+        typeof PurchasesService
+      >[1],
+    );
+
+    await expect(
+      service.attachBill('missing', 'key', 'u1'),
+    ).rejects.toThrow(NotFoundException);
+    expect(purchaseBillCreate).not.toHaveBeenCalled();
   });
 });
 

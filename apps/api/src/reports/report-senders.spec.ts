@@ -114,7 +114,7 @@ describe('renderReportEmailHtml — Materials Received (inventory→DSR sync fix
   it('shows "None recorded" when nothing was received that day', () => {
     const html = renderReportEmailHtml(makeContent({ materialsReceived: [] }));
     const receivedRowIndex = html.indexOf('Materials Received');
-    const consumedRowIndex = html.indexOf('Materials Consumed');
+    const consumedRowIndex = html.indexOf('Materials Used');
     expect(html.slice(receivedRowIndex, consumedRowIndex)).toContain(
       'None recorded',
     );

@@ -21,6 +21,7 @@ const EMPTY_MATERIAL_ACTIVITY: SiteMaterialActivity = {
   standaloneRmcEntries: [],
   standaloneWasteDisposals: [],
   standaloneWastageReturns: [],
+  standaloneExpenses: [],
 };
 
 // Story 13.1 (FR-32): compiles a DailyReport's `content` payload from a
@@ -227,10 +228,13 @@ export class ReportCompilerService {
       rmc,
       equipmentUsed,
       expenses: {
-        total: dsr.expenses.reduce(
-          (sum, expense) => sum + toNum(expense.amount),
-          0,
-        ),
+        // Auto-sync Expenses (2026-09-22): a standalone Expense (the
+        // /expenses module, not this DSR's own form) is folded into the
+        // same total — the whole point being the Owner sees one true
+        // figure for the day without the Supervisor re-entering it here.
+        total:
+          dsr.expenses.reduce((sum, expense) => sum + toNum(expense.amount), 0) +
+          materialActivity.standaloneExpenses.reduce((sum, expense) => sum + expense.amount, 0),
       },
       photos: { count: dsr.photos.length },
     };

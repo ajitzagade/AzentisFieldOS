@@ -1728,22 +1728,25 @@ export class DsrService {
     // — i.e. anything recorded outside this DSR form) now gets its own
     // proper section instead of a generic side list, so it merges into
     // "Materials Received"/"Materials Consumed"/"RMC"/"Waste Material"
-    // wherever the frontend renders those. Non-material types (Work Record,
-    // Expense, machinery/vehicle movement, Site Contract, Work Entry,
-    // Subcontractor Payment, another DSR) still fall back to the generic
-    // "Other activity" card.
-    const MATERIAL_FEED_TYPES = new Set([
+    // wherever the frontend renders those. Extended 2026-09-22: a standalone
+    // Expense (the /expenses module, not this DSR's own form) gets the same
+    // treatment, merging into the "Expenses" section/total instead of a
+    // generic side list. Non-material, non-Expense types (Work Record,
+    // machinery/vehicle movement, Site Contract, Work Entry, Subcontractor
+    // Payment, another DSR) still fall back to the generic "Other activity" card.
+    const MERGED_FEED_TYPES = new Set([
       'PURCHASE',
       'MOVEMENT',
       'CONSUMPTION',
       'RMC',
       'WASTE_DISPOSAL',
       'RETURN_WASTAGE',
+      'EXPENSE',
     ]);
     const otherActivity = feed.filter(
       (item) =>
         !ownKeys.has(`${item.type}:${item.id}`) &&
-        !MATERIAL_FEED_TYPES.has(item.type),
+        !MERGED_FEED_TYPES.has(item.type),
     );
     const materialActivity = await getSiteMaterialActivity(
       this.prisma,
@@ -1761,6 +1764,7 @@ export class DsrService {
       standaloneRmcEntries: materialActivity.standaloneRmcEntries,
       standaloneWasteDisposals: materialActivity.standaloneWasteDisposals,
       standaloneWastageReturns: materialActivity.standaloneWastageReturns,
+      standaloneExpenses: materialActivity.standaloneExpenses,
     };
   }
 }

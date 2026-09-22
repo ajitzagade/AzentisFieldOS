@@ -10,6 +10,11 @@ import type { PrismaService } from '../prisma/prisma.service';
 // report can merge them into their real Materials sections instead of a
 // generic side "Other activity" list. ReturnWastage has no dailySiteReportId
 // field at all, so every row for the Site+date is inherently standalone.
+//
+// Extended 2026-09-22: Expense has the exact same gap (a standalone
+// /expenses entry never sets its own nullable dailySiteReportId either), so
+// it's folded in here too despite the "material" name — one Site+date
+// live-query, reused, rather than a second near-identical helper.
 
 export interface MaterialRow {
   id: string;
@@ -56,12 +61,21 @@ export interface StandaloneWasteRow {
   totalAmount: number | null;
 }
 
+export interface StandaloneExpenseRow {
+  id: string;
+  occurredAt: string;
+  categoryName: string;
+  description: string | null;
+  amount: number;
+}
+
 export interface SiteMaterialActivity {
   materialsReceived: MaterialsReceivedRow[];
   standaloneConsumptions: MaterialRow[];
   standaloneRmcEntries: StandaloneRmcRow[];
   standaloneWasteDisposals: StandaloneWasteRow[];
   standaloneWastageReturns: WastageReturnRow[];
+  standaloneExpenses: StandaloneExpenseRow[];
 }
 
 function dayBounds(date: Date): { gte: Date; lt: Date } {
@@ -107,6 +121,7 @@ export async function getSiteMaterialActivity(
     rmcEntries,
     wasteDisposals,
     returnWastages,
+    expenses,
   ] = await Promise.all([
     prisma.purchase.findMany({
       where: { siteId, purchasedAt: bounds },
@@ -115,11 +130,16 @@ export async function getSiteMaterialActivity(
         vendor: true,
       },
     }),
+    // "Received" means arrived AT this Site — only a destination match
+    // qualifies. Regression fix (2026-09-22, surfaced while adding
+    // SITE_TO_GODOWN): this used to also match a Site that was the SOURCE
+    // of an outbound Movement, mislabeling its own outbound transfer as
+    // something it "received". A SITE_TO_GODOWN Movement (this Site
+    // sending material back to the Godown) has no destinationSiteId at
+    // all, so it never qualifies here either — correct, since the sending
+    // Site didn't receive anything.
     prisma.movement.findMany({
-      where: {
-        OR: [{ sourceSiteId: siteId }, { destinationSiteId: siteId }],
-        movedAt: bounds,
-      },
+      where: { destinationSiteId: siteId, movedAt: bounds },
       include: {
         materialSize: { include: { material: { include: { unit: true } } } },
         sourceSite: true,
@@ -145,6 +165,10 @@ export async function getSiteMaterialActivity(
       include: {
         materialSize: { include: { material: { include: { unit: true } } } },
       },
+    }),
+    prisma.expense.findMany({
+      where: { siteId, incurredAt: bounds, dailySiteReportId: null },
+      include: { category: true },
     }),
   ]);
 
@@ -173,7 +197,10 @@ export async function getSiteMaterialActivity(
       // arrived. Report the real number once known.
       quantity: toNum(m.receivedQuantity ?? m.sentQuantity),
       amount: null,
-      summary: `${m.sourceSite?.name ?? 'Godown'} → ${m.destinationSite.name}`,
+      // Query above filters to destinationSiteId: siteId, so this is always
+      // non-null in practice — the fallback exists only because Prisma's
+      // generated type can't express that from the WHERE clause.
+      summary: `${m.sourceSite?.name ?? 'Godown'} → ${m.destinationSite?.name ?? 'Godown'}`,
       source: 'MOVEMENT',
       pending: m.receivedQuantity === null,
     })),
@@ -224,11 +251,20 @@ export async function getSiteMaterialActivity(
     }),
   );
 
+  const standaloneExpenses: StandaloneExpenseRow[] = expenses.map((e) => ({
+    id: e.id,
+    occurredAt: e.incurredAt.toISOString(),
+    categoryName: e.category.name,
+    description: e.description,
+    amount: toNum(e.amount),
+  }));
+
   return {
     materialsReceived,
     standaloneConsumptions,
     standaloneRmcEntries,
     standaloneWasteDisposals,
     standaloneWastageReturns,
+    standaloneExpenses,
   };
 }

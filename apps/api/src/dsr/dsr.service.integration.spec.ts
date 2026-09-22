@@ -2769,6 +2769,7 @@ describeIfDb('DsrService (integration)', () => {
       expect(detail.standaloneRmcEntries).toEqual([]);
       expect(detail.standaloneWasteDisposals).toEqual([]);
       expect(detail.standaloneWastageReturns).toEqual([]);
+      expect(detail.standaloneExpenses).toEqual([]);
     });
   });
 
@@ -2823,6 +2824,15 @@ describeIfDb('DsrService (integration)', () => {
           recordedAt: new Date('2026-11-05'),
         },
       });
+      const expense = await prisma.expense.create({
+        data: {
+          siteId,
+          categoryId,
+          amount: 750,
+          description: 'Standalone diesel top-up',
+          incurredAt: new Date('2026-11-05'),
+        },
+      });
 
       const detail = await service.findOne(dsr.id);
 
@@ -2844,7 +2854,21 @@ describeIfDb('DsrService (integration)', () => {
           (item) => item.id === wastage.id && item.kind === 'WASTAGE',
         ),
       ).toBe(true);
+      // Auto-sync Expenses (2026-09-22): a standalone Expense (recorded via
+      // the /expenses module, not this DSR's form) must surface in its own
+      // section, and never in the generic "Other activity" catch-all now
+      // that it has a proper home there — the whole point being the user
+      // never has to notice/re-enter it by hand.
+      expect(
+        detail.standaloneExpenses.some(
+          (item) => item.id === expense.id && item.amount === 750,
+        ),
+      ).toBe(true);
+      expect(
+        detail.otherActivity.some((item) => item.id === expense.id),
+      ).toBe(false);
 
+      await prisma.expense.deleteMany({ where: { id: expense.id } });
       await prisma.returnWastage.deleteMany({ where: { id: wastage.id } });
       await prisma.rmcEntry.deleteMany({ where: { id: rmc.id } });
       await prisma.consumption.deleteMany({ where: { id: consumption.id } });

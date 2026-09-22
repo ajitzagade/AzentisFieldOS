@@ -10,8 +10,10 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import {
+  attachPurchaseBillSchema,
   completePurchasePricingSchema,
   createPurchaseSchema,
+  type AttachPurchaseBillInput,
   type CompletePurchasePricingInput,
   type CreatePurchaseInput,
 } from '@azentisfieldos/shared';
@@ -96,5 +98,19 @@ export class PurchasesController {
     body: CompletePurchasePricingInput,
   ) {
     return this.purchasesService.completePricing(id, body);
+  }
+
+  // Attach Bill: purely additive (POST, not PATCH — never touches the
+  // Purchase row itself, AD-9). Owner/Admin only, entirely optional; a
+  // Purchase is valid and complete with zero bills attached.
+  @Post(':id/bills')
+  @Roles('OWNER_ADMIN')
+  attachBill(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(attachPurchaseBillSchema))
+    body: AttachPurchaseBillInput,
+  ) {
+    return this.purchasesService.attachBill(id, body.storageKey, user.id);
   }
 }

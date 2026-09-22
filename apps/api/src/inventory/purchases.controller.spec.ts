@@ -20,6 +20,7 @@ describe('PurchasesController', () => {
     countPendingPricing: ReturnType<typeof vi.fn>;
     outstandingAcrossVendors: ReturnType<typeof vi.fn>;
     completePricing: ReturnType<typeof vi.fn>;
+    attachBill: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -31,6 +32,7 @@ describe('PurchasesController', () => {
       countPendingPricing: vi.fn(),
       outstandingAcrossVendors: vi.fn(),
       completePricing: vi.fn(),
+      attachBill: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -138,6 +140,32 @@ describe('PurchasesController', () => {
     const roles = Reflect.getMetadata(
       ROLES_KEY,
       PurchasesController.prototype.completePricing,
+    ) as string[] | undefined;
+    expect(roles).toEqual(['OWNER_ADMIN']);
+  });
+
+  it('attachBill delegates the purchase id, storageKey, and acting user id to the service', async () => {
+    const user = { id: 'u1', role: 'OWNER_ADMIN' } as never;
+    service.attachBill.mockResolvedValue({ id: 'bill1' });
+
+    const result = await controller.attachBill('p1', user, {
+      storageKey: 'purchase-bill/p1/abc',
+    });
+
+    expect(service.attachBill).toHaveBeenCalledWith(
+      'p1',
+      'purchase-bill/p1/abc',
+      'u1',
+    );
+    expect(result).toEqual({ id: 'bill1' });
+  });
+
+  // Attach Bill is Owner/Admin only (a Supervisor must not be able to
+  // trigger this write) — pin the metadata, same reasoning as completePricing.
+  it('attachBill is restricted to OWNER_ADMIN via @Roles metadata', () => {
+    const roles = Reflect.getMetadata(
+      ROLES_KEY,
+      PurchasesController.prototype.attachBill,
     ) as string[] | undefined;
     expect(roles).toEqual(['OWNER_ADMIN']);
   });

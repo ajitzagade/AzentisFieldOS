@@ -15,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { dateRangeBounds } from '../common/date-range';
 import { paginationParams } from '../common/pagination';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
+import { StorageService } from '../storage/storage.service';
 
 type PurchaseListRow = Prisma.PurchaseGetPayload<{
   include: {
@@ -50,6 +51,8 @@ export class PurchasesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pushNotifications: PushNotificationsService,
+    // Optional — see findOne()'s own comment on why.
+    private readonly storage?: StorageService,
   ) {}
 
   async create(input: CreatePurchaseInput, recordedByUserId?: string) {
@@ -287,12 +290,61 @@ export class PurchasesService {
         vendor: true,
         site: true,
         materialSize: { include: { material: { include: { unit: true } } } },
+        // `select` (not `include: true`) on uploadedBy — a User row also
+        // carries passwordHash, which this response must never serialize.
+        bills: {
+          orderBy: { createdAt: 'desc' },
+          include: { uploadedBy: { select: { name: true } } },
+        },
       },
     });
     if (!purchase) {
       throw new NotFoundException(`Purchase ${id} not found`);
     }
-    return purchase;
+    const bills = await Promise.all(purchase.bills.map((bill) => this.mapBill(bill)));
+    return { ...purchase, bills };
+  }
+
+  // Resolves storageKey to a durable, viewable URL here (not stored on the
+  // row — same reasoning as Photo.storageKey/getThumbnailUrl) so a future
+  // delivery-provider swap or transform-size change never needs a backfill,
+  // and strips the raw uploadedBy User relation down to just its name
+  // (that relation also carries passwordHash, which must never serialize).
+  // `storage` is optional purely so this file's many existing
+  // `new PurchasesService(prisma, pushNotifications)` unit tests (none of
+  // which exercise bills) don't all need a third constructor arg.
+  private async mapBill(bill: {
+    id: string;
+    storageKey: string;
+    createdAt: Date;
+    uploadedBy: { name: string };
+  }) {
+    return {
+      id: bill.id,
+      url: (await this.storage?.getThumbnailUrl(bill.storageKey, 1200)) ?? null,
+      uploadedByName: bill.uploadedBy.name,
+      createdAt: bill.createdAt,
+    };
+  }
+
+  // Attach Bill (2026-09-22): purely additive — creates a new PurchaseBill
+  // row, never touches the Purchase row itself (AD-9; also keeps this well
+  // clear of the one sanctioned Purchase UPDATE, the pricing patch, which
+  // AGENTS.md says never to widen). Entirely optional record-keeping: a
+  // Purchase with zero bills attached is already valid and complete, so
+  // there is nothing here to validate beyond the Purchase existing.
+  async attachBill(purchaseId: string, storageKey: string, uploadedByUserId: string) {
+    const purchase = await this.prisma.purchase.findUnique({
+      where: { id: purchaseId },
+    });
+    if (!purchase) {
+      throw new NotFoundException(`Purchase ${purchaseId} not found`);
+    }
+    const bill = await this.prisma.purchaseBill.create({
+      data: { purchaseId, storageKey, uploadedByUserId },
+      include: { uploadedBy: { select: { name: true } } },
+    });
+    return this.mapBill(bill);
   }
 
   // Story 9.2's Vendor detail page "Purchase History" section — the same

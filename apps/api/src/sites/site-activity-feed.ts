@@ -149,7 +149,7 @@ export async function getSiteActivityFeed(
       id: m.id,
       type: 'MOVEMENT',
       occurredAt: m.movedAt.toISOString(),
-      summary: `${m.materialSize.material.name} (${m.materialSize.label}), ${m.sentQuantity.toString()} — ${m.sourceSite?.name ?? 'Godown'} → ${m.destinationSite.name}`,
+      summary: `${m.materialSize.material.name} (${m.materialSize.label}), ${m.sentQuantity.toString()} — ${m.sourceSite?.name ?? 'Godown'} → ${m.destinationSite?.name ?? 'Godown'}`,
       amount: null,
     })),
     ...consumptions.map((c): FeedItem => ({

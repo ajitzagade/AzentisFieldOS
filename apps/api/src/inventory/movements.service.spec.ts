@@ -175,8 +175,56 @@ describe('MovementsService.create', () => {
       }),
     ).rejects.toThrow(BadRequestException);
   });
+
+  // Regression (2026-09-22): a mandatory separate "Confirm Receipt" step
+  // used to gate every Movement's destination credit — removed as
+  // unnecessary friction (reported directly). create() now credits the
+  // destination immediately, the same transaction as the row insert and
+  // the source-side floor check.
+  it('immediately credits the destination Site — receivedQuantity = sentQuantity on the row, and a SiteStock upsert with the same amount', async () => {
+    const { service, movementCreate, siteStockUpsert } = makeService({});
+
+    await service.create(createInput);
+
+    expect(movementCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ receivedQuantity: 100 }) as object,
+    });
+    expect(siteStockUpsert).toHaveBeenCalledWith({
+      where: {
+        siteId_materialSizeId: { siteId: 'site1', materialSizeId: 'ms1' },
+      },
+      update: { quantity: { increment: 100 } },
+      create: { siteId: 'site1', materialSizeId: 'ms1', quantity: 100 },
+    });
+  });
+
+  it("a correction's signed delta mirrors onto the destination credit too, not just the source decrement", async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId: 'ms1',
+      sourceSiteId: null,
+      destinationSiteId: 'site1',
+    });
+    const { service, siteStockUpsert } = makeService({ movementFindUnique });
+
+    await service.create({
+      ...createInput,
+      sentQuantity: -10,
+      correctsId: 'orig',
+      reason: 'Recount',
+    });
+
+    expect(siteStockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { quantity: { increment: -10 } } }),
+    );
+  });
 });
 
+// No longer reachable from create() (which now credits the destination
+// itself) — kept only to resolve the (shrinking, never growing) set of
+// Movement rows created before this change that are still sitting at
+// receivedQuantity: null.
 describe('MovementsService.confirmReceipt', () => {
   it('increments SiteStock by receivedQuantity, not sentQuantity', async () => {
     const movementFindUnique = vi.fn().mockResolvedValue({

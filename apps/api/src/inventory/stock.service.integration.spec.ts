@@ -108,7 +108,11 @@ describeIfDb('Stock reconciliation (integration)', () => {
   });
 
   it('GodownStock and SiteStock always reconcile exactly to the sum of every applicable transaction row', async () => {
-    // Godown: +100 (Purchase), -30 (Movement sent) => 70
+    // Godown: +100 (Purchase), -30 (Movement sent), +2 (correction: only 28
+    // actually left) => 72. A Movement now credits its destination
+    // immediately (no separate confirmReceipt step for new rows, 2026-09-22)
+    // — a real shortfall discovered later goes through the same Correct
+    // flow as any other transaction-history row, adjusting both ends.
     await purchases.create({
       vendorId,
       materialSizeId,
@@ -126,9 +130,18 @@ describeIfDb('Stock reconciliation (integration)', () => {
       sentQuantity: 30,
       movedAt: '2026-08-13',
     });
+    await movements.create({
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId,
+      destinationSiteId,
+      sentQuantity: -2,
+      movedAt: '2026-08-13',
+      correctsId: movement.id,
+      reason: 'Recount: only 28 actually arrived',
+    });
 
-    // Site: +28 (Movement received), -10 (Consumption), -3 (Wastage) => 15
-    await movements.confirmReceipt(movement.id, { receivedQuantity: 28 });
+    // Site: +30 (Movement, immediate credit), -2 (correction), -10
+    // (Consumption), -3 (Wastage) => 15
     await consumption.create(
       {
         siteId: destinationSiteId,
@@ -192,7 +205,7 @@ describeIfDb('Stock reconciliation (integration)', () => {
         siteRows.find((r) => r.materialSizeId === materialSizeId)?.quantity,
       ),
     ).toBe(expectedSite);
-    expect(expectedGodown).toBe(70);
+    expect(expectedGodown).toBe(72);
     expect(expectedSite).toBe(15);
   });
 });
