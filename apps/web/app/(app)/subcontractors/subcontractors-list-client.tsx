@@ -213,11 +213,13 @@ export function SubcontractorsListClient({
   total,
   page,
   pageSize,
+  canCreate,
 }: {
   rows: Subcontractor[];
   total: number;
   page: number;
   pageSize: number;
+  canCreate: boolean;
 }) {
   const query = useListQueryState();
   const search = useDebouncedSearch(query.q, query.setQuery);
@@ -263,12 +265,12 @@ export function SubcontractorsListClient({
                   status: "empty",
                   icon: <UserIcon />,
                   message: "No Subcontractors yet.",
-                  action: (
+                  action: canCreate ? (
                     <Link href="/subcontractors/new" className={cn(buttonVariants({ variant: "primary" }))}>
                       <PlusIcon className="size-4" />
                       Add your first Subcontractor
                     </Link>
-                  ),
+                  ) : undefined,
                 }
             : { status: "success", rows }
         }

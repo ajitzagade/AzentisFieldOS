@@ -52,7 +52,10 @@ describe("AppLayout role resolution", () => {
     expect(screen.getByRole("link", { name: /Team & Attendance/ })).toBeInTheDocument();
     // …owner surfaces are not in the supervisor's nav…
     expect(screen.queryByRole("link", { name: /Dashboard/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Vendors/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Machinery & Vehicles/ })).not.toBeInTheDocument();
+    // Extended (2026-09-22): Vendors/Subcontractors/Expenses/RMC are
+    // day-to-day Site Engineer surfaces now, not trimmed away.
+    expect(screen.getAllByRole("link", { name: /^Vendors/ }).length).toBeGreaterThan(0);
     // …and Settings (Owner/Admin-only, 404s for a Supervisor) is not shown.
     expect(screen.queryByRole("link", { name: /Settings/ })).not.toBeInTheDocument();
     expect(screen.getByText("page content")).toBeInTheDocument();

@@ -57,7 +57,9 @@ afterEach(() => {
 });
 
 function renderClient(overrides: Partial<Parameters<typeof SubcontractorsListClient>[0]> = {}) {
-  return render(<SubcontractorsListClient rows={[subcontractor]} total={1} page={1} pageSize={25} {...overrides} />);
+  return render(
+    <SubcontractorsListClient rows={[subcontractor]} total={1} page={1} pageSize={25} canCreate {...overrides} />,
+  );
 }
 
 describe("SubcontractorsListClient", () => {

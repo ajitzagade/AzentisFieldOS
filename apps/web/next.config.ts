@@ -16,7 +16,11 @@ const securityHeaders = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https://res.cloudinary.com",
+      // blob: is required for the locally-selected-photo preview shown
+      // while a DSR/Site Photo upload is still in flight (URL.createObjectURL)
+      // — without it the browser silently blocks rendering that <img>, which
+      // read as "upload broken" even though the upload itself succeeds.
+      "img-src 'self' data: blob: https://res.cloudinary.com",
       `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL ?? ""} https://api.cloudinary.com`,
       "frame-ancestors 'none'",
     ].join("; "),

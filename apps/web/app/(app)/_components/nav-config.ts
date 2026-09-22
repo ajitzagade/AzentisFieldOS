@@ -147,6 +147,22 @@ export const SUPERVISOR_NAV_GROUPS: NavGroup[] = [
       { href: "/labour-payments", label: "Labour Payment", icon: CalendarIcon },
     ],
   },
+  // Extended (2026-09-22): a Site Engineer records Purchases/RMC deliveries
+  // against a Vendor and logs Subcontractor work day-to-day — these four
+  // were de-emphasized as "Owner surfaces" by the original 2026-09-01 trim,
+  // but that assumption didn't hold up against real daily use. Create/edit
+  // on Subcontractor itself stays Owner-gated (FR-55, enforced both at the
+  // API and by /subcontractors' own page); every other create/list/find
+  // action here was already open to both roles server-side.
+  {
+    label: "Money",
+    items: [
+      { href: "/vendors", label: "Vendors", icon: BuildingIcon },
+      { href: "/subcontractors", label: "Subcontractors", icon: UserIcon },
+      { href: "/expenses", label: "Expenses", icon: ReceiptIcon },
+      { href: "/rmc", label: "RMC", icon: DropletIcon },
+    ],
+  },
 ];
 
 // The Supervisor's mobile bottom quick-bar's two plain-link slots — mirrors

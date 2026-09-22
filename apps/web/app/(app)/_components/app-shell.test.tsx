@@ -178,8 +178,15 @@ describe("AppShell", () => {
     // Sidebar nav is present for the Supervisor now (same shell as Owner/Admin).
     expect(screen.getAllByRole("link", { name: /Home/ }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("link", { name: /Dashboard/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Vendors/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Machinery & Vehicles/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Reports/ })).not.toBeInTheDocument();
     expect(screen.getAllByText("Movements").length).toBeGreaterThan(0);
+    // Extended (2026-09-22): Vendors/Subcontractors/Expenses/RMC are day-to-day
+    // Site Engineer surfaces, not Owner-only — the 2026-09-01 trim over-hid them.
+    expect(screen.getAllByRole("link", { name: /^Vendors/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /^Subcontractors/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /^Expenses/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /^RMC/ }).length).toBeGreaterThan(0);
     // Settings hard-404s for a Supervisor, so it must not appear as a link.
     expect(screen.queryByRole("link", { name: /Settings/ })).not.toBeInTheDocument();
     expect(screen.getByText("content")).toBeInTheDocument();

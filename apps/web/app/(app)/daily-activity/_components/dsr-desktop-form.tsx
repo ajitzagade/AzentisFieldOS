@@ -1030,7 +1030,7 @@ export function DsrDesktopForm({
                     setWasteEntries((rows) => rows.map((r, i) => (i === index ? { ...r, equipmentValue: value ?? "" } : r)))
                   }
                   placeholder="Type a machine name or vehicle number…"
-                  hint="Optional — only for your own vehicle/machine"
+                  hint="Own asset only"
                   emptyMessage={
                     reference.loadFailed ? "Couldn't load the registers — try reloading" : "No matching Machinery or Vehicle"
                   }
@@ -1260,7 +1260,7 @@ export function DsrDesktopForm({
                 min={0}
                 step="any"
                 disabled={!row.siteContractId}
-                hint={row.siteContractId ? "Optional" : "Pick a Site Contract to record a quantity"}
+                hint={row.siteContractId ? "Optional" : "Pick a Contract"}
                 value={row.quantity}
                 onChange={(e) =>
                   setSubcontractorEntries((rows) => rows.map((r, i) => (i === index ? { ...r, quantity: e.target.value } : r)))
