@@ -131,10 +131,16 @@ export default async function SubcontractorDetailPage({ params }: { params: Prom
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <h1 className="text-page-title text-ink-900">{subcontractor.name}</h1>
           <div className="action-button-row">
-            <Link href={`/subcontractors/${subcontractor.id}/edit`} className={cn(buttonVariants({ variant: "secondary" }))}>
-              <PencilIcon className="size-4" />
-              Edit
-            </Link>
+            {/* FR-55: Owner/Admin creates and maintains Subcontractor
+                records — same rule as the list page's "Add Subcontractor",
+                enforced here too so a Site Engineer never reaches a form
+                the API would 403 on submit. */}
+            {viewerRole === "OWNER_ADMIN" ? (
+              <Link href={`/subcontractors/${subcontractor.id}/edit`} className={cn(buttonVariants({ variant: "secondary" }))}>
+                <PencilIcon className="size-4" />
+                Edit
+              </Link>
+            ) : null}
             {viewerRole === "OWNER_ADMIN" ? (
               <DeleteEntityButton
                 label="Delete Subcontractor"
@@ -182,13 +188,17 @@ export default async function SubcontractorDetailPage({ params }: { params: Prom
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div className="text-section-header text-ink-900">Site Contracts</div>
-        <Link
-          href={`/subcontractors/${subcontractor.id}/contracts/new`}
-          className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
-        >
-          <PlusIcon className="size-4" />
-          Add Site Contract
-        </Link>
+        {/* Owner/Admin-only, same rule as the Site page's "Add Subcontractor"
+            (both create a Site Contract via site-contracts.controller.ts). */}
+        {viewerRole === "OWNER_ADMIN" ? (
+          <Link
+            href={`/subcontractors/${subcontractor.id}/contracts/new`}
+            className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
+          >
+            <PlusIcon className="size-4" />
+            Add Site Contract
+          </Link>
+        ) : null}
       </div>
       <DataTable
         columns={siteContractColumns}

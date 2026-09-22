@@ -443,13 +443,18 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
       <div className="mb-8">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="text-section-header text-ink-900">Subcontractors</div>
-          <Link
-            href={`/sites/${site.id}/contracts/new`}
-            className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
-          >
-            <PlusIcon className="size-4" />
-            Add Subcontractor
-          </Link>
+          {/* Engaging a Subcontractor (a new Site Contract) is Owner/Admin-only
+              (FR-55/site-contracts.controller.ts) — same rule as
+              /subcontractors' own "Add Subcontractor", enforced here too. */}
+          {viewerRole === "OWNER_ADMIN" ? (
+            <Link
+              href={`/sites/${site.id}/contracts/new`}
+              className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+            >
+              <PlusIcon className="size-4" />
+              Add Subcontractor
+            </Link>
+          ) : null}
         </div>
         <DataTable
           columns={siteContractColumns}
@@ -464,12 +469,13 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
                     status: "empty",
                     icon: <UsersIcon />,
                     message: "No Subcontractors engaged at this Site yet.",
-                    action: (
-                      <Link href={`/sites/${site.id}/contracts/new`} className={cn(buttonVariants({ variant: "primary" }))}>
-                        <PlusIcon className="size-4" />
-                        Add Subcontractor
-                      </Link>
-                    ),
+                    action:
+                      viewerRole === "OWNER_ADMIN" ? (
+                        <Link href={`/sites/${site.id}/contracts/new`} className={cn(buttonVariants({ variant: "primary" }))}>
+                          <PlusIcon className="size-4" />
+                          Add Subcontractor
+                        </Link>
+                      ) : undefined,
                   }
                 : { status: "success", rows: siteContracts }
           }

@@ -107,6 +107,23 @@ describe("SubcontractorDetailPage", () => {
     expect(screen.queryByRole("button", { name: /Delete Subcontractor/ })).not.toBeInTheDocument();
   });
 
+  // FR-55: Owner/Admin creates and maintains Subcontractor records — Edit
+  // and Add Site Contract both hit an Owner-gated API endpoint, so a Site
+  // Engineer must never see a button that would 403 on submit.
+  it("shows Edit and Add Site Contract to an Owner/Admin", async () => {
+    mockPage({ role: "OWNER_ADMIN" });
+    await renderDetailPage("sc1");
+    expect(screen.getByRole("link", { name: /^Edit$/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Add Site Contract/ })).toBeInTheDocument();
+  });
+
+  it("hides Edit and Add Site Contract from a Supervisor", async () => {
+    mockPage({ role: "SITE_SUPERVISOR" });
+    await renderDetailPage("sc1");
+    expect(screen.queryByRole("link", { name: /^Edit$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Add Site Contract/ })).not.toBeInTheDocument();
+  });
+
   it("renders an explicit empty state for zero Site Contracts", async () => {
     mockPage({ siteContracts: [] });
 

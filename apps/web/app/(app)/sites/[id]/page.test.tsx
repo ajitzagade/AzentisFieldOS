@@ -53,6 +53,7 @@ function mockSitePage(overrides: {
   site?: unknown;
   siteContracts?: unknown;
   siteContractsOk?: boolean;
+  role?: "OWNER_ADMIN" | "SITE_SUPERVISOR";
 }) {
   global.fetch = vi.fn((url: string) => {
     if (url.includes("/site-contracts")) {
@@ -66,7 +67,7 @@ function mockSitePage(overrides: {
     if (url.includes("/stock/site")) return Promise.resolve({ ok: true, json: async () => [] });
     if (url.includes("/reports/sites")) return Promise.resolve({ ok: true, json: async () => ({ dsrs: [] }) });
     if (url.includes("/dsr?")) return Promise.resolve({ ok: true, json: async () => [] });
-    if (url.includes("/users/me")) return Promise.resolve({ ok: true, json: async () => ({ role: "OWNER_ADMIN" }) });
+    if (url.includes("/users/me")) return Promise.resolve({ ok: true, json: async () => ({ role: overrides.role ?? "OWNER_ADMIN" }) });
     return Promise.resolve({
       ok: overrides.site !== undefined ? true : true,
       status: 200,
@@ -150,6 +151,17 @@ describe("SiteDetailPage", () => {
       "href",
       "/sites/site-1/contracts/new",
     );
+  });
+
+  // Engaging a Subcontractor creates a Site Contract via an Owner-gated API
+  // endpoint (FR-55) — a Site Engineer must never see a button (header or
+  // empty-state) that would 403 on submit.
+  it("hides both Add Subcontractor affordances from a Supervisor", async () => {
+    mockSitePage({ siteContracts: [], role: "SITE_SUPERVISOR" });
+
+    await renderDetailPage("site-1");
+
+    expect(screen.queryByRole("link", { name: /Add Subcontractor/ })).not.toBeInTheDocument();
   });
 
   it("renders a distinct error state, not the empty state, when the Site Contracts fetch fails", async () => {
