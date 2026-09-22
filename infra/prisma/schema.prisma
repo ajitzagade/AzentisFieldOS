@@ -47,6 +47,7 @@ model User {
   auditLogs         AuditLog[]
   refreshTokens     RefreshToken[]
   pushSubscriptions PushSubscription[]
+  purchaseBills     PurchaseBill[]
 }
 
 // Backs the long-lived side of auth: the access JWT (session cookie) is
@@ -278,6 +279,7 @@ model Purchase {
   reason               String?             // required when correctsId is set
 
   expenses Expense[]
+  bills    PurchaseBill[]
 
   // list()/reportWhere() filters by siteId or vendorId and always orders
   // by purchasedAt desc; countPendingPricing() filters totalAmount+correctsId.
@@ -286,9 +288,30 @@ model Purchase {
   @@index([totalAmount, correctsId])
 }
 
+// Attach Bill (2026-09-22): a Purchase must stay valid and complete before
+// any bill exists — material commonly arrives at the Site/Godown before the
+// vendor's invoice does — so this is a purely additive side table, never a
+// field/UPDATE on Purchase itself (AD-9; also keeps this well clear of the
+// one sanctioned Purchase UPDATE, PATCH /purchases/:id/pricing, which
+// AGENTS.md says never to widen). Owner/Admin only; entirely optional
+// record-keeping with no validation forcing one to exist. Re-attaching
+// (e.g. a better scan) is just another row here, same reasoning as Photo.
+model PurchaseBill {
+  id               String   @id @default(uuid(7))
+  purchaseId       String
+  purchase         Purchase @relation(fields: [purchaseId], references: [id])
+  storageKey       String
+  uploadedByUserId String
+  uploadedBy       User     @relation(fields: [uploadedByUserId], references: [id])
+  createdAt        DateTime @default(now())
+
+  @@index([purchaseId])
+}
+
 enum MovementKind {
   GODOWN_TO_SITE // FR-9
   SITE_TO_SITE   // FR-11
+  SITE_TO_GODOWN // returning excess/unused material from a Site back to the Godown
 }
 
 // Append-only (AD-9).
@@ -299,8 +322,8 @@ model Movement {
   materialSize        MaterialSize @relation(fields: [materialSizeId], references: [id])
   sourceSiteId         String? // null when kind = GODOWN_TO_SITE (source is the Godown)
   sourceSite           Site?        @relation("MovementSourceSite", fields: [sourceSiteId], references: [id])
-  destinationSiteId    String
-  destinationSite      Site         @relation("MovementDestinationSite", fields: [destinationSiteId], references: [id])
+  destinationSiteId    String? // null when kind = SITE_TO_GODOWN (destination is the Godown)
+  destinationSite      Site?        @relation("MovementDestinationSite", fields: [destinationSiteId], references: [id])
   sentQuantity          Decimal
   receivedQuantity       Decimal?    // shortage/damage gap = sentQuantity - receivedQuantity
   vehicleDetails         String?

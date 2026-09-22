@@ -104,3 +104,14 @@ export const completePurchasePricingSchema = z.object({
 });
 
 export type CompletePurchasePricingInput = z.infer<typeof completePurchasePricingSchema>;
+
+// Attach Bill (2026-09-22): purely additive (POST /purchases/:id/bills
+// creates a new PurchaseBill row, never touches Purchase itself — AD-9).
+// Owner/Admin only; entirely optional — a Purchase is valid and complete
+// with zero bills attached, since material commonly arrives before the
+// vendor's invoice does.
+export const attachPurchaseBillSchema = z.object({
+  storageKey: z.string().min(1),
+});
+
+export type AttachPurchaseBillInput = z.infer<typeof attachPurchaseBillSchema>;

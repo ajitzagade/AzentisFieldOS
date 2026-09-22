@@ -9,6 +9,7 @@ export * from "./components/stat-tile";
 export * from "./components/sparkline";
 export * from "./components/gap-flag";
 export * from "./components/gap-flag-list";
+export * from "./components/photo-thumbnail";
 export * from "./components/help-bubble";
 export * from "./components/correct-action";
 export * from "./components/empty-state";

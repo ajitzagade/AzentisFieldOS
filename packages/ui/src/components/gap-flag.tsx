@@ -18,15 +18,25 @@ export function GapFlag({ icon, message, action, className }: GapFlagProps) {
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-md border border-gap-flag-border bg-warning-100 px-4 py-3 text-body-sm font-semibold text-warning-700",
+        // Mobile bug (2026-09-22): a long message (a Site name that wraps to
+        // several lines) forced this whole row wider than the viewport,
+        // clipping `action` off the right edge — a single-row flex item
+        // needs `min-w-0` to shrink/wrap instead of pushing its siblings
+        // out, which a plain `flex-1` alone does not provide. Stacking the
+        // action below the message on narrow viewports (`flex-col`,
+        // `sm:flex-row` from here up) removes the failure mode entirely
+        // rather than just tightening the overflow math.
+        "flex flex-col gap-3 rounded-md border border-gap-flag-border bg-warning-100 px-4 py-3 text-body-sm font-semibold text-warning-700 sm:flex-row sm:items-center",
         className,
       )}
     >
-      <span className="shrink-0 [&>svg]:size-5" aria-hidden>
-        {icon}
+      <span className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+        <span className="shrink-0 [&>svg]:size-5" aria-hidden>
+          {icon}
+        </span>
+        <p className="min-w-0 flex-1">{message}</p>
       </span>
-      <p className="flex-1">{message}</p>
-      {action}
+      <span className="shrink-0">{action}</span>
     </div>
   );
 }

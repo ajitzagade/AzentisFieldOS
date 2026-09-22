@@ -91,7 +91,8 @@ export interface MovementSearchResult {
   id: string;
   materialName: string;
   sourceSiteName: string | null;
-  destinationSiteName: string;
+  // null for a SITE_TO_GODOWN Movement (destination is the Godown, no Site).
+  destinationSiteName: string | null;
 }
 
 export interface ConsumptionSearchResult {

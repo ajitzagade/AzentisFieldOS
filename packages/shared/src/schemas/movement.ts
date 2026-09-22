@@ -1,14 +1,17 @@
 import { z } from "zod";
 
-export const movementKindSchema = z.enum(["GODOWN_TO_SITE", "SITE_TO_SITE"]);
+export const movementKindSchema = z.enum(["GODOWN_TO_SITE", "SITE_TO_SITE", "SITE_TO_GODOWN"]);
 
-// Shared by Story 5.2 (GODOWN_TO_SITE) and Story 5.4 (SITE_TO_SITE).
+// Shared by Story 5.2 (GODOWN_TO_SITE), Story 5.4 (SITE_TO_SITE), and
+// SITE_TO_GODOWN (2026-09-22, returning material to the Godown) — one
+// Movement model/schema/service/form for every direction (AD-7), never a
+// duplicated transaction type per direction.
 export const createMovementSchema = z
   .object({
     kind: movementKindSchema,
     materialSizeId: z.uuid(),
     sourceSiteId: z.uuid().optional(),
-    destinationSiteId: z.uuid(),
+    destinationSiteId: z.uuid().optional(),
     sentQuantity: z.number(),
     vehicleDetails: z.string().min(1).optional(),
     personResponsible: z.string().min(1).optional(),
@@ -25,11 +28,25 @@ export const createMovementSchema = z
         message: "Source Site must not be set for a Godown-to-Site Movement",
       });
     }
-    if (data.kind === "SITE_TO_SITE" && !data.sourceSiteId) {
+    if ((data.kind === "SITE_TO_SITE" || data.kind === "SITE_TO_GODOWN") && !data.sourceSiteId) {
       ctx.addIssue({
         code: "custom",
         path: ["sourceSiteId"],
-        message: "Source Site is required for a Site-to-Site Movement",
+        message: "Source Site is required for this Movement",
+      });
+    }
+    if (data.kind === "SITE_TO_GODOWN" && data.destinationSiteId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["destinationSiteId"],
+        message: "Destination Site must not be set for a Site-to-Godown Movement",
+      });
+    }
+    if (data.kind !== "SITE_TO_GODOWN" && !data.destinationSiteId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["destinationSiteId"],
+        message: "Destination Site is required for this Movement",
       });
     }
     if (

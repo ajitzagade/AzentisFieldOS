@@ -37,6 +37,13 @@ export const confirmPhotoUploadSchema = z
     path: ["dailySiteReportId"],
   });
 
+// Attach Bill (2026-09-22) — same presign-then-confirm shape as the other
+// upload flows, just scoped to a Purchase instead of a DSR/Site.
+export const presignPurchaseBillUploadSchema = z.object({
+  purchaseId: z.string(),
+});
+
 export type PresignPhotoUploadInput = z.infer<typeof presignPhotoUploadSchema>;
 export type PresignSitePhotoUploadInput = z.infer<typeof presignSitePhotoUploadSchema>;
+export type PresignPurchaseBillUploadInput = z.infer<typeof presignPurchaseBillUploadSchema>;
 export type ConfirmPhotoUploadInput = z.infer<typeof confirmPhotoUploadSchema>;
