@@ -164,6 +164,7 @@ describe("PurchaseForm — preserves typed values when the Server Action returns
     await user.click(screen.getByText("Cement (OPC 53 Grade)"));
     await user.type(screen.getByLabelText("Quantity"), "50");
     await user.type(screen.getByLabelText("Rate"), "390");
+    await user.selectOptions(screen.getByLabelText("Payment Status"), "PAID");
 
     await user.click(screen.getByRole("button", { name: "Record Material Purchase" }));
 

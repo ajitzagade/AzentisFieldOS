@@ -331,10 +331,11 @@ export function PurchaseForm({
 
         {pricingRendered ? (
           <>
-            {/* Tells the shared parser that pricing is visible here and
-                therefore required — a Supervisor's form omits all of this.
-                Rate itself stays optional even here (it may be unknown). */}
-            <input type="hidden" name="pricingShown" value="1" />
+            {/* All three pricing fields are optional here, same as the
+                Supervisor's form — the office may not have the bill yet
+                either. totalAmount/paymentStatus still travel together as a
+                group (shared schema) so the "pending pricing" flag downstream
+                never sees one without the other. */}
             <AmountField
               label="Rate"
               name="rate"
@@ -348,7 +349,7 @@ export function PurchaseForm({
             <AmountField
               label="Total Amount"
               name="totalAmount"
-              required
+              hint="Optional — leave blank if pricing isn't known yet"
               value={totalValue}
               onChange={(e) => setManualTotal(e.target.value)}
               error={fieldError("totalAmount")}
@@ -356,10 +357,11 @@ export function PurchaseForm({
             <SelectField
               label="Payment Status"
               name="paymentStatus"
-              required
+              hint="Optional — leave blank if pricing isn't known yet"
               icon={<WalletIcon className="size-4" />}
-              defaultValue={initial?.paymentStatus ?? "PAID"}
+              defaultValue={initial?.paymentStatus ?? ""}
               options={[
+                { value: "", label: "Not set yet" },
                 { value: "PAID", label: "Paid" },
                 { value: "PARTIAL", label: "Partial" },
                 { value: "UNPAID", label: "Unpaid" },

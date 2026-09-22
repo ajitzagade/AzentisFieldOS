@@ -15,45 +15,38 @@ const physicalFacts = {
   purchasedAt: "2026-09-01",
 };
 
-// D7: the hidden pricingShown flag is what makes pricing REQUIRED on the
-// Owner's form while the Supervisor's pricing-less submission stays valid.
-describe("parsePurchaseForm — pricing visibility contract", () => {
-  it("accepts a Supervisor submission with no pricing fields at all", () => {
+// D7 (widened 2026-09-22): pricing is optional for both the Supervisor's
+// and the Owner's form — neither is forced to price a Purchase at entry
+// time. totalAmount/paymentStatus still travel together as a group.
+describe("parsePurchaseForm — pricing is always optional", () => {
+  it("accepts a submission with no pricing fields at all", () => {
     const result = parsePurchaseForm(formData(physicalFacts));
     expect(result.success).toBe(true);
   });
 
-  it("rejects an Owner submission (pricingShown=1) that leaves totalAmount/paymentStatus blank", () => {
-    const result = parsePurchaseForm(formData({ ...physicalFacts, pricingShown: "1" }));
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const errors = result.error.flatten().fieldErrors;
-      expect(errors.totalAmount?.[0]).toBe("Total Amount is required");
-      expect(errors.paymentStatus?.[0]).toBe("Payment Status is required");
-    }
-  });
-
   it("accepts an Owner submission with the full pricing group", () => {
     const result = parsePurchaseForm(
-      formData({ ...physicalFacts, pricingShown: "1", rate: "390", totalAmount: "19500", paymentStatus: "UNPAID" }),
+      formData({ ...physicalFacts, rate: "390", totalAmount: "19500", paymentStatus: "UNPAID" }),
     );
     expect(result.success).toBe(true);
   });
 
   it("accepts an Owner submission with totalAmount/paymentStatus but no rate", () => {
-    const result = parsePurchaseForm(
-      formData({ ...physicalFacts, pricingShown: "1", totalAmount: "19500", paymentStatus: "UNPAID" }),
-    );
+    const result = parsePurchaseForm(formData({ ...physicalFacts, totalAmount: "19500", paymentStatus: "UNPAID" }));
     expect(result.success).toBe(true);
   });
 
-  it("accepts rate alone without the flag (rate is independently optional)", () => {
+  it("accepts rate alone (rate is independently optional)", () => {
     const result = parsePurchaseForm(formData({ ...physicalFacts, rate: "390" }));
     expect(result.success).toBe(true);
   });
 
-  it("rejects a partial totalAmount/paymentStatus group even without the flag (schema all-or-none)", () => {
+  it("rejects a partial totalAmount/paymentStatus group (schema all-or-none)", () => {
     const result = parsePurchaseForm(formData({ ...physicalFacts, totalAmount: "19500" }));
     expect(result.success).toBe(false);
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+      expect(errors.paymentStatus?.[0]).toBeTruthy();
+    }
   });
 });

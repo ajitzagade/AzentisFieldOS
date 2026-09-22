@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@azentisfieldos/ui";
 import DashboardPage from "./page";
@@ -248,7 +249,7 @@ describe("DashboardPage", () => {
     expect(screen.queryByRole("link", { name: /view site/i })).toBeNull();
   });
 
-  it("folds 3+ missing Sites behind a summary, open by default — every Site stays visible, not just reachable (FR-35)", async () => {
+  it("folds 3+ missing Sites behind a summary, closed by default — every Site is still named and reachable once expanded (FR-35)", async () => {
     mockDashboard({
       today: {
         ...baseToday,
@@ -262,7 +263,12 @@ describe("DashboardPage", () => {
 
     await renderDashboard();
 
-    expect(screen.getByText("3 sites have not submitted a Daily Report yet today")).toBeInTheDocument();
+    const summary = screen.getByText("3 sites have not submitted a Daily Report yet today");
+    expect(summary).toBeInTheDocument();
+    expect(summary.closest("details")).toHaveProperty("open", false);
+
+    await userEvent.click(summary);
+
     expect(screen.getByText("Balaji Nagar has not submitted a Daily Report yet today.")).toBeVisible();
     expect(screen.getByText("Metro Depot has not submitted a Daily Report yet today.")).toBeVisible();
     expect(
@@ -697,7 +703,7 @@ describe("DashboardPage", () => {
     expect(starts.some((link) => link.getAttribute("href") === "/dsr/new?siteId=s2")).toBe(true);
   });
 
-  it("Supervisor Home: folds 3+ missing Sites behind a summary, open by default (FR-35)", async () => {
+  it("Supervisor Home: folds 3+ missing Sites behind a summary, closed by default (FR-35)", async () => {
     mockDashboard({
       role: "SITE_SUPERVISOR",
       today: {
@@ -711,7 +717,12 @@ describe("DashboardPage", () => {
     });
     await renderDashboard();
 
-    expect(screen.getByText("Daily Report still due today for 3 sites")).toBeInTheDocument();
+    const summary = screen.getByText("Daily Report still due today for 3 sites");
+    expect(summary).toBeInTheDocument();
+    expect(summary.closest("details")).toHaveProperty("open", false);
+
+    await userEvent.click(summary);
+
     expect(screen.getByText("Daily Report still due today for NH-48 Widening.")).toBeVisible();
     expect(screen.getByText("Daily Report still due today for Metro Depot.")).toBeVisible();
     expect(screen.getByText("Daily Report still due today for Riverside Bridge Approach.")).toBeVisible();

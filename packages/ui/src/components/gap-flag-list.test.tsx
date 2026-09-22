@@ -26,17 +26,17 @@ describe("GapFlagList", () => {
     expect(screen.queryByText("2 items")).toBeNull();
   });
 
-  it("folds behind a summary toggle at/above the threshold, but defaults open — FR-35 never hides an absence", () => {
+  it("folds behind a summary toggle at/above the threshold, defaults closed — the summary line itself names the count", () => {
     const { container } = render(
       <GapFlagList count={3} summary="3 sites need attention">
         {flags(["Alpha", "Beta", "Gamma"])}
       </GapFlagList>,
     );
     expect(screen.getByText("3 sites need attention")).toBeInTheDocument();
-    expect(container.querySelector("details")).toHaveProperty("open", true);
-    expect(screen.getByText("Alpha is missing")).toBeVisible();
-    expect(screen.getByText("Beta is missing")).toBeVisible();
-    expect(screen.getByText("Gamma is missing")).toBeVisible();
+    expect(container.querySelector("details")).toHaveProperty("open", false);
+    expect(screen.getByText("Alpha is missing")).toBeInTheDocument();
+    expect(screen.getByText("Beta is missing")).toBeInTheDocument();
+    expect(screen.getByText("Gamma is missing")).toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(3);
   });
 
