@@ -158,6 +158,19 @@ describe("DsrDetailPage", () => {
               amount: 14000,
               summary: "from Shree Balaji Traders",
               source: "PURCHASE",
+              pending: false,
+            },
+            {
+              id: "mr-2",
+              occurredAt: "2026-08-11T08:00:00Z",
+              materialName: "Gravel",
+              sizeLabel: "20mm",
+              unitName: "m3",
+              quantity: 12,
+              amount: null,
+              summary: "Godown → Site",
+              source: "MOVEMENT",
+              pending: true,
             },
           ],
           standaloneConsumptions: [
@@ -196,6 +209,11 @@ describe("DsrDetailPage", () => {
     expect(screen.getByText("via Consumption")).toBeInTheDocument();
     expect(screen.getByText(/Bricks \(Standard\)/)).toBeInTheDocument();
     expect(screen.getByText("Wastage")).toBeInTheDocument();
+    // Regression (2026-09-22): a Movement not yet confirmed at the
+    // destination Site must say so — its quantity is the sent amount, not
+    // yet the verified received amount, and can still change.
+    expect(screen.getByText(/Gravel \(20mm\)/)).toBeInTheDocument();
+    expect(screen.getByText("Pending confirmation")).toBeInTheDocument();
   });
 
   it("calls notFound() for a report ID that doesn't exist", async () => {

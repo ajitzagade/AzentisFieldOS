@@ -88,12 +88,27 @@ describe('renderReportEmailHtml — Materials Received (inventory→DSR sync fix
     const html = renderReportEmailHtml(
       makeContent({
         materialsReceived: [
-          { material: 'Cement', size: 'OPC 53', quantity: 50, unit: 'Bags' },
+          { material: 'Cement', size: 'OPC 53', quantity: 50, unit: 'Bags', pending: false },
         ],
       }),
     );
     expect(html).toContain('Materials Received');
     expect(html).toContain('Cement (OPC 53) — 50 Bags');
+  });
+
+  // Regression (2026-09-22): a Movement not yet confirmed at the destination
+  // Site shows the sent (not yet verified) amount — the emailed report must
+  // say so, the same as the on-screen report's badge, or a reader has no way
+  // to know this number might still change.
+  it('flags a Movement still awaiting confirmation at the destination Site', () => {
+    const html = renderReportEmailHtml(
+      makeContent({
+        materialsReceived: [
+          { material: 'Sand', size: 'River sand', quantity: 12, unit: 'm3', pending: true },
+        ],
+      }),
+    );
+    expect(html).toContain('Sand (River sand) — 12 m3 (pending confirmation at Site)');
   });
 
   it('shows "None recorded" when nothing was received that day', () => {

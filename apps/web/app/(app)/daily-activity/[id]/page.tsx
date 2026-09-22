@@ -75,6 +75,10 @@ interface MaterialRowDetail {
 
 interface MaterialsReceivedRowDetail extends MaterialRowDetail {
   source: "PURCHASE" | "MOVEMENT";
+  // A Movement not yet confirmed at the destination Site — quantity is the
+  // sent amount (SiteStock itself isn't incremented until confirmed, and the
+  // confirmed amount can differ from what was sent).
+  pending: boolean;
 }
 
 interface WastageReturnRowDetail extends MaterialRowDetail {
@@ -286,7 +290,10 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                     {m.materialName} ({m.sizeLabel}){" "}
                     <span className="text-caption text-ink-500">
                       via {m.source === "PURCHASE" ? "Purchase" : "Movement"} — {m.summary}
-                    </span>
+                    </span>{" "}
+                    {/* Sent, not yet confirmed received at this Site — the
+                        number shown is what was sent and may still change. */}
+                    {m.pending ? <Badge variant="warning">Pending confirmation</Badge> : null}
                   </span>
                   <span className="text-ink-500">{m.quantity} {m.unitName}</span>
                 </li>

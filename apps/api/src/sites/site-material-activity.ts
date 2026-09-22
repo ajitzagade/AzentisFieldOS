@@ -24,6 +24,14 @@ export interface MaterialRow {
 
 export interface MaterialsReceivedRow extends MaterialRow {
   source: 'PURCHASE' | 'MOVEMENT';
+  // A GODOWN_TO_SITE/SITE_TO_SITE Movement only increments the destination
+  // Site's SiteStock once someone confirms receipt there (movements.service
+  // .ts's confirmReceipt — goods-in-transit semantics, so a shortfall/damage
+  // in transit is never silently reconciled to the sent amount). Until then
+  // `quantity` here is the sent amount (nothing else to show yet); once
+  // confirmed it becomes the actual received amount, which can differ from
+  // what was sent. A Purchase has no transit step, so this is always false.
+  pending: boolean;
 }
 
 export interface WastageReturnRow extends MaterialRow {
@@ -151,6 +159,7 @@ export async function getSiteMaterialActivity(
       amount: toNumOrNull(p.totalAmount),
       summary: `from ${p.vendor.name}`,
       source: 'PURCHASE',
+      pending: false,
     })),
     ...movements.map((m): MaterialsReceivedRow => ({
       id: m.id,
@@ -158,10 +167,15 @@ export async function getSiteMaterialActivity(
       materialName: m.materialSize.material.name,
       sizeLabel: m.materialSize.label,
       unitName: m.materialSize.material.unit.name,
-      quantity: toNum(m.sentQuantity),
+      // Regression (2026-09-22): this used to always show sentQuantity, so a
+      // confirmed shortfall (SiteStock only ever incremented by the actual
+      // receivedQuantity) left the report permanently overstating what
+      // arrived. Report the real number once known.
+      quantity: toNum(m.receivedQuantity ?? m.sentQuantity),
       amount: null,
       summary: `${m.sourceSite?.name ?? 'Godown'} → ${m.destinationSite.name}`,
       source: 'MOVEMENT',
+      pending: m.receivedQuantity === null,
     })),
   ];
 

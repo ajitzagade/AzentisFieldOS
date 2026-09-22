@@ -130,6 +130,7 @@ describe('ReportCompilerService.buildContent', () => {
           amount: 14000,
           summary: 'from Shree Balaji Traders',
           source: 'PURCHASE',
+          pending: false,
         },
       ],
       standaloneConsumptions: [
@@ -159,7 +160,7 @@ describe('ReportCompilerService.buildContent', () => {
     });
 
     expect(content.materialsReceived).toEqual([
-      { material: 'Steel', size: '12mm', quantity: 200, unit: 'Kg' },
+      { material: 'Steel', size: '12mm', quantity: 200, unit: 'Kg', pending: false },
     ]);
     // The DSR-form consumption and the standalone one both appear — the
     // whole point of the fix (previously the standalone one was invisible).
@@ -172,6 +173,56 @@ describe('ReportCompilerService.buildContent', () => {
       totalQuantityM3: 16,
       grades: ['M25', 'M30'],
     });
+  });
+
+  // Regression (2026-09-22): a real end-to-end run confirmed a Godown->Site
+  // Movement's receipt at only 8 of the 10 Bags sent (SiteStock only ever
+  // increments by the confirmed amount — movements.service.ts's
+  // confirmReceipt), yet the report kept showing the original 10 forever,
+  // permanently overstating what actually arrived at the Site. This asserts
+  // buildContent passes through whatever quantity/pending
+  // getSiteMaterialActivity already resolved (received once confirmed, sent
+  // while still in transit) rather than re-deriving it.
+  it('reflects a Movement´s actual (not sent) quantity once known, and flags one still awaiting confirmation', () => {
+    const { service } = makeService();
+
+    const content = service.buildContent(makeDsr(), branding, {
+      materialsReceived: [
+        {
+          id: 'movement-confirmed',
+          occurredAt: '2026-08-11T08:00:00.000Z',
+          materialName: 'Cement',
+          sizeLabel: '50kg',
+          unitName: 'Bag',
+          quantity: 8,
+          amount: null,
+          summary: 'Godown → Site',
+          source: 'MOVEMENT',
+          pending: false,
+        },
+        {
+          id: 'movement-pending',
+          occurredAt: '2026-08-11T09:00:00.000Z',
+          materialName: 'Sand',
+          sizeLabel: 'River sand',
+          unitName: 'm3',
+          quantity: 12,
+          amount: null,
+          summary: 'Godown → Site',
+          source: 'MOVEMENT',
+          pending: true,
+        },
+      ],
+      standaloneConsumptions: [],
+      standaloneRmcEntries: [],
+      standaloneWasteDisposals: [],
+      standaloneWastageReturns: [],
+    });
+
+    expect(content.materialsReceived).toEqual([
+      { material: 'Cement', size: '50kg', quantity: 8, unit: 'Bag', pending: false },
+      { material: 'Sand', size: 'River sand', quantity: 12, unit: 'm3', pending: true },
+    ]);
   });
 
   it('handles Prisma Decimal values via toNumber()', () => {

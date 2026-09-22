@@ -65,6 +65,9 @@ export interface ReportContent {
     size: string;
     quantity: number;
     unit: string;
+    // A Movement not yet confirmed at the destination Site — see
+    // MaterialsReceivedRow.pending in site-material-activity.ts.
+    pending: boolean;
   }[];
   rmc: { loads: number; totalQuantityM3: number; grades: string[] };
   equipmentUsed: string[];
@@ -175,6 +178,7 @@ export class ReportCompilerService {
       size: m.sizeLabel,
       quantity: m.quantity,
       unit: m.unitName,
+      pending: m.pending,
     }));
 
     const grades = [

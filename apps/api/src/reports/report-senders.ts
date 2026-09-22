@@ -50,7 +50,7 @@ export function renderReportEmailHtml(content: ReportContent): string {
     content.materialsReceived
       .map(
         (m) =>
-          `${escapeHtml(m.material)} (${escapeHtml(m.size)}) — ${m.quantity} ${escapeHtml(m.unit)}`,
+          `${escapeHtml(m.material)} (${escapeHtml(m.size)}) — ${m.quantity} ${escapeHtml(m.unit)}${m.pending ? ' (pending confirmation at Site)' : ''}`,
       )
       .join('; ') || 'None recorded';
   const rmc =
