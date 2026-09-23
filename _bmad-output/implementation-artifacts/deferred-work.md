@@ -476,6 +476,12 @@ These are real security-hardening items that need config/ops decisions (env, pro
   summary: Negative correction-delta rows (Waste Material tripCount, Subcontractor quantity) render on the DSR detail page with no visual indication they're signed deltas rather than absolute values (e.g. "Debris — -2 trips").
   evidence: apps/web/app/(app)/daily-activity/[id]/page.tsx's Waste Material/Subcontractor list sections. Needs a broader design pass on how correction-delta rows are displayed across the DSR detail page, not a one-line fix.
 
+## Deferred from: spec-dsr-material-used-godown-fallback planning (2026-09-23)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-dsr-material-used-godown-fallback.md`
+  summary: Extending Site-then-Godown stock fallback to the standalone `/movements/consumption` form's *correction* path (editing an existing Consumption entry's quantity) — only its plain-create path gets the fallback in this pass; corrections there keep today's Site-only behavior.
+  evidence: `apps/api/src/inventory/consumption.service.ts`'s `create()` accepts a signed delta (not an absolute quantity) when `correctsId` is set, per the `CorrectedValueField` convention — there is no prior row to reverse against, so a negative delta needs its own give-back policy (e.g. Godown-first LIFO) that isn't implied by anything already in the codebase. Split out to keep the primary spec (which fixes the two reported DSR Materials Used errors) under the 1600-token guideline; not a regression since this path is untouched and keeps working exactly as it does today.
+
 ## Deferred from: "My Drafts" quick-resume (2026-09-21)
 
 - source_spec: (no formal spec — built ad hoc against a deferred-work.md entry, then reviewed)
@@ -484,3 +490,9 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: (same feature)
   summary: `listMyDrafts` ordering test (`dsr.service.integration.spec.ts`) uses a fixed 10ms `setTimeout` between two saveDraft calls to force distinct `updatedAt` values — a latent, low-probability flakiness source rather than a hard guarantee.
   evidence: apps/api/src/dsr/dsr.service.integration.spec.ts's listMyDrafts describe block. Low risk given Postgres TIMESTAMP(3) millisecond resolution, but not deterministic under CI load.
+
+## Deferred from: multi-goal split of Daily Reports/Movement/Inventory request (2026-09-23)
+
+- source_spec: none
+  summary: Simplify/unify Material Purchase and Movement for Site Engineers — a single guided "Material → Quantity → From → To → Date → Notes" flow over the existing Vendor→Godown/Vendor→Site/Godown→Site/Site→Site/Site→Godown transactions, replacing today's 7 separate creation buttons/routes.
+  evidence: Research confirmed all 5 flows already work end-to-end today on one unified Purchase/Movement model with shared stock math, and a Site Engineer already has API access to all of them (only pricing/bill-attach is Owner-only) — so this goal is UI/UX-only, independently shippable from the Daily Reports and Inventory-screen goals, and the user explicitly asked to skip it for this round to focus on the other two.

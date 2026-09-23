@@ -157,8 +157,26 @@ describeIfDb('DsrService (integration)', () => {
     return stock?.quantity.toString();
   };
 
+  // spec-dsr-material-used-godown-fallback: Godown Stock is the fallback
+  // source once Site Stock is exhausted — these mirror seedSiteStock/
+  // siteStockQuantity above for the Godown side.
+  const seedGodownStock = (quantity: number) =>
+    prisma.godownStock.upsert({
+      where: { materialSizeId },
+      update: { quantity },
+      create: { materialSizeId, quantity },
+    });
+
+  const godownStockQuantity = async () => {
+    const stock = await prisma.godownStock.findUnique({
+      where: { materialSizeId },
+    });
+    return stock?.quantity.toString();
+  };
+
   beforeEach(async () => {
     await seedSiteStock(1000);
+    await seedGodownStock(0);
   });
 
   afterEach(async () => {
@@ -179,6 +197,7 @@ describeIfDb('DsrService (integration)', () => {
     await prisma.photo.deleteMany({ where: { dailySiteReport: { siteId } } });
     await prisma.dailySiteReport.deleteMany({ where: { siteId } });
     await prisma.siteStock.deleteMany({ where: { siteId } });
+    await prisma.godownStock.deleteMany({ where: { materialSizeId } });
   });
 
   afterAll(async () => {
@@ -195,6 +214,7 @@ describeIfDb('DsrService (integration)', () => {
     await prisma.photo.deleteMany({ where: { dailySiteReport: { siteId } } });
     await prisma.dailySiteReport.deleteMany({ where: { siteId } });
     await prisma.siteStock.deleteMany({ where: { siteId } });
+    await prisma.godownStock.deleteMany({ where: { materialSizeId } });
     await prisma.teamMember.deleteMany({ where: { id: teamMemberId } });
     const size = await prisma.materialSize.findUnique({
       where: { id: materialSizeId },
@@ -1129,6 +1149,147 @@ describeIfDb('DsrService (integration)', () => {
       correct(original.id, payload, 'Second correction of the same report'),
     ).rejects.toThrow(ConflictException);
     expect(await siteStockQuantity()).toBe('88');
+  });
+
+  // ---------------------------------------------------------------------
+  // spec-dsr-material-used-godown-fallback: DSR Materials Used draws Site
+  // Stock first, then falls back to Godown Stock for the shortfall — no
+  // Movement step required, and the exact split is persisted per row so a
+  // later correction can reverse it precisely.
+  // ---------------------------------------------------------------------
+
+  it('draws entirely from Godown Stock when the Site has none Moved to it yet, split {site:0, godown:20}', async () => {
+    await seedSiteStock(0);
+    await seedGodownStock(100);
+
+    await create({
+      siteId,
+      reportDate: '2026-09-23',
+      workRecords: [],
+      consumptions: [{ materialSizeId, quantity: 20 }],
+      rmcEntries: [],
+      expenses: [],
+      equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
+      wasteDisposalEntries: [],
+    });
+
+    expect(await siteStockQuantity()).toBe('0');
+    expect(await godownStockQuantity()).toBe('80');
+    const rows = await prisma.consumption.findMany({ where: { siteId } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.siteStockQuantity.toString()).toBe('0');
+    expect(rows[0]?.godownStockQuantity.toString()).toBe('20');
+  });
+
+  it('splits across Site and Godown when Site Stock alone is short, split {site:5, godown:15}', async () => {
+    await seedSiteStock(5);
+    await seedGodownStock(100);
+
+    await create({
+      siteId,
+      reportDate: '2026-09-23',
+      workRecords: [],
+      consumptions: [{ materialSizeId, quantity: 20 }],
+      rmcEntries: [],
+      expenses: [],
+      equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
+      wasteDisposalEntries: [],
+    });
+
+    expect(await siteStockQuantity()).toBe('0');
+    expect(await godownStockQuantity()).toBe('85');
+    const rows = await prisma.consumption.findMany({ where: { siteId } });
+    expect(rows[0]?.siteStockQuantity.toString()).toBe('5');
+    expect(rows[0]?.godownStockQuantity.toString()).toBe('15');
+  });
+
+  it('rejects when Site + Godown combined is still insufficient, leaving no partial write and nothing deducted', async () => {
+    await seedSiteStock(5);
+    await seedGodownStock(10);
+
+    await expect(
+      create({
+        siteId,
+        reportDate: '2026-09-23',
+        workRecords: [],
+        consumptions: [{ materialSizeId, quantity: 20 }],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(await siteStockQuantity()).toBe('5');
+    expect(await godownStockQuantity()).toBe('10');
+    expect(
+      await prisma.dailySiteReport.findFirst({
+        where: { siteId, reportDate: new Date('2026-09-23') },
+      }),
+    ).toBeNull();
+  });
+
+  it("a correction restores a Godown-fallback row's exact stored split before charging the restated quantity afresh", async () => {
+    await seedSiteStock(5);
+    await seedGodownStock(100);
+
+    // Original draws {site:5, godown:15} for 20 units.
+    const original = await create({
+      siteId,
+      reportDate: '2026-09-23',
+      workRecords: [],
+      consumptions: [{ materialSizeId, quantity: 20 }],
+      rmcEntries: [],
+      expenses: [],
+      equipmentUsed: [],
+      subcontractorEntries: [],
+      labourEntries: [],
+      wasteDisposalEntries: [],
+    });
+    expect(await siteStockQuantity()).toBe('0');
+    expect(await godownStockQuantity()).toBe('85');
+
+    // Corrected down to 8 units: the original {5,15} split is given back in
+    // full first (Site 0→5, Godown 85→100), then 8 is retaken site-first
+    // (Site 5→0 draws all 5 available there, the remaining 3 comes from
+    // Godown: Godown 100→97).
+    await correct(
+      original.id,
+      {
+        siteId,
+        reportDate: '2026-09-23',
+        workRecords: [],
+        consumptions: [{ materialSizeId, quantity: 8 }],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      },
+      'Recount: 8 units used, not 20',
+    );
+
+    expect(await siteStockQuantity()).toBe('0');
+    expect(await godownStockQuantity()).toBe('97');
+
+    const originalRows = await prisma.consumption.findMany({
+      where: { dailySiteReportId: original.id },
+    });
+    expect(originalRows[0]?.siteStockQuantity.toString()).toBe('5');
+    expect(originalRows[0]?.godownStockQuantity.toString()).toBe('15');
+
+    const correctedRows = await prisma.consumption.findMany({
+      where: { siteId, quantity: { equals: 8 } },
+    });
+    expect(correctedRows[0]?.siteStockQuantity.toString()).toBe('5');
+    expect(correctedRows[0]?.godownStockQuantity.toString()).toBe('3');
   });
 
   // ---------- spec-dsr-drafts: DRAFT | SUBMITTED lifecycle ----------
@@ -2864,9 +3025,9 @@ describeIfDb('DsrService (integration)', () => {
           (item) => item.id === expense.id && item.amount === 750,
         ),
       ).toBe(true);
-      expect(
-        detail.otherActivity.some((item) => item.id === expense.id),
-      ).toBe(false);
+      expect(detail.otherActivity.some((item) => item.id === expense.id)).toBe(
+        false,
+      );
 
       await prisma.expense.deleteMany({ where: { id: expense.id } });
       await prisma.returnWastage.deleteMany({ where: { id: wastage.id } });

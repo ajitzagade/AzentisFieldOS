@@ -175,25 +175,44 @@ export function stockStatus({
     return { text: "Checking available stock…", tone: "default", insufficient: false };
   }
   const entry = stock.bySizeId.get(materialSizeId);
-  const elsewhereHint = (() => {
-    const found = elsewhereEntry(materialSizeId, elsewhere);
-    return found ? ` — ${formatQuantity(found)} available at ${elsewhere?.label}` : "";
-  })();
+  const elsewhereFound = elsewhereEntry(materialSizeId, elsewhere);
+  const elsewhereHint = elsewhereFound
+    ? ` — ${formatQuantity(elsewhereFound)} available at ${elsewhere?.label}`
+    : "";
+
+  // Bugfix (2026-09-23): Consumption now draws `location` stock first,
+  // then falls back to `elsewhere` (the Godown) for the shortfall — so
+  // whether an entered quantity is "insufficient" must be evaluated
+  // against the combined balance, not `location` alone, or a Material
+  // sitting in the Godown but never Moved to this Site would wrongly show
+  // "Insufficient stock" even though the combined draw would succeed
+  // server-side. Only this insufficiency check changes; the "no balance
+  // recorded"/"balance is zero" informational wording below (shown while
+  // nothing has been typed yet) is unchanged.
+  const locationQty = entry && entry.quantity > 0 ? entry.quantity : 0;
+  const elsewhereQty = elsewhereFound ? elsewhereFound.quantity : 0;
+  const combinedQty = locationQty + elsewhereQty;
+  const entered = Number(quantity);
+  const insufficientCombined =
+    Boolean(quantity?.trim()) && Number.isFinite(entered) && entered > combinedQty;
+  const insufficientStatus = (): { text: string; tone: FieldHintTone; insufficient: boolean } => ({
+    text: elsewhereFound
+      ? `Insufficient stock — only ${formatQuantity({ quantity: combinedQty, unit: elsewhereFound.unit })} available combined (${location} + ${elsewhere?.label})`
+      : `Insufficient stock — only ${formatQuantity({ quantity: combinedQty, unit: entry?.unit })} available at ${location}`,
+    tone: "danger",
+    insufficient: true,
+  });
+
   if (!entry) {
+    if (insufficientCombined) return insufficientStatus();
     return { text: `No stock recorded at ${location}${elsewhereHint}`, tone: "warning", insufficient: false };
   }
   if (entry.quantity <= 0) {
+    if (insufficientCombined) return insufficientStatus();
     return { text: `No stock available at ${location}${elsewhereHint}`, tone: "warning", insufficient: false };
   }
   const available = formatQuantity(entry);
-  const entered = Number(quantity);
-  if (quantity?.trim() && Number.isFinite(entered) && entered > entry.quantity) {
-    return {
-      text: `Insufficient stock — only ${available} available at ${location}`,
-      tone: "danger",
-      insufficient: true,
-    };
-  }
+  if (insufficientCombined) return insufficientStatus();
   return { text: `${available} available at ${location}`, tone: "positive", insufficient: false };
 }
 

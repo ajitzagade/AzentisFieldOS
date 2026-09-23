@@ -65,11 +65,13 @@ describeIfDb('ConsumptionService (integration)', () => {
   afterEach(async () => {
     await prisma.consumption.deleteMany({ where: { materialSizeId } });
     await prisma.siteStock.deleteMany({ where: { materialSizeId } });
+    await prisma.godownStock.deleteMany({ where: { materialSizeId } });
   });
 
   afterAll(async () => {
     await prisma.consumption.deleteMany({ where: { materialSizeId } });
     await prisma.siteStock.deleteMany({ where: { materialSizeId } });
+    await prisma.godownStock.deleteMany({ where: { materialSizeId } });
     await prisma.materialSize.deleteMany({ where: { id: materialSizeId } });
     await prisma.material.deleteMany({ where: { id: materialId } });
     await prisma.materialCategory.deleteMany({ where: { id: categoryId } });
@@ -190,5 +192,85 @@ describeIfDb('ConsumptionService (integration)', () => {
       where: { id: original.id },
     });
     expect(unchangedOriginal?.quantity.toString()).toBe('10');
+  });
+
+  // spec-dsr-material-used-godown-fallback: plain create (no correctsId)
+  // draws Site Stock first, then falls back to Godown Stock for the
+  // shortfall — never Godown-only, never the reverse.
+  it('draws Godown Stock for the shortfall when Site Stock alone is insufficient, and persists the split', async () => {
+    await prisma.siteStock.create({
+      data: { siteId, materialSizeId, quantity: 5 },
+    });
+    await prisma.godownStock.create({
+      data: { materialSizeId, quantity: 100 },
+    });
+
+    const consumption = await service.create(
+      { siteId, materialSizeId, quantity: 20, consumedAt: '2026-09-23' },
+      userId,
+    );
+
+    expect(consumption.siteStockQuantity.toString()).toBe('5');
+    expect(consumption.godownStockQuantity.toString()).toBe('15');
+
+    const siteStock = await prisma.siteStock.findUnique({
+      where: { siteId_materialSizeId: { siteId, materialSizeId } },
+    });
+    expect(siteStock?.quantity.toString()).toBe('0');
+    const godownStock = await prisma.godownStock.findUnique({
+      where: { materialSizeId },
+    });
+    expect(godownStock?.quantity.toString()).toBe('85');
+  });
+
+  it('draws entirely from Godown Stock when the Site has none at all, without requiring a prior Movement', async () => {
+    await prisma.godownStock.create({
+      data: { materialSizeId, quantity: 100 },
+    });
+
+    const consumption = await service.create(
+      { siteId, materialSizeId, quantity: 20, consumedAt: '2026-09-23' },
+      userId,
+    );
+
+    expect(consumption.siteStockQuantity.toString()).toBe('0');
+    expect(consumption.godownStockQuantity.toString()).toBe('20');
+
+    const siteStock = await prisma.siteStock.findUnique({
+      where: { siteId_materialSizeId: { siteId, materialSizeId } },
+    });
+    expect(siteStock?.quantity.toString() ?? '0').toBe('0');
+    const godownStock = await prisma.godownStock.findUnique({
+      where: { materialSizeId },
+    });
+    expect(godownStock?.quantity.toString()).toBe('80');
+  });
+
+  it('rejects when Site + Godown combined is still insufficient, rolling back with nothing deducted', async () => {
+    await prisma.siteStock.create({
+      data: { siteId, materialSizeId, quantity: 5 },
+    });
+    await prisma.godownStock.create({
+      data: { materialSizeId, quantity: 10 },
+    });
+
+    await expect(
+      service.create(
+        { siteId, materialSizeId, quantity: 20, consumedAt: '2026-09-23' },
+        userId,
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(
+      await prisma.consumption.findMany({ where: { materialSizeId } }),
+    ).toHaveLength(0);
+    const siteStock = await prisma.siteStock.findUnique({
+      where: { siteId_materialSizeId: { siteId, materialSizeId } },
+    });
+    expect(siteStock?.quantity.toString()).toBe('5');
+    const godownStock = await prisma.godownStock.findUnique({
+      where: { materialSizeId },
+    });
+    expect(godownStock?.quantity.toString()).toBe('10');
   });
 });

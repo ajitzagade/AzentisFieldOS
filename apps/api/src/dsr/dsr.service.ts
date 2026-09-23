@@ -19,7 +19,10 @@ import {
   supersededDsrIds,
   SUBMITTED_DSR_WHERE,
 } from '../common/superseded-dsrs';
-import { applySiteStockDelta } from '../inventory/stock-delta';
+import {
+  giveBackConsumptionStock,
+  takeConsumptionStock,
+} from '../inventory/stock-delta';
 import { StorageService } from '../storage/storage.service';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 import { getSiteActivityFeed } from '../sites/site-activity-feed';
@@ -326,26 +329,51 @@ export class DsrService {
     }
 
     for (const consumption of input.consumptions) {
-      const data = {
-        siteId: input.siteId,
-        materialSizeId: consumption.materialSizeId,
-        quantity: consumption.quantity,
-        activityReference: consumption.activityReference,
-        dailySiteReportId: dsrId,
-        recordedByUserId: submittedByUserId,
-        consumedAt: reportDate,
-      };
-      // FR-12: Consumption recorded through a DSR reduces Site Stock
-      // exactly like the standalone POST /consumption path — the DSR
-      // is an entry surface, never a stock-invisible silo. A retried
-      // sync's upsert (AD-8) must apply only the *difference* against
-      // the row it already wrote, or every retry would drain stock
-      // again.
+      // FR-12: Consumption recorded through a DSR reduces Stock exactly
+      // like the standalone POST /consumption path — the DSR is an entry
+      // surface, never a stock-invisible silo. Site-first, Godown-fallback
+      // (bugfix 2026-09-23): a retried sync's upsert (AD-8) must apply
+      // only against the row it already wrote, or every retry would drain
+      // stock again — so any existing row's stored split is given back in
+      // full first (regardless of whether the Material also changed), then
+      // the new quantity is taken fresh and its resulting split persisted.
+      // This subsumes the old material-changed/same-material branching:
+      // giving back the old split and retaking the new amount is correct
+      // either way.
       const existing = consumption.clientGeneratedId
         ? await tx.consumption.findUnique({
             where: { clientGeneratedId: consumption.clientGeneratedId },
           })
         : null;
+      if (existing) {
+        await giveBackConsumptionStock(
+          tx,
+          existing.siteId,
+          existing.materialSizeId,
+          existing.siteStockQuantity.toNumber(),
+          existing.godownStockQuantity.toNumber(),
+        );
+      }
+
+      const split = await takeConsumptionStock(
+        tx,
+        input.siteId,
+        consumption.materialSizeId,
+        consumption.quantity,
+        'Not enough Site Stock for this Consumption.',
+      );
+
+      const data = {
+        siteId: input.siteId,
+        materialSizeId: consumption.materialSizeId,
+        quantity: consumption.quantity,
+        siteStockQuantity: split.siteStockQuantity,
+        godownStockQuantity: split.godownStockQuantity,
+        activityReference: consumption.activityReference,
+        dailySiteReportId: dsrId,
+        recordedByUserId: submittedByUserId,
+        consumedAt: reportDate,
+      };
       if (consumption.clientGeneratedId) {
         await tx.consumption.upsert({
           where: { clientGeneratedId: consumption.clientGeneratedId },
@@ -357,33 +385,6 @@ export class DsrService {
         });
       } else {
         await tx.consumption.create({ data });
-      }
-      if (existing && existing.materialSizeId !== consumption.materialSizeId) {
-        // The resubmission moved this row to a different Material —
-        // give the previously consumed Material back, then charge the
-        // new one in full.
-        await applySiteStockDelta(
-          tx,
-          existing.siteId,
-          existing.materialSizeId,
-          -existing.quantity.toNumber(),
-          'Not enough Site Stock for this Consumption.',
-        );
-        await applySiteStockDelta(
-          tx,
-          input.siteId,
-          consumption.materialSizeId,
-          consumption.quantity,
-          'Not enough Site Stock for this Consumption.',
-        );
-      } else {
-        await applySiteStockDelta(
-          tx,
-          input.siteId,
-          consumption.materialSizeId,
-          consumption.quantity - (existing?.quantity.toNumber() ?? 0),
-          'Not enough Site Stock for this Consumption.',
-        );
       }
     }
 
@@ -913,7 +914,7 @@ export class DsrService {
   // deferred sub-records via the shared materializeSubRecords helper (so stock
   // is applied by the exact same path as the one-shot submit — never a second
   // copy), and clears draftContent — all in one transaction. Insufficient
-  // stock throws from applySiteStockDelta, rolling the whole finalize back so
+  // stock throws from takeConsumptionStock, rolling the whole finalize back so
   // the report stays DRAFT with nothing materialised.
   //
   // Review items:
@@ -1214,44 +1215,47 @@ export class DsrService {
         }
 
         // FR-12/FR-54: the superseded report's Consumption rows stay in
-        // the ledger untouched (AD-9), but their Site Stock effect is
-        // handed back here and the restated rows below charge stock
-        // afresh — so current Stock always reflects the *current* version
-        // of the report, and net across the whole correction is
-        // (restated − original), the same signed-delta a standalone
-        // Consumption correction applies.
+        // the ledger untouched (AD-9), but their Stock effect is handed
+        // back here — to each row's own stored split (bugfix 2026-09-23:
+        // never re-derived) — and the restated rows below charge stock
+        // afresh, site-first-then-Godown, so current Stock always
+        // reflects the *current* version of the report, and net across
+        // the whole correction is (restated − original), the same
+        // signed-delta a standalone Consumption correction applies.
         const supersededConsumptions = await tx.consumption.findMany({
           where: { dailySiteReportId: originalId },
         });
         for (const superseded of supersededConsumptions) {
-          await applySiteStockDelta(
+          await giveBackConsumptionStock(
             tx,
             superseded.siteId,
             superseded.materialSizeId,
-            -superseded.quantity.toNumber(),
-            'Not enough Site Stock for this Consumption.',
+            superseded.siteStockQuantity.toNumber(),
+            superseded.godownStockQuantity.toNumber(),
           );
         }
 
         for (const consumption of input.consumptions) {
-          await tx.consumption.create({
-            data: {
-              siteId: input.siteId,
-              materialSizeId: consumption.materialSizeId,
-              quantity: consumption.quantity,
-              activityReference: consumption.activityReference,
-              dailySiteReportId: dsr.id,
-              recordedByUserId: submittedByUserId,
-              consumedAt: reportDate,
-            },
-          });
-          await applySiteStockDelta(
+          const split = await takeConsumptionStock(
             tx,
             input.siteId,
             consumption.materialSizeId,
             consumption.quantity,
             'Not enough Site Stock for this Consumption.',
           );
+          await tx.consumption.create({
+            data: {
+              siteId: input.siteId,
+              materialSizeId: consumption.materialSizeId,
+              quantity: consumption.quantity,
+              siteStockQuantity: split.siteStockQuantity,
+              godownStockQuantity: split.godownStockQuantity,
+              activityReference: consumption.activityReference,
+              dailySiteReportId: dsr.id,
+              recordedByUserId: submittedByUserId,
+              consumedAt: reportDate,
+            },
+          });
         }
 
         for (const rmc of input.rmcEntries) {

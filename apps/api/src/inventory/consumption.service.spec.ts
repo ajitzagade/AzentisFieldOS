@@ -6,16 +6,33 @@ function makeService(overrides: {
   consumptionCreate?: ReturnType<typeof vi.fn>;
   consumptionFindUnique?: ReturnType<typeof vi.fn>;
   siteStockUpdateMany?: ReturnType<typeof vi.fn>;
+  // Bugfix (2026-09-23): the plain-create path (no correctsId) now reads
+  // the current SiteStock balance first (takeConsumptionStock) to decide
+  // the Site-first/Godown-fallback split, before ever calling
+  // siteStock.updateMany. Defaults to a large balance so the existing
+  // "applies to Site Stock" tests below keep exercising the Site leg only,
+  // exactly like before this change.
+  siteStockFindUnique?: ReturnType<typeof vi.fn>;
+  godownStockUpdateMany?: ReturnType<typeof vi.fn>;
 }) {
   const consumptionCreate =
     overrides.consumptionCreate ?? vi.fn().mockResolvedValue({ id: 'c1' });
   const consumptionFindUnique = overrides.consumptionFindUnique ?? vi.fn();
   const siteStockUpdateMany =
     overrides.siteStockUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
+  const siteStockFindUnique =
+    overrides.siteStockFindUnique ??
+    vi.fn().mockResolvedValue({ quantity: { toNumber: () => 1000 } });
+  const godownStockUpdateMany =
+    overrides.godownStockUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
 
   const tx = {
     consumption: { create: consumptionCreate },
-    siteStock: { updateMany: siteStockUpdateMany },
+    siteStock: {
+      updateMany: siteStockUpdateMany,
+      findUnique: siteStockFindUnique,
+    },
+    godownStock: { updateMany: godownStockUpdateMany },
   };
 
   const prisma = {

@@ -23,7 +23,10 @@ import {
   currentDsrRowsWhere,
   supersededDsrIds,
 } from '../common/superseded-dsrs';
-import { decrementStockWithFloorCheck } from './stock-delta';
+import {
+  decrementStockWithFloorCheck,
+  takeConsumptionStock,
+} from './stock-delta';
 
 // FR-12: Site Supervisor or Owner/Admin records Material Consumption at a
 // Site against an activity reference.
@@ -59,24 +62,51 @@ export class ConsumptionService {
 
     try {
       return await this.prisma.$transaction(async (tx) => {
+        // Bugfix (2026-09-23): plain create (no correctsId) draws Site
+        // Stock first, then falls back to Godown Stock for the shortfall,
+        // exactly like the DSR's Materials Used path — and persists the
+        // exact split so a later edit/correction can reverse it precisely.
+        // The correctsId branch is deliberately untouched (deferred, see
+        // spec-dsr-material-used-godown-fallback.md's Boundaries): its
+        // quantity is already a signed delta with no prior row to reverse
+        // against, so `decrementStockWithFloorCheck` against Site Stock
+        // alone stays exactly as it was.
+        const split = input.correctsId
+          ? null
+          : await takeConsumptionStock(
+              tx,
+              input.siteId,
+              input.materialSizeId,
+              input.quantity,
+              'Not enough Site Stock for this Consumption.',
+            );
+
         const consumption = await tx.consumption.create({
           data: {
             ...input,
             recordedByUserId,
             consumedAt: new Date(input.consumedAt),
+            ...(split
+              ? {
+                  siteStockQuantity: split.siteStockQuantity,
+                  godownStockQuantity: split.godownStockQuantity,
+                }
+              : {}),
           },
         });
 
-        await decrementStockWithFloorCheck(
-          tx,
-          {
-            model: 'siteStock',
-            siteId: input.siteId,
-            materialSizeId: input.materialSizeId,
-          },
-          input.quantity,
-          'Not enough Site Stock for this Consumption.',
-        );
+        if (input.correctsId) {
+          await decrementStockWithFloorCheck(
+            tx,
+            {
+              model: 'siteStock',
+              siteId: input.siteId,
+              materialSizeId: input.materialSizeId,
+            },
+            input.quantity,
+            'Not enough Site Stock for this Consumption.',
+          );
+        }
 
         return consumption;
       });
