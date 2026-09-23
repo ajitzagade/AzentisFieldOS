@@ -15,10 +15,12 @@ import {
   ConfirmDialogRow,
   MapPinIcon,
   PencilIcon,
+  PhotoThumbnail,
   PlusIcon,
   RotateCcwIcon,
   SelectField,
   TextField,
+  TrashIcon,
   TruckIcon,
   UserIcon,
   useSubmitConfirmation,
@@ -205,6 +207,12 @@ export interface DsrFormInitialValues {
   // picker-only UI.
   labourEntries?: Omit<LabourRow, "clientGeneratedId">[];
   wasteDisposalEntries?: (Omit<WasteRow, "clientGeneratedId"> & { clientGeneratedId?: string })[];
+  // spec-dsr-photo-management: the report's already-uploaded photos (absent
+  // in "new" mode — there's nothing to load yet). Rendered alongside the
+  // new-upload dropzone with their own immediate Remove, independent of
+  // `photos`/PhotoItem below (which only ever tracks THIS session's staged
+  // uploads).
+  photos?: { id: string; url: string }[];
 }
 
 // Rows carry a client-generated id from the moment they exist in the form
@@ -366,6 +374,14 @@ export function DsrDesktopForm({
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
+  // spec-dsr-photo-management: the report's already-uploaded photos (edit
+  // mode only — "new" mode's `initial` is undefined/photo-less). Removing
+  // one is its own immediate request (soft delete), not deferred to this
+  // form's submit — mirrors the quick-create-modal's immediate-write
+  // pattern (see storage.service.ts's softDeletePhoto).
+  const [existingPhotos, setExistingPhotos] = useState(initial?.photos ?? []);
+  const [removingPhotoId, setRemovingPhotoId] = useState<string | null>(null);
+
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Set once POST /dsr (or /correct) succeeds. From that moment the report
@@ -463,6 +479,31 @@ export function DsrDesktopForm({
 
   function removePhoto(localId: string) {
     setPhotos((rows) => rows.filter((p) => p.localId !== localId));
+  }
+
+  // spec-dsr-photo-management: unlike removePhoto above (a not-yet-submitted
+  // local File, safe to just drop), an existing photo is already a real
+  // Photo row — removal is its own immediate soft-delete request (mirrors
+  // the quick-create-modal's immediate-write pattern), not deferred to this
+  // form's own submit.
+  async function removeExistingPhoto(photoId: string) {
+    if (removingPhotoId || !originalId) return;
+    setRemovingPhotoId(photoId);
+    try {
+      const res = await authedFetch(
+        `/photos/${photoId}?dailySiteReportId=${encodeURIComponent(originalId)}`,
+        { method: "DELETE" },
+      );
+      if (res.ok) {
+        setExistingPhotos((rows) => rows.filter((p) => p.id !== photoId));
+      } else {
+        setError("Couldn't remove that photo. Please try again.");
+      }
+    } catch {
+      setError("Couldn't remove that photo. Please try again.");
+    } finally {
+      setRemovingPhotoId(null);
+    }
   }
 
   async function uploadAllPhotos(dailySiteReportId: string, items: PhotoItem[]): Promise<number> {
@@ -1364,6 +1405,29 @@ export function DsrDesktopForm({
 
       <Card className="mb-4">
         <h2 className="mb-3 text-card-title text-ink-900">Site Photos</h2>
+        {/* spec-dsr-photo-management: already-uploaded photos (edit mode
+            only) — same thumbnail the detail page renders via
+            PhotoThumbnail, each with its own immediate Remove. */}
+        {existingPhotos.length > 0 ? (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {existingPhotos.map((photo) => (
+              <div key={photo.id} className="flex w-16 flex-col items-center gap-1">
+                <div className="relative size-16 overflow-hidden rounded-md border border-border-hairline bg-surface-2">
+                  <PhotoThumbnail src={photo.url} alt="" className="size-full object-cover" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeExistingPhoto(photo.id)}
+                  disabled={removingPhotoId === photo.id}
+                  className="flex items-center gap-1 text-caption text-ink-500 underline disabled:opacity-50"
+                >
+                  <TrashIcon className="size-3" />
+                  {removingPhotoId === photo.id ? "Removing…" : "Remove"}
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {/* AC #3: drag-drop dropzone — desktop's platform-appropriate input
             method, same underlying presign/upload/confirm flow as mobile's
             camera tap (apps/web/lib/photo-upload.ts, story 3.3). */}

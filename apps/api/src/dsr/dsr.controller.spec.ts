@@ -4,6 +4,7 @@ import type { CreateDsrInput } from '@azentisfieldos/shared';
 import { DsrController } from './dsr.controller';
 import { DsrService } from './dsr.service';
 import type { AuthUser } from '../auth/current-user.decorator';
+import { ROLES_KEY } from '../auth/roles.decorator';
 
 const currentUser: AuthUser = {
   id: 'user-1',
@@ -19,6 +20,7 @@ describe('DsrController', () => {
     listByDate: ReturnType<typeof vi.fn>;
     listMyDrafts: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
+    reassignSiteDate: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -29,6 +31,7 @@ describe('DsrController', () => {
       listByDate: vi.fn(),
       listMyDrafts: vi.fn(),
       findOne: vi.fn(),
+      reassignSiteDate: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -133,5 +136,27 @@ describe('DsrController', () => {
 
     expect(service.listMyDrafts).toHaveBeenCalledWith(currentUser.id);
     expect(result).toEqual([{ id: 'draft-1' }]);
+  });
+
+  // spec-dsr-reassign-site-date: Owner-only "Reassign Site/Date".
+  it('reassignSiteDate delegates the id and validated body to DsrService.reassignSiteDate', async () => {
+    const body = { siteId: 'site-2', reportDate: '2026-09-24' };
+    service.reassignSiteDate.mockResolvedValue({ id: 'dsr-1', ...body });
+
+    const result = await controller.reassignSiteDate('dsr-1', body);
+
+    expect(service.reassignSiteDate).toHaveBeenCalledWith('dsr-1', body);
+    expect(result).toEqual({ id: 'dsr-1', ...body });
+  });
+
+  // The role restriction IS the boundary (Owner/Admin only, D7-class AD-9
+  // exception) — pin the metadata so deleting the decorator fails a test,
+  // same convention as PurchasesController.completePricing.
+  it('reassignSiteDate is restricted to OWNER_ADMIN via @Roles metadata', () => {
+    const roles = Reflect.getMetadata(
+      ROLES_KEY,
+      DsrController.prototype.reassignSiteDate,
+    ) as string[] | undefined;
+    expect(roles).toEqual(['OWNER_ADMIN']);
   });
 });

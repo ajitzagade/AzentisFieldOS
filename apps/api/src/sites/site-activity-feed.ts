@@ -98,7 +98,9 @@ export async function getSiteActivityFeed(
     prisma.dailySiteReport.findMany({
       // spec-dsr-drafts: a private DRAFT never appears in the activity feed.
       where: { siteId, reportDate: bounds, ...SUBMITTED_DSR_WHERE },
-      include: { submittedBy: true, photos: true },
+      // spec-dsr-photo-management: a soft-deleted photo must not count
+      // toward this feed item's "N photos" summary text below.
+      include: { submittedBy: true, photos: { where: { deletedAt: null } } },
     }),
     prisma.machineryMovementLog.findMany({
       where: { siteId, movedAt: bounds },

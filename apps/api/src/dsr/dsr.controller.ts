@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -14,10 +15,12 @@ import {
   createDsrSchema,
   draftIdParamSchema,
   getDraftQuerySchema,
+  reassignDsrSiteDateSchema,
   saveDraftSchema,
   type CorrectDsrInput,
   type CreateDsrInput,
   type GetDraftQuery,
+  type ReassignDsrSiteDateInput,
   type SaveDraftInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
@@ -48,6 +51,22 @@ export class DsrController {
   ) {
     const { reason, ...input } = body;
     return this.dsrService.correct(id, input, reason, user.id);
+  }
+
+  // spec-dsr-reassign-site-date: Owner-only "Reassign Site/Date" — a
+  // narrow, sanctioned AD-9 exception (same class as D7's Purchase-pricing
+  // completion) distinct from the normal Edit/correction flow. Guard
+  // checks (no correction history, no target collision) live in the
+  // service; this route only gates the role.
+  @Patch(':id/reassign')
+  @UseGuards(RolesGuard)
+  @Roles('OWNER_ADMIN')
+  @UsePipes(new ZodValidationPipe(reassignDsrSiteDateSchema))
+  reassignSiteDate(
+    @Param('id') id: string,
+    @Body() body: ReassignDsrSiteDateInput,
+  ) {
+    return this.dsrService.reassignSiteDate(id, body);
   }
 
   // spec-dsr-drafts: Save Draft — private, produces zero module side effects

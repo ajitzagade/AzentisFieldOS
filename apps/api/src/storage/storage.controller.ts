@@ -1,4 +1,13 @@
-import { Body, Controller, Post, UseGuards, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+  UsePipes,
+} from '@nestjs/common';
 import {
   confirmPhotoUploadSchema,
   presignPhotoUploadSchema,
@@ -59,5 +68,22 @@ export class StorageController {
     @Body() body: ConfirmPhotoUploadInput,
   ) {
     return this.storageService.confirmUpload(body, user.id);
+  }
+
+  // spec-dsr-photo-management: soft-delete a photo already attached to a DSR
+  // (the Edit form's "Remove" on an existing thumbnail — a brand-new upload
+  // never reaches this route, it just never gets added to `photos` locally).
+  // Ownership-checked: `dailySiteReportId` is the report the caller has open
+  // for editing, plain @Query() like sites.controller.ts's other reads
+  // (no Zod pipe needed for one required id) — a crafted request naming a
+  // photo that doesn't belong to THAT report 404s in the service, same as
+  // any other not-found id. No @Roles override: matches POST /dsr/:id/correct
+  // itself, which either role can call.
+  @Delete(':id')
+  remove(
+    @Param('id') id: string,
+    @Query('dailySiteReportId') dailySiteReportId: string,
+  ) {
+    return this.storageService.softDeletePhoto(id, dailySiteReportId);
   }
 }

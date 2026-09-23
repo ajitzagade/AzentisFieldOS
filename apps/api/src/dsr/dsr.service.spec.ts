@@ -499,3 +499,139 @@ describe('DsrService.findOne — version history (review fix)', () => {
     ]);
   });
 });
+
+// spec-dsr-reassign-site-date: Owner-only "Reassign Site/Date" — a narrow,
+// sanctioned AD-9 exception (same class as D7's Purchase-pricing
+// completion). Unit-covers the two guard checks (correction history,
+// target collision) plus the happy path; the DB round-trip itself is left
+// to the integration suite, same division of labour as the rest of this
+// file.
+describe('DsrService.reassignSiteDate', () => {
+  function makeReassignService({
+    report,
+    correction = null,
+    existingAtTarget = [],
+  }: {
+    report: { id: string; status: string; correctsId: string | null } | null;
+    correction?: { id: string } | null;
+    existingAtTarget?: { id: string; correctsId: string | null }[];
+  }) {
+    const findUnique = vi.fn().mockResolvedValue(report);
+    const findFirst = vi.fn().mockResolvedValue(correction);
+    const findMany = vi.fn().mockResolvedValue(existingAtTarget);
+    const update = vi
+      .fn()
+      .mockImplementation(
+        ({
+          where,
+          data,
+        }: {
+          where: { id: string };
+          data: Record<string, unknown>;
+        }) => Promise.resolve({ id: where.id, ...data }),
+      );
+    const prisma = {
+      dailySiteReport: { findUnique, findFirst, findMany, update },
+    };
+    const storage = {};
+    const pushNotifications = {};
+    const service = new DsrService(
+      prisma as never,
+      storage as never,
+      pushNotifications as never,
+    );
+    return { service, findUnique, findFirst, findMany, update };
+  }
+
+  it('rejects a report that is not found', async () => {
+    const { service } = makeReassignService({ report: null });
+
+    await expect(
+      service.reassignSiteDate('missing', {
+        siteId: 'site-2',
+        reportDate: '2026-09-24',
+      }),
+    ).rejects.toThrow('Daily Site Report missing not found');
+  });
+
+  it('rejects a report that is itself a correction', async () => {
+    const { service } = makeReassignService({
+      report: { id: 'c1', status: 'SUBMITTED', correctsId: 'o1' },
+    });
+
+    await expect(
+      service.reassignSiteDate('c1', {
+        siteId: 'site-2',
+        reportDate: '2026-09-24',
+      }),
+    ).rejects.toThrow(
+      "This report has correction history and can't be reassigned",
+    );
+  });
+
+  it('rejects a report that has since been corrected', async () => {
+    const { service } = makeReassignService({
+      report: { id: 'o1', status: 'SUBMITTED', correctsId: null },
+      correction: { id: 'c1' },
+    });
+
+    await expect(
+      service.reassignSiteDate('o1', {
+        siteId: 'site-2',
+        reportDate: '2026-09-24',
+      }),
+    ).rejects.toThrow(
+      "This report has correction history and can't be reassigned",
+    );
+  });
+
+  it('rejects a target Site+date that already has a different report', async () => {
+    const { service } = makeReassignService({
+      report: { id: 'o1', status: 'SUBMITTED', correctsId: null },
+      existingAtTarget: [{ id: 'other-report', correctsId: null }],
+    });
+
+    await expect(
+      service.reassignSiteDate('o1', {
+        siteId: 'site-2',
+        reportDate: '2026-09-24',
+      }),
+    ).rejects.toThrow('A report already exists for that Site and Date');
+  });
+
+  it('updates siteId/reportDate in place on the happy path', async () => {
+    const { service, update } = makeReassignService({
+      report: { id: 'o1', status: 'SUBMITTED', correctsId: null },
+      existingAtTarget: [],
+    });
+
+    const result = await service.reassignSiteDate('o1', {
+      siteId: 'site-2',
+      reportDate: '2026-09-24',
+    });
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'o1' },
+      data: { siteId: 'site-2', reportDate: new Date('2026-09-24') },
+    });
+    expect(result).toEqual({
+      id: 'o1',
+      siteId: 'site-2',
+      reportDate: new Date('2026-09-24'),
+    });
+  });
+
+  it('does not treat the report colliding with itself at its own current Site+date as a collision', async () => {
+    const { service, update } = makeReassignService({
+      report: { id: 'o1', status: 'SUBMITTED', correctsId: null },
+      existingAtTarget: [{ id: 'o1', correctsId: null }],
+    });
+
+    await service.reassignSiteDate('o1', {
+      siteId: 'site-1',
+      reportDate: '2026-09-24',
+    });
+
+    expect(update).toHaveBeenCalled();
+  });
+});

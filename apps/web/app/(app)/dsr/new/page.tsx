@@ -14,11 +14,13 @@ import {
   ComboboxField,
   ConfirmDialog,
   ConfirmDialogRow,
+  PhotoThumbnail,
   PlusIcon,
   RotateCcwIcon,
   SelectField,
   TextField,
   TextareaField,
+  TrashIcon,
   TruckIcon,
   UserIcon,
   WifiOffIcon,
@@ -421,6 +423,14 @@ function NewDsrForm() {
   const [dailySiteReportId, setDailySiteReportId] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
+  // spec-dsr-photo-management: a resumed draft's already-uploaded photos
+  // (draft.photos) — tracked separately from `photos` above (which only
+  // ever holds THIS session's staged/newly-captured files) so Remove on one
+  // of these can call the real soft-delete endpoint immediately instead of
+  // just hiding it locally while the Photo row stays attached server-side.
+  const [existingPhotos, setExistingPhotos] = useState<{ id: string; url: string }[]>([]);
+  const [removingPhotoId, setRemovingPhotoId] = useState<string | null>(null);
+
   // spec-dsr-drafts: the id of the persisted DRAFT for the current
   // (site,date), set once Save Draft succeeds or an existing draft is resumed
   // on mount. Its presence flips the primary action from the one-shot
@@ -449,6 +459,7 @@ function NewDsrForm() {
   if (submissionKey !== photoResetKey) {
     setPhotoResetKey(submissionKey);
     setPhotos([]);
+    setExistingPhotos([]);
     setDailySiteReportId(null);
     // The draft is keyed per (site,date) too — the resume effect below
     // re-resolves it for the newly-picked pair.
@@ -767,9 +778,9 @@ function NewDsrForm() {
         notes: w.notes ?? "",
       })),
     );
-    setPhotos(
-      draft.photos.map((p) => ({ localId: p.id, previewUrl: p.url, status: "uploaded" as const })),
-    );
+    // spec-dsr-photo-management: rendered/removed separately from `photos`
+    // (new-this-session staged uploads) — see existingPhotos's own comment.
+    setExistingPhotos(draft.photos);
   }
 
   // spec-dsr-drafts: on picking a (site,date), first try to resume a persisted
@@ -946,6 +957,31 @@ function NewDsrForm() {
       if (target) URL.revokeObjectURL(target.previewUrl);
       return rows.filter((p) => p.localId !== localId);
     });
+  }
+
+  // spec-dsr-photo-management: unlike removePhoto above (a local/not-yet-
+  // confirmed File — safe to just drop), a resumed draft's already-uploaded
+  // photo is a real Photo row. Removal is its own immediate soft-delete
+  // request (mirrors the quick-create-modal's immediate-write pattern), not
+  // deferred to Save Draft/Finalize.
+  async function removeExistingPhoto(photoId: string) {
+    if (removingPhotoId || !dailySiteReportId) return;
+    setRemovingPhotoId(photoId);
+    try {
+      const res = await authedFetch(
+        `/photos/${photoId}?dailySiteReportId=${encodeURIComponent(dailySiteReportId)}`,
+        { method: "DELETE" },
+      );
+      if (res.ok) {
+        setExistingPhotos((rows) => rows.filter((p) => p.id !== photoId));
+      } else {
+        setError("Couldn't remove that photo. Please try again.");
+      }
+    } catch {
+      setError("Couldn't remove that photo. Please try again.");
+    } finally {
+      setRemovingPhotoId(null);
+    }
   }
 
   function retryPhoto(localId: string) {
@@ -1208,6 +1244,10 @@ function NewDsrForm() {
         if (photo.file) URL.revokeObjectURL(photo.previewUrl);
       }
       setPhotos([]);
+      // Discard already hard-deletes the draft row and its photos
+      // server-side (dsr.service.ts) — this just clears the now-stale local
+      // copy of what was showing.
+      setExistingPhotos([]);
       // A discarded report's local snapshot must not resurrect it.
       clearDsrAutosave(siteId, reportDate);
       setRestoredAutosaveAt(null);
@@ -2050,6 +2090,29 @@ function NewDsrForm() {
 
         <Card className="mb-4">
           <h2 className="mb-3 text-card-title text-ink-900">Site Photos</h2>
+          {/* spec-dsr-photo-management: a resumed draft's already-uploaded
+              photos — each with its own immediate Remove (real soft delete,
+              not a local-only hide). */}
+          {existingPhotos.length > 0 ? (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {existingPhotos.map((photo) => (
+                <div key={photo.id} className="flex w-16 flex-col items-center gap-1">
+                  <div className="relative size-16 overflow-hidden rounded-md border border-border-hairline bg-surface-2">
+                    <PhotoThumbnail src={photo.url} alt="" className="size-full object-cover" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeExistingPhoto(photo.id)}
+                    disabled={removingPhotoId === photo.id}
+                    className="flex min-h-8 items-center gap-1 px-2 py-1.5 text-caption text-ink-500 underline disabled:opacity-50"
+                  >
+                    <TrashIcon className="size-3" />
+                    {removingPhotoId === photo.id ? "Removing…" : "Remove"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             {photos.map((photo) => (
               <div key={photo.localId} className="flex w-16 flex-col items-center gap-1">
@@ -2267,7 +2330,7 @@ function NewDsrForm() {
           value={String(subcontractorEntries.filter((s) => s.subcontractorId).length)}
         />
         <ConfirmDialogRow label="Labour" value={String(labourEntries.filter((l) => l.labourerId).length)} />
-        <ConfirmDialogRow label="Photos" value={String(photos.length)} />
+        <ConfirmDialogRow label="Photos" value={String(existingPhotos.length + photos.length)} />
       </ConfirmDialog>
 
       <TeamMemberQuickCreateModal

@@ -55,6 +55,9 @@ function mockFetchRouter(handlers: {
   draft?: unknown;
   saveDraft?: { status: number; body?: unknown };
   finalize?: { status: number; body?: unknown };
+  // spec-dsr-photo-management: DELETE /photos/:id (Remove on a resumed
+  // draft's already-uploaded photo).
+  deletePhoto?: { status: number; body?: unknown };
 }) {
   global.fetch = vi.fn((url: string, init?: RequestInit) => {
     // Review item 12: match on the parsed pathname + method, not fragile
@@ -78,6 +81,9 @@ function mockFetchRouter(handlers: {
     if (pathname.startsWith("/dsr/draft/") && method === "DELETE") return ok({ id: "draft-1" });
     if (/^\/dsr\/[^/]+\/finalize$/.test(pathname) && method === "POST") {
       return withStatus(handlers.finalize ?? { status: 200, body: { id: "draft-1" } });
+    }
+    if (pathname.startsWith("/photos/") && method === "DELETE") {
+      return withStatus(handlers.deletePhoto ?? { status: 200, body: { id: "photo-1" } });
     }
     if (pathname === "/dsr" && method === "POST") {
       const dsr = handlers.dsr;
@@ -600,6 +606,48 @@ describe("NewDsrPage", () => {
     expect(screen.queryByRole("button", { name: "Submit Daily Report" })).not.toBeInTheDocument();
     // Review item 11: a banner tells the user they're continuing saved work.
     expect(screen.getByText(/Continuing your saved draft/)).toBeInTheDocument();
+  });
+
+  // spec-dsr-photo-management: a resumed draft's already-uploaded photos now
+  // render (previously silently dropped) with their own immediate Remove.
+  it("renders a resumed draft's already-uploaded photos, and Remove soft-deletes one immediately", async () => {
+    mockFetchRouter({
+      sites: [{ id: "site-1", name: "NH-48" }],
+      draft: {
+        id: "draft-88",
+        workCompleted: "Footing rebar tied",
+        issuesBlockers: null,
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        photos: [
+          { id: "photo-1", url: "https://cdn.example.com/photo-1.jpg" },
+          { id: "photo-2", url: "https://cdn.example.com/photo-2.jpg" },
+        ],
+      },
+    });
+
+    render(<NewDsrPage />);
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+    await waitFor(() => expect(screen.getByLabelText("Work completed")).toHaveValue("Footing rebar tied"));
+
+    const removeButtons = await screen.findAllByRole("button", { name: "Remove" });
+    expect(removeButtons).toHaveLength(2);
+
+    await user.click(removeButtons[0]!);
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/photos/photo-1?dailySiteReportId=draft-88"),
+        expect.objectContaining({ method: "DELETE" }),
+      ),
+    );
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Remove" })).toHaveLength(1));
   });
 
   it("Discard confirms first, then deletes the draft and clears the form (review item 7)", async () => {

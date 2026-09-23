@@ -63,6 +63,12 @@ interface DsrForCorrection {
     disposalLocation: string | null;
     notes: string | null;
   }[];
+  // spec-dsr-photo-management: findOne's `photos` pre-fills the Edit form's
+  // existing-photos section, same shape the detail page already renders via
+  // PhotoThumbnail. NOTE: dsr.service.ts's findOne/getDraft still need a
+  // `deletedAt: null` filter added to their `photos` include (out of scope
+  // here — concurrently owned by another change; see report at end of task).
+  photos: { id: string; url: string }[];
 }
 
 async function getDsr(id: string): Promise<DsrForCorrection | null> {
@@ -155,6 +161,10 @@ export default async function CorrectDsrPage({ params }: { params: Promise<{ id:
       disposalLocation: w.disposalLocation ?? "",
       notes: w.notes ?? "",
     })),
+    // spec-dsr-photo-management: pre-fills DsrDesktopForm's existing-photos
+    // section (rendered alongside the new-upload dropzone) — see that
+    // component for the Remove flow.
+    photos: dsr.photos,
   };
 
   // spec-dsr-labour-dropdown: how many of the original report's Labour rows

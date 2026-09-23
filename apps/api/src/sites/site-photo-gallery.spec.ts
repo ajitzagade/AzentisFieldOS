@@ -153,4 +153,21 @@ describe('getSitePhotoGallery', () => {
     expect(gallery).toEqual([]);
     expect(getThumbnailUrl).not.toHaveBeenCalled();
   });
+
+  // spec-dsr-photo-management: a photo removed via the DSR Edit form's
+  // Remove action must disappear from the gallery too — filtered at the
+  // Prisma query, not after the fact.
+  it('queries with deletedAt: null so a soft-deleted photo never reaches the gallery', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const prisma = { photo: { findMany } } as unknown as PrismaService;
+    const storage = { getThumbnailUrl: vi.fn() } as unknown as StorageService;
+
+    await getSitePhotoGallery(prisma, storage, 'site-1');
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ deletedAt: null }),
+      }),
+    );
+  });
 });

@@ -34,13 +34,21 @@ function makeService(overrides: {
     findUnique: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
   };
-  photo?: { create: ReturnType<typeof vi.fn> };
+  photo?: {
+    create: ReturnType<typeof vi.fn>;
+    findUnique?: ReturnType<typeof vi.fn>;
+    update?: ReturnType<typeof vi.fn>;
+  };
 }) {
   const prisma = {
     dailySiteReport: overrides.dailySiteReport ?? { findUnique: vi.fn() },
     site: overrides.site ?? { findUnique: vi.fn() },
     user: overrides.user ?? { findUnique: vi.fn(), create: vi.fn() },
-    photo: overrides.photo ?? { create: vi.fn() },
+    photo: overrides.photo ?? {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
   };
   return new StorageService(prisma as unknown as PrismaService);
 }
@@ -286,6 +294,85 @@ describe('StorageService.confirmUpload', () => {
         description: 'Foundation depth at Ch. 4+200',
       },
     });
+  });
+});
+
+// spec-dsr-photo-management
+describe('StorageService.softDeletePhoto', () => {
+  it('stamps deletedAt on the photo once it is confirmed to belong to the given DSR', async () => {
+    const photoUpdate = vi.fn().mockResolvedValue({
+      id: 'photo-1',
+      dailySiteReportId: 'dsr-1',
+      deletedAt: new Date('2026-09-24'),
+    });
+    const service = makeService({
+      photo: {
+        create: vi.fn(),
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'photo-1',
+          dailySiteReportId: 'dsr-1',
+          deletedAt: null,
+        }),
+        update: photoUpdate,
+      },
+    });
+
+    await service.softDeletePhoto('photo-1', 'dsr-1');
+
+    expect(photoUpdate).toHaveBeenCalledWith({
+      where: { id: 'photo-1' },
+      data: { deletedAt: expect.any(Date) },
+    });
+  });
+
+  it('throws NotFoundException for a photo id that does not exist', async () => {
+    const service = makeService({
+      photo: { create: vi.fn(), findUnique: vi.fn().mockResolvedValue(null) },
+    });
+
+    await expect(service.softDeletePhoto('missing', 'dsr-1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('throws NotFoundException, never soft-deleting, when the photo belongs to a different report (ownership check)', async () => {
+    const photoUpdate = vi.fn();
+    const service = makeService({
+      photo: {
+        create: vi.fn(),
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'photo-1',
+          dailySiteReportId: 'dsr-OTHER',
+          deletedAt: null,
+        }),
+        update: photoUpdate,
+      },
+    });
+
+    await expect(service.softDeletePhoto('photo-1', 'dsr-1')).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(photoUpdate).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundException for an already-deleted photo (idempotent, matches Site.softDelete)', async () => {
+    const photoUpdate = vi.fn();
+    const service = makeService({
+      photo: {
+        create: vi.fn(),
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'photo-1',
+          dailySiteReportId: 'dsr-1',
+          deletedAt: new Date('2026-09-01'),
+        }),
+        update: photoUpdate,
+      },
+    });
+
+    await expect(service.softDeletePhoto('photo-1', 'dsr-1')).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(photoUpdate).not.toHaveBeenCalled();
   });
 });
 

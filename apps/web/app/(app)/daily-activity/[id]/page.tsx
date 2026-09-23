@@ -1,4 +1,5 @@
 import { authedFetch } from "@/lib/api";
+import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -6,6 +7,7 @@ import type { DsrEquipmentUsed, FeedItem } from "@azentisfieldos/shared";
 import { AlertTriangleIcon, Badge, Card, PencilIcon, PhotoThumbnail, buttonVariants, cn } from "@azentisfieldos/ui";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { FEED_TYPE_CONFIG } from "../../sites/[id]/feed-type-config";
+import { ReassignSiteDateTrigger } from "./_components/reassign-site-date-trigger";
 
 interface WorkRecordDetail {
   id: string;
@@ -232,10 +234,19 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
 
 export default async function DsrDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const dsr = await getDsrDetail(id);
+  const [dsr, role] = await Promise.all([getDsrDetail(id), currentRole()]);
   if (!dsr) {
     notFound();
   }
+
+  // spec-dsr-reassign-site-date: Owner-only, and only when this report's
+  // correction chain is exactly one row — not itself a correction
+  // (correctsId unset) and never corrected (correctedById unset). Same
+  // plain-truthiness convention the Edit-link (`!dsr.correctedById`) and
+  // the "is an edited version" banner (`dsr.correctsId`) already use below
+  // — reuses the same correctsId/correctedById data findOne already
+  // returns for those affordances, no extra fetch.
+  const canReassign = role === "OWNER_ADMIN" && !dsr.correctsId && !dsr.correctedById;
 
   const versionHistory = dsr.versionHistory ?? [];
   const presentCount = dsr.workRecords.filter((w) => w.attended).length;
@@ -272,12 +283,21 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
           </h1>
           <p className="text-body-sm text-ink-500">Submitted by {dsr.submittedBy.name}</p>
         </div>
-        {!dsr.correctedById ? (
-          <Link href={`/daily-activity/${dsr.id}/correct`} className={cn(buttonVariants({ variant: "ghost" }))}>
-            <PencilIcon className="size-4" />
-            Edit
-          </Link>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {canReassign ? (
+            <ReassignSiteDateTrigger
+              dsrId={dsr.id}
+              currentSiteId={dsr.site.id}
+              currentReportDate={dsr.reportDate}
+            />
+          ) : null}
+          {!dsr.correctedById ? (
+            <Link href={`/daily-activity/${dsr.id}/correct`} className={cn(buttonVariants({ variant: "ghost" }))}>
+              <PencilIcon className="size-4" />
+              Edit
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       {dsr.correctsId ? (

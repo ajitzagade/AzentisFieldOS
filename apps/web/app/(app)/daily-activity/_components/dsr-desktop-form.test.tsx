@@ -187,6 +187,75 @@ describe("DsrDesktopForm correction submission (deferred navigation + photo reco
   });
 });
 
+// spec-dsr-photo-management: the Edit form pre-fills the report's
+// already-uploaded photos (previously always empty regardless of mode) and
+// removes one immediately on click (its own DELETE, not deferred to this
+// form's own submit) — matches the quick-create-modal's immediate-write
+// pattern.
+describe("DsrDesktopForm existing photos (spec-dsr-photo-management)", () => {
+  const INITIAL_WITH_PHOTOS = {
+    ...INITIAL,
+    photos: [
+      { id: "photo-1", url: "https://cdn.example.com/photo-1.jpg" },
+      { id: "photo-2", url: "https://cdn.example.com/photo-2.jpg" },
+    ],
+  };
+
+  it("renders every photo from initial.photos with a Remove action", async () => {
+    routeFetch({ status: 201, body: { id: "dsr-9" } });
+    render(<DsrDesktopForm mode="correct" originalId="dsr-1" initial={INITIAL_WITH_PHOTOS} />);
+
+    expect(await screen.findAllByRole("button", { name: "Remove" })).toHaveLength(2);
+  });
+
+  it("removes a photo immediately (its own DELETE, ownership-checked against the report id) and drops it from the form", async () => {
+    routeFetch({ status: 201, body: { id: "dsr-9" } });
+    authedFetchMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === "/sites") {
+        return Promise.resolve({ ok: true, status: 200, json: async () => [{ id: "site-1", name: "NH-48" }] });
+      }
+      if (path.startsWith("/photos/") && init?.method === "DELETE") {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ id: "photo-1" }) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
+    });
+    render(<DsrDesktopForm mode="correct" originalId="dsr-1" initial={INITIAL_WITH_PHOTOS} />);
+    const user = userEvent.setup();
+
+    const removeButtons = await screen.findAllByRole("button", { name: "Remove" });
+    await user.click(removeButtons[0]!);
+
+    await waitFor(() =>
+      expect(authedFetchMock).toHaveBeenCalledWith(
+        "/photos/photo-1?dailySiteReportId=dsr-1",
+        expect.objectContaining({ method: "DELETE" }),
+      ),
+    );
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Remove" })).toHaveLength(1));
+  });
+
+  it("shows an error and keeps the photo when the delete request fails", async () => {
+    routeFetch({ status: 201, body: { id: "dsr-9" } });
+    authedFetchMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === "/sites") {
+        return Promise.resolve({ ok: true, status: 200, json: async () => [{ id: "site-1", name: "NH-48" }] });
+      }
+      if (path.startsWith("/photos/") && init?.method === "DELETE") {
+        return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
+    });
+    render(<DsrDesktopForm mode="correct" originalId="dsr-1" initial={INITIAL_WITH_PHOTOS} />);
+    const user = userEvent.setup();
+
+    const removeButtons = await screen.findAllByRole("button", { name: "Remove" });
+    await user.click(removeButtons[0]!);
+
+    await screen.findByText(/Couldn't remove that photo/);
+    expect(screen.getAllByRole("button", { name: "Remove" })).toHaveLength(2);
+  });
+});
+
 // spec-dsr-activity-sync-detail-panel (goals 3-4): dsr.service.ts's
 // correct() resolves the ORIGINAL WasteDisposal/SubcontractorWorkEntry row
 // via clientGeneratedId (matched against the superseded report's own rows)

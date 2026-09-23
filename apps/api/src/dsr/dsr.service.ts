@@ -9,6 +9,7 @@ import {
   saveDraftSchema,
   type CreateDsrInput,
   type PaginatedResult,
+  type ReassignDsrSiteDateInput,
   type SaveDraftInput,
 } from '@azentisfieldos/shared';
 import { DsrStatus, Prisma } from '../generated/prisma/client';
@@ -864,7 +865,9 @@ export class DsrService {
         status: DsrStatus.DRAFT,
         submittedByUserId,
       },
-      include: { photos: true },
+      // spec-dsr-photo-management: a soft-deleted photo (Photo.deletedAt)
+      // must not resurface in the resumed draft's photo list.
+      include: { photos: { where: { deletedAt: null } } },
     });
     if (!draft) {
       return null;
@@ -1586,6 +1589,59 @@ export class DsrService {
     return rows.find((r) => !correctedIds.has(r.id)) ?? null;
   }
 
+  // spec-dsr-reassign-site-date: Owner-only, narrow AD-9 exception (same
+  // class as D7's Purchase-pricing completion, AGENTS.md) — a genuine
+  // in-place UPDATE of siteId/reportDate on a transaction-history row,
+  // never routed through correct()'s append-only chain. Scoped to a report
+  // with NO correction history at all (never corrected, and not itself a
+  // correction) so this never has to move a multi-row chain's identity
+  // together — see the spec's Design Notes for why that's explicitly out
+  // of scope here, not silently expanded into.
+  async reassignSiteDate(id: string, input: ReassignDsrSiteDateInput) {
+    const report = await this.prisma.dailySiteReport.findUnique({
+      where: { id },
+    });
+    if (!report || report.status !== DsrStatus.SUBMITTED) {
+      throw new NotFoundException(`Daily Site Report ${id} not found`);
+    }
+
+    // "No correction history" = a chain of exactly one row: this report is
+    // not itself a correction (correctsId null) AND nothing else's
+    // correctsId points at it (never corrected).
+    if (report.correctsId !== null) {
+      throw new BadRequestException(
+        "This report has correction history and can't be reassigned",
+      );
+    }
+    const correction = await this.prisma.dailySiteReport.findFirst({
+      where: { correctsId: id },
+      select: { id: true },
+    });
+    if (correction) {
+      throw new BadRequestException(
+        "This report has correction history and can't be reassigned",
+      );
+    }
+
+    const reportDate = new Date(input.reportDate);
+    const existing = await this.findCurrentForSiteAndDate(
+      input.siteId,
+      reportDate,
+    );
+    // Reassigning a report to the Site+date it already occupies (a no-op
+    // edit) must not trip the collision check against itself.
+    if (existing && existing.id !== id) {
+      throw new BadRequestException(
+        'A report already exists for that Site and Date',
+      );
+    }
+
+    return this.prisma.dailySiteReport.update({
+      where: { id },
+      data: { siteId: input.siteId, reportDate },
+    });
+  }
+
   // FR-28/story 3.4 AC #1: a list, not a detail — deliberately lightweight
   // (site/submitter names + row counts) rather than the full nested
   // include findOne below uses, since this backs a log table, not a
@@ -1784,7 +1840,10 @@ export class DsrService {
         subcontractorWorkEntries: {
           include: { siteContract: { include: { subcontractor: true } } },
         },
-        photos: true,
+        // spec-dsr-photo-management: a soft-deleted photo (Photo.deletedAt)
+        // must not resurface on the detail page or the Edit form's
+        // existing-photos section, both of which read findOne.
+        photos: { where: { deletedAt: null } },
       },
     });
     // spec-dsr-drafts: a DRAFT is private and unmaterialised — it is not a

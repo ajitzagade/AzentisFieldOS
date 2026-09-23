@@ -291,3 +291,15 @@ export const correctDsrSchema = createDsrSchema.extend({
 });
 
 export type CorrectDsrInput = z.infer<typeof correctDsrSchema>;
+
+// spec-dsr-reassign-site-date: Owner-only "Reassign Site/Date" action —
+// a narrow, sanctioned AD-9 exception (same class as D7's Purchase-pricing
+// completion) that updates only the two identity fields of an uncorrected
+// report in place. Deliberately NOT createDsrSchema-derived — this never
+// touches any other field on the report.
+export const reassignDsrSiteDateSchema = z.object({
+  siteId: z.string(),
+  reportDate: z.iso.date(), // YYYY-MM-DD
+});
+
+export type ReassignDsrSiteDateInput = z.infer<typeof reassignDsrSiteDateSchema>;

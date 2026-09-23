@@ -27,6 +27,10 @@ export async function getSitePhotoGallery(
   const bounds = dateRangeBounds(range.from, range.to);
   const photos = await prisma.photo.findMany({
     where: {
+      // spec-dsr-photo-management: a soft-deleted photo (removed from a DSR
+      // edit form, or a direct Site upload) must disappear from the gallery
+      // too — every photo read path filters this out.
+      deletedAt: null,
       OR: [
         // spec-dsr-drafts: a draft's photos attach to its DRAFT parent row
         // and stay hidden from the gallery until Finalize — filter them out

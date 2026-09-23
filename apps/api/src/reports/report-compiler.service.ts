@@ -102,7 +102,10 @@ const dsrCompileInclude = {
   },
   rmcEntries: true,
   expenses: true,
-  photos: true,
+  // spec-dsr-photo-management: a soft-deleted photo (removed via the DSR
+  // Edit form) must not count toward the emailed report's "Site Photos"
+  // total — every photo read path filters deletedAt out.
+  photos: { where: { deletedAt: null } },
 } satisfies Prisma.DailySiteReportInclude;
 
 export type DsrForCompile = Prisma.DailySiteReportGetPayload<{

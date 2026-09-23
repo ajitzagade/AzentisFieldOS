@@ -20,6 +20,7 @@ describe('StorageController', () => {
     presignUpload: ReturnType<typeof vi.fn>;
     presignSitePhotoUpload: ReturnType<typeof vi.fn>;
     confirmUpload: ReturnType<typeof vi.fn>;
+    softDeletePhoto: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -27,6 +28,7 @@ describe('StorageController', () => {
       presignUpload: vi.fn(),
       presignSitePhotoUpload: vi.fn(),
       confirmUpload: vi.fn(),
+      softDeletePhoto: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -84,5 +86,18 @@ describe('StorageController', () => {
 
     expect(service.confirmUpload).toHaveBeenCalledWith(input, currentUser.id);
     expect(result).toEqual({ id: 'photo-1', ...input });
+  });
+
+  // spec-dsr-photo-management
+  it('remove delegates to StorageService.softDeletePhoto with the photo id and the caller-supplied dailySiteReportId', async () => {
+    service.softDeletePhoto.mockResolvedValue({
+      id: 'photo-1',
+      deletedAt: new Date(),
+    });
+
+    const result = await controller.remove('photo-1', 'dsr-1');
+
+    expect(service.softDeletePhoto).toHaveBeenCalledWith('photo-1', 'dsr-1');
+    expect(result).toEqual({ id: 'photo-1', deletedAt: expect.any(Date) });
   });
 });

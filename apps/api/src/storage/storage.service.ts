@@ -216,4 +216,28 @@ export class StorageService {
   getThumbnailUrl(storageKey: string, width?: number): Promise<string> {
     return Promise.resolve(cloudinaryThumbnailUrl(storageKey, width));
   }
+
+  // spec-dsr-photo-management: soft delete only (Photo.deletedAt) — same
+  // convention as Site.deletedAt/Vendor.deletedAt; the Cloudinary asset
+  // itself is left in place (every read path already filters deletedAt
+  // out, and storage cost is negligible). Ownership-checked against the
+  // report the caller says they're editing: a wrong/missing
+  // dailySiteReportId, an already-deleted photo, and a genuinely unknown id
+  // are all indistinguishable 404s here on purpose — never a bare
+  // id-only delete with no owner check.
+  async softDeletePhoto(id: string, dailySiteReportId: string) {
+    const photo = await this.prisma.photo.findUnique({ where: { id } });
+    if (
+      !photo ||
+      photo.deletedAt ||
+      !dailySiteReportId ||
+      photo.dailySiteReportId !== dailySiteReportId
+    ) {
+      throw new NotFoundException(`Photo ${id} not found`);
+    }
+    return this.prisma.photo.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
 }

@@ -8,6 +8,19 @@ const notFoundMock = vi.hoisted(() =>
 );
 vi.mock("next/navigation", () => ({ notFound: notFoundMock }));
 
+// spec-dsr-reassign-site-date: ReassignSiteDateTrigger is a "use client"
+// component that calls useToast() unconditionally — rendering it bare here
+// (no <ToastProvider>, unlike production's app-shell.tsx) would throw. Same
+// convention as payments/page.test.tsx mocking out MarkPaidButton — this
+// trigger's own behavior (Site fetch, Server Action, toast, refresh) is
+// covered by its dedicated reassign-site-date-trigger.test.tsx; this page
+// test only needs to assert WHETHER it renders (the canReassign gate).
+vi.mock("./_components/reassign-site-date-trigger", () => ({
+  ReassignSiteDateTrigger: ({ dsrId }: { dsrId: string }) => (
+    <button data-testid={`reassign-trigger-${dsrId}`}>Reassign Site/Date</button>
+  ),
+}));
+
 import DsrDetailPage from "./page";
 
 const originalFetch = global.fetch;
@@ -379,6 +392,56 @@ describe("DsrDetailPage", () => {
       await renderDetailPage("dsr-1");
 
       expect(screen.getByText("No labour logged for this report.")).toBeInTheDocument();
+    });
+  });
+
+  // spec-dsr-reassign-site-date: the Owner-only "Reassign Site/Date" action
+  // is visible only when the caller is Owner/Admin AND the report's
+  // correction chain is exactly one row (never corrected, not itself a
+  // correction). Routes fetch by URL (same convention as
+  // team/[id]/page.test.tsx) so /users/me can resolve independently of the
+  // /dsr/:id call the blanket single-mock tests above rely on.
+  describe("Reassign Site/Date gating", () => {
+    function mockFetchRouter(dsr: Record<string, unknown>, role: "OWNER_ADMIN" | "SITE_SUPERVISOR") {
+      global.fetch = vi.fn((url: string) => {
+        const urlStr = String(url);
+        if (urlStr.includes("/users/me")) {
+          return Promise.resolve({ ok: true, json: async () => ({ role }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => dsr });
+      }) as unknown as typeof fetch;
+    }
+
+    it("shows the Reassign action for an Owner viewing a never-edited report", async () => {
+      mockFetchRouter(fullDsr(), "OWNER_ADMIN");
+
+      await renderDetailPage("dsr-1");
+
+      expect(screen.getByTestId("reassign-trigger-dsr-1")).toBeInTheDocument();
+    });
+
+    it("hides the Reassign action for a Site Supervisor", async () => {
+      mockFetchRouter(fullDsr(), "SITE_SUPERVISOR");
+
+      await renderDetailPage("dsr-1");
+
+      expect(screen.queryByTestId("reassign-trigger-dsr-1")).not.toBeInTheDocument();
+    });
+
+    it("hides the Reassign action for an Owner when the report is itself an edit (correctsId set)", async () => {
+      mockFetchRouter(fullDsr({ correctsId: "dsr-0", reason: "Fixed crew count" }), "OWNER_ADMIN");
+
+      await renderDetailPage("dsr-1");
+
+      expect(screen.queryByTestId("reassign-trigger-dsr-1")).not.toBeInTheDocument();
+    });
+
+    it("hides the Reassign action for an Owner when the report has since been edited (correctedById set)", async () => {
+      mockFetchRouter(fullDsr({ correctedById: "dsr-2" }), "OWNER_ADMIN");
+
+      await renderDetailPage("dsr-1");
+
+      expect(screen.queryByTestId("reassign-trigger-dsr-1")).not.toBeInTheDocument();
     });
   });
 });
