@@ -83,6 +83,48 @@ describe('DailyLabourersService', () => {
       );
     });
 
+    it('filters to isActive:true when requested (spec-dsr-labour-dropdown)', async () => {
+      const findMany = vi.fn().mockResolvedValue([]);
+      const { service } = makeService({ findMany });
+
+      await service.list({ isActive: 'true' });
+
+      expect(findMany).toHaveBeenCalledWith({
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+      });
+    });
+
+    it('filters to isActive:false when requested', async () => {
+      const findMany = vi.fn().mockResolvedValue([]);
+      const { service } = makeService({ findMany });
+
+      await service.list({ isActive: 'false' });
+
+      expect(findMany).toHaveBeenCalledWith({
+        where: { isActive: false },
+        orderBy: { name: 'asc' },
+      });
+    });
+
+    it('combines q and isActive into one where clause', async () => {
+      const findMany = vi.fn().mockResolvedValue([]);
+      const { service } = makeService({ findMany });
+
+      await service.list({ q: 'mistri', isActive: 'true' });
+
+      expect(findMany).toHaveBeenCalledWith({
+        where: {
+          OR: [
+            { name: { contains: 'mistri', mode: 'insensitive' } },
+            { category: { contains: 'mistri', mode: 'insensitive' } },
+          ],
+          isActive: true,
+        },
+        orderBy: { name: 'asc' },
+      });
+    });
+
     it('falls back to the default name sort for an unrecognized sort field', async () => {
       const findMany = vi.fn().mockResolvedValue([]);
       const { service } = makeService({ findMany });

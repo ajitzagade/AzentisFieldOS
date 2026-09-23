@@ -142,7 +142,11 @@ interface DsrDetail {
     siteContractId?: string;
     quantity?: number;
   }[];
-  labourEntries?: { category: string; men: number; women: number }[];
+  // spec-dsr-labour-dropdown: a historical row may carry either shape —
+  // the new {labourerId} shape (resolved to a name/category below via
+  // getLabourerNames, same pattern as subcontractorNames) or the legacy
+  // free-text {category, men, women} shape, rendered exactly as before.
+  labourEntries?: ({ labourerId: string } | { category: string; men: number; women: number })[];
   workRecords: WorkRecordDetail[];
   consumptions: ConsumptionDetail[];
   rmcEntries: RmcEntryDetail[];
@@ -202,6 +206,21 @@ async function getSubcontractorNames(): Promise<Map<string, string>> {
   }
 }
 
+// spec-dsr-labour-dropdown: labourEntries is plain denormalized JSON (same
+// reasoning as subcontractorEntries above) — a new-shape row carries only
+// the Labourer's id, so this page resolves name+category itself rather
+// than the API doing a per-row join.
+async function getLabourerNames(): Promise<Map<string, { name: string; category: string }>> {
+  try {
+    const res = await authedFetch(`/daily-labourers`, { cache: "no-store" });
+    if (!res.ok) return new Map();
+    const rows = (await res.json()) as { id: string; name: string; category: string }[];
+    return new Map(rows.map((r) => [r.id, { name: r.name, category: r.category }]));
+  } catch {
+    return new Map();
+  }
+}
+
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border-hairline py-2 last:border-b-0">
@@ -231,6 +250,12 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
   const labourEntries = dsr.labourEntries ?? [];
   const subcontractorNames =
     subcontractorEntries.length > 0 ? await getSubcontractorNames() : new Map<string, string>();
+  // spec-dsr-labour-dropdown: only fetched when at least one row needs a
+  // name resolved (new-shape row) — a report with only legacy free-text
+  // rows never hits this.
+  const labourerNames = labourEntries.some((l) => "labourerId" in l)
+    ? await getLabourerNames()
+    : new Map<string, { name: string; category: string }>();
 
   return (
     <>
@@ -566,14 +591,23 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
             <p className="text-body-sm text-ink-500">No labour logged for this report.</p>
           ) : (
             <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
-              {labourEntries.map((l, index) => (
-                <li key={`${l.category}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
-                  <span>{l.category}</span>
-                  <span className="font-semibold text-ink-700">
-                    {l.men} men · {l.women} women · {l.men + l.women} total
-                  </span>
-                </li>
-              ))}
+              {labourEntries.map((l, index) =>
+                "labourerId" in l ? (
+                  // spec-dsr-labour-dropdown: new shape — one named person.
+                  <li key={`${l.labourerId}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                    <span>{labourerNames.get(l.labourerId)?.name ?? "Labourer"}</span>
+                    <span className="font-semibold text-ink-700">{labourerNames.get(l.labourerId)?.category ?? "—"}</span>
+                  </li>
+                ) : (
+                  // Legacy shape — renders exactly as it always has.
+                  <li key={`${l.category}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                    <span>{l.category}</span>
+                    <span className="font-semibold text-ink-700">
+                      {l.men} men · {l.women} women · {l.men + l.women} total
+                    </span>
+                  </li>
+                ),
+              )}
             </ul>
           )}
         </Card>

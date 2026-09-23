@@ -36,6 +36,8 @@ function mockFetchRouter(handlers: {
   sites?: unknown;
   correct?: { status: number; body?: unknown };
   vendors?: unknown;
+  // spec-dsr-labour-dropdown: GET /daily-labourers?isActive=true.
+  dailyLabourers?: unknown;
 }) {
   global.fetch = vi.fn((url: string, init?: RequestInit) => {
     const urlStr = String(url);
@@ -49,12 +51,15 @@ function mockFetchRouter(handlers: {
     if (urlStr.includes("/vendors")) {
       return Promise.resolve({ ok: true, json: async () => handlers.vendors ?? [] });
     }
+    if (urlStr.includes("/daily-labourers")) {
+      return Promise.resolve({ ok: true, json: async () => handlers.dailyLabourers ?? [] });
+    }
     if (urlStr.endsWith("/dsr/dsr-1")) {
       return Promise.resolve({ ok: true, json: async () => handlers.dsr ?? originalDsr() });
     }
     // useDsrReferenceData's list endpoints (materials/team/expense-categories/
     // machinery/vehicles/vehicle-types/subcontractors) — must be arrays or
-    // the reference hook errors out.
+    // the reference hook errors out. (/daily-labourers is handled above.)
     if (/\/(materials|team-members|expense-categories|machinery|vehicles|vehicle-types|subcontractors)(\?|$)/.test(urlStr)) {
       return Promise.resolve({ ok: true, json: async () => [] });
     }
@@ -180,5 +185,67 @@ describe("CorrectDsrPage", () => {
     // the raw id never appears anywhere in the rendered page.
     await waitFor(() => expect(vendorPicker).toHaveValue("Anand RMC Suppliers"));
     expect(document.body.textContent).not.toContain("vendor-77");
+  });
+
+  // spec-dsr-labour-dropdown.
+  describe("Labour section", () => {
+    it("pre-fills a new-shape labour row via the Labour picker and re-submits its labourerId unchanged", async () => {
+      mockFetchRouter({
+        dsr: { ...originalDsr(), labourEntries: [{ labourerId: "l-1" }] },
+        dailyLabourers: [{ id: "l-1", name: "Ramesh", category: "Mistri" }],
+        sites: [{ id: "site-1", name: "NH-48 Highway Widening" }],
+        correct: { status: 201, body: { id: "dsr-2", correctsId: "dsr-1" } },
+      });
+
+      await renderCorrectPage("dsr-1");
+
+      const labourPicker = await screen.findByLabelText("Labour");
+      await waitFor(() => expect(labourPicker).toHaveValue("Ramesh"));
+
+      const user = userEvent.setup();
+      await user.type(screen.getByLabelText("Reason for this edit"), "No change to labour");
+      await user.click(screen.getByRole("button", { name: "Save Edit" }));
+      const dialog = await screen.findByRole("alertdialog");
+      await user.click(within(dialog).getByRole("button", { name: "Save Edit" }));
+
+      await waitFor(() => expect(pushMock).toHaveBeenCalled());
+      const correctCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find((call) =>
+        String(call[0]).includes("/dsr/dsr-1/correct"),
+      );
+      const body = JSON.parse((correctCall?.[1] as RequestInit).body as string);
+      expect(body.labourEntries).toHaveLength(1);
+      expect(body.labourEntries[0].labourerId).toBe("l-1");
+    });
+
+    it("drops a historical legacy {category, men, women} labour row from the pre-filled form (not reproducible in the picker-only UI)", async () => {
+      mockFetchRouter({
+        dsr: { ...originalDsr(), labourEntries: [{ category: "Mason", men: 2, women: 0 }] },
+        sites: [{ id: "site-1", name: "NH-48 Highway Widening" }],
+        correct: { status: 201, body: { id: "dsr-2", correctsId: "dsr-1" } },
+      });
+
+      await renderCorrectPage("dsr-1");
+
+      // No Labour row is pre-filled — the legacy shape has no labourerId to
+      // select, and "Mason" (the old free-text category) never appears.
+      expect(screen.queryByLabelText("Labour")).not.toBeInTheDocument();
+      expect(document.body.textContent).not.toContain("Mason");
+      // The user is warned before submitting, rather than silently losing
+      // this row from the edited version.
+      expect(screen.getByText(/1 Labour entry uses an older format/)).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await user.type(screen.getByLabelText("Reason for this edit"), "Fixed materials");
+      await user.click(screen.getByRole("button", { name: "Save Edit" }));
+      const dialog = await screen.findByRole("alertdialog");
+      await user.click(within(dialog).getByRole("button", { name: "Save Edit" }));
+
+      await waitFor(() => expect(pushMock).toHaveBeenCalled());
+      const correctCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find((call) =>
+        String(call[0]).includes("/dsr/dsr-1/correct"),
+      );
+      const body = JSON.parse((correctCall?.[1] as RequestInit).body as string);
+      expect(body.labourEntries).toHaveLength(0);
+    });
   });
 });

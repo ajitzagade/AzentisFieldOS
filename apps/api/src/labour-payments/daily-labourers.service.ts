@@ -26,6 +26,12 @@ export interface DailyLabourersListQuery {
   pageSize?: string;
   sort?: string;
   order?: string;
+  // spec-dsr-labour-dropdown: GET /daily-labourers?isActive=true — the DSR
+  // Labour picker's own fetch, so a deactivated Labourer never appears as a
+  // pickable option. Absent (the admin list page's own call) returns every
+  // Labourer regardless of isActive, unchanged from before this filter
+  // existed.
+  isActive?: string;
 }
 
 @Injectable()
@@ -42,15 +48,23 @@ export class DailyLabourersService {
   list(
     query: DailyLabourersListQuery = {},
   ): Promise<DailyLabourer[] | PaginatedResult<DailyLabourer>> {
-    const { q, sort, order } = query;
-    const where: Prisma.DailyLabourerWhereInput = q
-      ? {
-          OR: [
-            { name: { contains: q, mode: 'insensitive' as const } },
-            { category: { contains: q, mode: 'insensitive' as const } },
-          ],
-        }
-      : {};
+    const { q, sort, order, isActive } = query;
+    const where: Prisma.DailyLabourerWhereInput = {
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: 'insensitive' as const } },
+              { category: { contains: q, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+      // Mirrors TeamMembersService's isActive:true-where-clause precedent
+      // (getTeamSummary/searchCandidates) — only filters when the query
+      // param is explicitly present, so every other caller (e.g. the admin
+      // list page) keeps seeing both active and inactive Labourers.
+      ...(isActive === 'true' ? { isActive: true } : {}),
+      ...(isActive === 'false' ? { isActive: false } : {}),
+    };
     const orderBy: Prisma.DailyLabourerOrderByWithRelationInput =
       isDailyLabourerSortField(sort)
         ? { [sort]: isSortOrder(order) ? order : 'asc' }

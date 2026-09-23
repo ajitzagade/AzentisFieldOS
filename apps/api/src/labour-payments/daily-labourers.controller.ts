@@ -34,8 +34,16 @@ export class DailyLabourersController {
     @Query('pageSize') pageSize?: string,
     @Query('sort') sort?: string,
     @Query('order') order?: string,
+    @Query('isActive') isActive?: string,
   ) {
-    return this.labourersService.list({ q, page, pageSize, sort, order });
+    return this.labourersService.list({
+      q,
+      page,
+      pageSize,
+      sort,
+      order,
+      isActive,
+    });
   }
 
   @Get(':id')

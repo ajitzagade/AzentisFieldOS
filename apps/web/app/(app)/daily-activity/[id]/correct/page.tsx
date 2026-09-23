@@ -3,6 +3,7 @@ import { authedFetch } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { DsrEquipmentUsed } from "@azentisfieldos/shared";
+import { AlertTriangleIcon } from "@azentisfieldos/ui";
 import { DsrDesktopForm, type DsrFormInitialValues } from "../../_components/dsr-desktop-form";
 
 interface DsrForCorrection {
@@ -32,7 +33,12 @@ interface DsrForCorrection {
     quantity?: number;
     clientGeneratedId?: string;
   }[];
-  labourEntries: { category: string; men: number; women: number }[];
+  // spec-dsr-labour-dropdown: a historical DSR may carry either shape — the
+  // new {labourerId} shape (a report already using the picker) or the
+  // legacy free-text {category, men, women} shape (a report from before
+  // this change). Only the new shape is representable in the correction
+  // form's picker-only Labour UI; see the pre-fill mapping below.
+  labourEntries: ({ labourerId: string } | { category: string; men: number; women: number })[];
   // goal 3: real WasteDisposal rows materialized against this DSR (findOne's
   // `wasteDisposalEntries: { include: { vendor: true } }`) — pre-fills the
   // desktop correction form's own Waste Material section the same way
@@ -119,11 +125,17 @@ export default async function CorrectDsrPage({ params }: { params: Promise<{ id:
       quantity: s.quantity != null ? String(s.quantity) : "",
       clientGeneratedId: s.clientGeneratedId,
     })),
-    labourEntries: (dsr.labourEntries ?? []).map((l) => ({
-      category: l.category,
-      men: String(l.men),
-      women: String(l.women),
-    })),
+    // spec-dsr-labour-dropdown: only rows already in the new {labourerId}
+    // shape are representable in this form's picker-only Labour UI — a
+    // legacy {category, men, women} row on the report being edited stays
+    // exactly as it was originally stored on that (now superseded) report
+    // (AD-9, never rewritten); it just isn't reproducible in this picker,
+    // so editing this report re-states the Labour section from scratch. See
+    // droppedLegacyLabourCount below — the user is warned before submitting
+    // rather than silently losing this from the edited version.
+    labourEntries: (dsr.labourEntries ?? [])
+      .filter((l): l is { labourerId: string } => "labourerId" in l)
+      .map((l) => ({ labourerId: l.labourerId })),
     // goal 3: NOTE — unlike the mobile form's Save-Draft/Resume path, this
     // read comes straight from findOne's real WasteDisposal rows (not the
     // draftContent gap noted in dsr/new/page.tsx), so a correction here
@@ -145,6 +157,14 @@ export default async function CorrectDsrPage({ params }: { params: Promise<{ id:
     })),
   };
 
+  // spec-dsr-labour-dropdown: how many of the original report's Labour rows
+  // use the pre-dropdown legacy shape and couldn't be carried into this
+  // picker-only form — without this, they'd silently disappear from the
+  // edited version the moment it's submitted (AD-9 keeps the original's raw
+  // data intact, but the "current" view going forward would under-report
+  // Labour with no indication why).
+  const droppedLegacyLabourCount = (dsr.labourEntries ?? []).filter((l) => !("labourerId" in l)).length;
+
   return (
     <>
       <div className="mb-2 text-eyebrow text-ink-500">
@@ -158,6 +178,15 @@ export default async function CorrectDsrPage({ params }: { params: Promise<{ id:
         / Edit
       </div>
       <h1 className="mb-6 text-page-title text-ink-900">Edit Daily Report — {dsr.site.name}</h1>
+
+      {droppedLegacyLabourCount > 0 ? (
+        <p className="mb-4 flex items-center gap-2 rounded-md bg-warning-100 p-3 text-body-sm text-warning-700">
+          <AlertTriangleIcon className="size-5 shrink-0" />
+          {droppedLegacyLabourCount} Labour {droppedLegacyLabourCount === 1 ? "entry uses" : "entries use"} an older
+          format and can't be carried into this form — re-add them below if still relevant, or they won't appear on
+          the edited version.
+        </p>
+      ) : null}
 
       <DsrDesktopForm mode="correct" originalId={dsr.id} initial={initial} />
     </>

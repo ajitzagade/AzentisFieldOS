@@ -46,6 +46,8 @@ function mockFetchRouter(handlers: {
   vehicles?: unknown;
   vehicleTypes?: unknown;
   subcontractors?: unknown;
+  // spec-dsr-labour-dropdown: GET /daily-labourers?isActive=true.
+  dailyLabourers?: unknown;
   siteStock?: unknown;
   dsr?: { status: number; body?: unknown } | "network-error";
   // spec-dsr-drafts: GET /dsr/draft resume response (default null = no draft),
@@ -93,6 +95,7 @@ function mockFetchRouter(handlers: {
     if (pathname === "/vehicles") return ok(handlers.vehicles ?? []);
     if (pathname === "/vehicle-types") return ok(handlers.vehicleTypes ?? []);
     if (pathname === "/subcontractors") return ok(handlers.subcontractors ?? []);
+    if (pathname === "/daily-labourers") return ok(handlers.dailyLabourers ?? []);
     return ok({});
   }) as unknown as typeof fetch;
 }
@@ -284,6 +287,46 @@ describe("NewDsrPage", () => {
     expect(payload.consumptions[0]?.materialSizeId).toBe("ms-1");
     expect(payload.consumptions[0]?.quantity).toBe(20);
     expect(payload.consumptions[0]?.clientGeneratedId).toBeTruthy();
+  });
+
+  // spec-dsr-labour-dropdown: the Labour section is a searchable
+  // ComboboxField backed by the DailyLabourer registry — one row = one
+  // named person, no headcount field.
+  it("selects a Labourer by typing and submits their labourerId internally", async () => {
+    mockFetchRouter({
+      sites: [{ id: "site-1", name: "NH-48" }],
+      dailyLabourers: [{ id: "l-1", name: "Ramesh", category: "Mistri" }],
+      dsr: { status: 201, body: { id: "dsr-1" } },
+    });
+
+    render(<NewDsrPage />);
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+    await user.click(screen.getByRole("button", { name: "Add labour" }));
+
+    const labourPicker = screen.getByLabelText("Labour");
+    await waitFor(() => expect(labourPicker).toBeEnabled());
+    await user.type(labourPicker, "Ram");
+    await user.click(await screen.findByText("Ramesh"));
+
+    await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
+    await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
+    await screen.findByText("Synced");
+
+    const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+      ([, init]) => (init as RequestInit | undefined)?.method === "POST",
+    );
+    const payload = JSON.parse((postCall![1] as RequestInit).body as string) as {
+      labourEntries: { labourerId: string; clientGeneratedId: string }[];
+    };
+    expect(payload.labourEntries).toHaveLength(1);
+    expect(payload.labourEntries[0]?.labourerId).toBe("l-1");
+    expect(payload.labourEntries[0]?.clientGeneratedId).toBeTruthy();
+    // No headcount field on the new shape (one row = one named person).
+    expect(payload.labourEntries[0]).not.toHaveProperty("category");
   });
 
   it("shows the current Site Stock for a selected Material (FR-14 visibility)", async () => {

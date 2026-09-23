@@ -42,6 +42,7 @@ import { TeamMemberQuickCreateModal } from "../../team/_components/team-member-q
 import { VendorQuickCreateModal } from "../../vendors/_components/vendor-quick-create-modal";
 import { VehicleQuickCreateModal } from "../../machinery-vehicles/vehicles/_components/vehicle-quick-create-modal";
 import { SubcontractorQuickCreateModal } from "../../subcontractors/_components/subcontractor-quick-create-modal";
+import { DailyLabourerQuickCreateModal } from "../../labour-payments/_components/daily-labourer-quick-create-modal";
 
 interface SiteOption {
   id: string;
@@ -161,11 +162,14 @@ function isSubcontractorLinkValid(row: SubcontractorRow): boolean {
   return !!row.siteContractId && row.quantity.trim() !== "" && Number(row.quantity) > 0;
 }
 
+// spec-dsr-labour-dropdown: one row = one named Labourer picked from the
+// DailyLabourer registry — no headcount field, multiple people are multiple
+// rows. Replaces the old free-text category + men/women tally (legacy rows
+// stay valid server-side via dsrLabourEntrySchema's union, but this form
+// only ever produces the new shape).
 interface LabourRow {
   clientGeneratedId: string;
-  category: string;
-  men: string;
-  women: string;
+  labourerId: string | null;
 }
 
 // The shared schema (AD-7) is the one place "a description is required for
@@ -222,7 +226,16 @@ interface DraftResponse {
     siteContractId?: string;
     quantity?: number;
   }[];
-  labourEntries: { clientGeneratedId?: string; category: string; men: number; women: number }[];
+  // spec-dsr-labour-dropdown: a resumed draft may carry either shape — a
+  // draft saved before this change (legacy free-text category/men/women)
+  // or after it (labourerId). Only the new shape is representable in this
+  // form's picker-only UI; the resume mapping below drops any legacy row
+  // (it stays exactly as saved on the draft's own draftContent JSON either
+  // way — never rewritten, AD-9).
+  labourEntries: (
+    | { clientGeneratedId?: string; labourerId: string }
+    | { clientGeneratedId?: string; category: string; men: number; women: number }
+  )[];
   // goal 3: dsr.service.ts's draftSubRecords()/getDraft() defer
   // wasteDisposalEntries through the Save Draft/Resume round trip exactly
   // like workRecords/consumptions/rmcEntries/expenses do — a Waste
@@ -342,6 +355,7 @@ function NewDsrForm() {
   const [subcontractorEntries, setSubcontractorEntries] = useState<SubcontractorRow[]>([]);
   const [subcontractorQuickCreateRow, setSubcontractorQuickCreateRow] = useState<number | null>(null);
   const [labourEntries, setLabourEntries] = useState<LabourRow[]>([]);
+  const [labourerQuickCreateRow, setLabourerQuickCreateRow] = useState<number | null>(null);
   const [wasteEntries, setWasteEntries] = useState<WasteRow[]>([]);
 
   // goal 4: this Site's Active, non-FIXED_COST Site Contracts, for the
@@ -720,13 +734,18 @@ function NewDsrForm() {
         quantity: s.quantity != null ? String(s.quantity) : "",
       })),
     );
+    // spec-dsr-labour-dropdown: only rows already in the new {labourerId}
+    // shape are representable in this form's picker-only UI — a legacy
+    // {category, men, women} row saved on this draft before this change
+    // stays exactly as-is in draftContent (never rewritten, AD-9), just not
+    // reproducible here.
     setLabourEntries(
-      (draft.labourEntries ?? []).map((l) => ({
-        clientGeneratedId: l.clientGeneratedId ?? crypto.randomUUID(),
-        category: l.category,
-        men: String(l.men),
-        women: String(l.women),
-      })),
+      (draft.labourEntries ?? [])
+        .filter((l): l is { clientGeneratedId?: string; labourerId: string } => "labourerId" in l)
+        .map((l) => ({
+          clientGeneratedId: l.clientGeneratedId ?? crypto.randomUUID(),
+          labourerId: l.labourerId,
+        })),
     );
     // goal 3: see DraftResponse's own comment — always [] against today's
     // backend, wired the same defensive way as every sibling array here so
@@ -1007,13 +1026,13 @@ function NewDsrForm() {
           siteContractId: isSubcontractorLinkValid(s) ? s.siteContractId! : undefined,
           quantity: isSubcontractorLinkValid(s) ? Number(s.quantity) : undefined,
         })),
+      // spec-dsr-labour-dropdown: only complete (a Labourer picked) rows
+      // submit, same rule every other sub-record array here follows.
       labourEntries: labourEntries
-        .filter((l) => l.category && (Number(l.men) > 0 || Number(l.women) > 0))
+        .filter((l) => l.labourerId)
         .map((l) => ({
           clientGeneratedId: l.clientGeneratedId,
-          category: l.category,
-          men: Number(l.men) || 0,
-          women: Number(l.women) || 0,
+          labourerId: l.labourerId!,
         })),
       // goal 3: same "only complete rows submit" rule as every sibling array.
       wasteDisposalEntries: wasteEntries.filter(isWasteRowComplete).map((w) => {
@@ -1991,38 +2010,28 @@ function NewDsrForm() {
               key={row.clientGeneratedId}
               className="mb-3 grid grid-cols-1 gap-x-3 border-b border-border-hairline sm:grid-cols-12 sm:items-start"
             >
-              <div className="sm:col-span-5">
-                <TextField
-                  label="Category"
-                  placeholder="e.g. Mason, Helper"
-                  value={row.category}
-                  onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, category: e.target.value } : r)))}
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <TextField
-                  label="Men"
-                  type="number"
-                  min={0}
-                  step="1"
-                  value={row.men}
-                  onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, men: e.target.value } : r)))}
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <TextField
-                  label="Women"
-                  type="number"
-                  min={0}
-                  step="1"
-                  value={row.women}
-                  onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, women: e.target.value } : r)))}
-                />
-              </div>
-              <div className="sm:col-span-2 text-body-sm text-ink-500 sm:mt-6">
-                Total: {(Number(row.men) || 0) + (Number(row.women) || 0)}
-              </div>
-              <div className="sm:col-span-12 flex sm:justify-end">
+              <ComboboxField
+                label="Labour"
+                className="sm:col-span-10"
+                options={reference.labourerOptions}
+                value={row.labourerId}
+                onValueChange={(value) =>
+                  setLabourEntries((rows) =>
+                    // Same dedupe pattern as the Subcontractor picker: a
+                    // Labourer already picked in another row can't be picked
+                    // again for this one — one row = one named person.
+                    value && rows.some((r, i) => i !== index && r.labourerId === value)
+                      ? rows
+                      : rows.map((r, i) => (i === index ? { ...r, labourerId: value } : r)),
+                  )
+                }
+                loading={reference.loading}
+                placeholder="Type a Labour name…"
+                emptyMessage={reference.loadFailed ? "Couldn't load Labour — check your connection" : "No matching Labour"}
+                onCreateNew={() => setLabourerQuickCreateRow(index)}
+                createNewLabel="+ Add Labour"
+              />
+              <div className="sm:col-span-2 flex sm:items-end sm:justify-end">
                 <Button type="button" variant="ghost" onClick={() => setLabourEntries((rows) => rows.filter((_, i) => i !== index))}>
                   Remove
                 </Button>
@@ -2032,12 +2041,7 @@ function NewDsrForm() {
           <Button
             type="button"
             variant="secondary"
-            onClick={() =>
-              setLabourEntries((rows) => [
-                ...rows,
-                { clientGeneratedId: crypto.randomUUID(), category: "", men: "", women: "" },
-              ])
-            }
+            onClick={() => setLabourEntries((rows) => [...rows, { clientGeneratedId: crypto.randomUUID(), labourerId: null }])}
           >
             <PlusIcon className="size-4" />
             Add labour
@@ -2262,10 +2266,7 @@ function NewDsrForm() {
           label="Subcontractors"
           value={String(subcontractorEntries.filter((s) => s.subcontractorId).length)}
         />
-        <ConfirmDialogRow
-          label="Labour"
-          value={String(labourEntries.filter((l) => l.category && (Number(l.men) > 0 || Number(l.women) > 0)).length)}
-        />
+        <ConfirmDialogRow label="Labour" value={String(labourEntries.filter((l) => l.labourerId).length)} />
         <ConfirmDialogRow label="Photos" value={String(photos.length)} />
       </ConfirmDialog>
 
@@ -2334,6 +2335,20 @@ function NewDsrForm() {
             );
           }
           setSubcontractorQuickCreateRow(null);
+        }}
+      />
+      <DailyLabourerQuickCreateModal
+        open={labourerQuickCreateRow !== null}
+        onOpenChange={(open) => {
+          if (!open) setLabourerQuickCreateRow(null);
+        }}
+        onSuccess={(labourer) => {
+          reference.addLabourerOption({ value: labourer.id, label: labourer.name });
+          const index = labourerQuickCreateRow;
+          if (index !== null) {
+            setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, labourerId: labourer.id } : r)));
+          }
+          setLabourerQuickCreateRow(null);
         }}
       />
     </div>

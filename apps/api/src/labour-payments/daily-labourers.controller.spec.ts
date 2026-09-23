@@ -17,13 +17,15 @@ describe('DailyLabourersController', () => {
       controllers: [DailyLabourersController],
       providers: [{ provide: DailyLabourersService, useValue: service }],
     }).compile();
-    controller = module.get<DailyLabourersController>(
-      DailyLabourersController,
-    );
+    controller = module.get<DailyLabourersController>(DailyLabourersController);
   });
 
   it('create delegates to the service', async () => {
-    const input = { name: 'Ramesh Kumar', category: 'Mistri' as const, isActive: true };
+    const input = {
+      name: 'Ramesh Kumar',
+      category: 'Mistri' as const,
+      isActive: true,
+    };
     service.create.mockResolvedValue({ id: 'l1' });
 
     const result = await controller.create(input);
@@ -32,10 +34,17 @@ describe('DailyLabourersController', () => {
     expect(result).toEqual({ id: 'l1' });
   });
 
-  it('list forwards all five query params to the service as one object', async () => {
+  it('list forwards all six query params to the service as one object', async () => {
     service.list.mockResolvedValue([{ id: 'l1' }]);
 
-    const result = await controller.list('mistri', '2', '10', 'category', 'desc');
+    const result = await controller.list(
+      'mistri',
+      '2',
+      '10',
+      'category',
+      'desc',
+      'true',
+    );
 
     expect(service.list).toHaveBeenCalledWith({
       q: 'mistri',
@@ -43,6 +52,7 @@ describe('DailyLabourersController', () => {
       pageSize: '10',
       sort: 'category',
       order: 'desc',
+      isActive: 'true',
     });
     expect(result).toEqual([{ id: 'l1' }]);
   });
@@ -58,6 +68,7 @@ describe('DailyLabourersController', () => {
       pageSize: undefined,
       sort: undefined,
       order: undefined,
+      isActive: undefined,
     });
   });
 });

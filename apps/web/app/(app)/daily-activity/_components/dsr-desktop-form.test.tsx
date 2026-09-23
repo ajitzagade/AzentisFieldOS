@@ -23,6 +23,7 @@ vi.mock("@/lib/use-dsr-reference-data", () => ({
     expenseCategoryOptions: [],
     equipmentOptions: [],
     subcontractorOptions: [],
+    labourerOptions: [{ value: "labourer-1", label: "Ramesh", description: "Mistri" }],
     vehicleTypeOptions: [],
     rmcGradeOptions: [],
     loading: false,
@@ -31,6 +32,7 @@ vi.mock("@/lib/use-dsr-reference-data", () => ({
     addVendorOption: vi.fn(),
     addTeamMemberOption: vi.fn(),
     addSubcontractorOption: vi.fn(),
+    addLabourerOption: vi.fn(),
     addVehicleOption: vi.fn(),
   }),
 }));
@@ -285,5 +287,45 @@ describe("DsrDesktopForm correction pre-fill preserves clientGeneratedId (Waste 
     const body = capturedCorrectBody();
     expect(body.wasteDisposalEntries).toHaveLength(1);
     expect(body.wasteDisposalEntries[0].clientGeneratedId).toEqual(expect.any(String));
+  });
+});
+
+// spec-dsr-labour-dropdown: the Labour section is now a searchable
+// ComboboxField backed by the DailyLabourer registry — one row = one named
+// person, no headcount field.
+describe("DsrDesktopForm Labour section (spec-dsr-labour-dropdown)", () => {
+  function capturedCorrectBody() {
+    const call = authedFetchMock.mock.calls.find((args: unknown[]) => String(args[0]).endsWith("/correct"));
+    return JSON.parse((call![1] as { body: string }).body);
+  }
+
+  it("submits the picked Labourer's id, not a category/headcount tally", async () => {
+    routeFetch({ status: 201, body: { id: "dsr-9" } });
+    render(<DsrDesktopForm mode="correct" originalId="dsr-1" initial={INITIAL} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Add labour" }));
+    await user.type(screen.getByLabelText("Labour"), "Ram");
+    await user.click(await screen.findByText("Ramesh"));
+    await fillReasonAndSubmit(user);
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalled());
+    const body = capturedCorrectBody();
+    expect(body.labourEntries).toHaveLength(1);
+    expect(body.labourEntries[0]).toMatchObject({ labourerId: "labourer-1" });
+    expect(body.labourEntries[0]).not.toHaveProperty("category");
+  });
+
+  it("drops an incomplete Labour row (no Labourer picked) from the submission", async () => {
+    routeFetch({ status: 201, body: { id: "dsr-9" } });
+    render(<DsrDesktopForm mode="correct" originalId="dsr-1" initial={INITIAL} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Add labour" }));
+    await fillReasonAndSubmit(user);
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalled());
+    const body = capturedCorrectBody();
+    expect(body.labourEntries).toHaveLength(0);
   });
 });

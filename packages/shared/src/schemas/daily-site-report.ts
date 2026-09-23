@@ -87,10 +87,28 @@ export const dsrEquipmentUsedSchema = z
 
 export type DsrEquipmentUsed = z.infer<typeof dsrEquipmentUsedSchema>;
 
+// spec-dsr-labour-dropdown: a DSR Labour row now names a specific Labourer
+// from the DailyLabourer registry (searchable dropdown + inline
+// quick-create), one row = one named person — no headcount field, multiple
+// people are multiple rows.
+export const dsrLabourEntryNewSchema = z.object({
+  labourerId: z.string(),
+  clientGeneratedId: z.string().optional(),
+});
+
+export type DsrLabourEntryNew = z.infer<typeof dsrLabourEntryNewSchema>;
+
 // Free-text Category (human-confirmed — a lookup table would be premature,
 // same reasoning as WasteDisposal.wasteType). `total` is derived
 // client-side (men + women) and never submitted as its own field.
-export const dsrLabourEntrySchema = z
+//
+// spec-dsr-labour-dropdown: this is now the LEGACY shape, kept valid only so
+// a historical row already stored in DailySiteReport.labourEntries keeps
+// validating and rendering exactly as before (AD-9) — the form no longer
+// produces this shape; see dsrLabourEntryNewSchema/dsrLabourEntrySchema
+// below (same additive-backward-compat approach dsrSubcontractorEntrySchema
+// used for siteContractId/quantity).
+export const dsrLabourEntryLegacySchema = z
   .object({
     category: z.string().min(1),
     men: z.number().int().nonnegative(),
@@ -104,6 +122,14 @@ export const dsrLabourEntrySchema = z
   .refine((d) => d.men > 0 || d.women > 0, {
     message: "At least one worker required",
   });
+
+export type DsrLabourEntryLegacy = z.infer<typeof dsrLabourEntryLegacySchema>;
+
+// spec-dsr-labour-dropdown: a union — new writes always match
+// dsrLabourEntryNewSchema (labourerId), while a historical row missing
+// labourerId still matches dsrLabourEntryLegacySchema. Never migrated/
+// rewritten (AD-9) — both shapes stay valid indefinitely.
+export const dsrLabourEntrySchema = z.union([dsrLabourEntryNewSchema, dsrLabourEntryLegacySchema]);
 
 export type DsrLabourEntry = z.infer<typeof dsrLabourEntrySchema>;
 

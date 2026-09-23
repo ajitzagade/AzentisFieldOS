@@ -39,6 +39,11 @@ export interface DsrReferenceData {
   /** Existing Subcontractor register (goal 5) — same `onCreateNew` combobox
    * pattern as Vendor. */
   subcontractorOptions: ComboboxFieldOption[];
+  /** spec-dsr-labour-dropdown: the DailyLabourer registry, active-only
+   * (?isActive=true) — same `onCreateNew` combobox pattern as Subcontractor.
+   * description carries the Labourer's category so it's visible in the
+   * dropdown without a second field. */
+  labourerOptions: ComboboxFieldOption[];
   /** Vehicle Types, needed only to render VehicleQuickCreateModal's own
    * Type field — not itself a picker option list. */
   vehicleTypeOptions: NamedListItem[];
@@ -57,6 +62,7 @@ export interface DsrReferenceData {
   addVendorOption: (option: ComboboxFieldOption) => void;
   addTeamMemberOption: (option: ComboboxFieldOption) => void;
   addSubcontractorOption: (option: ComboboxFieldOption) => void;
+  addLabourerOption: (option: ComboboxFieldOption) => void;
   /** Prepends a just-created Vehicle into equipmentOptions (before the
    * always-last Other Vehicle option) so it's immediately selectable. */
   addVehicleOption: (option: { id: string; name: string }) => void;
@@ -96,9 +102,21 @@ interface VehicleListItem {
   type?: { name: string } | null;
 }
 
+// spec-dsr-labour-dropdown: shape of GET /daily-labourers?isActive=true.
+interface LabourerListItem {
+  id: string;
+  name: string;
+  category: string;
+}
+
 type DsrReferenceListData = Omit<
   DsrReferenceData,
-  "addMaterialOption" | "addVendorOption" | "addTeamMemberOption" | "addSubcontractorOption" | "addVehicleOption"
+  | "addMaterialOption"
+  | "addVendorOption"
+  | "addTeamMemberOption"
+  | "addSubcontractorOption"
+  | "addLabourerOption"
+  | "addVehicleOption"
 >;
 
 const EMPTY: Omit<DsrReferenceListData, "loading" | "loadFailed"> = {
@@ -108,6 +126,7 @@ const EMPTY: Omit<DsrReferenceListData, "loading" | "loadFailed"> = {
   expenseCategoryOptions: [],
   equipmentOptions: [OTHER_VEHICLE_OPTION],
   subcontractorOptions: [],
+  labourerOptions: [],
   vehicleTypeOptions: [],
   rmcGradeOptions: [],
 };
@@ -138,8 +157,11 @@ export function useDsrReferenceData(): DsrReferenceData {
       fetchList<VehicleListItem>("/vehicles"),
       fetchList<NamedListItem>("/subcontractors"),
       fetchList<NamedListItem>("/vehicle-types"),
+      // spec-dsr-labour-dropdown: active-only, same "no inactive record
+      // pickable" rule as every other DSR reference list.
+      fetchList<LabourerListItem>("/daily-labourers?isActive=true"),
     ])
-      .then(([materials, teamMembers, vendors, categories, machinery, vehicles, subcontractors, vehicleTypes]) => {
+      .then(([materials, teamMembers, vendors, categories, machinery, vehicles, subcontractors, vehicleTypes, labourers]) => {
         if (cancelled) return;
         setData({
           // Consumption is recorded per Material Size, so each size is its
@@ -183,6 +205,7 @@ export function useDsrReferenceData(): DsrReferenceData {
             OTHER_VEHICLE_OPTION,
           ],
           subcontractorOptions: subcontractors.map((s) => ({ value: s.id, label: s.name })),
+          labourerOptions: labourers.map((l) => ({ value: l.id, label: l.name, description: l.category })),
           vehicleTypeOptions: vehicleTypes,
           loading: false,
           loadFailed: false,
@@ -213,6 +236,9 @@ export function useDsrReferenceData(): DsrReferenceData {
   const addSubcontractorOption = useCallback((option: ComboboxFieldOption) => {
     setData((prev) => ({ ...prev, subcontractorOptions: [option, ...prev.subcontractorOptions] }));
   }, []);
+  const addLabourerOption = useCallback((option: ComboboxFieldOption) => {
+    setData((prev) => ({ ...prev, labourerOptions: [option, ...prev.labourerOptions] }));
+  }, []);
   // Inserted before the always-last Other Vehicle entry (never after it) so
   // the dropdown order stays List -> Other Vehicle -> "+ Add Vehicle" trigger.
   const addVehicleOption = useCallback((option: { id: string; name: string }) => {
@@ -232,6 +258,7 @@ export function useDsrReferenceData(): DsrReferenceData {
     addVendorOption,
     addTeamMemberOption,
     addSubcontractorOption,
+    addLabourerOption,
     addVehicleOption,
   };
 }

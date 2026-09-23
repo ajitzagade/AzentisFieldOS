@@ -335,4 +335,50 @@ describe("DsrDetailPage", () => {
     await expect(renderDetailPage("missing-id")).rejects.toThrow("NEXT_NOT_FOUND");
     expect(notFoundMock).toHaveBeenCalled();
   });
+
+  // spec-dsr-labour-dropdown: labourEntries type-guards both shapes.
+  describe("Labour section", () => {
+    it("resolves a new-shape {labourerId} row to the Labourer's name + category", async () => {
+      global.fetch = vi.fn((url: string) => {
+        if (String(url).endsWith("/daily-labourers")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [{ id: "l-1", name: "Ramesh", category: "Mistri" }],
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => fullDsr({ labourEntries: [{ labourerId: "l-1" }] }),
+        });
+      }) as unknown as typeof fetch;
+
+      await renderDetailPage("dsr-1");
+
+      expect(screen.getByText("Ramesh")).toBeInTheDocument();
+      expect(screen.getByText("Mistri")).toBeInTheDocument();
+    });
+
+    it("renders a historical legacy {category, men, women} row exactly as before, unaffected", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => fullDsr({ labourEntries: [{ category: "Mason", men: 3, women: 1 }] }),
+      }) as unknown as typeof fetch;
+
+      await renderDetailPage("dsr-1");
+
+      expect(screen.getByText("Mason")).toBeInTheDocument();
+      expect(screen.getByText("3 men · 1 women · 4 total")).toBeInTheDocument();
+    });
+
+    it("shows the empty state when no Labour is logged", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => fullDsr({ labourEntries: [] }),
+      }) as unknown as typeof fetch;
+
+      await renderDetailPage("dsr-1");
+
+      expect(screen.getByText("No labour logged for this report.")).toBeInTheDocument();
+    });
+  });
 });
