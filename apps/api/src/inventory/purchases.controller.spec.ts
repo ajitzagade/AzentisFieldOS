@@ -196,8 +196,8 @@ describe('ZodValidationPipe(createPurchaseSchema)', () => {
     ).not.toThrow();
   });
 
-  // Rate is independently optional — it is NOT part of the
-  // totalAmount/paymentStatus all-or-none group.
+  // rate, totalAmount, and paymentStatus are each fully independent —
+  // no field requires another.
   it('accepts rate alone without totalAmount/paymentStatus', () => {
     const { totalAmount: _t, paymentStatus: _p, ...partial } = base;
     expect(() =>
@@ -212,11 +212,21 @@ describe('ZodValidationPipe(createPurchaseSchema)', () => {
     ).not.toThrow();
   });
 
-  it('rejects a partial pricing group (totalAmount without paymentStatus)', () => {
+  // Reversed 2026-09-23: totalAmount and paymentStatus no longer require
+  // each other — the site may know the amount from a challan before the
+  // office has confirmed payment, or vice versa.
+  it('accepts totalAmount without paymentStatus', () => {
     const { paymentStatus: _p, ...partial } = base;
-    expect(() => pipe.transform({ ...partial, destination: 'GODOWN' })).toThrow(
-      BadRequestException,
-    );
+    expect(() =>
+      pipe.transform({ ...partial, destination: 'GODOWN' }),
+    ).not.toThrow();
+  });
+
+  it('accepts paymentStatus without totalAmount', () => {
+    const { totalAmount: _t, ...partial } = base;
+    expect(() =>
+      pipe.transform({ ...partial, destination: 'GODOWN' }),
+    ).not.toThrow();
   });
 
   it('accepts a valid GODOWN-destined body with no siteId', () => {

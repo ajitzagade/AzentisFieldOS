@@ -12,10 +12,14 @@ export const createPurchaseSchema = z
     quantity: z.number(),
     // Pricing is optional (decision D7, 2026-09-01): a Site Supervisor's
     // inward entry carries no money fields at all — the Owner/Admin
-    // completes them later via completePurchasePricingSchema. totalAmount
-    // and paymentStatus travel together as a group (enforced below); rate
-    // is independently optional — a Supervisor may know the rate without
-    // knowing the total, or vice versa, and neither should block saving.
+    // completes them later via completePurchasePricingSchema. rate,
+    // totalAmount, and paymentStatus are each independently optional — no
+    // field requires another (reversed 2026-09-23: totalAmount/
+    // paymentStatus previously had to travel together, but that blocked the
+    // common case of the site knowing the amount from a challan before the
+    // office has confirmed payment). "Pricing pending" elsewhere in the app
+    // depends only on totalAmount being null, never on paymentStatus, so
+    // this doesn't affect that flag.
     rate: z.number().positive().optional(),
     totalAmount: z.number().positive().optional(),
     invoiceOrChallanNo: z.string().min(1).optional(),
@@ -43,28 +47,6 @@ export const createPurchaseSchema = z
         path: ["siteId"],
         message: "Site must not be set when destination is Godown",
       });
-    }
-
-    // D7: totalAmount / paymentStatus travel together — totalAmount IS NULL
-    // is the single source of truth for "Pricing pending" everywhere else in
-    // the app, so paymentStatus must never be recorded without it (or vice
-    // versa). Rate is intentionally NOT part of this group — it's optional
-    // independent of the other two.
-    const pricingFields = [
-      ["totalAmount", data.totalAmount],
-      ["paymentStatus", data.paymentStatus],
-    ] as const;
-    const provided = pricingFields.filter(([, value]) => value !== undefined);
-    if (provided.length > 0 && provided.length < pricingFields.length) {
-      for (const [field, value] of pricingFields) {
-        if (value === undefined) {
-          ctx.addIssue({
-            code: "custom",
-            path: [field],
-            message: "Total Amount and Payment Status go together — fill both, or leave pricing to be added later",
-          });
-        }
-      }
     }
 
     if (data.correctsId) {

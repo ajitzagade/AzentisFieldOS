@@ -126,19 +126,23 @@ describeIfDb('PurchasesService (integration)', () => {
     expect(purchase.totalAmount?.toString()).toBe('5000');
   });
 
-  it('still rejects totalAmount without paymentStatus at the DB layer (the pair that must still travel together)', async () => {
-    await expect(
-      prisma.purchase.create({
-        data: {
-          vendorId,
-          materialSizeId,
-          destination: 'GODOWN',
-          quantity: 10,
-          totalAmount: 5000,
-          purchasedAt: new Date('2026-09-21'),
-        },
-      }),
-    ).rejects.toThrow();
+  // Reversed 2026-09-23 (migration 20260923152000): totalAmount and
+  // paymentStatus no longer travel together, at either the Zod or DB layer
+  // — the site may know the amount from a challan before the office has
+  // confirmed payment, or vice versa.
+  it('accepts totalAmount without paymentStatus at the DB layer too', async () => {
+    const purchase = await prisma.purchase.create({
+      data: {
+        vendorId,
+        materialSizeId,
+        destination: 'GODOWN',
+        quantity: 10,
+        totalAmount: 5000,
+        purchasedAt: new Date('2026-09-21'),
+      },
+    });
+    expect(purchase.totalAmount?.toString()).toBe('5000');
+    expect(purchase.paymentStatus).toBeNull();
   });
 
   it("a SITE-destined Purchase (Story 5.3's direct Vendor->Site flow, FR-10) persists receiverName and increases that Site's SiteStock and never touches GodownStock", async () => {

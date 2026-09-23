@@ -6,12 +6,13 @@ import { optionalNumber } from "../../../../lib/parse-helpers";
 // form runs the same function pre-submit for instant inline errors — one
 // validator, two run sites.
 //
-// Pricing (rate / totalAmount / paymentStatus) is optional as a group
-// (decision D7, widened 2026-09-22): neither the Supervisor's form nor the
-// Owner's form requires pricing to be filled in — the office frequently
-// doesn't have the bill yet at entry time either. totalAmount and
-// paymentStatus still travel together (shared schema's superRefine): fill
-// both, or leave both blank and the entry is recorded "Pricing pending".
+// Pricing (rate / totalAmount / paymentStatus) is optional and each field
+// independent of the others (decision D7, widened 2026-09-22, fully
+// decoupled 2026-09-23): neither the Supervisor's form nor the Owner's form
+// requires pricing to be filled in, and no pricing field requires another —
+// the office may know the amount before payment is confirmed, or vice
+// versa. An entry with totalAmount unset is recorded "Pricing pending"
+// regardless of the other two fields.
 type ParseResult =
   | { success: true; data: ReturnType<typeof createPurchaseSchema.parse> }
   | { success: false; error: { flatten(): { fieldErrors: Record<string, string[]> } } };

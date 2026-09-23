@@ -156,9 +156,15 @@ export function PurchaseForm({
     const base = materialSizes.map((m) => ({ value: m.id, label: m.label, description: m.description }));
     return destinationKnown ? withStockMeta(base, destinationStock) : base;
   }, [materialSizes, destinationKnown, destinationStock]);
-  const stock = destinationKnown
+  const rawStock = destinationKnown
     ? stockStatus({ stock: destinationStock, materialSizeId: materialSizeId || null, location: destinationLocation })
     : undefined;
+  // A Purchase is the inward action that CREATES stock — "no stock
+  // recorded/available yet" is the completely normal, expected state for a
+  // first-time delivery, not something to warn about (confirmed confusing
+  // in practice). Only surface the hint when it's genuinely informative: a
+  // real current balance, or still loading.
+  const stock = rawStock?.tone === "warning" ? undefined : rawStock;
   // Restate the picked Material's unit on the quantity label so "50" is
   // never ambiguous (the unit rides along as the option's description).
   const selectedUnit = materialSizes.find((m) => m.id === materialSizeId)?.description;
@@ -331,11 +337,11 @@ export function PurchaseForm({
 
         {pricingRendered ? (
           <>
-            {/* All three pricing fields are optional here, same as the
-                Supervisor's form — the office may not have the bill yet
-                either. totalAmount/paymentStatus still travel together as a
-                group (shared schema) so the "pending pricing" flag downstream
-                never sees one without the other. */}
+            {/* All three pricing fields are optional here and fully
+                independent of each other (no field requires another) — the
+                office may know the amount from a challan before payment is
+                confirmed, or vice versa. "Pricing pending" downstream only
+                depends on totalAmount, never on paymentStatus. */}
             <AmountField
               label="Rate"
               name="rate"

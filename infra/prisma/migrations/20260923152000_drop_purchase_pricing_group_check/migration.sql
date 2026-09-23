@@ -1,0 +1,22 @@
+-- Pricing fields fully decoupled (2026-09-23): the user repeatedly asked
+-- for zero restriction on rate/totalAmount/paymentStatus for Site
+-- Engineers inwarding a Purchase — the office may know the amount from a
+-- challan before payment is confirmed, or vice versa. The Zod-level
+-- all-or-none group between totalAmount and paymentStatus was removed in
+-- the same change (packages/shared/src/schemas/purchase.ts); this drops
+-- 20260922020000's DB-level CHECK enforcing the identical pairing, which
+-- would otherwise still reject the exact inputs the Zod relaxation was
+-- meant to allow (surfaced as a raw DB error instead of a friendly
+-- validation message). "Pricing pending" elsewhere in the app depends only
+-- on totalAmount IS NULL, never on paymentStatus, so this constraint was
+-- never load-bearing for that signal — narrowing history: 20260902000100
+-- (rate+totalAmount+paymentStatus all-or-none) -> 20260922020000
+-- (totalAmount+paymentStatus only) -> this migration (no constraint).
+--
+-- Hand-written (not `prisma migrate dev`): this CHECK constraint was never
+-- declared in schema.prisma (Prisma has no native @@check support without
+-- a preview feature), so it is a Prisma-undeclared object — same class as
+-- this repo's pg_trgm indexes (see AGENTS.md's migrate-dev drift warning).
+-- Apply with `pnpm db:migrate:deploy` only, never `db:migrate:dev`.
+
+ALTER TABLE "Purchase" DROP CONSTRAINT "Purchase_pricing_all_or_none";

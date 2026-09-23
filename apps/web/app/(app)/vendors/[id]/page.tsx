@@ -40,7 +40,9 @@ interface VendorPurchase {
 // (only HIRED rows carry a vendorId at all).
 // totalAmount/paymentStatus ARE now genuinely nullable (client-readiness
 // batch, goal 1) — a HIRED trip can be recorded before pricing is known,
-// same D7-style all-or-none group as Purchase.
+// same D7-style nullable-pricing pattern Purchase originally introduced
+// (Purchase's own totalAmount/paymentStatus pairing was later removed,
+// 2026-09-23 — this WasteDisposal group is unaffected by that change).
 interface VendorWasteDisposal {
   id: string;
   wasteType: string;
