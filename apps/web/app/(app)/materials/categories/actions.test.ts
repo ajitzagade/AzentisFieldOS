@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { revalidatePath } from "next/cache";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -13,6 +14,7 @@ const originalApiUrl = process.env.API_URL;
 
 beforeEach(() => {
   process.env.API_URL = "http://localhost:3001";
+  vi.clearAllMocks();
 });
 
 afterEach(() => {
@@ -48,6 +50,21 @@ describe("createMaterialCategoryAction", () => {
     );
     expect(result).toEqual({});
   });
+
+  // A newly created Category must be immediately available in the Material
+  // form's dropdown — previously this action only revalidated its own
+  // /materials/categories page, leaving /materials/new's server-rendered
+  // category list stale until the Router Cache entry expired (~15s+).
+  it("revalidates exactly /materials/categories, /materials/new, and /materials so the new category is immediately available elsewhere", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 }) as unknown as typeof fetch;
+
+    await createMaterialCategoryAction({}, formData({ name: "Cement" }));
+
+    expect(revalidatePath).toHaveBeenCalledWith("/materials/categories");
+    expect(revalidatePath).toHaveBeenCalledWith("/materials/new");
+    expect(revalidatePath).toHaveBeenCalledWith("/materials");
+    expect(revalidatePath).toHaveBeenCalledTimes(3);
+  });
 });
 
 describe("renameMaterialCategoryAction", () => {
@@ -70,6 +87,10 @@ describe("renameMaterialCategoryAction", () => {
       expect.objectContaining({ method: "PATCH", body: JSON.stringify({ name: "Plumbing" }) }),
     );
     expect(result).toEqual({ ok: true });
+    expect(revalidatePath).toHaveBeenCalledWith("/materials/categories");
+    expect(revalidatePath).toHaveBeenCalledWith("/materials/new");
+    expect(revalidatePath).toHaveBeenCalledWith("/materials");
+    expect(revalidatePath).toHaveBeenCalledTimes(3);
   });
 
   it("surfaces a duplicate-name 400 as a form error", async () => {
@@ -96,6 +117,10 @@ describe("toggleMaterialCategoryAction", () => {
       expect.objectContaining({ method: "PATCH", body: JSON.stringify({ isActive: false }) }),
     );
     expect(result).toEqual({});
+    expect(revalidatePath).toHaveBeenCalledWith("/materials/categories");
+    expect(revalidatePath).toHaveBeenCalledWith("/materials/new");
+    expect(revalidatePath).toHaveBeenCalledWith("/materials");
+    expect(revalidatePath).toHaveBeenCalledTimes(3);
   });
 
   it("returns a form error instead of silently no-opping when the PATCH fails", async () => {

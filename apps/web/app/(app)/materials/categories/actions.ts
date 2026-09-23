@@ -4,6 +4,18 @@ import { authedFetch } from "@/lib/api";
 import { revalidatePath } from "next/cache";
 import { createMaterialCategorySchema, updateMaterialCategorySchema } from "@azentisfieldos/shared";
 
+// The admin list plus every Category picker (the new-Material form and the
+// materials catalog) — mirrors units/actions.ts's revalidateUnitPaths(), the
+// established pattern for this kind of master-data list. A created/renamed/
+// disabled Category must stop being stale wherever a Material is created.
+// Centralized so the three actions below can't drift out of sync again (the
+// pre-fix bug: create() revalidated only /materials/categories).
+function revalidateCategoryPaths() {
+  revalidatePath("/materials/categories");
+  revalidatePath("/materials/new");
+  revalidatePath("/materials");
+}
+
 export interface CreateMaterialCategoryFormState {
   errors?: Record<string, string[]>;
   formError?: string;
@@ -34,7 +46,7 @@ export async function createMaterialCategoryAction(
     return { formError: "Something went wrong creating the Category. Please try again." };
   }
 
-  revalidatePath("/materials/categories");
+  revalidateCategoryPaths();
   return {};
 }
 
@@ -75,9 +87,7 @@ export async function renameMaterialCategoryAction(
     return { formError: "Could not rename this Category. Please try again." };
   }
 
-  revalidatePath("/materials/categories");
-  revalidatePath("/materials/new");
-  revalidatePath("/materials");
+  revalidateCategoryPaths();
   return { ok: true };
 }
 
@@ -112,8 +122,6 @@ export async function toggleMaterialCategoryAction(
     };
   }
 
-  revalidatePath("/materials/categories");
-  revalidatePath("/materials/new");
-  revalidatePath("/materials");
+  revalidateCategoryPaths();
   return {};
 }
