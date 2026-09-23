@@ -303,7 +303,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                     <span className="text-ink-500">by {version.submittedByName}</span>
                     {version.id === dsr.id ? <span className="text-caption text-ink-500">(viewing)</span> : null}
                   </span>
-                  {version.reason ? <span className="text-ink-500">{version.reason}</span> : null}
+                  {version.reason ? <span className="font-semibold text-ink-700">{version.reason}</span> : null}
                 </li>
               ))}
             </ul>
@@ -334,7 +334,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
               {dsr.workRecords.map((w) => (
                 <li key={w.id} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
                   <span>{w.teamMember.name}</span>
-                  <span className="text-ink-500">
+                  <span className="font-semibold text-ink-700">
                     {w.attended ? (w.hours ? `Present — ${w.hours} hrs` : "Present") : "Absent"}
                   </span>
                 </li>
@@ -364,7 +364,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                         number shown is what was sent and may still change. */}
                     {m.pending ? <Badge variant="warning">Pending confirmation</Badge> : null}
                   </span>
-                  <span className="text-ink-500">{m.quantity} {m.unitName}</span>
+                  <span className="font-semibold text-ink-700">{m.quantity} {m.unitName}</span>
                 </li>
               ))}
             </ul>
@@ -382,7 +382,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                   <span>
                     {c.materialSize.material.name} ({c.materialSize.label})
                   </span>
-                  <span className="text-ink-500">{c.quantity}</span>
+                  <span className="font-semibold text-ink-700">{c.quantity}</span>
                 </li>
               ))}
               {dsr.standaloneConsumptions.map((c) => (
@@ -391,7 +391,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                     {c.materialName} ({c.sizeLabel}){" "}
                     <span className="text-caption text-ink-500">via Material Used</span>
                   </span>
-                  <span className="text-ink-500">{c.quantity}</span>
+                  <span className="font-semibold text-ink-700">{c.quantity}</span>
                 </li>
               ))}
             </ul>
@@ -409,7 +409,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                   <span>
                     {r.vendor.name} — {r.grade}
                   </span>
-                  <span className="text-ink-500">
+                  <span className="font-semibold text-ink-700">
                     {r.quantityM3} m³ ·{" "}
                     <span className="font-semibold text-gold-700">
                       {/* D7: an unpriced delivery has no amount yet — pending, never ₹0. */}
@@ -423,7 +423,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                   <span>
                     {r.vendorName} — {r.grade} <span className="text-caption text-ink-500">via RMC</span>
                   </span>
-                  <span className="text-ink-500">
+                  <span className="font-semibold text-ink-700">
                     {r.quantityM3} m³ ·{" "}
                     <span className="font-semibold text-gold-700">
                       {r.totalAmount === null ? <span className="text-ink-500">Pricing pending</span> : `₹${r.totalAmount.toLocaleString("en-IN")}`}
@@ -447,7 +447,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                     {w.wasteType} — {w.tripCount} trip{Math.abs(w.tripCount) === 1 ? "" : "s"}
                     {w.vendor ? ` (${w.vendor.name})` : " (own vehicle)"}
                   </span>
-                  <span className="text-ink-500">
+                  <span className="font-semibold text-ink-700">
                     {/* D7: an unpriced trip has no amount yet — pending, never ₹0. */}
                     {w.totalAmount === null ? (
                       <span className="text-ink-500">Pricing pending</span>
@@ -467,7 +467,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                     {w.vendorName ? ` (${w.vendorName})` : " (own vehicle)"}{" "}
                     <span className="text-caption text-ink-500">via Waste Material</span>
                   </span>
-                  <span className="text-ink-500">
+                  <span className="font-semibold text-ink-700">
                     {w.totalAmount === null ? (
                       <span className="text-ink-500">Pricing pending</span>
                     ) : (
@@ -494,7 +494,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                     {r.materialName} ({r.sizeLabel}){" "}
                     <span className="text-caption text-ink-500">{r.kind === "WASTAGE" ? "Wastage" : "Return"}</span>
                   </span>
-                  <span className="text-ink-500">{r.quantity} {r.unitName}</span>
+                  <span className="font-semibold text-ink-700">{r.quantity} {r.unitName}</span>
                 </li>
               ))}
             </ul>
@@ -538,7 +538,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                       <span className="ml-2 text-ink-500">— {s.quantity} logged</span>
                     ) : null}
                   </span>
-                  <span className="text-ink-500">{s.workNote ?? "—"}</span>
+                  <span className="font-semibold text-ink-700">{s.workNote ?? "—"}</span>
                 </li>
               ))}
               {/* Inventory→DSR sync fix, extended (2026-09-22): a Work Entry
@@ -553,7 +553,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                     <span className="ml-2 text-ink-500">— {w.quantity} logged</span>{" "}
                     <span className="text-caption text-ink-500">via Site Contract</span>
                   </span>
-                  <span className="text-ink-500">{w.note ?? "—"}</span>
+                  <span className="font-semibold text-ink-700">{w.note ?? "—"}</span>
                 </li>
               ))}
             </ul>
@@ -569,7 +569,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
               {labourEntries.map((l, index) => (
                 <li key={`${l.category}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
                   <span>{l.category}</span>
-                  <span className="text-ink-500">
+                  <span className="font-semibold text-ink-700">
                     {l.men} men · {l.women} women · {l.men + l.women} total
                   </span>
                 </li>
@@ -655,7 +655,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                       </Badge>
                       <span>{item.summary}</span>
                     </span>
-                    <span className="text-ink-500">
+                    <span className="font-semibold text-ink-700">
                       {formatDateTime(item.occurredAt)}
                       {item.amount !== null ? (
                         // Review fix (finding #9): a Waste Material
