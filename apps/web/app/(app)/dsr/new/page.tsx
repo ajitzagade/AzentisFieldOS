@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AmountField,
   Badge,
@@ -283,6 +283,7 @@ interface DsrAutosaveData {
 function NewDsrForm() {
   const authedFetch = useAuthedFetch();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [sites, setSites] = useState<SiteOption[]>([]);
   // Site detail's "Today's DSR" action deep-links here with ?siteId= so
   // the Site arrives pre-selected (Site → Today's DSR → report).
@@ -448,6 +449,16 @@ function NewDsrForm() {
   // "synced" = confirmed landed on the server. Never a single ambiguous
   // pending spinner (EXPERIENCE.md).
   const [syncState, setSyncState] = useState<"queued" | "synced" | null>(null);
+  // Set only by doSubmit's own online-success branch (never the offline
+  // queued branches, and never handleFinalize — that path already awaits
+  // every photo upload before it reaches its own success state, so it
+  // navigates immediately with no need to wait). Mirrors
+  // dsr-desktop-form.tsx's `submittedDsrId`-gated redirect effect, but kept
+  // as its own flag rather than reusing `syncState` directly so the
+  // background queue-drain effect below (which can also flip `syncState` to
+  // "synced" later, well after the user has moved on from that submission)
+  // can never accidentally trigger this navigation too.
+  const [awaitingUploadsBeforeNav, setAwaitingUploadsBeforeNav] = useState(false);
 
   // Autosave restore (lib/dsr-autosave.ts): non-null once this mount
   // restored an interrupted session's entries, driving the restore banner.
@@ -924,6 +935,21 @@ function NewDsrForm() {
     void uploadStagedPhoto(dailySiteReportId, photo.localId, photo.file);
   }
 
+  // dsr-desktop-form.tsx's identical pattern: the one navigation point after
+  // an online-synced one-shot Submit, deferred until no photo is left
+  // "uploading" or "failed" (an empty/all-"uploaded" list passes trivially).
+  // A photo staged here CAN be retried (see the "Retry" button in the Site
+  // Photos section below) or removed — either resumes this effect, since
+  // `.every()` re-evaluates against the freed-up array. Deliberately not
+  // wired to the offline-queued branches (those never set
+  // awaitingUploadsBeforeNav) or to handleFinalize (which navigates directly
+  // below, having already awaited its own photo uploads).
+  useEffect(() => {
+    if (awaitingUploadsBeforeNav && photos.every((p) => p.status === "uploaded")) {
+      router.push(`/daily-activity/history?flash=${encodeURIComponent("Daily Report submitted")}`);
+    }
+  }, [awaitingUploadsBeforeNav, photos, router]);
+
   // spec-dsr-drafts: the one construction of the report payload, shared by the
   // one-shot Submit, Save Draft, and Finalize. Only complete sub-record rows
   // are sent (a half-filled material row is dropped) — same rule the one-shot
@@ -1117,6 +1143,10 @@ function NewDsrForm() {
       setSyncState("synced");
       clearDsrAutosave(siteId, reportDate);
       setRestoredAutosaveAt(null);
+      // Every staged photo was already awaited above (unlike doSubmit's
+      // fire-and-forget uploads) — no need to wait for an effect, navigate
+      // straight away.
+      router.push(`/daily-activity/history?flash=${encodeURIComponent("Daily Report submitted")}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -1233,6 +1263,9 @@ function NewDsrForm() {
           void uploadStagedPhoto(dsr.id, photo.localId, photo.file);
         }
       }
+      // Defers navigation to the effect above until every fire-and-forget
+      // upload just kicked off has resolved (or been retried/removed).
+      setAwaitingUploadsBeforeNav(true);
     } finally {
       setIsSubmitting(false);
     }

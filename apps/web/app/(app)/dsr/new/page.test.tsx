@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { listQueuedDsrs, removeQueuedDsr } from "../../../../lib/offline-db";
@@ -7,8 +7,19 @@ import NewDsrPage from "./page";
 
 // The form reads ?siteId= for the Site-detail deep link ("Today's DSR").
 const searchParams = vi.hoisted(() => ({ current: new URLSearchParams() }));
+const pushMock = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams.current,
+  useRouter: () => ({ push: pushMock, refresh: vi.fn() }),
+}));
+
+// The post-synced-submit navigation effect only cares about photo *upload*
+// completion, not the real Cloudinary round trip — mocked at the module
+// boundary (same approach dsr-desktop-form.test.tsx uses) so individual
+// tests can control exactly when an upload resolves/rejects.
+const uploadPhotoMock = vi.hoisted(() => vi.fn());
+vi.mock("../../../../lib/photo-upload", () => ({
+  uploadPhoto: uploadPhotoMock,
 }));
 
 const originalFetch = global.fetch;
@@ -91,6 +102,12 @@ beforeEach(() => {
   window.localStorage.clear();
   process.env.NEXT_PUBLIC_API_URL = "http://localhost:3001";
   searchParams.current = new URLSearchParams();
+  pushMock.mockClear();
+  uploadPhotoMock.mockReset();
+  uploadPhotoMock.mockResolvedValue({ storageKey: "test-key" });
+  // jsdom has no createObjectURL/revokeObjectURL — photo staging needs both.
+  global.URL.createObjectURL = vi.fn(() => "blob:preview");
+  global.URL.revokeObjectURL = vi.fn();
 });
 
 afterEach(async () => {
@@ -956,6 +973,121 @@ describe("NewDsrPage", () => {
 
     await waitFor(() =>
       expect(screen.getByLabelText("Work completed")).toHaveValue("Footings for Site A"),
+    );
+  });
+
+  // ---------- post-synced-submit navigation ----------
+
+  it("navigates to /daily-activity/history with a success flash once an online submit with zero photos syncs", async () => {
+    mockFetchRouter({ sites: [{ id: "site-1", name: "NH-48" }], dsr: { status: 201, body: { id: "dsr-1" } } });
+
+    render(<NewDsrPage />);
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+    await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
+    // The playback dialog now guards submission — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
+
+    await screen.findByText("Synced");
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith("/daily-activity/history?flash=Daily%20Report%20submitted"),
+    );
+  });
+
+  it("waits for every staged photo to finish uploading before navigating after an online submit", async () => {
+    mockFetchRouter({ sites: [{ id: "site-1", name: "NH-48" }], dsr: { status: 201, body: { id: "dsr-1" } } });
+    let resolveUpload!: (value: { storageKey: string }) => void;
+    uploadPhotoMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveUpload = resolve;
+      }),
+    );
+
+    render(<NewDsrPage />);
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+
+    const fileInput = document.querySelector('input[type="file"]')!;
+    fireEvent.change(fileInput, {
+      target: { files: [new File(["bytes"], "site.jpg", { type: "image/jpeg" })] },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
+    // The playback dialog now guards submission — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
+
+    await screen.findByText("Synced");
+    // The report itself is synced, but its one photo is still mid-upload —
+    // navigation must wait rather than strand the Supervisor mid-transition.
+    await waitFor(() => expect(screen.getByText("Uploading…")).toBeInTheDocument());
+    expect(pushMock).not.toHaveBeenCalled();
+
+    resolveUpload({ storageKey: "test-key" });
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith("/daily-activity/history?flash=Daily%20Report%20submitted"),
+    );
+  });
+
+  it("does not navigate when the submit falls back to the offline queue, and keeps the queued inline message", async () => {
+    mockFetchRouter({ sites: [{ id: "site-1", name: "NH-48" }], dsr: "network-error" });
+
+    render(<NewDsrPage />);
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+    await user.click(screen.getByRole("button", { name: "Submit Daily Report" }));
+    // The playback dialog now guards submission — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
+
+    await screen.findByText(/Saved on device — will sync when back online/);
+    // Give any (incorrect) navigation effect a turn to fire before asserting.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(pushMock).not.toHaveBeenCalled();
+    // The offline inline message is still shown — no toast, no navigation.
+    expect(screen.getByText(/Saved on device — will sync when back online/)).toBeInTheDocument();
+  });
+
+  it("navigates to /daily-activity/history with a success flash once Finalize succeeds", async () => {
+    mockFetchRouter({
+      sites: [{ id: "site-1", name: "NH-48" }],
+      draft: {
+        id: "draft-55",
+        workCompleted: "Slab poured",
+        issuesBlockers: null,
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        photos: [],
+      },
+      saveDraft: { status: 200, body: { id: "draft-55" } },
+      finalize: { status: 200, body: { id: "draft-55", status: "SUBMITTED" } },
+    });
+
+    render(<NewDsrPage />);
+    await waitFor(() => expect(screen.getByLabelText("Site")).not.toBeDisabled());
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Site"), "NH");
+    await user.click(await screen.findByText("NH-48"));
+
+    await screen.findByRole("button", { name: "Finalize Report" });
+    await user.click(screen.getByRole("button", { name: "Finalize Report" }));
+    // The playback dialog now guards finalization — confirm to proceed.
+    await user.click(await screen.findByRole("button", { name: "Confirm & Finalize" }));
+
+    await screen.findByText("Synced");
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith("/daily-activity/history?flash=Daily%20Report%20submitted"),
     );
   });
 });
