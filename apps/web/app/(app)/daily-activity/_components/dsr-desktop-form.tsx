@@ -498,7 +498,7 @@ export function DsrDesktopForm({
     if (submittedDsrId && photos.every((p) => p.status === "uploaded")) {
       router.push(
         `/daily-activity/${submittedDsrId}?flash=${encodeURIComponent(
-          mode === "correct" ? "Correction submitted" : "Daily Report submitted",
+          mode === "correct" ? "Daily Report edited" : "Daily Report submitted",
         )}`,
       );
     }
@@ -651,13 +651,13 @@ export function DsrDesktopForm({
         <Card className="mb-4 border-warning-700 bg-warning-100">
           <h2 className="mb-1 flex items-center gap-2 text-card-title text-warning-700">
             <RotateCcwIcon className="size-4" />
-            Filing a correction
+            Editing this report
           </h2>
           <p className="mb-3 text-body-sm text-warning-700">
-            This creates a new, linked entry — the original report is never edited or deleted (AD-9).
+            This creates a new, linked version — the original report is never overwritten or deleted (AD-9).
           </p>
           <TextField
-            label="Reason for this correction"
+            label="Reason for this edit"
             required
             icon={<PencilIcon className="size-4" />}
             value={reason}
@@ -686,7 +686,7 @@ export function DsrDesktopForm({
           required
           icon={<CalendarIcon className="size-4" />}
           disabled={mode === "correct"}
-          hint={mode === "correct" ? "A correction keeps the same Site and date as the report it corrects." : undefined}
+          hint={mode === "correct" ? "An edit keeps the same Site and date as the report it edits." : undefined}
           value={reportDate}
           onChange={(e) => setReportDate(e.target.value)}
         />
@@ -1469,15 +1469,15 @@ export function DsrDesktopForm({
         className="w-full justify-center"
       >
         {mode === "correct" ? <RotateCcwIcon className="size-4" /> : <CheckCircleIcon className="size-4" />}
-        {mode === "correct" ? "Submit Correction" : "Submit Daily Report"}
+        {mode === "correct" ? "Save Edit" : "Submit Daily Report"}
       </Button>
 
       <ConfirmDialog
         open={confirmation.open}
         onOpenChange={confirmation.onOpenChange}
-        title="Submit this correction?"
+        title="Save this edit?"
         description="This supersedes the original report with the restated details below — the original stays on record (AD-9)."
-        confirmLabel="Submit Correction"
+        confirmLabel="Save Edit"
         onConfirm={confirmation.confirm}
       >
         <ConfirmDialogRow label="Crew present" value={crew.filter((c) => c.attended).length} />

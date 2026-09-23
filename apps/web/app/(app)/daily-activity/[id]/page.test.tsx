@@ -56,6 +56,11 @@ function fullDsr(overrides: Record<string, unknown> = {}) {
       { id: "w-1", wasteType: "Debris", ownership: "OWN", tripCount: 2, vendor: null, totalAmount: null },
     ],
     photos: [{ id: "p-1", url: "https://r2.example/p1.jpg", createdAt: "2026-08-11T10:00:00Z" }],
+    // spec-daily-reports-list-and-edit: a never-edited report's chain is
+    // just itself — the Version history card only renders once length > 1.
+    versionHistory: [
+      { id: "dsr-1", createdAt: "2026-08-11T08:00:00Z", submittedByName: "Ramesh Yadav", reason: null },
+    ],
     // Client-readiness batch (2026-09-20), goal 2.
     otherActivity: [],
     // Inventory→DSR sync fix (2026-09-21).
@@ -248,6 +253,80 @@ describe("DsrDetailPage", () => {
     expect(screen.getByText(/Balaji Shuttering Works/)).toBeInTheDocument();
     expect(screen.getByText(/Shuttering — 3rd floor/)).toBeInTheDocument();
     expect(screen.getByText("via Site Contract")).toBeInTheDocument();
+  });
+
+  // spec-daily-reports-list-and-edit: the Correct entry point is reskinned
+  // as "Edit" everywhere it's user-visible on this page.
+  it("shows an Edit affordance (not Correct) linking to the correct route, and no Version history card for a never-edited report", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => fullDsr() }) as unknown as typeof fetch;
+
+    await renderDetailPage("dsr-1");
+
+    const editLink = screen.getByRole("link", { name: "Edit" });
+    expect(editLink).toHaveAttribute("href", "/daily-activity/dsr-1/correct");
+    expect(screen.queryByRole("link", { name: "Correct" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Version history")).not.toBeInTheDocument();
+  });
+
+  it('shows "This is an edited version" (not "This is a correction") when the report is itself an edit', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => fullDsr({ correctsId: "dsr-0", reason: "Fixed crew count" }),
+    }) as unknown as typeof fetch;
+
+    await renderDetailPage("dsr-1");
+
+    expect(screen.getByText("This is an edited version: Fixed crew count")).toBeInTheDocument();
+    expect(screen.queryByText(/This is a correction/)).not.toBeInTheDocument();
+  });
+
+  it('shows "This report has a newer edited version — view it" (not the old correction wording) once superseded', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => fullDsr({ correctedById: "dsr-2" }),
+    }) as unknown as typeof fetch;
+
+    await renderDetailPage("dsr-1");
+
+    expect(screen.getByText(/This report has a newer edited version/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "view it" })).toHaveAttribute("href", "/daily-activity/dsr-2");
+    expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+  });
+
+  // Acceptance: "Given a report has 2 prior versions, when I open its detail
+  // page, then a 'Version history' list shows all 3 versions oldest->newest,
+  // each linking to that version's detail page."
+  it("renders every version oldest -> newest, each linking to its own detail page, when the report was edited twice", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () =>
+        fullDsr({
+          id: "dsr-3",
+          correctsId: "dsr-2",
+          reason: "Fixed materials",
+          versionHistory: [
+            { id: "dsr-1", createdAt: "2026-08-11T08:00:00Z", submittedByName: "Ramesh Yadav", reason: null },
+            { id: "dsr-2", createdAt: "2026-08-12T09:00:00Z", submittedByName: "Asha Rao", reason: "Fixed crew count" },
+            { id: "dsr-3", createdAt: "2026-08-13T10:00:00Z", submittedByName: "Ravi Kumar", reason: "Fixed materials" },
+          ],
+        }),
+    }) as unknown as typeof fetch;
+
+    await renderDetailPage("dsr-3");
+
+    expect(screen.getByText("Version history")).toBeInTheDocument();
+    expect(screen.getByText("Original")).toBeInTheDocument();
+    expect(screen.getByText("Edit 1")).toBeInTheDocument();
+    expect(screen.getByText("Edit 2")).toBeInTheDocument();
+    expect(screen.getByText("Fixed crew count")).toBeInTheDocument();
+    expect(screen.getByText("Fixed materials")).toBeInTheDocument();
+
+    // Order in the DOM reflects oldest -> newest — scope to the Version
+    // history card's own <ul> so the page's many other links don't interfere.
+    const versionHistoryHeading = screen.getByText("Version history");
+    const card = versionHistoryHeading.closest("div")!;
+    const hrefsInOrder = Array.from(card.querySelectorAll("ul a")).map((a) => a.getAttribute("href"));
+    expect(hrefsInOrder).toEqual(["/daily-activity/dsr-1", "/daily-activity/dsr-2", "/daily-activity/dsr-3"]);
   });
 
   it("calls notFound() for a report ID that doesn't exist", async () => {

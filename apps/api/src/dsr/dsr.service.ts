@@ -8,12 +8,15 @@ import {
 import {
   saveDraftSchema,
   type CreateDsrInput,
+  type PaginatedResult,
   type SaveDraftInput,
 } from '@azentisfieldos/shared';
 import { DsrStatus, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { lockOnKey } from '../common/advisory-lock';
 import { dateRangeBounds } from '../common/date-range';
+import { paginationParams } from '../common/pagination';
+import { isSortOrder } from '../common/sort-order';
 import {
   currentDsrRowsWhere,
   supersededDsrIds,
@@ -28,6 +31,10 @@ import { PushNotificationsService } from '../push-notifications/push-notificatio
 import { getSiteActivityFeed } from '../sites/site-activity-feed';
 import { getSiteMaterialActivity } from '../sites/site-material-activity';
 import { createWorkEntry } from '../subcontractors/work-entry-write';
+import {
+  getSubmissionChain,
+  getSubmissionChainFromAnyVersion,
+} from './dsr-correction-chain';
 
 // Production incident (2026-09-19): a DSR with a realistic number of crew
 // members/consumptions/RMC entries/expenses ran the sequential per-record
@@ -39,6 +46,43 @@ import { createWorkEntry } from '../subcontractors/work-entry-write';
 // for all three. The Vercel function itself allows 60s (vercel.json), so
 // this has headroom without risking a runaway hang.
 const DSR_TRANSACTION_OPTIONS = { timeout: 20_000 };
+
+// spec-daily-reports-list-and-edit: GET /dsr/history's query/row shapes.
+const DSR_HISTORY_SORT_FIELDS = ['reportDate', 'createdAt'] as const;
+type DsrHistorySortField = (typeof DSR_HISTORY_SORT_FIELDS)[number];
+
+function isDsrHistorySortField(
+  value: string | undefined,
+): value is DsrHistorySortField {
+  return (
+    Boolean(value) &&
+    (DSR_HISTORY_SORT_FIELDS as readonly string[]).includes(value as string)
+  );
+}
+
+export interface DsrHistoryQuery {
+  siteId?: string;
+  from?: string;
+  to?: string;
+  q?: string;
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  order?: string;
+}
+
+export interface DsrHistoryRow {
+  id: string;
+  site: { id: string; name: string };
+  submittedBy: { name: string };
+  reportDate: Date;
+  /** The root/original submission's own createdAt (I/O matrix). */
+  submittedAt: Date;
+  /** This (current) row's own createdAt — equals submittedAt when never edited. */
+  lastUpdatedAt: Date;
+  /** "Edited" when the chain has more than one version — never a lifecycle/void state. */
+  status: 'ORIGINAL' | 'EDITED';
+}
 
 // FR-28: one DSR per Site per date, with all its nested sub-records
 // created atomically (a partial write must never happen).
@@ -1593,6 +1637,85 @@ export class DsrService {
     return rows.filter((r) => !correctedIds.has(r.id));
   }
 
+  // spec-daily-reports-list-and-edit: the cross-Site "Submitted Daily
+  // Reports" history view — every current-version SUBMITTED report, any
+  // Site, any date, filterable/sortable/paginated (Story 16.1's list
+  // platform). "Current version only" is enforced the same way
+  // searchCandidates does it (id notIn the superseded set) rather than
+  // listByDate/listBySiteInRange's fetch-then-filter — that approach would
+  // corrupt pagination (a page could come back short, and `total` would
+  // overcount rows that get filtered out afterward).
+  async listAllSubmitted(
+    query: DsrHistoryQuery,
+  ): Promise<PaginatedResult<DsrHistoryRow>> {
+    const superseded = await supersededDsrIds(this.prisma);
+    const where: Prisma.DailySiteReportWhereInput = {
+      ...SUBMITTED_DSR_WHERE,
+      id: { notIn: superseded },
+    };
+    if (query.siteId) {
+      where.siteId = query.siteId;
+    }
+    const dateRange = dateRangeBounds(query.from, query.to);
+    if (dateRange) {
+      where.reportDate = dateRange;
+    }
+    if (query.q) {
+      where.OR = [
+        { site: { name: { contains: query.q, mode: 'insensitive' } } },
+        {
+          submittedBy: {
+            name: { contains: query.q, mode: 'insensitive' },
+          },
+        },
+      ];
+    }
+
+    const sortField = isDsrHistorySortField(query.sort)
+      ? query.sort
+      : 'reportDate';
+    const orderBy: Prisma.DailySiteReportOrderByWithRelationInput = {
+      [sortField]: isSortOrder(query.order) ? query.order : 'desc',
+    };
+
+    const pagination = paginationParams(query.page, query.pageSize);
+    const page = pagination.paginated ? pagination.page : 1;
+    const pageSize = pagination.paginated ? pagination.pageSize : 25;
+
+    const [rows, total] = await Promise.all([
+      this.prisma.dailySiteReport.findMany({
+        where,
+        include: {
+          site: { select: { id: true, name: true } },
+          submittedBy: { select: { name: true } },
+        },
+        orderBy,
+        skip: pagination.paginated ? pagination.skip : 0,
+        take: pagination.paginated ? pagination.take : pageSize,
+      }),
+      this.prisma.dailySiteReport.count({ where }),
+    ]);
+
+    // Design Notes: runs once per row on the current page only, not the
+    // whole table — matching collectCorrectsIdAncestors's own small-N walk.
+    const historyRows = await Promise.all(
+      rows.map(async (row): Promise<DsrHistoryRow> => {
+        const chain = await getSubmissionChain(this.prisma, row);
+        return {
+          id: row.id,
+          site: row.site,
+          submittedBy: row.submittedBy,
+          reportDate: row.reportDate,
+          submittedAt: chain.submittedAt,
+          lastUpdatedAt: row.createdAt,
+          status: chain.versions.length > 1 ? 'EDITED' : 'ORIGINAL',
+        };
+      }),
+    );
+
+    return { rows: historyRows, total, page, pageSize };
+  }
+
   // Story 16.6: the global Search palette's Daily Report coverage — matches
   // the linked Site/submitter name plus every free-text narrative field.
   // A DSR that has since been corrected (its id appears as some other row's
@@ -1687,6 +1810,16 @@ export class DsrService {
       select: { id: true },
     });
 
+    // spec-daily-reports-list-and-edit: the detail page's "Version history"
+    // list. `dsr` can be ANY version in the chain (not just the tip) — this
+    // walks forward to the tip first, then reuses the same backward chain-
+    // walk the cross-Site history list uses, so the list is always complete
+    // regardless of which version's detail page is open (review fix).
+    const submissionChain = await getSubmissionChainFromAnyVersion(
+      this.prisma,
+      dsr,
+    );
+
     // Client-readiness batch (2026-09-20), goal 2: reuses the exact same
     // Site Activity Feed the Site detail page renders, narrowed to this
     // report's own Site+date — so "did my entries sync" is answerable by
@@ -1768,6 +1901,7 @@ export class DsrService {
       ...dsr,
       photos,
       correctedById: correction?.id ?? null,
+      versionHistory: submissionChain.versions,
       otherActivity,
       materialsReceived: materialActivity.materialsReceived,
       standaloneConsumptions: materialActivity.standaloneConsumptions,

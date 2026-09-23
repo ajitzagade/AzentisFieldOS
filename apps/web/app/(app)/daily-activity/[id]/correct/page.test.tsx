@@ -87,13 +87,13 @@ describe("CorrectDsrPage", () => {
 
     await renderCorrectPage("dsr-1");
 
-    expect(screen.getByText("Filing a correction")).toBeInTheDocument();
-    expect(screen.getByText(/the original report is never edited or deleted/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Reason for this correction")).toBeInTheDocument();
+    expect(screen.getByText("Editing this report")).toBeInTheDocument();
+    expect(screen.getByText(/the original report is never overwritten or deleted/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Reason for this edit")).toBeInTheDocument();
     expect(screen.getByDisplayValue("RCC pour completed")).toBeInTheDocument();
     expect(screen.getByText("Ravi Kumar")).toBeInTheDocument();
     expect(screen.getByLabelText("Ravi Kumar")).not.toBeChecked();
-    expect(screen.getByRole("button", { name: "Submit Correction" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save Edit" })).toBeDisabled();
   });
 
   it("locks the Site and Date fields — a correction must keep the same Site/date as the report it corrects (AC #4)", async () => {
@@ -120,14 +120,14 @@ describe("CorrectDsrPage", () => {
     await waitFor(() => expect(screen.getByRole("option", { name: "NH-48 Highway Widening" })).toBeInTheDocument());
 
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Reason for this correction"), "Ravi was actually present");
-    await user.click(screen.getByRole("button", { name: "Submit Correction" }));
+    await user.type(screen.getByLabelText("Reason for this edit"), "Ravi was actually present");
+    await user.click(screen.getByRole("button", { name: "Save Edit" }));
 
     // The submission is held for re-verification first (FR-54 UX) — the
     // dialog plays the entry back, then Confirm dispatches the real POST.
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText("Ravi was actually present")).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Submit Correction" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save Edit" }));
 
     await waitFor(() => {
       const correctCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find((call) =>

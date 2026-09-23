@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import type { DsrEquipmentUsed, FeedItem } from "@azentisfieldos/shared";
-import { AlertTriangleIcon, Badge, Card, PhotoThumbnail, RotateCcwIcon, buttonVariants, cn } from "@azentisfieldos/ui";
+import { AlertTriangleIcon, Badge, Card, PencilIcon, PhotoThumbnail, buttonVariants, cn } from "@azentisfieldos/ui";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { FEED_TYPE_CONFIG } from "../../sites/[id]/feed-type-config";
 
@@ -155,6 +155,14 @@ interface DsrDetail {
   correctsId: string | null;
   reason: string | null;
   correctedById: string | null;
+  // spec-daily-reports-list-and-edit: every version of this report,
+  // oldest -> newest, from the shared chain-walk (dsr-correction-chain.ts).
+  versionHistory: {
+    id: string;
+    createdAt: string;
+    submittedByName: string;
+    reason: string | null;
+  }[];
   // Client-readiness batch (2026-09-20), goal 2: same-day Site activity
   // recorded outside this DSR (this DSR's own materialized rows, and this
   // DSR itself, are already excluded server-side) — so "did my entries
@@ -210,6 +218,7 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
     notFound();
   }
 
+  const versionHistory = dsr.versionHistory ?? [];
   const presentCount = dsr.workRecords.filter((w) => w.attended).length;
   // Auto-sync Expenses (2026-09-22): a standalone Expense (the /expenses
   // module, not this DSR's own form) counts toward the same total — the
@@ -240,8 +249,8 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
         </div>
         {!dsr.correctedById ? (
           <Link href={`/daily-activity/${dsr.id}/correct`} className={cn(buttonVariants({ variant: "ghost" }))}>
-            <RotateCcwIcon className="size-4" />
-            Correct
+            <PencilIcon className="size-4" />
+            Edit
           </Link>
         ) : null}
       </div>
@@ -249,22 +258,58 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
       {dsr.correctsId ? (
         <p className="mb-4 flex items-center gap-2 rounded-md bg-warning-100 p-3 text-body-sm text-warning-700">
           <AlertTriangleIcon className="size-5 shrink-0" />
-          This is a correction{dsr.reason ? `: ${dsr.reason}` : "."}
+          This is an edited version{dsr.reason ? `: ${dsr.reason}` : "."}
         </p>
       ) : null}
 
       {dsr.correctedById ? (
         <p className="mb-4 flex items-center gap-2 rounded-md bg-warning-100 p-3 text-body-sm text-warning-700">
           <AlertTriangleIcon className="size-5 shrink-0" />
-          This report was corrected —{" "}
+          This report has a newer edited version —{" "}
           <Link href={`/daily-activity/${dsr.correctedById}`} className="font-semibold underline">
-            view the latest version
+            view it
           </Link>
           .
         </p>
       ) : null}
 
       <div className="flex flex-col gap-4">
+        {/* spec-daily-reports-list-and-edit: shown whenever a report has been
+            edited at least once (a never-edited report's chain is a single
+            entry — no history worth showing). Oldest -> newest, each entry
+            linking to that specific version's own detail page. */}
+        {versionHistory.length > 1 ? (
+          <Card>
+            <h2 className="mb-3 text-card-title text-ink-900">Version history</h2>
+            <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
+              {versionHistory.map((version, index) => (
+                <li
+                  key={version.id}
+                  className="flex flex-wrap items-center justify-between gap-2 border-b border-border-hairline py-1.5 last:border-b-0"
+                >
+                  <span className="flex items-center gap-2">
+                    <Badge variant={index === 0 ? "neutral" : "gold"}>
+                      {index === 0 ? "Original" : `Edit ${index}`}
+                    </Badge>
+                    <Link
+                      href={`/daily-activity/${version.id}`}
+                      className={cn(
+                        "hover:text-accent-teal-700 hover:underline",
+                        version.id === dsr.id && "font-semibold",
+                      )}
+                    >
+                      {formatDateTime(version.createdAt)}
+                    </Link>
+                    <span className="text-ink-500">by {version.submittedByName}</span>
+                    {version.id === dsr.id ? <span className="text-caption text-ink-500">(viewing)</span> : null}
+                  </span>
+                  {version.reason ? <span className="text-ink-500">{version.reason}</span> : null}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ) : null}
+
         <Card>
           <h2 className="mb-3 text-card-title text-ink-900">Report</h2>
           <DetailRow label="Work completed" value={dsr.workCompleted ?? <span className="text-ink-500">—</span>} />

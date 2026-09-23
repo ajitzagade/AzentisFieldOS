@@ -511,3 +511,45 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: `_bmad-output/implementation-artifacts/spec-inventory-availability-screen.md`
   summary: The "Low Stock" quick filter can show a Site row with a high quantity, flagged only because its Material is under threshold at the Godown (by design, per this spec's own Design Notes) — but the UI has no caption/tooltip explaining this to the end user, who may read a seemingly well-stocked row under "Low Stock" as a bug.
   evidence: Confirmed by the Blind Hunter review layer; the underlying behavior is intentional and spec-approved, but the UI gives no indication of why — a real user-facing confusion risk, needs a product decision on messaging (e.g. a tooltip on the LOW badge/chip).
+
+## Deferred from: multi-goal split of "Submitted Daily Reports" request (2026-09-23)
+
+- source_spec: none
+  summary: "Void" a submitted Daily Report — a new correction type that reverses all of a report's stock/ledger effects and marks it void, with a red confirmation warning naming the inventory impact, while keeping the full original content permanently in the database and audit trail (AD-9-compliant, user-approved semantics for "Delete").
+  evidence: User-approved decision (this session) was to keep Void as its own scoped piece, split from the List+Edit work — it touches DsrService's correction/materialization/stock-reversal logic directly (higher risk, needs focused review on its own) and is independently shippable: the List+Edit work is useful without it.
+- source_spec: none
+  summary: Extend the global `AuditLog` (used by every audited entity in the app, not just Daily Reports) to capture structured before/after value snapshots per change, not just who/what-entity/when.
+  evidence: User-approved decision (this session) to split this out — it's a platform-wide schema/interceptor change (`AuditLogInterceptor`, `AuditLog` model) that benefits every module, not a DSR-specific change, so it deserves its own focused spec and review rather than being bundled with DSR-specific List+Edit/Void work.
+
+## Deferred from: code review of spec-daily-reports-list-and-edit (2026-09-23)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-daily-reports-list-and-edit.md`
+  summary: `getSubmissionChain`'s `MAX_HOPS = 100` safety valve truncates a corrupt/cyclic `correctsId` chain silently, with no log/warning — `submittedAt`/`versions` would be computed from a truncated chain with no signal to anyone.
+  evidence: `apps/api/src/dsr/dsr-correction-chain.ts`'s `while (correctsId && hops < MAX_HOPS)` loop. Correction chains are expected to be short in practice (0-2 hops) and 100 is a generous ceiling — this is a defensive-only edge case, not a real-world limit, but worth a `logger.warn` if it's ever touched again.
+- source_spec: `_bmad-output/implementation-artifacts/spec-daily-reports-list-and-edit.md`
+  summary: `listAllSubmitted` calls the unscoped, full-table `supersededDsrIds(this.prisma)` on every request, then runs `getSubmissionChain`'s backward chain-walk once per row on the current page (N sequential extra round-trips) — a new, likely-frequently-visited list page compounding two separate not-yet-bottlenecked-but-unbounded read costs as correction volume grows.
+  evidence: `apps/api/src/dsr/dsr.service.ts`'s `listAllSubmitted` (`supersededDsrIds` call, then `Promise.all(rows.map(...getSubmissionChain...))`). Not a proven regression today (correction chains are short, `supersededDsrIds` mirrors an already-accepted pattern used by `listByDate`/`listBySiteInRange`) — worth revisiting if this page's load time becomes a real complaint.
+- source_spec: `_bmad-output/implementation-artifacts/spec-daily-reports-list-and-edit.md`
+  summary: A narrow TOCTOU window exists between `listAllSubmitted`'s `supersededDsrIds()` read and its subsequent `findMany`/`count` calls — a report corrected in between could show a since-superseded version for one request.
+  evidence: `apps/api/src/dsr/dsr.service.ts:1648-1694`. Matches the same class of already-accepted, low-severity TOCTOU gaps logged elsewhere in this codebase (e.g. the pending-pricing dashboard deep-link); the window is milliseconds and the consequence is a rare stale read, not data corruption.
+- source_spec: `_bmad-output/implementation-artifacts/spec-daily-reports-list-and-edit.md`
+  summary: The new history search (`q`) only matches Site name and Submitted By name, narrower than the global Search palette's DSR coverage (which also matches every free-text narrative field) — a user familiar with global search may expect the same breadth here.
+  evidence: `apps/api/src/dsr/dsr.service.ts`'s `listAllSubmitted` vs `searchCandidates` in the same file. A deliberate scope choice per the spec (Site + Submitted By only), not a bug — flagged in case broader matching is wanted later.
+- source_spec: `_bmad-output/implementation-artifacts/spec-daily-reports-list-and-edit.md`
+  summary: "Submitted Time" has no `sortKey` on the history list (not sortable) while the neighboring "Last Updated" column is — no visual/textual cue explains why one timestamp is interactive and the other isn't.
+  evidence: `apps/web/app/(app)/daily-activity/history-list-client.tsx`'s column definitions. Minor UX inconsistency; whether "Submitted Time" is even a meaningful independent sort axis (it equals "Last Updated" for the common never-edited case) is a product question, not a code defect.
+- source_spec: `_bmad-output/implementation-artifacts/spec-daily-reports-list-and-edit.md`
+  summary: The currently-viewed entry in the detail page's "Version history" card is still a clickable self-linking `<Link>` (styled bold + "(viewing)" text) rather than non-interactive text or marked `aria-current="page"`.
+  evidence: `apps/web/app/(app)/daily-activity/[id]/page.tsx`'s Version history card. Minor accessibility/UX polish, not a functional defect.
+- source_spec: `_bmad-output/implementation-artifacts/spec-daily-reports-list-and-edit.md`
+  summary: The Site filter dropdown on `/daily-activity/history` is populated from `GET /sites`, which excludes soft-deleted Sites — a Daily Report submitted for a since-deleted Site still appears (unfiltered) in the list, but can no longer be isolated via the Site filter once that Site is gone from the picker.
+  evidence: Matches the codebase's existing, already-accepted soft-delete convention (deleted rows stay in history but drop out of pickers) — same class of gap already logged for other soft-deleted-entity pickers elsewhere.
+- source_spec: `_bmad-output/implementation-artifacts/spec-daily-reports-list-and-edit.md`
+  summary: Only `e2e/specs/crud-reflection.spec.ts` was updated for the Correct→Edit copy change; other e2e specs (auth, corrections, supervisor-daily-flow, smoke) were not checked for stale "Correct"/"correction" Daily-Report copy.
+  evidence: AGENTS.md already documents this exact gap recurring from the 2026-09-20 rename batch ("Site Supervisor"→"Site Engineer" etc.) — e2e specs have their own dedicated DB/server setup, outside this spec's normal verification scope.
+- source_spec: `_bmad-output/implementation-artifacts/spec-daily-reports-list-and-edit.md`
+  summary: `GET /dsr/history` accepts `siteId`/`from`/`to`/`page`/`pageSize`/`sort`/`order` as raw, unvalidated query strings, unlike sibling routes on the same controller (e.g. `getDraft`) which run their query through `ZodQueryValidationPipe`.
+  evidence: Fails safe today (malformed input yields empty Prisma results, not a crash) — matches the broader unvalidated-`@Query()` convention already accepted repeatedly elsewhere in this codebase, but is a real inconsistency within this one controller worth a look.
+- source_spec: `_bmad-output/implementation-artifacts/spec-daily-reports-list-and-edit.md`
+  summary: The detail page's "Edit" affordance is a hand-rolled `Link`+icon+label rather than reusing the shared `CorrectAction` component the new history list uses for the identical action — a structural AD-5 duplication, though not a drop-in fix, since `CorrectAction` is icon-only (sized for a table row) while the detail page needs a labeled page-header action.
+  evidence: `packages/ui/src/components/correct-action.tsx` (icon-only `Button`/`Link`, no labeled variant) vs `apps/web/app/(app)/daily-activity/[id]/page.tsx`'s own inline action. A real fix needs a small design decision (e.g. a labeled variant on `CorrectAction`, or accepting two purpose-built components) rather than a one-line patch.

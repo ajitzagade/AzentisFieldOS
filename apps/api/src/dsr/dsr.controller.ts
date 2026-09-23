@@ -121,6 +121,33 @@ export class DsrController {
     return this.dsrService.listByDate(date);
   }
 
+  // spec-daily-reports-list-and-edit: the cross-Site "Submitted Daily
+  // Reports" history list. Declared before `:id` (a static path) — same
+  // discipline as `drafts`/`draft`/`defaults` above, or Nest would match
+  // `history` as an `:id` param instead of this route.
+  @Get('history')
+  listAllSubmitted(
+    @Query('siteId') siteId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
+  ) {
+    return this.dsrService.listAllSubmitted({
+      siteId,
+      from,
+      to,
+      q,
+      page,
+      pageSize,
+      sort,
+      order,
+    });
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.dsrService.findOne(id);

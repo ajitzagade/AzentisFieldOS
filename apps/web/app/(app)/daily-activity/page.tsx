@@ -143,12 +143,20 @@ export default async function DailyActivityPage({
             {isToday ? "" : " (past day)"}
           </p>
         </div>
-        <Link href="/dsr/new">
-          <Button>
-            <PlusIcon className="size-4" />
-            New Report
-          </Button>
-        </Link>
+        <div className="action-button-row sm:items-center">
+          {/* spec-daily-reports-list-and-edit: the cross-Site, all-dates
+              history list — this board only ever shows one date at a time. */}
+          <Link href="/daily-activity/history" className={cn(buttonVariants({ variant: "secondary" }))}>
+            <ClipboardIcon className="size-4" />
+            Submitted Daily Reports
+          </Link>
+          <Link href="/dsr/new">
+            <Button>
+              <PlusIcon className="size-4" />
+              New Report
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">

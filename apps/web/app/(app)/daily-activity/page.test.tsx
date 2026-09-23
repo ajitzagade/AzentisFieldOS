@@ -58,6 +58,19 @@ describe("DailyActivityPage", () => {
     }
   });
 
+  // spec-daily-reports-list-and-edit: this per-day board stays as-is, plus
+  // one additive link to the new cross-Site, all-dates history view.
+  it("links to the new Submitted Daily Reports history view", async () => {
+    mockFetchRouter({ sites: [], reports: [] });
+
+    await renderLogPage();
+
+    expect(screen.getByRole("link", { name: /Submitted Daily Reports/ })).toHaveAttribute(
+      "href",
+      "/daily-activity/history",
+    );
+  });
+
   it('shows "Not submitted" with no link and no row href for a Site with no report today (AC #1, AC #3)', async () => {
     mockFetchRouter({
       sites: [{ id: "site-2", name: "Sector 12 Metro Depot", location: "Pune", status: "ACTIVE", contractReference: null }],

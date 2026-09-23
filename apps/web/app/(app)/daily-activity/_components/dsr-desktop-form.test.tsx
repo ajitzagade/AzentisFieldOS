@@ -78,12 +78,12 @@ function routeFetch(correctResponse: { status: number; body: unknown }) {
 }
 
 async function fillReasonAndSubmit(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText(/Reason for this correction/), "Wrong quantity recorded");
-  await user.click(screen.getByRole("button", { name: "Submit Correction" }));
+  await user.type(screen.getByLabelText(/Reason for this edit/), "Wrong quantity recorded");
+  await user.click(screen.getByRole("button", { name: "Save Edit" }));
   // Correction mode plays the entry back for confirmation first; the
   // dialog's confirm button shares the page button's label, so scope to it.
   const dialog = await screen.findByRole("alertdialog");
-  await user.click(within(dialog).getByRole("button", { name: "Submit Correction" }));
+  await user.click(within(dialog).getByRole("button", { name: "Save Edit" }));
 }
 
 function attachPhoto() {
@@ -138,7 +138,7 @@ describe("DsrDesktopForm correction submission (deferred navigation + photo reco
 
     // The submit button is disabled; a forced form re-dispatch (Enter key
     // path) must also be a no-op.
-    expect(screen.getByRole("button", { name: "Submit Correction" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save Edit" })).toBeDisabled();
     fireEvent.submit(document.querySelector("form")!);
     await waitFor(() => expect(correctPosts()).toHaveLength(1));
     expect(pushMock).not.toHaveBeenCalled();

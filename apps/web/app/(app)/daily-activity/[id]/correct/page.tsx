@@ -155,9 +155,9 @@ export default async function CorrectDsrPage({ params }: { params: Promise<{ id:
         <Link href={`/daily-activity/${dsr.id}`} className="hover:text-accent-teal-700 hover:underline">
           {dsr.site.name}
         </Link>{" "}
-        / Correct
+        / Edit
       </div>
-      <h1 className="mb-6 text-page-title text-ink-900">Correct Daily Report — {dsr.site.name}</h1>
+      <h1 className="mb-6 text-page-title text-ink-900">Edit Daily Report — {dsr.site.name}</h1>
 
       <DsrDesktopForm mode="correct" originalId={dsr.id} initial={initial} />
     </>

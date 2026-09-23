@@ -346,28 +346,30 @@ test("correcting a Daily Report lands on the corrected report with the correctio
   await page.getByRole("link", { name: SITE_NAME }).first().click();
   await expect(page).toHaveURL(/\/daily-activity\/[^/?]+$/);
 
-  // A retried run may land on an already-superseded report (its Correct
+  // A retried run may land on an already-superseded report (its Edit
   // action is hidden) — hop to the latest version first if offered.
-  const latest = page.getByRole("link", { name: "view the latest version" });
+  // spec-daily-reports-list-and-edit: relabeled "view the latest version" ->
+  // "view it" (the surrounding sentence changed too).
+  const latest = page.getByRole("link", { name: "view it" });
   if (await latest.isVisible().catch(() => false)) {
     await latest.click();
     await expect(page).toHaveURL(/\/daily-activity\/[^/?]+$/);
   }
 
-  await page.getByRole("link", { name: "Correct", exact: true }).click();
+  await page.getByRole("link", { name: "Edit", exact: true }).click();
   await expect(page).toHaveURL(/\/daily-activity\/.+\/correct/);
-  await expect(page.getByText("Filing a correction")).toBeVisible();
+  await expect(page.getByText("Editing this report")).toBeVisible();
 
-  await fillField(page, "Reason for this correction", reason);
-  await page.getByRole("button", { name: "Submit Correction" }).click();
+  await fillField(page, "Reason for this edit", reason);
+  await page.getByRole("button", { name: "Save Edit" }).click();
   // FR-54 re-verification: the confirm inside the alertdialog carries the
-  // same "Submit Correction" label — scope to the dialog.
-  await expect(page.getByText("Submit this correction?")).toBeVisible();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Submit Correction" }).click();
+  // same "Save Edit" label — scope to the dialog.
+  await expect(page.getByText("Save this edit?")).toBeVisible();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Save Edit" }).click();
 
-  // The single navigation point after a successful correction: the NEW
-  // (corrected) report's own detail page, marked as a correction (AD-9).
+  // The single navigation point after a successful edit: the NEW (edited)
+  // report's own detail page, marked as an edit (AD-9).
   await expect(page).toHaveURL(/\/daily-activity\/[^/?]+(\?|$)/, { timeout: 15_000 });
-  await expect(page.getByText("This is a correction", { exact: false })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("This is an edited version", { exact: false })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(reason)).toBeVisible();
 });
