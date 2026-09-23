@@ -280,7 +280,7 @@ export function stockStatus({
   // cover it (willUseElsewhere) — an actionable, auto-resolving answer
   // always wins over a merely informational one.
   const otherSiteHint = !willUseElsewhere && otherSite
-    ? { text: `Not at ${location} — ${formatQuantity(otherSite)} at ${otherSite.siteName}, needs a Transfer first`, tone: "warning" as const, insufficient: false }
+    ? { text: `Not at ${location} — ${formatQuantity(otherSite)} at ${otherSite.siteName}, purchase for ${location}`, tone: "warning" as const, insufficient: false }
     : undefined;
 
   // Bugfix (2026-09-23): Consumption now draws `location` stock first,

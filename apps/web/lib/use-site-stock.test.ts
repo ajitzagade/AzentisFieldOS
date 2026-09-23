@@ -168,8 +168,9 @@ describe("stockStatus", () => {
 
   // 2026-09-23: naming another Site's balance is purely informational — no
   // automatic fallback exists for it (unlike Godown), so it's surfaced
-  // distinctly ("needs a Transfer first") and only when there's otherwise
-  // nothing more useful to say.
+  // distinctly (recommending a Purchase for this Site, not a Transfer —
+  // matches the response the Site Engineer actually takes) and only when
+  // there's otherwise nothing more useful to say.
   describe("otherSite informational hint (no automatic fallback, unlike Godown)", () => {
     it("names the other Site when neither this Site nor Godown has any balance", () => {
       const stock = lookup({});
@@ -180,7 +181,7 @@ describe("stockStatus", () => {
         otherSite: { siteName: "Pune Bypass", quantity: 40, unit: "Bag" },
       });
       expect(status).toEqual({
-        text: "Not at this Site — 40 Bag at Pune Bypass, needs a Transfer first",
+        text: "Not at this Site — 40 Bag at Pune Bypass, purchase for this Site",
         tone: "warning",
         insufficient: false,
       });
