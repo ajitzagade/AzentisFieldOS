@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { SitesService } from './sites.service';
 
@@ -177,5 +178,54 @@ describe('SitesService.searchCandidates', () => {
       },
     });
     expect(result).toEqual({ candidates: [{ id: '1' }], total: 1 });
+  });
+});
+
+describe('SitesService.getSubcontractorGap', () => {
+  function makeGapService(siteFindUnique: ReturnType<typeof vi.fn>) {
+    const prisma = {
+      site: { findUnique: siteFindUnique },
+      dailySiteReport: {
+        findMany: vi
+          .fn()
+          .mockResolvedValueOnce([]) // supersededDsrIds' own scan
+          .mockResolvedValueOnce([
+            { subcontractorEntries: [{ subcontractorId: 'sub-1' }] },
+          ]),
+      },
+      siteContract: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    return new SitesService(
+      prisma as unknown as ConstructorParameters<typeof SitesService>[0],
+      {} as ConstructorParameters<typeof SitesService>[1],
+    );
+  }
+
+  it('throws NotFoundException for a Site ID that does not exist', async () => {
+    const service = makeGapService(vi.fn().mockResolvedValue(null));
+
+    await expect(service.getSubcontractorGap('missing-id')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('throws NotFoundException for a soft-deleted Site', async () => {
+    const service = makeGapService(
+      vi.fn().mockResolvedValue({ id: '1', deletedAt: new Date() }),
+    );
+
+    await expect(service.getSubcontractorGap('1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('returns the computed gap for a live Site', async () => {
+    const service = makeGapService(
+      vi.fn().mockResolvedValue({ id: '1', deletedAt: null }),
+    );
+
+    const result = await service.getSubcontractorGap('1');
+
+    expect(result).toEqual({ count: 1, subcontractorIds: ['sub-1'] });
   });
 });

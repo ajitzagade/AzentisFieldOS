@@ -54,8 +54,15 @@ function mockSitePage(overrides: {
   siteContracts?: unknown;
   siteContractsOk?: boolean;
   role?: "OWNER_ADMIN" | "SITE_SUPERVISOR";
+  subcontractorGap?: unknown;
 }) {
   global.fetch = vi.fn((url: string) => {
+    if (url.includes("/subcontractors/gap-count")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => overrides.subcontractorGap ?? { count: 0, subcontractorIds: [] },
+      });
+    }
     if (url.includes("/site-contracts")) {
       return Promise.resolve({
         ok: overrides.siteContractsOk ?? true,
@@ -191,5 +198,45 @@ describe("SiteDetailPage", () => {
     expect(screen.getAllByText("Ganesh Pipeline Works")).toHaveLength(2);
     expect(screen.getAllByText(/Advance/)).toHaveLength(2);
     expect(screen.getAllByText(/₹5,000/)).toHaveLength(2);
+  });
+
+  // spec-subcontractor-dsr-gap-flag
+  it("does not render the Subcontractor gap-flag when there is no gap", async () => {
+    mockSitePage({ subcontractorGap: { count: 0, subcontractorIds: [] } });
+
+    await renderDetailPage("site-1");
+
+    expect(screen.queryByText(/logged with no Site Contract/)).not.toBeInTheDocument();
+  });
+
+  it("renders the Subcontractor gap-flag, singular, with a link to that Subcontractor's contract-creation flow", async () => {
+    mockSitePage({ subcontractorGap: { count: 1, subcontractorIds: ["sub-1"] } });
+
+    await renderDetailPage("site-1");
+
+    expect(screen.getByText("1 Subcontractor logged with no Site Contract")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Add Site Contract/ })).toHaveAttribute(
+      "href",
+      "/subcontractors/sub-1/contracts/new",
+    );
+  });
+
+  it("renders the Subcontractor gap-flag, plural, for multiple gaps", async () => {
+    mockSitePage({ subcontractorGap: { count: 3, subcontractorIds: ["sub-1", "sub-2", "sub-3"] } });
+
+    await renderDetailPage("site-1");
+
+    expect(screen.getByText("3 Subcontractors logged with no Site Contract")).toBeInTheDocument();
+  });
+
+  it("hides the Subcontractor gap-flag from a Supervisor — only Owner/Admin can act on it", async () => {
+    mockSitePage({
+      subcontractorGap: { count: 1, subcontractorIds: ["sub-1"] },
+      role: "SITE_SUPERVISOR",
+    });
+
+    await renderDetailPage("site-1");
+
+    expect(screen.queryByText(/logged with no Site Contract/)).not.toBeInTheDocument();
   });
 });

@@ -20,6 +20,7 @@ describe('SitesController', () => {
     update: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
     getPhotos: ReturnType<typeof vi.fn>;
+    getSubcontractorGap: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -29,6 +30,7 @@ describe('SitesController', () => {
       update: vi.fn(),
       findOne: vi.fn(),
       getPhotos: vi.fn(),
+      getSubcontractorGap: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -107,6 +109,18 @@ describe('SitesController', () => {
 
     expect(service.getPhotos).toHaveBeenCalledWith('1');
     expect(result).toEqual([]);
+  });
+
+  it('getSubcontractorGap delegates to SitesService.getSubcontractorGap with the id', async () => {
+    service.getSubcontractorGap.mockResolvedValue({
+      count: 1,
+      subcontractorIds: ['sub-1'],
+    });
+
+    const result = await controller.getSubcontractorGap('1');
+
+    expect(service.getSubcontractorGap).toHaveBeenCalledWith('1');
+    expect(result).toEqual({ count: 1, subcontractorIds: ['sub-1'] });
   });
 });
 

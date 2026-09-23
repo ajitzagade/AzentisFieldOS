@@ -70,6 +70,16 @@ export class SitesController {
     return this.sitesService.getPhotos(id);
   }
 
+  // spec-subcontractor-dsr-gap-flag: how many Subcontractors this Site's
+  // DSRs name with no SiteContract at this Site — drives the Site Detail
+  // page's gap-flag. Open to both roles (no @Roles() override needed —
+  // same reasoning as findOne/getPhotos above); the web page itself gates
+  // the nudge's rendering to OWNER_ADMIN since only that role can act on it.
+  @Get(':id/subcontractors/gap-count')
+  getSubcontractorGap(@Param('id') id: string) {
+    return this.sitesService.getSubcontractorGap(id);
+  }
+
   // Soft delete (Owner/Admin only) — hides the Site everywhere; the row and
   // its transaction history remain in the database untouched.
   @Delete(':id')

@@ -11,6 +11,7 @@ import {
   CheckCircleIcon,
   ClipboardIcon,
   DataTable,
+  GapFlag,
   LayersIcon,
   MapPinIcon,
   PencilIcon,
@@ -66,6 +67,11 @@ interface SiteContractRow {
   subcontractor: { id: string; name: string };
   amountPayable: number | null;
   outstandingAmount: number | null;
+}
+
+interface SubcontractorGap {
+  count: number;
+  subcontractorIds: string[];
 }
 
 const CONTRACT_STATUS_BADGE: Record<SiteContractRow["status"], { variant: "neutral" | "success" | "danger"; label: string }> = {
@@ -141,6 +147,21 @@ async function getSiteContracts(siteId: string): Promise<SiteContractRow[] | nul
     if (!res.ok) return null;
     const rows = (await res.json()) as SiteContractRow[];
     return Array.isArray(rows) ? rows : null;
+  } catch {
+    return null;
+  }
+}
+
+// spec-subcontractor-dsr-gap-flag: D7-shaped gap-flag — how many
+// Subcontractors this Site's DSRs name (via subcontractorEntries) with no
+// SiteContract at this Site. Same null-safe fault-isolation rule as this
+// page's other sections; a failure here just hides the nudge.
+async function getSubcontractorGap(siteId: string): Promise<SubcontractorGap | null> {
+  try {
+    const res = await authedFetch(`/sites/${siteId}/subcontractors/gap-count`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as SubcontractorGap;
+    return data && typeof data.count === "number" && Array.isArray(data.subcontractorIds) ? data : null;
   } catch {
     return null;
   }
@@ -243,15 +264,17 @@ const siteContractMobileCard: DataTableMobileCard<SiteContractRow> = {
 
 export default async function SiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [site, todaysDsr, stock, recentDsrs, photos, viewerRole, siteContracts] = await Promise.all([
-    getSiteDetail(id),
-    getTodaysDsr(id),
-    getSiteStock(id),
-    getRecentDsrs(id),
-    getSitePhotos(id),
-    currentRole(),
-    getSiteContracts(id),
-  ]);
+  const [site, todaysDsr, stock, recentDsrs, photos, viewerRole, siteContracts, subcontractorGap] =
+    await Promise.all([
+      getSiteDetail(id),
+      getTodaysDsr(id),
+      getSiteStock(id),
+      getRecentDsrs(id),
+      getSitePhotos(id),
+      currentRole(),
+      getSiteContracts(id),
+      getSubcontractorGap(id),
+    ]);
 
   if (!site) {
     notFound();
@@ -456,6 +479,28 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             </Link>
           ) : null}
         </div>
+        {/* spec-subcontractor-dsr-gap-flag: a Subcontractor logged via a
+            DSR with no SiteContract at this Site is otherwise invisible in
+            the table below — nudge the Owner to formalize it. Gated to
+            OWNER_ADMIN like "Add Subcontractor" above: only that role can
+            act on the deep link (creating a SiteContract is Owner-only). */}
+        {viewerRole === "OWNER_ADMIN" && subcontractorGap && subcontractorGap.count > 0 ? (
+          <div className="mb-4">
+            <GapFlag
+              icon={<UsersIcon />}
+              message={`${subcontractorGap.count} Subcontractor${subcontractorGap.count === 1 ? "" : "s"} logged with no Site Contract`}
+              action={
+                <Link
+                  href={`/subcontractors/${subcontractorGap.subcontractorIds[0]}/contracts/new`}
+                  className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+                >
+                  <PlusIcon className="size-4" />
+                  Add Site Contract
+                </Link>
+              }
+            />
+          </div>
+        ) : null}
         <DataTable
           columns={siteContractColumns}
           mobileCard={siteContractMobileCard}

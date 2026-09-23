@@ -8,6 +8,7 @@ import { paginationParams } from '../common/pagination';
 import { isSortOrder } from '../common/sort-order';
 import { getSiteActivityFeed } from './site-activity-feed';
 import { getSitePhotoGallery } from './site-photo-gallery';
+import { getSiteSubcontractorGap } from './site-subcontractor-gap';
 
 const SITE_SORT_FIELDS = ['name', 'location', 'status', 'createdAt'] as const;
 type SiteSortField = (typeof SITE_SORT_FIELDS)[number];
@@ -193,6 +194,17 @@ export class SitesService {
       throw new NotFoundException(`Site ${id} not found`);
     }
     return getSitePhotoGallery(this.prisma, this.storage, id);
+  }
+
+  // spec-subcontractor-dsr-gap-flag: D7-shaped gap-flag data for the Site
+  // Detail page — how many Subcontractors this Site's DSRs name with no
+  // SiteContract at this Site, + their ids for the "formalize" deep link.
+  async getSubcontractorGap(id: string) {
+    const site = await this.prisma.site.findUnique({ where: { id } });
+    if (!site || site.deletedAt) {
+      throw new NotFoundException(`Site ${id} not found`);
+    }
+    return getSiteSubcontractorGap(this.prisma, id);
   }
 
   // Soft delete: stamps deletedAt so the Site vanishes from lists/pickers,
