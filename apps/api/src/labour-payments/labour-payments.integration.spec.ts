@@ -41,7 +41,7 @@ describeIfDb('Labour Payment module (integration)', () => {
   it('records a full week of attendance (with an embedded Advance), settles the week with a partial Advance adjustment, and reflects it all in the ledger', async () => {
     const labourer = await labourers.create({
       name: 'Ramesh Kumar',
-      category: 'Mason',
+      category: 'Mistri',
       defaultPerDayAmount: 800,
       isActive: true,
     });
@@ -114,7 +114,7 @@ describeIfDb('Labour Payment module (integration)', () => {
   it("rejects an Advance adjustment that would exceed the Labourer's outstanding balance", async () => {
     const labourer = await labourers.create({
       name: 'Suresh Patil',
-      category: 'Helper',
+      category: 'Men',
       isActive: true,
     });
     await advances.create({
@@ -148,7 +148,7 @@ describeIfDb('Labour Payment module (integration)', () => {
   it('a correction to attendance never double-counts toward totalEarned', async () => {
     const labourer = await labourers.create({
       name: 'Geeta Rao',
-      category: 'Helper',
+      category: 'Men',
       isActive: true,
     });
 

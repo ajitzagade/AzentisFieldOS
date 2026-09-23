@@ -2,7 +2,8 @@
 
 import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
-import { AmountField, Button, Card, LayersIcon, PlusIcon, TextField, UserIcon } from "@azentisfieldos/ui";
+import { AmountField, Button, Card, LayersIcon, PlusIcon, SelectField, TextField, UserIcon } from "@azentisfieldos/ui";
+import { DAILY_LABOURER_CATEGORIES } from "@azentisfieldos/shared";
 import { useClientValidation } from "@/lib/use-client-validation";
 import { usePreventFormResetOnError } from "@/lib/use-prevent-form-reset-on-error";
 import { createDailyLabourerAction, type CreateDailyLabourerFormState } from "./actions";
@@ -38,13 +39,16 @@ export function NewLabourerForm() {
           icon={<UserIcon className="size-4" />}
           error={errorFor("name")}
         />
-        <TextField
+        <SelectField
           label="Labour Category"
           name="category"
           required
-          maxLength={100}
           icon={<LayersIcon className="size-4" />}
-          placeholder="e.g. Mason, Helper"
+          defaultValue=""
+          options={[
+            { value: "", label: "Select a Category" },
+            ...DAILY_LABOURER_CATEGORIES.map((category) => ({ value: category, label: category })),
+          ]}
           error={errorFor("category")}
         />
         <AmountField

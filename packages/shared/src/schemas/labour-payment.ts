@@ -10,11 +10,24 @@ export const dailyLabourWeeklyPaymentStatusSchema = z.enum(["PAID", "PARTIAL", "
 
 export const labourShiftSchema = z.enum(["DAY", "NIGHT"]);
 
+// Fixed category set (2026-09-23) — the request's Men/Women/Mistri
+// requirement, enforced here and in the create form's SelectField. The
+// underlying Prisma column stays a plain String (soft constraint only, see
+// this schema's own module comment below) — DailyLabourer is one day old
+// with zero seed/production data and no downstream aggregation reads
+// `category`, so a hard enum migration buys no real safety yet. Exported as
+// one reusable const so the DSR labour dropdown goal (deferred) can reuse it
+// without re-deriving its own list.
+export const DAILY_LABOURER_CATEGORIES = ["Men", "Women", "Mistri"] as const;
+
 export const createDailyLabourerSchema = z.object({
   name: z.string().min(1).max(200),
-  // Free text (e.g. "Mason", "Helper") — matches DailySiteReport's
-  // labourEntries.category convention, no lookup table.
-  category: z.string().min(1).max(100),
+  // Fixed set (Men/Women/Mistri) — was free text (e.g. "Mason", "Helper"),
+  // matching DailySiteReport's labourEntries.category convention. The
+  // DailyLabourer.category column itself stays a plain Prisma String; only
+  // this Zod schema (and the create form's SelectField) constrain it, no
+  // lookup table / DB enum.
+  category: z.enum(DAILY_LABOURER_CATEGORIES),
   defaultPerDayAmount: z.number().positive().optional(),
   isActive: z.boolean().default(true),
 });

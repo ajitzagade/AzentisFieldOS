@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UsePipes,
+} from '@nestjs/common';
 import {
   createDailyLabourerSchema,
   type CreateDailyLabourerInput,
@@ -20,8 +28,14 @@ export class DailyLabourersController {
   }
 
   @Get()
-  list() {
-    return this.labourersService.list();
+  list(
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
+  ) {
+    return this.labourersService.list({ q, page, pageSize, sort, order });
   }
 
   @Get(':id')

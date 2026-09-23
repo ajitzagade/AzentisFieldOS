@@ -1,6 +1,8 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
-import { DataTable, PlusIcon, UsersIcon, buttonVariants, cn, type DataTableColumn } from "@azentisfieldos/ui";
+import type { PaginatedResult } from "@azentisfieldos/shared";
+import { PlusIcon, buttonVariants, cn } from "@azentisfieldos/ui";
+import { LabourersListClient } from "./labourers-list-client";
 
 export interface DailyLabourerListItem {
   id: string;
@@ -11,43 +13,40 @@ export interface DailyLabourerListItem {
   outstandingAdvanceBalance: number;
 }
 
-async function getLabourers(): Promise<DailyLabourerListItem[]> {
-  const res = await authedFetch(`/daily-labourers`, { cache: "no-store" });
+interface LabourPaymentsPageSearchParams {
+  q?: string;
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  order?: string;
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+async function getLabourers(
+  params: LabourPaymentsPageSearchParams,
+): Promise<PaginatedResult<DailyLabourerListItem>> {
+  const query = new URLSearchParams();
+  query.set("page", params.page ?? "1");
+  query.set("pageSize", params.pageSize ?? String(DEFAULT_PAGE_SIZE));
+  if (params.q) query.set("q", params.q);
+  if (params.sort) query.set("sort", params.sort);
+  if (params.order) query.set("order", params.order);
+
+  const res = await authedFetch(`/daily-labourers?${query.toString()}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Labourers (${res.status})`);
   }
   return res.json();
 }
 
-const columns: DataTableColumn<DailyLabourerListItem>[] = [
-  { header: "Name", cell: (l) => l.name },
-  { header: "Category", cell: (l) => l.category },
-  {
-    header: "Per-Day Amount",
-    align: "right",
-    cell: (l) =>
-      l.defaultPerDayAmount === null ? (
-        <span className="text-ink-500">—</span>
-      ) : (
-        `₹${l.defaultPerDayAmount.toLocaleString("en-IN")}`
-      ),
-  },
-  {
-    header: "Outstanding Advance",
-    align: "right",
-    cell: (l) =>
-      Number(l.outstandingAdvanceBalance) > 0 ? (
-        <span className="font-semibold text-gold-700 tabular-nums">
-          ₹{Number(l.outstandingAdvanceBalance).toLocaleString("en-IN")}
-        </span>
-      ) : (
-        <span className="text-ink-500">₹0</span>
-      ),
-  },
-];
-
-export default async function LabourPaymentsPage() {
-  const labourers = await getLabourers();
+export default async function LabourPaymentsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<LabourPaymentsPageSearchParams>;
+}) {
+  const params = (await searchParams) ?? {};
+  const labourersResult = await getLabourers(params);
 
   return (
     <>
@@ -64,26 +63,11 @@ export default async function LabourPaymentsPage() {
         </Link>
       </div>
 
-      <DataTable
-        columns={columns}
-        rowKey={(l) => l.id}
-        rowHref={(l) => `/labour-payments/${l.id}`}
-        mobileCard={{ primary: (l) => l.name }}
-        state={
-          labourers.length === 0
-            ? {
-                status: "empty",
-                icon: <UsersIcon />,
-                message: "No Labourers added yet.",
-                action: (
-                  <Link href="/labour-payments/new" className={cn(buttonVariants({ variant: "primary" }))}>
-                    <PlusIcon className="size-4" />
-                    Add your first Labourer
-                  </Link>
-                ),
-              }
-            : { status: "success", rows: labourers }
-        }
+      <LabourersListClient
+        rows={labourersResult.rows}
+        total={labourersResult.total}
+        page={labourersResult.page}
+        pageSize={labourersResult.pageSize}
       />
     </>
   );
