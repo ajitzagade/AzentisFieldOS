@@ -407,7 +407,7 @@ describe("NewDsrPage", () => {
       sites: [{ id: "site-1", name: "NH-48" }],
       dsr: {
         status: 400,
-        body: { error: { code: "INSUFFICIENT_STOCK", message: "Not enough Site Stock for this Consumption." } },
+        body: { error: { code: "INSUFFICIENT_STOCK", message: "Not enough Site Stock for this Material Used entry." } },
       },
     });
 
@@ -421,7 +421,7 @@ describe("NewDsrPage", () => {
     // The playback dialog now guards submission — confirm to proceed.
     await user.click(await screen.findByRole("button", { name: "Confirm & Submit" }));
 
-    await screen.findByText("Not enough Site Stock for this Consumption.");
+    await screen.findByText("Not enough Site Stock for this Material Used entry.");
   });
 
   it('shows the "Synced" state when the submission reaches the server successfully', async () => {
@@ -683,7 +683,7 @@ describe("NewDsrPage", () => {
       saveDraft: { status: 200, body: { id: "draft-44" } },
       finalize: {
         status: 400,
-        body: { error: { code: "INSUFFICIENT_STOCK", message: "Not enough Site Stock for this Consumption." } },
+        body: { error: { code: "INSUFFICIENT_STOCK", message: "Not enough Site Stock for this Material Used entry." } },
       },
     });
 
@@ -699,7 +699,7 @@ describe("NewDsrPage", () => {
     // The playback dialog now guards finalization — confirm to proceed.
     await user.click(await screen.findByRole("button", { name: "Confirm & Finalize" }));
 
-    await screen.findByText("Not enough Site Stock for this Consumption.");
+    await screen.findByText("Not enough Site Stock for this Material Used entry.");
     // Still a draft — Finalize remains available for a retry after fixing stock.
     expect(screen.getByRole("button", { name: "Finalize Report" })).toBeInTheDocument();
   });

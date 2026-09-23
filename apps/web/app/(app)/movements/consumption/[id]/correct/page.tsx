@@ -30,7 +30,7 @@ async function getConsumption(id: string): Promise<ConsumptionForCorrection | nu
   const res = await authedFetch(`/consumption/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) {
-    throw new Error(`Failed to load Consumption (${res.status})`);
+    throw new Error(`Failed to load Material Used entry (${res.status})`);
   }
   return res.json();
 }

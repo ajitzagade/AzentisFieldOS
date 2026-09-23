@@ -19,7 +19,7 @@ const ENTITY_LABELS: Record<string, string> = {
   'material-categories': 'Material Category',
   purchases: 'Purchase',
   movements: 'Movement',
-  consumption: 'Consumption',
+  consumption: 'Material Used',
   'return-wastage': 'Return/Wastage',
   dsr: 'Daily Site Report',
   photos: 'Photo',

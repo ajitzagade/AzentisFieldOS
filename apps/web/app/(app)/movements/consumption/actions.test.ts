@@ -97,14 +97,14 @@ describe("createConsumptionAction", () => {
       status: 400,
       json: async () => ({
         statusCode: 400,
-        message: "This Consumption references a Site that does not exist",
+        message: "This Material Used entry references a Site that does not exist",
         error: "Bad Request",
       }),
     }) as unknown as typeof fetch;
 
     const result = await createConsumptionAction({}, formData(validFields));
 
-    expect(result.formError).toBe("This Consumption references a Site that does not exist");
+    expect(result.formError).toBe("This Material Used entry references a Site that does not exist");
   });
 
   it("returns a generic form error for a non-400 failure", async () => {
@@ -112,7 +112,7 @@ describe("createConsumptionAction", () => {
 
     const result = await createConsumptionAction({}, formData(validFields));
 
-    expect(result.formError).toBe("Something went wrong recording the Consumption. Please try again.");
+    expect(result.formError).toBe("Something went wrong recording the Material Used entry. Please try again.");
   });
 
   it("returns a generic form error instead of throwing when the fetch itself rejects (network failure)", async () => {
@@ -120,7 +120,7 @@ describe("createConsumptionAction", () => {
 
     const result = await createConsumptionAction({}, formData(validFields));
 
-    expect(result.formError).toBe("Something went wrong recording the Consumption. Please try again.");
+    expect(result.formError).toBe("Something went wrong recording the Material Used entry. Please try again.");
   });
 
   it("returns the generic fallback instead of throwing when a 400 response body isn't valid JSON", async () => {
@@ -134,6 +134,6 @@ describe("createConsumptionAction", () => {
 
     const result = await createConsumptionAction({}, formData(validFields));
 
-    expect(result.formError).toBe("This Consumption references a Site or Material Size that does not exist.");
+    expect(result.formError).toBe("This Material Used entry references a Site or Material Size that does not exist.");
   });
 });

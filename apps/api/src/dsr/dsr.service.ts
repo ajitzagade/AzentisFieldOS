@@ -360,7 +360,7 @@ export class DsrService {
         input.siteId,
         consumption.materialSizeId,
         consumption.quantity,
-        'Not enough Site Stock for this Consumption.',
+        'Not enough Site Stock for this Material Used entry.',
       );
 
       const data = {
@@ -1241,7 +1241,7 @@ export class DsrService {
             input.siteId,
             consumption.materialSizeId,
             consumption.quantity,
-            'Not enough Site Stock for this Consumption.',
+            'Not enough Site Stock for this Material Used entry.',
           );
           await tx.consumption.create({
             data: {

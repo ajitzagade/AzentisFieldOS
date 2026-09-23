@@ -30,7 +30,7 @@ export async function createConsumptionAction(
       body: JSON.stringify(parsed.data),
     });
   } catch {
-    return { formError: "Something went wrong recording the Consumption. Please try again." };
+    return { formError: "Something went wrong recording the Material Used entry. Please try again." };
   }
 
   if (res.status === 400) {
@@ -55,15 +55,15 @@ export async function createConsumptionAction(
       formError:
         body?.error?.message ??
         body?.message ??
-        "This Consumption references a Site or Material Size that does not exist.",
+        "This Material Used entry references a Site or Material Size that does not exist.",
     };
   }
 
   if (!res.ok) {
-    return { formError: "Something went wrong recording the Consumption. Please try again." };
+    return { formError: "Something went wrong recording the Material Used entry. Please try again." };
   }
 
   redirect(
-    `/movements?flash=${encodeURIComponent(formData.get("correctsId") ? "Consumption correction recorded" : "Consumption recorded")}`,
+    `/movements?flash=${encodeURIComponent(formData.get("correctsId") ? "Material Used correction recorded" : "Material Used recorded")}`,
   );
 }

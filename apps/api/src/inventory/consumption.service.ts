@@ -41,7 +41,7 @@ export class ConsumptionService {
       });
       if (!original) {
         throw new BadRequestException(
-          `Consumption ${input.correctsId} does not exist`,
+          `Material Used entry ${input.correctsId} does not exist`,
         );
       }
       // The correction form locks/hides these fields client-side, but
@@ -53,7 +53,7 @@ export class ConsumptionService {
         original.materialSizeId !== input.materialSizeId
       ) {
         throw new BadRequestException(
-          "A correction's Site and Material Size must match the Consumption it corrects",
+          "A correction's Site and Material Size must match the Material Used entry it corrects",
         );
       }
     }
@@ -78,7 +78,7 @@ export class ConsumptionService {
               input.siteId,
               input.materialSizeId,
               input.quantity,
-              'Not enough Site Stock for this Consumption.',
+              'Not enough Site Stock for this Material Used entry.',
             );
 
         return tx.consumption.create({
@@ -119,7 +119,7 @@ export class ConsumptionService {
         input.siteId,
         input.materialSizeId,
         delta,
-        'Not enough Site Stock for this Consumption.',
+        'Not enough Site Stock for this Material Used entry.',
       );
     }
 
@@ -213,7 +213,7 @@ export class ConsumptionService {
       },
     });
     if (!consumption) {
-      throw new NotFoundException(`Consumption ${id} not found`);
+      throw new NotFoundException(`Material Used entry ${id} not found`);
     }
     return consumption;
   }
@@ -285,7 +285,7 @@ export class ConsumptionService {
       error.code === 'P2003'
     ) {
       return new BadRequestException(
-        'This Consumption references a Site, Material Size, or User that does not exist',
+        'This Material Used entry references a Site, Material Size, or User that does not exist',
       );
     }
     return error;
