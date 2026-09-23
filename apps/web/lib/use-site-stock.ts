@@ -187,9 +187,15 @@ export function stockStatus({
   }
   const entry = stock.bySizeId.get(materialSizeId);
   const elsewhereFound = elsewhereEntry(materialSizeId, elsewhere);
-  const elsewhereHint = elsewhereFound
-    ? ` — ${formatQuantity(elsewhereFound)} available at ${elsewhere?.label}`
-    : "";
+  // Bugfix (2026-09-23, follow-up): when `location` has nothing but
+  // `elsewhere` (Godown) does, the draw will actually succeed via the
+  // Site-then-Godown fallback — so this reads as reassurance, not a
+  // warning. Kept short per user request; unchanged when neither location
+  // has any stock (the genuine dead-end case still needs the plain
+  // "No stock" wording below).
+  const willUseElsewhere = elsewhereFound
+    ? { text: `Not at ${location} — ${formatQuantity(elsewhereFound)} at ${elsewhere?.label}, will be used`, tone: "positive" as const, insufficient: false }
+    : undefined;
 
   // Bugfix (2026-09-23): Consumption now draws `location` stock first,
   // then falls back to `elsewhere` (the Godown) for the shortfall — so
@@ -231,11 +237,13 @@ export function stockStatus({
 
   if (!entry) {
     if (insufficientCombined) return insufficientStatus();
-    return { text: `No stock recorded at ${location}${elsewhereHint}`, tone: "warning", insufficient: false };
+    if (willUseElsewhere) return willUseElsewhere;
+    return { text: `No stock recorded at ${location}`, tone: "warning", insufficient: false };
   }
   if (entry.quantity <= 0) {
     if (insufficientCombined) return insufficientStatus();
-    return { text: `No stock available at ${location}${elsewhereHint}`, tone: "warning", insufficient: false };
+    if (willUseElsewhere) return willUseElsewhere;
+    return { text: `No stock available at ${location}`, tone: "warning", insufficient: false };
   }
   const available = formatQuantity(entry);
   if (insufficientCombined) return insufficientStatus();

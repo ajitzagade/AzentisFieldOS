@@ -82,21 +82,25 @@ describe("stockStatus", () => {
   // has zero SiteStock. The fix is to say where it actually is instead of
   // leaving "No stock" ambiguous between "doesn't exist" and "not here yet".
   describe("elsewhere reference (root cause: 'No stock' looked like data loss, not a location mismatch)", () => {
-    it("names the Godown when the Site has no balance row but the Godown does", () => {
+    // Follow-up (2026-09-23): since Consumption now falls back to Godown
+    // automatically (Site-then-Godown), a Material with real balance only
+    // at the Godown isn't actually a problem — the draw will succeed. This
+    // is reassurance, not a warning: shorter wording, positive tone.
+    it("says the Godown balance will be used when the Site has no balance row but the Godown does", () => {
       const stock = lookup({});
       const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 500, unit: "Bag" } }) };
       expect(stockStatus({ stock, materialSizeId: "ms1", location: "this Site", elsewhere })).toEqual({
-        text: "No stock recorded at this Site — 500 Bag available at Godown",
-        tone: "warning",
+        text: "Not at this Site — 500 Bag at Godown, will be used",
+        tone: "positive",
         insufficient: false,
       });
     });
 
-    it("names the Godown when the Site's recorded balance is zero but the Godown has some", () => {
+    it("says the Godown balance will be used when the Site's recorded balance is zero but the Godown has some", () => {
       const stock = lookup({ ms1: { quantity: 0 } });
       const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 40 } }) };
       expect(stockStatus({ stock, materialSizeId: "ms1", location: "this Site", elsewhere })?.text).toBe(
-        "No stock available at this Site — 40 available at Godown",
+        "Not at this Site — 40 at Godown, will be used",
       );
     });
 
