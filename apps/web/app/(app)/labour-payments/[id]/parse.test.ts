@@ -45,7 +45,7 @@ describe("parseCreateAttendanceForm", () => {
 
 const baseWeeklyPayment = {
   labourerId: "11111111-1111-4111-8111-111111111111",
-  weekStartDate: "2026-08-10",
+  weekStartDate: "2026-08-09",
   amountPaid: "2400",
   status: "PAID",
 };
@@ -78,8 +78,27 @@ describe("parseCreateWeeklyPaymentForm", () => {
     }
   });
 
-  it("rejects a weekStartDate that is not a Monday", () => {
-    const result = parseCreateWeeklyPaymentForm(formData({ ...baseWeeklyPayment, weekStartDate: "2026-08-11" }));
+  it("rejects a fresh (non-correction) weekStartDate that is not a Sunday (e.g. old-rule Monday)", () => {
+    const result = parseCreateWeeklyPaymentForm(formData({ ...baseWeeklyPayment, weekStartDate: "2026-08-10" }));
     expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe("Week must start on a Sunday");
+    }
+  });
+
+  it("accepts a correction restating a pre-existing Monday-anchored weekStartDate", () => {
+    // Every pre-existing DailyLabourWeeklyPayment row is Monday-anchored
+    // (the only value the old schema ever allowed) — a correction must be
+    // able to restate that exact date, not just a Sunday. The Sunday check
+    // only applies to fresh, non-correction submissions.
+    const result = parseCreateWeeklyPaymentForm(
+      formData({
+        ...baseWeeklyPayment,
+        weekStartDate: "2026-08-10",
+        correctsId: "44444444-4444-4444-8444-444444444444",
+        reason: "Amended amount after dispute",
+      }),
+    );
+    expect(result.success).toBe(true);
   });
 });

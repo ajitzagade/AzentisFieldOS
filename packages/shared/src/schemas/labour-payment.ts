@@ -145,7 +145,7 @@ export const createDailyLabourAdvanceAdjustmentSchema = z
 
 export type CreateDailyLabourAdvanceAdjustmentInput = z.infer<typeof createDailyLabourAdvanceAdjustmentSchema>;
 
-// One settlement per (labourerId, weekStartDate=Monday). totalEarned/
+// One settlement per (labourerId, weekStartDate=Sunday). totalEarned/
 // weekEndDate are always server-computed from that week's attendance —
 // deliberately absent here so they can never be trusted from the request
 // body (same reasoning createPaymentSchema's own comment gives for Net
@@ -174,12 +174,17 @@ export const createDailyLabourWeeklyPaymentSchema = z
     reason: z.string().min(1).max(500).optional(),
   })
   .superRefine((data, ctx) => {
-    // Monday check: z.iso.date() coerces to UTC midnight for getUTCDay().
-    if (new Date(data.weekStartDate).getUTCDay() !== 1) {
+    // Sunday check: z.iso.date() coerces to UTC midnight for getUTCDay().
+    // Only applies to fresh (non-correction) submissions — a correction must
+    // restate the original row's exact weekStartDate, which may be
+    // Monday-anchored for any pre-existing row (the only anchor the old
+    // schema ever allowed). The service's create() separately enforces that
+    // a correction's weekStartDate matches the original's exactly.
+    if (!data.correctsId && new Date(data.weekStartDate).getUTCDay() !== 0) {
       ctx.addIssue({
         code: "custom",
         path: ["weekStartDate"],
-        message: "Week must start on a Monday",
+        message: "Week must start on a Sunday",
       });
     }
     if (data.correctsId && !data.reason) {

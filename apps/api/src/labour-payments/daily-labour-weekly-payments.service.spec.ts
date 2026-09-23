@@ -67,7 +67,7 @@ const decimal = (n: number) => ({ toNumber: () => n });
 
 const baseInput = {
   labourerId: 'l1',
-  weekStartDate: '2026-08-10', // a Monday
+  weekStartDate: '2026-08-09', // a Sunday
   amountPaid: 2400,
   status: 'PAID' as const,
 };
@@ -99,7 +99,7 @@ describe('DailyLabourWeeklyPaymentsService.create', () => {
     const call = paymentCreate.mock.calls[0]?.[0] as {
       data: { weekEndDate: Date };
     };
-    expect(call.data.weekEndDate.toISOString().slice(0, 10)).toBe('2026-08-16');
+    expect(call.data.weekEndDate.toISOString().slice(0, 10)).toBe('2026-08-15');
   });
 
   it('creates a linked AdvanceAdjustment and decrements the balance by its full amount on a fresh payment', async () => {
@@ -141,18 +141,18 @@ describe('DailyLabourWeeklyPaymentsService.create', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('rejects a weekStartDate that is not a Monday at the schema level (documented via a direct service call bypassing validation still computes weekEndDate correctly)', async () => {
-    // The Monday check lives in the Zod schema (createDailyLabourWeeklyPaymentSchema),
+  it('rejects a weekStartDate that is not a Sunday at the schema level (documented via a direct service call bypassing validation still computes weekEndDate correctly)', async () => {
+    // The Sunday check lives in the Zod schema (createDailyLabourWeeklyPaymentSchema),
     // not the service — this test just documents that the service itself
     // trusts whatever weekStartDate it's given once past validation.
     const { service, paymentCreate } = makeService({});
 
-    await service.create({ ...baseInput, weekStartDate: '2026-08-11' });
+    await service.create({ ...baseInput, weekStartDate: '2026-08-10' }); // a Monday
 
     const call = paymentCreate.mock.calls[0]?.[0] as {
       data: { weekEndDate: Date };
     };
-    expect(call.data.weekEndDate.toISOString().slice(0, 10)).toBe('2026-08-17');
+    expect(call.data.weekEndDate.toISOString().slice(0, 10)).toBe('2026-08-16');
   });
 
   it('rejects a correctsId that does not reference an existing Weekly Payment', async () => {
@@ -182,7 +182,7 @@ describe('DailyLabourWeeklyPaymentsService.create', () => {
     const paymentFindUnique = vi.fn().mockResolvedValue({
       id: 'orig',
       labourerId: 'l1',
-      weekStartDate: new Date('2026-08-10'),
+      weekStartDate: new Date('2026-08-09'),
       advanceAdjustments: [
         { id: 'adj-orig', advanceId: 'adv1', amount: decimal(300) },
       ],
@@ -207,7 +207,7 @@ describe('DailyLabourWeeklyPaymentsService.create', () => {
     const paymentFindUnique = vi.fn().mockResolvedValue({
       id: 'orig',
       labourerId: 'l1',
-      weekStartDate: new Date('2026-08-10'),
+      weekStartDate: new Date('2026-08-09'),
       advanceAdjustments: [
         { id: 'adj-orig', advanceId: 'adv1', amount: decimal(300) },
       ],

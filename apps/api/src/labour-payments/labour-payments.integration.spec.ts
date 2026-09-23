@@ -81,10 +81,10 @@ describeIfDb('Labour Payment module (integration)', () => {
 
     const payment = await weeklyPayments.create({
       labourerId: labourer.id,
-      weekStartDate: '2026-08-10',
+      weekStartDate: '2026-08-09',
       amountPaid: 1300, // 1600 earned - 300 adjusted
       status: 'PARTIAL',
-      paidAt: '2026-08-17',
+      paidAt: '2026-08-16',
       advanceAdjustment: {
         advanceId: givenAdvance!.id,
         amount: 300,
@@ -93,7 +93,7 @@ describeIfDb('Labour Payment module (integration)', () => {
     });
 
     expect(Number(payment.totalEarned)).toBe(1600); // Mon + Tue only, Wed absent
-    expect(payment.weekEndDate.toISOString().slice(0, 10)).toBe('2026-08-16');
+    expect(payment.weekEndDate.toISOString().slice(0, 10)).toBe('2026-08-15');
 
     const afterSettlement = await labourers.findOne(labourer.id);
     expect(Number(afterSettlement.outstandingAdvanceBalance)).toBe(200); // 500 - 300
@@ -129,7 +129,7 @@ describeIfDb('Labour Payment module (integration)', () => {
     await expect(
       weeklyPayments.create({
         labourerId: labourer.id,
-        weekStartDate: '2026-08-10',
+        weekStartDate: '2026-08-09',
         amountPaid: 300,
         status: 'PARTIAL',
         advanceAdjustment: { advanceId: advance!.id, amount: 500 },
@@ -163,7 +163,7 @@ describeIfDb('Labour Payment module (integration)', () => {
 
     const payment = await weeklyPayments.create({
       labourerId: labourer.id,
-      weekStartDate: '2026-08-10',
+      weekStartDate: '2026-08-09',
       amountPaid: 900,
       status: 'PAID',
     });

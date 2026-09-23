@@ -1,6 +1,6 @@
-// Mon-Sun week math for the Labourer calendar/ledger — labour payments are
+// Sun-Sat week math for the Labourer calendar/ledger — labour payments are
 // generally handled weekly (per the ask), so every date here is anchored to
-// its Monday, matching DailyLabourWeeklyPayment.weekStartDate server-side.
+// its Sunday, matching DailyLabourWeeklyPayment.weekStartDate server-side.
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function toUtcDate(iso: string): Date {
@@ -11,10 +11,10 @@ function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function mondayOf(iso: string): string {
+export function sundayOf(iso: string): string {
   const date = toUtcDate(iso);
   const day = date.getUTCDay(); // 0 = Sunday, 1 = Monday, ...
-  const diff = day === 0 ? -6 : 1 - day;
+  const diff = -day;
   return toIsoDate(new Date(date.getTime() + diff * DAY_MS));
 }
 
@@ -28,5 +28,5 @@ export function weekDates(weekStartIso: string): string[] {
 }
 
 export function currentWeekStart(): string {
-  return mondayOf(toIsoDate(new Date()));
+  return sundayOf(toIsoDate(new Date()));
 }

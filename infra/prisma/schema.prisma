@@ -749,12 +749,16 @@ model DailyLabourAdvanceAdjustment {
   @@index([advanceId, adjustedAt])
 }
 
-// Append-only (AD-9). One row per (labourerId, weekStartDate=Monday)
+// Append-only (AD-9). One row per (labourerId, weekStartDate=Sunday)
 // settlement — totalEarned is server-computed from that week's current
 // DailyLabourAttendance rows, never trusted from the request body (same
 // FR-24 rule Payment.netPayable follows above). The advance-adjusted
 // amount, if any, lives on the linked DailyLabourAdvanceAdjustment row, not
 // a duplicated column here — same relation-only pattern Payment uses above.
+// The anchor day was changed from Monday to Sunday on 2026-09-23
+// (spec-labour-payment-week-sunday-saturday) — rows created before that
+// change remain Monday-anchored permanently, no backfill/migration (see the
+// equivalent note in packages/shared/src/schemas/labour-payment.ts).
 model DailyLabourWeeklyPayment {
   id               String        @id @default(uuid(7))
   labourerId       String

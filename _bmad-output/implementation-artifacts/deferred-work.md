@@ -553,3 +553,30 @@ These are real security-hardening items that need config/ops decisions (env, pro
 - source_spec: `_bmad-output/implementation-artifacts/spec-daily-reports-list-and-edit.md`
   summary: The detail page's "Edit" affordance is a hand-rolled `Link`+icon+label rather than reusing the shared `CorrectAction` component the new history list uses for the identical action — a structural AD-5 duplication, though not a drop-in fix, since `CorrectAction` is icon-only (sized for a table row) while the detail page needs a labeled page-header action.
   evidence: `packages/ui/src/components/correct-action.tsx` (icon-only `Button`/`Link`, no labeled variant) vs `apps/web/app/(app)/daily-activity/[id]/page.tsx`'s own inline action. A real fix needs a small design decision (e.g. a labeled variant on `CorrectAction`, or accepting two purpose-built components) rather than a one-line patch.
+
+## Deferred from: 2026-09-23 cross-module batch request (multi-goal split, chose to build goal 1 — Labour Payment week Sunday-Saturday — first)
+
+- source_spec: none
+  summary: Labour Attendance/Presenty — add separate Day and Night attendance handling per labourer per date, with Full Day/Half Day for each, so a labourer can have both a Day entry and a Night entry on the same date, and weekly payment summaries break out Day vs Night contribution.
+  evidence: User-provided multi-goal request split at intent-clarification time. `DailyLabourAttendance` today has no shift/day-night/half-day dimension at all (one row per labourer/site/date, `attended` boolean only) — this is new schema + uniqueness-rule + payment-calc + UI work, the highest-effort item in the batch, deliberately deferred to its own focused pass.
+- source_spec: none
+  summary: Add a proper search (by name and category) wherever the Labour list is displayed, and introduce fixed Labour categories (Men, Women, Mistri).
+  evidence: User-provided multi-goal request split at intent-clarification time. `DailyLabourer.category` is currently free text with no enum/lookup table — introducing fixed categories is a small schema/validation decision that should land together with (or right before) the DSR Labour dropdown goal below, since that goal depends on the same category list.
+- source_spec: none
+  summary: Daily Status Report → Labour section — replace the static/free-text labour list with a searchable dropdown backed by the Labour Payment module's `DailyLabourer` registry, plus an inline "+ Add Labour" affordance so newly added labourers are immediately available without leaving the DSR form.
+  evidence: User-provided multi-goal request split at intent-clarification time. DSR's `labourEntries` is currently a denormalized free-text JSON array (2026-09-20 client-readiness batch, informational tagging only) with no link to `DailyLabourer` — wiring the two together is a real sync feature, coupled to the Labour-categories goal above, and independently shippable from the week-cycle fix.
+- source_spec: none
+  summary: Daily Status Report editing — allow changing Site and Date on an existing report, and allow viewing existing uploaded photos, removing individual photos, and uploading additional photos on the edit screen (without affecting unrelated attachments).
+  evidence: User-provided multi-goal request split at intent-clarification time. Separate feature on the DSR edit/correction flow, architecturally unrelated to Labour Payments — own scope, own review.
+- source_spec: none
+  summary: Fix the ~15+ second delay before a newly created Material Category becomes available in the Material form's category dropdown, without requiring a hard refresh or page reload.
+  evidence: User-provided multi-goal request split at intent-clarification time. Isolated frontend cache/revalidation bug, unrelated to Labour Payments — good candidate for a fast, low-risk follow-up pass since it's fully self-contained.
+- source_spec: none
+  summary: Fix the synchronization gap between Daily Status Report subcontractor entries and Site Details → Subcontractors, so a subcontractor added via a DSR becomes visible (and stays in sync) under Site Details → Subcontractors instead of living as an independent duplicate record.
+  evidence: User-provided multi-goal request split at intent-clarification time. DSR's `subcontractorEntries` is free-text JSON, disconnected from the real `Subcontractor`/`SiteContract` master records used by Site Details — same shape of problem as the DSR Labour-dropdown goal above, but a separate module deserving its own spec/review.
+- source_spec: none
+  summary: Verify RMC Rate is actually optional end-to-end (user reports it currently blocks saving an RMC entry without a rate); if a concrete repro exists, fix the specific gap rather than re-implementing optionality that already appears to be in place.
+  evidence: Investigation during intent-clarification (2026-09-23) found `RmcEntry.ratePerM3`/`totalAmount` already nullable in `infra/prisma/schema.prisma`, `packages/shared/src/schemas/rmc-entry.ts` already treats `ratePerM3` as optional, and `apps/web/app/(app)/rmc/rmc-form.tsx` already has no `required` attribute on that field with hint text "Optional — leave blank if pricing isn't known yet." Deferred as a verify-only follow-up rather than assumed-necessary new work.
+- source_spec: none
+  summary: Show entered Notes in the corresponding table/list view wherever Notes are captured across the app (Labour, Attendance, DSR, Inventory, RMC, Subcontractors, etc.), with a shortened preview + expand/tooltip for long notes.
+  evidence: User-provided multi-goal request split at intent-clarification time. Cross-cutting sweep across many existing Notes fields with no architectural coupling to any other goal — low risk but touches many files; can ride along with whichever future goal touches a given module, or be done as its own dedicated pass.

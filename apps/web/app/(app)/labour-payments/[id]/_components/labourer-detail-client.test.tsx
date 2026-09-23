@@ -133,12 +133,12 @@ describe("LabourerDetailClient", () => {
       ledger: [
         {
           id: "pay1",
-          weekStartDate: "2026-08-10",
-          weekEndDate: "2026-08-16",
+          weekStartDate: "2026-08-09",
+          weekEndDate: "2026-08-15",
           totalEarned: 4800,
           amountPaid: 4500,
           status: "PARTIAL",
-          paidAt: "2026-08-17",
+          paidAt: "2026-08-16",
           advanceAdjustments: [{ amount: 300 }],
         },
       ],
@@ -148,5 +148,29 @@ describe("LabourerDetailClient", () => {
     expect(screen.getByText("₹300")).toBeInTheDocument();
     expect(screen.getByText("₹4,500")).toBeInTheDocument();
     expect(screen.getByText("PARTIAL")).toBeInTheDocument();
+  });
+
+  // Pre-change historical row (I/O matrix): a DailyLabourWeeklyPayment
+  // created before the Monday->Sunday anchor swap is Monday-anchored
+  // forever (never backfilled/rewritten, AD-9). The ledger's rendering
+  // path is anchor-agnostic — it just formats whatever dates are stored —
+  // so a legacy row must still render its stored dates unshifted.
+  it("renders a pre-change, Monday-anchored ledger row's stored dates unshifted", () => {
+    renderClient({
+      ledger: [
+        {
+          id: "pay-legacy",
+          weekStartDate: "2026-08-10",
+          weekEndDate: "2026-08-16",
+          totalEarned: 5600,
+          amountPaid: 5600,
+          status: "PAID",
+          paidAt: "2026-08-17",
+          advanceAdjustments: [],
+        },
+      ],
+    });
+
+    expect(screen.getByText("10/Aug/2026 – 16/Aug/2026")).toBeInTheDocument();
   });
 });
