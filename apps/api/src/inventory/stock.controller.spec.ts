@@ -6,6 +6,7 @@ import { StockService } from './stock.service';
 describe('StockController', () => {
   let controller: StockController;
   let service: {
+    listInventory: ReturnType<typeof vi.fn>;
     getGodownStock: ReturnType<typeof vi.fn>;
     getAllSiteStock: ReturnType<typeof vi.fn>;
     getSiteStock: ReturnType<typeof vi.fn>;
@@ -15,6 +16,7 @@ describe('StockController', () => {
 
   beforeEach(async () => {
     service = {
+      listInventory: vi.fn(),
       getGodownStock: vi.fn(),
       getAllSiteStock: vi.fn(),
       getSiteStock: vi.fn(),
@@ -28,6 +30,33 @@ describe('StockController', () => {
     }).compile();
 
     controller = module.get<StockController>(StockController);
+  });
+
+  // Story 16.1 convention: every query param is forwarded as one plain
+  // object, not individually re-listed — this endpoint alone has 9 of them.
+  it('listInventory forwards every query param as one object to StockService.listInventory', async () => {
+    service.listInventory.mockResolvedValue({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 25,
+    });
+    const query = {
+      q: 'cement',
+      categoryId: 'cat-1',
+      siteId: 'site-1',
+      locationType: 'SITE',
+      stockLevel: 'LOW',
+      sort: 'quantity',
+      order: 'desc',
+      page: '2',
+      pageSize: '10',
+    };
+
+    const result = await controller.listInventory(query);
+
+    expect(service.listInventory).toHaveBeenCalledWith(query);
+    expect(result).toEqual({ rows: [], total: 0, page: 1, pageSize: 25 });
   });
 
   it('getGodownStock delegates to StockService.getGodownStock', async () => {

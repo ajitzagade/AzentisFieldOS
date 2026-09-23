@@ -1,10 +1,10 @@
 import { authedFetch } from "@/lib/api";
 import Link from "next/link";
+import type { PaginatedResult } from "@azentisfieldos/shared";
 import {
   AlertTriangleIcon,
   ArrowsIcon,
   BoxIcon,
-  DataTable,
   GapFlag,
   MapPinIcon,
   PlusIcon,
@@ -12,22 +12,8 @@ import {
   StatTile,
   buttonVariants,
   cn,
-  type DataTableColumn,
-  type DataTableMobileCard,
 } from "@azentisfieldos/ui";
-
-interface GodownStockRow {
-  materialSizeId: string;
-  quantity: string;
-  materialSize: { label: string; material: { name: string; unit: { name: string } } };
-}
-
-interface SiteStockRow {
-  materialSizeId: string;
-  quantity: string;
-  site: { id: string; name: string };
-  materialSize: { label: string; material: { name: string; unit: { name: string } } };
-}
+import { InventoryListClient, type InventoryRow } from "./inventory-list-client";
 
 interface LowStockMaterial {
   id: string;
@@ -37,20 +23,26 @@ interface LowStockMaterial {
   godownQuantity: string;
 }
 
-async function getGodownStock(): Promise<GodownStockRow[]> {
-  const res = await authedFetch(`/stock/godown`, { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(`Failed to load Godown Stock (${res.status})`);
-  }
-  return res.json();
+interface CategoryOption {
+  id: string;
+  name: string;
 }
 
-async function getAllSiteStock(): Promise<SiteStockRow[]> {
-  const res = await authedFetch(`/stock/site`, { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(`Failed to load Site Stock (${res.status})`);
-  }
-  return res.json();
+interface SiteOption {
+  id: string;
+  name: string;
+}
+
+export interface InventoryPageSearchParams {
+  q?: string;
+  categoryId?: string;
+  siteId?: string;
+  locationType?: string;
+  stockLevel?: string;
+  sort?: string;
+  order?: string;
+  page?: string;
+  pageSize?: string;
 }
 
 async function getLowStockMaterials(): Promise<LowStockMaterial[]> {
@@ -69,47 +61,48 @@ async function getPurchasesThisMonthCount(): Promise<number> {
   return res.json();
 }
 
-// AC #2 is explicit: a low-stock signal is always a GapFlag naming the
-// Material/threshold with a "Transfer Stock" action (the Alerts section
-// below) — "never a bare warning badge." This table intentionally carries
-// no low-stock indicator of its own, so there is exactly one place in the
-// UI a low balance is ever signaled.
-const godownColumns: DataTableColumn<GodownStockRow>[] = [
-  { header: "Material", cell: (r) => r.materialSize.material.name },
-  {
-    header: "Size / Spec",
-    cell: (r) => (r.materialSize.label ? r.materialSize.label : <span className="text-ink-500">—</span>),
-  },
-  { header: "Unit", cell: (r) => r.materialSize.material.unit.name },
-  { header: "Qty on Hand", align: "right", cell: (r) => r.quantity },
-];
+async function getCategories(): Promise<CategoryOption[]> {
+  const res = await authedFetch(`/material-categories`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load Material Categories (${res.status})`);
+  }
+  return res.json();
+}
 
-const siteColumns: DataTableColumn<SiteStockRow>[] = [
-  { header: "Site", cell: (r) => r.site.name },
-  { header: "Material", cell: (r) => `${r.materialSize.material.name}${r.materialSize.label ? ` (${r.materialSize.label})` : ""}` },
-  { header: "Qty", align: "right", cell: (r) => `${r.quantity} ${r.materialSize.material.unit.name}` },
-];
+async function getSites(): Promise<SiteOption[]> {
+  const res = await authedFetch(`/sites`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load Sites (${res.status})`);
+  }
+  return res.json();
+}
 
-const godownMobileCard: DataTableMobileCard<GodownStockRow> = {
-  primary: (r) => r.materialSize.material.name,
-  omitHeaders: ["Material"],
-};
+async function getInventory(params: InventoryPageSearchParams): Promise<PaginatedResult<InventoryRow>> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) query.set(key, value);
+  }
+  if (!query.has("page")) query.set("page", "1");
 
-const siteMobileCard: DataTableMobileCard<SiteStockRow> = {
-  primary: (r) => (
-    <>
-      {r.materialSize.material.name} <span className="text-ink-500">· {r.site.name}</span>
-    </>
-  ),
-  omitHeaders: ["Site", "Material"],
-};
+  const res = await authedFetch(`/stock/inventory?${query.toString()}`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load Inventory (${res.status})`);
+  }
+  return res.json();
+}
 
-export default async function InventoryPage() {
-  const [godownStock, siteStock, lowStockMaterials, purchasesThisMonth] = await Promise.all([
-    getGodownStock(),
-    getAllSiteStock(),
+export default async function InventoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<InventoryPageSearchParams>;
+}) {
+  const params = await searchParams;
+  const [inventory, lowStockMaterials, purchasesThisMonth, categories, sites] = await Promise.all([
+    getInventory(params),
     getLowStockMaterials(),
     getPurchasesThisMonthCount(),
+    getCategories(),
+    getSites(),
   ]);
 
   return (
@@ -175,28 +168,14 @@ export default async function InventoryPage() {
       )}
 
       <h2 className="mb-3 text-card-title text-ink-900">Stock Levels</h2>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <DataTable
-          columns={godownColumns}
-          mobileCard={godownMobileCard}
-          rowKey={(r) => r.materialSizeId}
-          state={
-            godownStock.length === 0
-              ? { status: "empty", icon: <BoxIcon />, message: "No Godown Stock recorded yet." }
-              : { status: "success", rows: godownStock }
-          }
-        />
-        <DataTable
-          columns={siteColumns}
-          mobileCard={siteMobileCard}
-          rowKey={(r) => `${r.site.id}-${r.materialSizeId}`}
-          state={
-            siteStock.length === 0
-              ? { status: "empty", icon: <MapPinIcon />, message: "No Site Stock recorded yet." }
-              : { status: "success", rows: siteStock }
-          }
-        />
-      </div>
+      <InventoryListClient
+        rows={inventory.rows}
+        total={inventory.total}
+        page={inventory.page}
+        pageSize={inventory.pageSize}
+        categories={categories}
+        sites={sites}
+      />
     </>
   );
 }

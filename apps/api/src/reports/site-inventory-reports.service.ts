@@ -83,9 +83,10 @@ export class SiteInventoryReportsService {
   // FR-43: a filtered, report-oriented re-presentation of Epic 5 Story 5.7's
   // Inventory page — current stock (a snapshot, so unaffected by from/to),
   // low-stock flags, and the four transaction histories within the window.
-  // With no siteId, Site Stock has no single Site to read (Story 5.7 exposes
-  // it one Site at a time) so it is empty; Godown Stock, low-stock flags, and
-  // the (all-Site) transaction histories still compose.
+  // With no siteId, Site Stock now reads every Site at once (getAllSiteStock,
+  // the same batch query the unified /inventory screen uses) rather than
+  // returning empty — this is what makes this report agree with /inventory's
+  // all-Sites-by-default view instead of disagreeing with it.
   async getInventoryReport(filters: InventoryReportFilters) {
     const { siteId, materialId } = filters;
     const [
@@ -100,7 +101,7 @@ export class SiteInventoryReportsService {
       this.stock.getGodownStock(materialId),
       siteId
         ? this.stock.getSiteStock(siteId, materialId)
-        : Promise.resolve([]),
+        : this.stock.getAllSiteStock(materialId),
       this.stock.getLowStockMaterials(),
       this.purchases.list(filters),
       this.movements.list(filters),

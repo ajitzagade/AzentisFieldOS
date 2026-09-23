@@ -21,6 +21,7 @@ function makeService() {
   const stock = {
     getGodownStock: vi.fn().mockResolvedValue([]),
     getSiteStock: vi.fn().mockResolvedValue([]),
+    getAllSiteStock: vi.fn().mockResolvedValue([]),
     getLowStockMaterials: vi.fn().mockResolvedValue([]),
   };
   const purchases = { list: vi.fn().mockResolvedValue([]) };
@@ -178,13 +179,15 @@ describe('SiteInventoryReportsService.getInventoryReport (FR-43)', () => {
     });
   });
 
-  it('omits Site Stock when no Site is selected (Story 5.7 reads it one Site at a time)', async () => {
+  it("reads Site Stock across all Sites when no Site is selected, matching /inventory's default view", async () => {
     const ctx = makeService();
+    ctx.stock.getAllSiteStock.mockResolvedValue([{ materialSizeId: 'ms-all' }]);
 
     const result = await ctx.service.getInventoryReport({ materialId: 'mat1' });
 
     expect(ctx.stock.getSiteStock).not.toHaveBeenCalled();
-    expect(result.siteStock).toEqual([]);
+    expect(ctx.stock.getAllSiteStock).toHaveBeenCalledWith('mat1');
+    expect(result.siteStock).toEqual([{ materialSizeId: 'ms-all' }]);
     // Godown stock, low-stock flags, and all-Site transaction history still compose.
     expect(ctx.stock.getGodownStock).toHaveBeenCalledWith('mat1');
     expect(ctx.purchases.list).toHaveBeenCalled();

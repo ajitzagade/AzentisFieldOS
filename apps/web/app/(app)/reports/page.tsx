@@ -800,7 +800,7 @@ function InventoryReportView({
                   status: "empty",
                   message: siteId
                     ? "No Site Stock recorded for this Site."
-                    : "Select a Site to view its Site Stock.",
+                    : "No Site Stock recorded across any Site.",
                 }
               : { status: "success", rows: report.siteStock }
           }
