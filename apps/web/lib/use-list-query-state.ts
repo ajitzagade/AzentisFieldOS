@@ -46,7 +46,16 @@ export function useListQueryState(prefix = ""): ListQueryState {
 
   function push(params: URLSearchParams) {
     const queryString = params.toString();
-    router.replace(queryString ? `${pathname}?${queryString}` : pathname);
+    // { scroll: false } — Next.js's default on any router navigation is to
+    // scroll to top, which App Router applies here too since a searchParams
+    // change re-renders the Server Component page. For a filter/sort/page
+    // change on a list the user is already scrolled into, that's a jarring
+    // full-viewport jump the instant the new data lands — reported as both
+    // "flickering" and "screen jumps to top" (confirmed live: no loading
+    // skeleton, filters stay mounted, old rows stay visible throughout —
+    // the scroll-reset itself was the only actual defect). Every one of the
+    // 12 pages sharing this hook gets the fix at once.
+    router.replace(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false });
   }
 
   function withoutPage(params: URLSearchParams) {

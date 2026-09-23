@@ -124,7 +124,12 @@ export default async function InventoryPage({
         </div>
       </div>
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Hidden below sm: on a phone these four cards (two of them permanent
+          "not yet available" placeholders) filled the entire viewport above
+          the actual Stock Levels list the user came here for — confirmed via
+          screenshot. Kept as a compact row on tablet/desktop where they don't
+          crowd out the list below. */}
+      <div className="mb-8 hidden gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           icon={<BoxIcon />}
           value={<span className="text-ink-500">—</span>}

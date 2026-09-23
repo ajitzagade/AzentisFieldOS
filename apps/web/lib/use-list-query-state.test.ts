@@ -41,7 +41,7 @@ describe("useListQueryState", () => {
 
     act(() => result.current.setQuery("new"));
 
-    expect(replace).toHaveBeenCalledWith("/sites?q=new");
+    expect(replace).toHaveBeenCalledWith("/sites?q=new", { scroll: false });
   });
 
   it("clearing the query removes it from the URL entirely rather than leaving q=", () => {
@@ -50,7 +50,7 @@ describe("useListQueryState", () => {
 
     act(() => result.current.setQuery(""));
 
-    expect(replace).toHaveBeenCalledWith("/sites");
+    expect(replace).toHaveBeenCalledWith("/sites", { scroll: false });
   });
 
   it("setPage writes only the page param, preserving q/sort/order", () => {
@@ -59,7 +59,7 @@ describe("useListQueryState", () => {
 
     act(() => result.current.setPage(2));
 
-    expect(replace).toHaveBeenCalledWith("/sites?q=cement&sort=name&order=asc&page=2");
+    expect(replace).toHaveBeenCalledWith("/sites?q=cement&sort=name&order=asc&page=2", { scroll: false });
   });
 
   it("setSort on a new column defaults to ascending and resets page to 1", () => {
@@ -68,7 +68,7 @@ describe("useListQueryState", () => {
 
     act(() => result.current.setSort("name"));
 
-    expect(replace).toHaveBeenCalledWith("/sites?sort=name&order=asc");
+    expect(replace).toHaveBeenCalledWith("/sites?sort=name&order=asc", { scroll: false });
   });
 
   it("setSort on the already-active column toggles the order", () => {
@@ -77,7 +77,7 @@ describe("useListQueryState", () => {
 
     act(() => result.current.setSort("name"));
 
-    expect(replace).toHaveBeenCalledWith("/sites?sort=name&order=desc");
+    expect(replace).toHaveBeenCalledWith("/sites?sort=name&order=desc", { scroll: false });
   });
 
   it("setFilter adds/updates an arbitrary filter param and resets page to 1", () => {
@@ -86,7 +86,7 @@ describe("useListQueryState", () => {
 
     act(() => result.current.setFilter("status", "ACTIVE"));
 
-    expect(replace).toHaveBeenCalledWith("/sites?status=ACTIVE");
+    expect(replace).toHaveBeenCalledWith("/sites?status=ACTIVE", { scroll: false });
   });
 
   it("setFilter with null clears that filter param", () => {
@@ -95,7 +95,7 @@ describe("useListQueryState", () => {
 
     act(() => result.current.setFilter("status", null));
 
-    expect(replace).toHaveBeenCalledWith("/sites?q=cement");
+    expect(replace).toHaveBeenCalledWith("/sites?q=cement", { scroll: false });
   });
 
   it("getFilter reads an arbitrary filter param straight from the URL", () => {
@@ -114,7 +114,7 @@ describe("useListQueryState", () => {
 
     act(() => result.current.clearAll());
 
-    expect(replace).toHaveBeenCalledWith("/sites?report=day");
+    expect(replace).toHaveBeenCalledWith("/sites?report=day", { scroll: false });
   });
 
   it("clearAll also drops any extra filter keys the caller passes", () => {
@@ -123,7 +123,7 @@ describe("useListQueryState", () => {
 
     act(() => result.current.clearAll(["status"]));
 
-    expect(replace).toHaveBeenCalledWith("/sites?report=day");
+    expect(replace).toHaveBeenCalledWith("/sites?report=day", { scroll: false });
   });
 });
 
@@ -141,7 +141,7 @@ describe("useListQueryState — namespaced (prefix), for two independent lists o
 
     act(() => result.current.setQuery("cement"));
 
-    expect(replace).toHaveBeenCalledWith("/sites?vq=truck&vpage=5&mq=cement");
+    expect(replace).toHaveBeenCalledWith("/sites?vq=truck&vpage=5&mq=cement", { scroll: false });
   });
 
   it("setPage on one namespace does not reset the other namespace's page", () => {
@@ -150,7 +150,7 @@ describe("useListQueryState — namespaced (prefix), for two independent lists o
 
     act(() => result.current.setPage(4));
 
-    expect(replace).toHaveBeenCalledWith("/sites?mpage=4&vpage=5");
+    expect(replace).toHaveBeenCalledWith("/sites?mpage=4&vpage=5", { scroll: false });
   });
 
   it("clearAll on one namespace only drops that namespace's params", () => {
@@ -159,6 +159,6 @@ describe("useListQueryState — namespaced (prefix), for two independent lists o
 
     act(() => result.current.clearAll());
 
-    expect(replace).toHaveBeenCalledWith("/sites?vq=truck&vpage=5");
+    expect(replace).toHaveBeenCalledWith("/sites?vq=truck&vpage=5", { scroll: false });
   });
 });
