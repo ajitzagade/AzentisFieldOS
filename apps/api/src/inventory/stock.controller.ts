@@ -46,4 +46,18 @@ export class StockController {
   getStockByMaterial(@Param('materialId') materialId: string) {
     return this.stockService.getStockByMaterial(materialId);
   }
+
+  // Informational-only — see getOtherSiteStockForMaterialSize's own
+  // comment. `excludeSiteId` is required, not optional: the whole point is
+  // "somewhere other than the Site I'm already looking at".
+  @Get('material-size/:materialSizeId/other-sites')
+  getOtherSiteStockForMaterialSize(
+    @Param('materialSizeId') materialSizeId: string,
+    @Query('excludeSiteId') excludeSiteId: string,
+  ) {
+    return this.stockService.getOtherSiteStockForMaterialSize(
+      materialSizeId,
+      excludeSiteId,
+    );
+  }
 }

@@ -200,6 +200,64 @@ describe('StockService.getStockByMaterial', () => {
   });
 });
 
+describe('StockService.getOtherSiteStockForMaterialSize', () => {
+  it('queries SiteStock excluding the given Site, zero-quantity rows, and Godown entirely', async () => {
+    const { service, siteStockFindMany, godownStockFindMany } = makeService(
+      {},
+    );
+
+    await service.getOtherSiteStockForMaterialSize('ms1', 'site-1');
+
+    expect(siteStockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          materialSizeId: 'ms1',
+          siteId: { not: 'site-1' },
+          quantity: { gt: 0 },
+        },
+      }),
+    );
+    expect(godownStockFindMany).not.toHaveBeenCalled();
+  });
+
+  it('returns matching Sites sorted by quantity descending, never including the excluded Site', async () => {
+    const siteStockFindMany = vi.fn().mockResolvedValue([
+      {
+        quantity: '120',
+        site: { id: 'site-2', name: 'Nashik Metro' },
+        materialSize: { material: { unit: { name: 'Bags' } } },
+      },
+      {
+        quantity: '10',
+        site: { id: 'site-3', name: 'Pune Bypass' },
+        materialSize: { material: { unit: { name: 'Bags' } } },
+      },
+    ]);
+    const { service } = makeService({ siteStockFindMany });
+
+    const result = await service.getOtherSiteStockForMaterialSize(
+      'ms1',
+      'site-1',
+    );
+
+    expect(result).toEqual([
+      { siteId: 'site-2', siteName: 'Nashik Metro', quantity: '120', unit: 'Bags' },
+      { siteId: 'site-3', siteName: 'Pune Bypass', quantity: '10', unit: 'Bags' },
+    ]);
+  });
+
+  it('returns an empty array when no other Site holds a balance', async () => {
+    const { service } = makeService({});
+
+    const result = await service.getOtherSiteStockForMaterialSize(
+      'ms1',
+      'site-1',
+    );
+
+    expect(result).toEqual([]);
+  });
+});
+
 describe('StockService.listInventory', () => {
   function godownRow(overrides: Record<string, unknown> = {}) {
     return {

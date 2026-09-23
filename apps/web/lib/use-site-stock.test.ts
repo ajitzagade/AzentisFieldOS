@@ -9,7 +9,7 @@ vi.mock("./use-authed-fetch", () => ({
 // Imported after the mock above so useStock's own useAuthedFetch() call
 // resolves to the mock (vi.mock is hoisted by Vitest's transform, so this
 // static import already sees it).
-import { stockStatus, useSiteStock, withStockMeta, type StockLookup } from "./use-site-stock";
+import { stockStatus, useOtherSiteStockMap, useSiteStock, withStockMeta, type StockLookup } from "./use-site-stock";
 
 function lookup(entries: Record<string, { quantity: number; unit?: string }>, loading = false): StockLookup {
   return { bySizeId: new Map(Object.entries(entries)), loading };
@@ -165,6 +165,76 @@ describe("stockStatus", () => {
       expect(status?.text).not.toContain("Insufficient");
     });
   });
+
+  // 2026-09-23: naming another Site's balance is purely informational — no
+  // automatic fallback exists for it (unlike Godown), so it's surfaced
+  // distinctly ("needs a Transfer first") and only when there's otherwise
+  // nothing more useful to say.
+  describe("otherSite informational hint (no automatic fallback, unlike Godown)", () => {
+    it("names the other Site when neither this Site nor Godown has any balance", () => {
+      const stock = lookup({});
+      const status = stockStatus({
+        stock,
+        materialSizeId: "ms1",
+        location: "this Site",
+        otherSite: { siteName: "Pune Bypass", quantity: 40, unit: "Bag" },
+      });
+      expect(status).toEqual({
+        text: "Not at this Site — 40 Bag at Pune Bypass, needs a Transfer first",
+        tone: "warning",
+        insufficient: false,
+      });
+    });
+
+    it("prefers the Godown fallback over the other-Site hint when both are present — Godown is actionable automatically, the other Site is not", () => {
+      const stock = lookup({});
+      const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 100, unit: "Bag" } }) };
+      const status = stockStatus({
+        stock,
+        materialSizeId: "ms1",
+        location: "this Site",
+        elsewhere,
+        otherSite: { siteName: "Pune Bypass", quantity: 40, unit: "Bag" },
+      });
+      expect(status?.text).toBe("Not at this Site — 100 Bag at Godown, will be used");
+      expect(status?.tone).toBe("positive");
+    });
+
+    it("is ignored once this Site itself has stock", () => {
+      const stock = lookup({ ms1: { quantity: 10, unit: "Bag" } });
+      const status = stockStatus({
+        stock,
+        materialSizeId: "ms1",
+        location: "this Site",
+        otherSite: { siteName: "Pune Bypass", quantity: 40, unit: "Bag" },
+      });
+      expect(status?.text).toBe("10 Bag available at this Site");
+    });
+
+    it("never marks the entry insufficient before a quantity is typed — purely informational, the real floor check stays server-side and never looks at another Site's balance", () => {
+      const stock = lookup({});
+      const status = stockStatus({
+        stock,
+        materialSizeId: "ms1",
+        location: "this Site",
+        otherSite: { siteName: "Pune Bypass", quantity: 40, unit: "Bag" },
+      });
+      expect(status?.insufficient).toBe(false);
+    });
+
+    it("still defers to the ordinary combined-insufficient check once a quantity is typed — the other-Site name never overrides that Site+Godown is what's actually enforced server-side", () => {
+      const stock = lookup({});
+      const status = stockStatus({
+        stock,
+        materialSizeId: "ms1",
+        quantity: "999",
+        location: "this Site",
+        otherSite: { siteName: "Pune Bypass", quantity: 40, unit: "Bag" },
+      });
+      expect(status?.insufficient).toBe(true);
+      expect(status?.text).toContain("Insufficient stock");
+    });
+  });
 });
 
 describe("useSiteStock", () => {
@@ -281,5 +351,54 @@ describe("withStockMeta", () => {
       { value: "ms1", label: "Cement — 50kg", meta: "1,200 Bag", metaTone: "default" },
       { value: "ms2", label: "TMT Steel — 12mm", meta: "30 at Godown", metaTone: "warning" },
     ]);
+  });
+});
+
+describe("useOtherSiteStockMap", () => {
+  beforeEach(() => {
+    authedFetchMock.mockReset();
+  });
+
+  it("fetches each distinct materialSizeId's other-Sites balance, keyed by excludeSiteId, and resolves the top match per id", async () => {
+    authedFetchMock.mockImplementation((path: string) => {
+      if (path.includes("/stock/material-size/ms1/other-sites")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ siteName: "Pune Bypass", quantity: 40, unit: "Bag" }],
+        });
+      }
+      if (path.includes("/stock/material-size/ms2/other-sites")) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const { result } = renderHook(() => useOtherSiteStockMap(["ms1", "ms2"], "site-1"));
+
+    await waitFor(() => expect(result.current.get("ms1")).toEqual({ siteName: "Pune Bypass", quantity: 40, unit: "Bag" }));
+    expect(result.current.has("ms2")).toBe(false);
+    expect(authedFetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/stock/material-size/ms1/other-sites?excludeSiteId=site-1"),
+    );
+  });
+
+  it("fetches each distinct id only once even when the same materialSizeId appears in multiple rows", async () => {
+    authedFetchMock.mockResolvedValue({ ok: true, json: async () => [] });
+
+    renderHook(() => useOtherSiteStockMap(["ms1", "ms1", "ms1"], "site-1"));
+
+    await waitFor(() => expect(authedFetchMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("returns an empty Map when there is no Site to exclude yet", () => {
+    const { result } = renderHook(() => useOtherSiteStockMap(["ms1"], null));
+    expect(result.current.size).toBe(0);
+    expect(authedFetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns an empty Map when there are no materialSizeIds to look up", () => {
+    const { result } = renderHook(() => useOtherSiteStockMap([null, undefined], "site-1"));
+    expect(result.current.size).toBe(0);
+    expect(authedFetchMock).not.toHaveBeenCalled();
   });
 });

@@ -22,7 +22,7 @@ import {
   formValue,
   useSubmitConfirmation,
 } from "@azentisfieldos/ui";
-import { stockStatus, useGodownStock, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
+import { stockStatus, useGodownStock, useOtherSiteStockMap, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { useClientValidation } from "../../../../lib/use-client-validation";
 import { requireOriginal } from "../../../../lib/require-original";
 import { usePreventFormResetOnError } from "../../../../lib/use-prevent-form-reset-on-error";
@@ -105,6 +105,10 @@ export function ConsumptionForm({
   // 2026-09-22).
   const godownStock = useGodownStock();
   const elsewhereGodown = { label: "Godown", stock: godownStock };
+  // Informational-only "where else is this Material" — see
+  // useOtherSiteStockMap's own comment. A single-element array here (one
+  // picker, not a row list), same hook DSR's multi-row form uses.
+  const otherSiteStock = useOtherSiteStockMap([selectedMaterialSizeId || null], selectedSiteId || null);
 
   // Availability is shown inside the picker options while searching and as
   // a hint once chosen; typing a quantity beyond the balance flips the hint
@@ -121,6 +125,7 @@ export function ConsumptionForm({
         quantity: mode === "new" ? quantity : undefined,
         location: "this Site",
         elsewhere: elsewhereGodown,
+        otherSite: selectedMaterialSizeId ? (otherSiteStock.get(selectedMaterialSizeId) ?? null) : null,
       })
     : undefined;
 

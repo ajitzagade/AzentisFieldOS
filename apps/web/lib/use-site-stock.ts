@@ -126,6 +126,78 @@ export function useGodownStock(enabled = true): StockLookup {
   return useStock(enabled ? { kind: "godown" } : null);
 }
 
+export interface OtherSiteStockEntry {
+  siteName: string;
+  quantity: number;
+  unit?: string;
+}
+
+interface OtherSiteStockRow {
+  siteName: string;
+  quantity: number | string;
+  unit?: string;
+}
+
+// Informational-only "is this Material sitting at some other Site" lookup
+// (2026-09-23) — deliberately separate from useSiteStock/useGodownStock.
+// This never participates in the stock-safety floor check (that's still
+// 100% server-side, current Site + Godown only, unchanged); it exists
+// purely so the picker can name where else a Material physically is,
+// same motivation as the Godown "elsewhere" hint but for Sites, which
+// have no automatic fallback — using this stock still requires a real,
+// separately-recorded Site-to-Site Transfer first.
+//
+// A Map keyed by materialSizeId, not a single-value hook, so a form with
+// several independent picker rows (DSR's Materials Used) can call this
+// ONCE at the top level with every row's materialSizeId and look up each
+// row's result with a plain Map.get() during render — calling a hook
+// inside a per-row .map() would violate the Rules of Hooks (a variable,
+// row-count-dependent number of hook calls). Works identically for a
+// single-picker form (standalone Consumption) with a one-element array.
+export function useOtherSiteStockMap(
+  materialSizeIds: (string | null | undefined)[],
+  excludeSiteId: string | null | undefined,
+): Map<string, OtherSiteStockEntry> {
+  const authedFetch = useAuthedFetch();
+  const ids = useMemo(
+    () => Array.from(new Set(materialSizeIds.filter((id): id is string => Boolean(id)))).sort(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally
+    // keyed on the joined value, not the array reference, which is a new
+    // array every render even when its contents haven't changed.
+    [materialSizeIds.join("|")],
+  );
+  const key = excludeSiteId && ids.length > 0 ? `${excludeSiteId}:${ids.join("|")}` : null;
+  const [state, setState] = useState<{ key: string; map: Map<string, OtherSiteStockEntry> } | null>(null);
+
+  useEffect(() => {
+    if (!key || !excludeSiteId) return;
+    let cancelled = false;
+    Promise.all(
+      ids.map((id) =>
+        authedFetch(`/stock/material-size/${id}/other-sites?excludeSiteId=${excludeSiteId}`)
+          .then((res) => (res.ok ? res.json() : []))
+          .then((rows: OtherSiteStockRow[]) => [id, rows[0]] as const)
+          .catch(() => [id, undefined] as const),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      const map = new Map<string, OtherSiteStockEntry>();
+      // API already sorts each Material Size's own rows by quantity
+      // descending — the largest Site balance is the single most useful
+      // one to name.
+      for (const [id, top] of results) {
+        if (top) map.set(id, { siteName: top.siteName, quantity: Number(top.quantity), unit: top.unit });
+      }
+      setState({ key, map });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, excludeSiteId, ids, authedFetch]);
+
+  return state && state.key === key ? state.map : new Map();
+}
+
 function formatQuantity(entry: StockEntry): string {
   return `${entry.quantity.toLocaleString("en-IN")}${entry.unit ? ` ${entry.unit}` : ""}`;
 }
@@ -174,12 +246,17 @@ export function stockStatus({
   quantity,
   location,
   elsewhere,
+  otherSite,
 }: {
   stock: StockLookup;
   materialSizeId: string | null | undefined;
   quantity?: string;
   location: string;
   elsewhere?: ElsewhereStock;
+  /** Informational only — see useOtherSiteStock's own comment. Never
+   * affects the insufficient/combined-quantity math below, only shown
+   * when there is otherwise nothing to say about `location`/`elsewhere`. */
+  otherSite?: OtherSiteStockEntry | null;
 }): { text: string; tone: FieldHintTone; insufficient: boolean } | undefined {
   if (!materialSizeId) return undefined;
   if (stock.loading) {
@@ -195,6 +272,15 @@ export function stockStatus({
   // "No stock" wording below).
   const willUseElsewhere = elsewhereFound
     ? { text: `Not at ${location} — ${formatQuantity(elsewhereFound)} at ${elsewhere?.label}, will be used`, tone: "positive" as const, insufficient: false }
+    : undefined;
+  // Named-but-not-automatic (2026-09-23): unlike the Godown, there's no
+  // automatic Site-to-Site fallback — the stock floor check never looks at
+  // another Site's balance, so this is purely "here's where it is", never
+  // a promise it'll be used. Only surfaced when Godown doesn't already
+  // cover it (willUseElsewhere) — an actionable, auto-resolving answer
+  // always wins over a merely informational one.
+  const otherSiteHint = !willUseElsewhere && otherSite
+    ? { text: `Not at ${location} — ${formatQuantity(otherSite)} at ${otherSite.siteName}, needs a Transfer first`, tone: "warning" as const, insufficient: false }
     : undefined;
 
   // Bugfix (2026-09-23): Consumption now draws `location` stock first,
@@ -238,11 +324,13 @@ export function stockStatus({
   if (!entry) {
     if (insufficientCombined) return insufficientStatus();
     if (willUseElsewhere) return willUseElsewhere;
+    if (otherSiteHint) return otherSiteHint;
     return { text: `No stock recorded at ${location}`, tone: "warning", insufficient: false };
   }
   if (entry.quantity <= 0) {
     if (insufficientCombined) return insufficientStatus();
     if (willUseElsewhere) return willUseElsewhere;
+    if (otherSiteHint) return otherSiteHint;
     return { text: `No stock available at ${location}`, tone: "warning", insufficient: false };
   }
   const available = formatQuantity(entry);

@@ -12,6 +12,7 @@ describe('StockController', () => {
     getSiteStock: ReturnType<typeof vi.fn>;
     getLowStockMaterials: ReturnType<typeof vi.fn>;
     getStockByMaterial: ReturnType<typeof vi.fn>;
+    getOtherSiteStockForMaterialSize: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -22,6 +23,7 @@ describe('StockController', () => {
       getSiteStock: vi.fn(),
       getLowStockMaterials: vi.fn(),
       getStockByMaterial: vi.fn(),
+      getOtherSiteStockForMaterialSize: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -104,5 +106,24 @@ describe('StockController', () => {
 
     expect(service.getStockByMaterial).toHaveBeenCalledWith('mat-1');
     expect(result).toEqual([{ materialSizeId: 'ms1' }]);
+  });
+
+  it('getOtherSiteStockForMaterialSize delegates with both the materialSizeId param and excludeSiteId query', async () => {
+    service.getOtherSiteStockForMaterialSize.mockResolvedValue([
+      { siteId: 'site-2', siteName: 'Nashik Metro', quantity: '120', unit: 'Bags' },
+    ]);
+
+    const result = await controller.getOtherSiteStockForMaterialSize(
+      'ms1',
+      'site-1',
+    );
+
+    expect(service.getOtherSiteStockForMaterialSize).toHaveBeenCalledWith(
+      'ms1',
+      'site-1',
+    );
+    expect(result).toEqual([
+      { siteId: 'site-2', siteName: 'Nashik Metro', quantity: '120', unit: 'Bags' },
+    ]);
   });
 });

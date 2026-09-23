@@ -27,7 +27,7 @@ import { dsrEquipmentUsedSchema, type CreateDsrInput } from "@azentisfieldos/sha
 import { uploadPhoto } from "../../../../lib/photo-upload";
 import { useAuthedFetch } from "../../../../lib/use-authed-fetch";
 import { useDsrReferenceData } from "../../../../lib/use-dsr-reference-data";
-import { stockStatus, useGodownStock, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
+import { stockStatus, useGodownStock, useOtherSiteStockMap, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { MaterialQuickCreateModal } from "../../materials/_components/material-quick-create-modal";
 import { TeamMemberQuickCreateModal } from "../../team/_components/team-member-quick-create-modal";
 import { VendorQuickCreateModal } from "../../vendors/_components/vendor-quick-create-modal";
@@ -281,6 +281,14 @@ export function DsrDesktopForm({
   const [vehicleQuickCreateOpen, setVehicleQuickCreateOpen] = useState(false);
 
   const [consumptions, setConsumptions] = useState<ConsumptionRow[]>(() => withRowIds(initial?.consumptions));
+  // Informational-only "where else is this Material" — see
+  // useOtherSiteStockMap's own comment. Called once here (not inside the
+  // per-row render loop below) with every row's materialSizeId, looked up
+  // per row with a plain Map.get() during render.
+  const otherSiteStock = useOtherSiteStockMap(
+    consumptions.map((c) => c.materialSizeId),
+    siteId,
+  );
   const [rmcEntries, setRmcEntries] = useState<RmcRow[]>(() => withRowIds(initial?.rmcEntries));
   const [expenses, setExpenses] = useState<ExpenseRow[]>(() => withRowIds(initial?.expenses));
   const [equipmentUsed, setEquipmentUsed] = useState<EquipmentRow[]>(initial?.equipmentUsed ?? []);
@@ -727,7 +735,14 @@ export function DsrDesktopForm({
         <h2 className="mb-3 text-card-title text-ink-900">Materials Used</h2>
         {consumptions.map((row, index) => {
           const stock = siteId
-            ? stockStatus({ stock: siteStock, materialSizeId: row.materialSizeId, quantity: row.quantity, location: "this Site", elsewhere: elsewhereGodown })
+            ? stockStatus({
+                stock: siteStock,
+                materialSizeId: row.materialSizeId,
+                quantity: row.quantity,
+                location: "this Site",
+                elsewhere: elsewhereGodown,
+                otherSite: row.materialSizeId ? (otherSiteStock.get(row.materialSizeId) ?? null) : null,
+              })
             : undefined;
           return (
             <div

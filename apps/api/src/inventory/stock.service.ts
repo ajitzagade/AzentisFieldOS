@@ -204,6 +204,36 @@ export class StockService {
     return rows.sort((a, b) => Number(b.quantity) - Number(a.quantity));
   }
 
+  // Informational-only "is this Material sitting at some other Site"
+  // lookup for the DSR/Consumption stock hint (2026-09-23) — deliberately
+  // separate from every write path. Consumption's actual stock-safety
+  // floor check (takeConsumptionStock) only ever reads/decrements the
+  // current Site's own SiteStock row and GodownStock — it has no code path
+  // that touches another Site's balance at all, and this method's result
+  // is never passed into that check. A Site Engineer cannot use a number
+  // shown here to submit beyond what their own Site + Godown genuinely
+  // hold; using this stock still requires a real, separately-recorded
+  // Site-to-Site Transfer first. `quantity: { gt: 0 }` matches
+  // getStockByMaterial's "holding a balance" convention; the requesting
+  // Site itself is excluded since "elsewhere" only means somewhere else.
+  async getOtherSiteStockForMaterialSize(materialSizeId: string, excludeSiteId: string) {
+    const rows = await this.prisma.siteStock.findMany({
+      where: {
+        materialSizeId,
+        siteId: { not: excludeSiteId },
+        quantity: { gt: 0 },
+      },
+      include: SITE_STOCK_INCLUDE,
+      orderBy: { quantity: 'desc' },
+    });
+    return rows.map((row) => ({
+      siteId: row.site.id,
+      siteName: row.site.name,
+      quantity: row.quantity,
+      unit: row.materialSize.material.unit.name,
+    }));
+  }
+
   // Story 16.x global search's "Inventory" group (product feedback
   // 2026-09-03): a Material's *available stock* — Godown and every Site
   // balance, "crushed sand 6 brass"-style — shown distinctly from the

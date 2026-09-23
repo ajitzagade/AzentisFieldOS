@@ -36,7 +36,7 @@ import { syncQueuedDsrs } from "../../../../lib/dsr-sync";
 import { uploadPhoto } from "../../../../lib/photo-upload";
 import { useAuthedFetch } from "../../../../lib/use-authed-fetch";
 import { useDsrReferenceData } from "../../../../lib/use-dsr-reference-data";
-import { stockStatus, useGodownStock, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
+import { stockStatus, useGodownStock, useOtherSiteStockMap, useSiteStock, withStockMeta } from "../../../../lib/use-site-stock";
 import { MaterialQuickCreateModal } from "../../materials/_components/material-quick-create-modal";
 import { TeamMemberQuickCreateModal } from "../../team/_components/team-member-quick-create-modal";
 import { VendorQuickCreateModal } from "../../vendors/_components/vendor-quick-create-modal";
@@ -326,6 +326,14 @@ function NewDsrForm() {
   const [vehicleQuickCreateOpen, setVehicleQuickCreateOpen] = useState(false);
 
   const [consumptions, setConsumptions] = useState<ConsumptionRow[]>([]);
+  // Informational-only "where else is this Material" — see
+  // useOtherSiteStockMap's own comment. Called once here (not inside the
+  // per-row render loop below) with every row's materialSizeId, looked up
+  // per row with a plain Map.get() during render.
+  const otherSiteStock = useOtherSiteStockMap(
+    consumptions.map((c) => c.materialSizeId),
+    siteId,
+  );
   const [rmcEntries, setRmcEntries] = useState<RmcRow[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [equipmentUsed, setEquipmentUsed] = useState<EquipmentRow[]>([]);
@@ -1364,7 +1372,14 @@ function NewDsrForm() {
           <h2 className="mb-3 text-card-title text-ink-900">Materials Used</h2>
           {consumptions.map((row, index) => {
             const stock = siteId
-              ? stockStatus({ stock: siteStock, materialSizeId: row.materialSizeId, quantity: row.quantity, location: "this Site", elsewhere: elsewhereGodown })
+              ? stockStatus({
+                  stock: siteStock,
+                  materialSizeId: row.materialSizeId,
+                  quantity: row.quantity,
+                  location: "this Site",
+                  elsewhere: elsewhereGodown,
+                  otherSite: row.materialSizeId ? (otherSiteStock.get(row.materialSizeId) ?? null) : null,
+                })
               : undefined;
             // The unit is already on the picked option (its description) —
             // restate it on the quantity label so "50" is never ambiguous.
