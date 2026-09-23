@@ -2,6 +2,12 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { ConsumptionService } from './consumption.service';
 
+// A Decimal-like stub — every mocked Prisma row field this suite touches
+// only ever needs `.toNumber()` (Consumption.quantity/siteStockQuantity/
+// godownStockQuantity, SiteStock.quantity), never the rest of Decimal.js's
+// surface.
+const decimal = (value: number) => ({ toNumber: () => value });
+
 function makeService(overrides: {
   consumptionCreate?: ReturnType<typeof vi.fn>;
   consumptionFindUnique?: ReturnType<typeof vi.fn>;
@@ -14,6 +20,12 @@ function makeService(overrides: {
   // exactly like before this change.
   siteStockFindUnique?: ReturnType<typeof vi.fn>;
   godownStockUpdateMany?: ReturnType<typeof vi.fn>;
+  // Review loop 1: the correctsId-set branch's negative-delta (give-back)
+  // leg now routes through giveBackConsumptionStock, which upserts rather
+  // than updateMany's — needed once a correction's give-back must reach
+  // Godown Stock too, not just Site Stock.
+  siteStockUpsert?: ReturnType<typeof vi.fn>;
+  godownStockUpsert?: ReturnType<typeof vi.fn>;
 }) {
   const consumptionCreate =
     overrides.consumptionCreate ?? vi.fn().mockResolvedValue({ id: 'c1' });
@@ -22,17 +34,25 @@ function makeService(overrides: {
     overrides.siteStockUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
   const siteStockFindUnique =
     overrides.siteStockFindUnique ??
-    vi.fn().mockResolvedValue({ quantity: { toNumber: () => 1000 } });
+    vi.fn().mockResolvedValue({ quantity: decimal(1000) });
   const godownStockUpdateMany =
     overrides.godownStockUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
+  const siteStockUpsert =
+    overrides.siteStockUpsert ?? vi.fn().mockResolvedValue({});
+  const godownStockUpsert =
+    overrides.godownStockUpsert ?? vi.fn().mockResolvedValue({});
 
   const tx = {
     consumption: { create: consumptionCreate },
     siteStock: {
       updateMany: siteStockUpdateMany,
       findUnique: siteStockFindUnique,
+      upsert: siteStockUpsert,
     },
-    godownStock: { updateMany: godownStockUpdateMany },
+    godownStock: {
+      updateMany: godownStockUpdateMany,
+      upsert: godownStockUpsert,
+    },
   };
 
   const prisma = {
@@ -44,7 +64,16 @@ function makeService(overrides: {
     prisma as unknown as ConstructorParameters<typeof ConsumptionService>[0],
   );
 
-  return { service, prisma, consumptionCreate, siteStockUpdateMany };
+  return {
+    service,
+    prisma,
+    consumptionCreate,
+    siteStockUpdateMany,
+    siteStockFindUnique,
+    godownStockUpdateMany,
+    siteStockUpsert,
+    godownStockUpsert,
+  };
 }
 
 const createInput = {
@@ -77,6 +106,40 @@ describe('ConsumptionService.create', () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
+  // Review loop 1: the Godown-fallback branch (Site short, Godown covers
+  // the remainder) was never exercised by a mocked unit test — every case
+  // above defaults siteStockFindUnique to a large balance, so the fallback
+  // leg never actually ran.
+  it('falls back to Godown Stock for the shortfall when Site Stock alone is short, and persists the split', async () => {
+    const siteStockFindUnique = vi
+      .fn()
+      .mockResolvedValue({ quantity: decimal(4) });
+    const {
+      service,
+      consumptionCreate,
+      siteStockUpdateMany,
+      godownStockUpdateMany,
+    } = makeService({ siteStockFindUnique });
+
+    await service.create({ ...createInput, quantity: 10 }, 'user1');
+
+    expect(siteStockUpdateMany).toHaveBeenCalledWith({
+      where: { siteId: 'site1', materialSizeId: 'ms1', quantity: { gte: 4 } },
+      data: { quantity: { decrement: 4 } },
+    });
+    expect(godownStockUpdateMany).toHaveBeenCalledWith({
+      where: { materialSizeId: 'ms1', quantity: { gte: 6 } },
+      data: { quantity: { decrement: 6 } },
+    });
+    expect(consumptionCreate).toHaveBeenCalledWith({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+      data: expect.objectContaining({
+        siteStockQuantity: 4,
+        godownStockQuantity: 6,
+      }),
+    });
+  });
+
   it('rejects a correctsId that does not reference an existing Consumption', async () => {
     const consumptionFindUnique = vi.fn().mockResolvedValue(null);
     const { service } = makeService({ consumptionFindUnique });
@@ -105,29 +168,113 @@ describe('ConsumptionService.create', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('proceeds when correctsId references an existing Consumption with a matching siteId/materialSizeId', async () => {
-    const consumptionFindUnique = vi.fn().mockResolvedValue({
+  // Review loop 1: a correction's signed delta used to always hit
+  // Site Stock alone via decrementStockWithFloorCheck, regardless of where
+  // the original row actually drew from. These cases cover the fix: a
+  // decrease gives back proportionally to the *original* row's own
+  // recorded split, and an increase draws site-first-then-Godown exactly
+  // like a plain create.
+  describe('correctsId — signed delta routes through the split primitives', () => {
+    // Original consumption: quantity 20, drawn as {site:5, godown:15} —
+    // the exact scenario the spec's I/O matrix uses.
+    const original = {
       id: 'orig',
       siteId: 'site1',
       materialSizeId: 'ms1',
-    });
-    const { service, siteStockUpdateMany } = makeService({
-      consumptionFindUnique,
+      quantity: decimal(20),
+      siteStockQuantity: decimal(5),
+      godownStockQuantity: decimal(15),
+    };
+
+    it('a decrease gives back proportionally to the original split (not all to Site), and persists the signed split', async () => {
+      const consumptionFindUnique = vi.fn().mockResolvedValue(original);
+      const { service, consumptionCreate, siteStockUpsert, godownStockUpsert } =
+        makeService({ consumptionFindUnique });
+
+      await service.create(
+        { ...createInput, quantity: -8, correctsId: 'orig', reason: 'Recount' },
+        'user1',
+      );
+
+      // 8 given back at the original 5:15 (1:3) ratio -> Site +2, Godown +6.
+      expect(siteStockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: { quantity: { increment: 2 } },
+        }),
+      );
+      expect(godownStockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: { quantity: { increment: 6 } },
+        }),
+      );
+      expect(consumptionCreate).toHaveBeenCalledWith({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        data: expect.objectContaining({
+          siteStockQuantity: -2,
+          godownStockQuantity: -6,
+        }),
+      });
     });
 
-    await service.create(
-      {
-        ...createInput,
-        quantity: -4,
-        correctsId: 'orig',
-        reason: 'Recount',
-      },
-      'user1',
-    );
+    it('an increase draws site-first-then-Godown exactly like a plain create, succeeding even when Site alone cannot cover it', async () => {
+      const consumptionFindUnique = vi.fn().mockResolvedValue(original);
+      // Site has only 3 left (post-original-draw scenario) — an increase
+      // of 8 must spill 5 into Godown rather than being wrongly rejected
+      // as "Not enough Site Stock".
+      const siteStockFindUnique = vi
+        .fn()
+        .mockResolvedValue({ quantity: decimal(3) });
+      const {
+        service,
+        consumptionCreate,
+        siteStockUpdateMany,
+        godownStockUpdateMany,
+      } = makeService({ consumptionFindUnique, siteStockFindUnique });
 
-    expect(siteStockUpdateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { quantity: { decrement: -4 } } }),
-    );
+      await service.create(
+        { ...createInput, quantity: 8, correctsId: 'orig', reason: 'Recount' },
+        'user1',
+      );
+
+      expect(siteStockUpdateMany).toHaveBeenCalledWith({
+        where: { siteId: 'site1', materialSizeId: 'ms1', quantity: { gte: 3 } },
+        data: { quantity: { decrement: 3 } },
+      });
+      expect(godownStockUpdateMany).toHaveBeenCalledWith({
+        where: { materialSizeId: 'ms1', quantity: { gte: 5 } },
+        data: { quantity: { decrement: 5 } },
+      });
+      expect(consumptionCreate).toHaveBeenCalledWith({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        data: expect.objectContaining({
+          siteStockQuantity: 3,
+          godownStockQuantity: 5,
+        }),
+      });
+    });
+
+    it('a decrease on a Site-only original (no Godown involvement) still gives everything back to Site, matching pre-fallback behavior', async () => {
+      const siteOnlyOriginal = {
+        ...original,
+        quantity: decimal(20),
+        siteStockQuantity: decimal(20),
+        godownStockQuantity: decimal(0),
+      };
+      const consumptionFindUnique = vi.fn().mockResolvedValue(siteOnlyOriginal);
+      const { service, siteStockUpsert, godownStockUpsert } = makeService({
+        consumptionFindUnique,
+      });
+
+      await service.create(
+        { ...createInput, quantity: -4, correctsId: 'orig', reason: 'Recount' },
+        'user1',
+      );
+
+      expect(siteStockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({ update: { quantity: { increment: 4 } } }),
+      );
+      expect(godownStockUpsert).not.toHaveBeenCalled();
+    });
   });
 });
 

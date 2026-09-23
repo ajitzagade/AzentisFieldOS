@@ -123,6 +123,43 @@ describe("stockStatus", () => {
         "10 Bag available at this Site",
       );
     });
+
+    // Review loop 1: the combined (location + elsewhere) insufficiency
+    // check was added but never exercised with both `quantity` and
+    // `elsewhere` supplied together — these cases close that gap.
+    it("is NOT insufficient when the primary location alone falls short but the combined balance covers it", () => {
+      const stock = lookup({ ms1: { quantity: 5, unit: "Bag" } });
+      const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 100, unit: "Bag" } }) };
+      const status = stockStatus({ stock, materialSizeId: "ms1", quantity: "20", location: "this Site", elsewhere });
+      expect(status?.insufficient).toBe(false);
+      expect(status?.tone).toBe("positive");
+    });
+
+    it("says the remainder will draw from the Godown when the entered quantity exceeds the Site alone but not combined", () => {
+      const stock = lookup({ ms1: { quantity: 5, unit: "Bag" } });
+      const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 100, unit: "Bag" } }) };
+      const status = stockStatus({ stock, materialSizeId: "ms1", quantity: "20", location: "this Site", elsewhere });
+      expect(status?.text).toBe("5 Bag available at this Site — the remaining 15 Bag will draw from Godown");
+    });
+
+    it("IS insufficient when the combined (location + elsewhere) balance still falls short", () => {
+      const stock = lookup({ ms1: { quantity: 5, unit: "Bag" } });
+      const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 10, unit: "Bag" } }) };
+      const status = stockStatus({ stock, materialSizeId: "ms1", quantity: "20", location: "this Site", elsewhere });
+      expect(status).toEqual({
+        text: "Insufficient stock — only 15 Bag available combined (this Site + Godown)",
+        tone: "danger",
+        insufficient: true,
+      });
+    });
+
+    it("never flashes 'Insufficient stock' while the elsewhere balance is still loading, even if the primary location alone looks short", () => {
+      const stock = lookup({ ms1: { quantity: 5, unit: "Bag" } });
+      const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 100 } }, true) };
+      const status = stockStatus({ stock, materialSizeId: "ms1", quantity: "20", location: "this Site", elsewhere });
+      expect(status?.insufficient).toBe(false);
+      expect(status?.text).not.toContain("Insufficient");
+    });
   });
 });
 

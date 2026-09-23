@@ -45,38 +45,6 @@ export async function decrementStockWithFloorCheck(
   }
 }
 
-// Signed Site Stock adjustment for the DSR write paths: a positive delta
-// consumes stock (race-safe floor check above), a negative delta gives
-// stock back. The give-back is an upsert, not decrementStockWithFloorCheck
-// with a negative quantity — that variant requires a SiteStock row to
-// already exist, and a DSR recorded before stock tracking reached this
-// path may reference a Material/Site pair that never got one.
-export async function applySiteStockDelta(
-  tx: Prisma.TransactionClient,
-  siteId: string,
-  materialSizeId: string,
-  delta: number,
-  insufficientMessage: string,
-): Promise<void> {
-  if (delta === 0) {
-    return;
-  }
-  if (delta > 0) {
-    await decrementStockWithFloorCheck(
-      tx,
-      { model: 'siteStock', siteId, materialSizeId },
-      delta,
-      insufficientMessage,
-    );
-    return;
-  }
-  await tx.siteStock.upsert({
-    where: { siteId_materialSizeId: { siteId, materialSizeId } },
-    update: { quantity: { increment: -delta } },
-    create: { siteId, materialSizeId, quantity: -delta },
-  });
-}
-
 // Bugfix (2026-09-23): Consumption (DSR "Materials Used" and the standalone
 // Consumption form's plain-create path) draws Site Stock first, then falls
 // back to Godown Stock for any shortfall — a Material sitting in the Godown
@@ -132,11 +100,12 @@ export async function takeConsumptionStock(
 
 // The exact inverse of takeConsumptionStock: gives stock back to the two
 // locations a Consumption row's stored split says it was drawn from (an
-// edit, a retried offline-sync upsert, or a DSR correction superseding the
-// row). A plain upsert-increment, not decrementStockWithFloorCheck with a
-// negative amount — same reasoning as applySiteStockDelta's give-back leg,
-// a location may not have a row yet for a Consumption recorded before
-// stock tracking reached this path.
+// edit, a retried offline-sync upsert, a DSR correction superseding the
+// row, or a standalone Consumption correction's negative delta, given back
+// proportionally to the *original* row's own recorded split). A plain
+// upsert-increment, not decrementStockWithFloorCheck with a negative
+// amount, since a location may not have a row yet for a Consumption
+// recorded before stock tracking reached this path.
 export async function giveBackConsumptionStock(
   tx: Prisma.TransactionClient,
   siteId: string,

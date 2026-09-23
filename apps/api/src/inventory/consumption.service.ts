@@ -8,7 +8,7 @@ import type {
   InventoryReportFilters,
   PaginatedResult,
 } from '@azentisfieldos/shared';
-import { Prisma } from '../generated/prisma/client';
+import { Consumption, Prisma } from '../generated/prisma/client';
 
 type ConsumptionListRow = Prisma.ConsumptionGetPayload<{
   include: {
@@ -23,10 +23,7 @@ import {
   currentDsrRowsWhere,
   supersededDsrIds,
 } from '../common/superseded-dsrs';
-import {
-  decrementStockWithFloorCheck,
-  takeConsumptionStock,
-} from './stock-delta';
+import { giveBackConsumptionStock, takeConsumptionStock } from './stock-delta';
 
 // FR-12: Site Supervisor or Owner/Admin records Material Consumption at a
 // Site against an activity reference.
@@ -37,8 +34,9 @@ export class ConsumptionService {
   // Story 1.8's attribution rule: `recordedByUserId` is the authenticated
   // user threaded in from the controller, never a client-supplied field.
   async create(input: CreateConsumptionInput, recordedByUserId: string) {
+    let original: Consumption | null = null;
     if (input.correctsId) {
-      const original = await this.prisma.consumption.findUnique({
+      original = await this.prisma.consumption.findUnique({
         where: { id: input.correctsId },
       });
       if (!original) {
@@ -62,17 +60,19 @@ export class ConsumptionService {
 
     try {
       return await this.prisma.$transaction(async (tx) => {
-        // Bugfix (2026-09-23): plain create (no correctsId) draws Site
-        // Stock first, then falls back to Godown Stock for the shortfall,
-        // exactly like the DSR's Materials Used path — and persists the
-        // exact split so a later edit/correction can reverse it precisely.
-        // The correctsId branch is deliberately untouched (deferred, see
-        // spec-dsr-material-used-godown-fallback.md's Boundaries): its
-        // quantity is already a signed delta with no prior row to reverse
-        // against, so `decrementStockWithFloorCheck` against Site Stock
-        // alone stays exactly as it was.
-        const split = input.correctsId
-          ? null
+        // Bugfix (2026-09-23, extended in review loop 1): plain create (no
+        // correctsId) draws Site Stock first, then falls back to Godown
+        // Stock for the shortfall, exactly like the DSR's Materials Used
+        // path. A correction's signed delta routes through the same
+        // primitives: a positive delta (increase) is a fresh draw —
+        // site-first-then-Godown, identical to a plain create — and a
+        // negative delta (decrease) is a give-back, but proportioned to
+        // the *original* row's own recorded split, never blindly credited
+        // to Site Stock alone (that would corrupt both balances for any
+        // row that was ever Godown-sourced). Every row — plain or
+        // correction — persists the exact split it produced.
+        const split = original
+          ? await this.applyCorrectionStockDelta(tx, input, original)
           : await takeConsumptionStock(
               tx,
               input.siteId,
@@ -81,38 +81,71 @@ export class ConsumptionService {
               'Not enough Site Stock for this Consumption.',
             );
 
-        const consumption = await tx.consumption.create({
+        return tx.consumption.create({
           data: {
             ...input,
             recordedByUserId,
             consumedAt: new Date(input.consumedAt),
-            ...(split
-              ? {
-                  siteStockQuantity: split.siteStockQuantity,
-                  godownStockQuantity: split.godownStockQuantity,
-                }
-              : {}),
+            siteStockQuantity: split.siteStockQuantity,
+            godownStockQuantity: split.godownStockQuantity,
           },
         });
-
-        if (input.correctsId) {
-          await decrementStockWithFloorCheck(
-            tx,
-            {
-              model: 'siteStock',
-              siteId: input.siteId,
-              materialSizeId: input.materialSizeId,
-            },
-            input.quantity,
-            'Not enough Site Stock for this Consumption.',
-          );
-        }
-
-        return consumption;
       });
     } catch (error) {
       throw this.translateWriteError(error);
     }
+  }
+
+  // A correction's `input.quantity` is a signed delta, not an absolute
+  // amount (per `createConsumptionSchema`'s `correctsId` branch) — there is
+  // no fresh Consumption row to draw against, only the effect this delta
+  // has on top of the original. An increase is exactly a fresh
+  // takeConsumptionStock draw. A decrease must give back to the same
+  // locations the *original* row actually drew from, in the same
+  // proportion — never a guessed policy (e.g. Site-only, or Godown-first) —
+  // or a correction on a Godown-sourced row would silently corrupt both
+  // balances. `godownAmount` is computed as the remainder (not
+  // `giveBackAmount * godownRatio`) so the two legs always sum to exactly
+  // `giveBackAmount` regardless of floating-point rounding.
+  private async applyCorrectionStockDelta(
+    tx: Prisma.TransactionClient,
+    input: CreateConsumptionInput,
+    original: Consumption,
+  ): Promise<{ siteStockQuantity: number; godownStockQuantity: number }> {
+    const delta = input.quantity;
+    if (delta > 0) {
+      return takeConsumptionStock(
+        tx,
+        input.siteId,
+        input.materialSizeId,
+        delta,
+        'Not enough Site Stock for this Consumption.',
+      );
+    }
+
+    const giveBackAmount = -delta;
+    const originalQuantity = original.quantity.toNumber();
+    const originalSite = original.siteStockQuantity.toNumber();
+    const siteRatio =
+      originalQuantity !== 0 ? originalSite / originalQuantity : 0;
+    const siteAmount = giveBackAmount * siteRatio;
+    const godownAmount = giveBackAmount - siteAmount;
+
+    await giveBackConsumptionStock(
+      tx,
+      input.siteId,
+      input.materialSizeId,
+      siteAmount,
+      godownAmount,
+    );
+
+    // Stored signed, matching the row's own (negative) quantity — so
+    // `siteStockQuantity + godownStockQuantity === quantity` holds for
+    // every Consumption row, correction or not.
+    return {
+      siteStockQuantity: -siteAmount,
+      godownStockQuantity: -godownAmount,
+    };
   }
 
   // Story 13.2 (FR-43): the same Consumption list, optionally narrowed by

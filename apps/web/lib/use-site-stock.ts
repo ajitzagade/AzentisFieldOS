@@ -153,6 +153,17 @@ function elsewhereEntry(materialSizeId: string, elsewhere?: ElsewhereStock): Sto
   return entry && entry.quantity > 0 ? entry : undefined;
 }
 
+// Unlike elsewhereEntry above (which only reports a location as "found"
+// once its balance is positive — the right rule for surfacing "X available
+// elsewhere"), a Unit label is still worth knowing even when the balance
+// there is exactly zero. Used as a last-resort fallback so an "Insufficient
+// stock" message never silently drops the Unit just because the only row
+// that happens to carry one has a zero quantity.
+function elsewhereUnit(materialSizeId: string, elsewhere?: ElsewhereStock): string | undefined {
+  if (!elsewhere || elsewhere.stock.loading) return undefined;
+  return elsewhere.stock.bySizeId.get(materialSizeId)?.unit;
+}
+
 // One shared wording for every Material picker in the app: what is
 // available at the chosen location right now, and — once a quantity is
 // typed — whether that entry would overdraw it. The warning is advisory;
@@ -193,12 +204,27 @@ export function stockStatus({
   const elsewhereQty = elsewhereFound ? elsewhereFound.quantity : 0;
   const combinedQty = locationQty + elsewhereQty;
   const entered = Number(quantity);
+  const quantityEntered = Boolean(quantity?.trim()) && Number.isFinite(entered);
+  // Review fix (loop 1): while the elsewhere (Godown) balance is still
+  // being fetched, elsewhereQty reads as 0 (elsewhereEntry itself treats a
+  // loading lookup as "nothing found") — so without this guard, an amount
+  // that only looks insufficient because Godown hasn't loaded yet would
+  // flash "Insufficient stock" for a moment before flipping to sufficient
+  // once the fetch resolves. Scoped to just the insufficiency check (not a
+  // top-level early return like `stock.loading` above) so the "no balance
+  // recorded/zero" wording below — shown before anything is typed — is
+  // unaffected.
+  const elsewhereLoading = Boolean(elsewhere && elsewhere.stock.loading);
   const insufficientCombined =
-    Boolean(quantity?.trim()) && Number.isFinite(entered) && entered > combinedQty;
+    !elsewhereLoading && quantityEntered && entered > combinedQty;
   const insufficientStatus = (): { text: string; tone: FieldHintTone; insufficient: boolean } => ({
     text: elsewhereFound
       ? `Insufficient stock — only ${formatQuantity({ quantity: combinedQty, unit: elsewhereFound.unit })} available combined (${location} + ${elsewhere?.label})`
-      : `Insufficient stock — only ${formatQuantity({ quantity: combinedQty, unit: entry?.unit })} available at ${location}`,
+      // Review fix (loop 1): entry can be null here (no balance row at
+      // `location` at all) — fall back to elsewhere's own Unit too (even
+      // a zero-quantity elsewhere row still carries one), so the message
+      // never silently drops the unit.
+      : `Insufficient stock — only ${formatQuantity({ quantity: combinedQty, unit: entry?.unit ?? elsewhereUnit(materialSizeId, elsewhere) })} available at ${location}`,
     tone: "danger",
     insufficient: true,
   });
@@ -213,6 +239,22 @@ export function stockStatus({
   }
   const available = formatQuantity(entry);
   if (insufficientCombined) return insufficientStatus();
+  // Review fix (loop 1): when the entered quantity is sufficient only
+  // because of the Godown fallback (it exceeds what's at `location`
+  // alone), say so — otherwise the hint reads "5 available at this Site"
+  // for an entry of 20 that will actually succeed, which looks like a
+  // stale/wrong number rather than a fallback draw.
+  if (elsewhereFound && quantityEntered && entered > entry.quantity) {
+    const fromElsewhere = formatQuantity({
+      quantity: entered - entry.quantity,
+      unit: elsewhereFound.unit,
+    });
+    return {
+      text: `${available} available at ${location} — the remaining ${fromElsewhere} will draw from ${elsewhere?.label}`,
+      tone: "positive",
+      insufficient: false,
+    };
+  }
   return { text: `${available} available at ${location}`, tone: "positive", insufficient: false };
 }
 

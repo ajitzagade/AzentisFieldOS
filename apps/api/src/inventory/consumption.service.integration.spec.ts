@@ -273,4 +273,99 @@ describeIfDb('ConsumptionService (integration)', () => {
     });
     expect(godownStock?.quantity.toString()).toBe('10');
   });
+
+  // Review loop 1: a standalone Consumption correction's signed delta used
+  // to always apply against Site Stock alone, regardless of where the
+  // original row actually drew from — unsafe once plain-creates can draw
+  // from Godown. These cases cover the fix.
+  describe('correctsId — signed delta on a Godown-sourced original row', () => {
+    it('a correction-increase succeeds by drawing Godown when Site alone cannot cover it (not wrongly rejected)', async () => {
+      await prisma.siteStock.create({
+        data: { siteId, materialSizeId, quantity: 5 },
+      });
+      await prisma.godownStock.create({
+        data: { materialSizeId, quantity: 100 },
+      });
+      // Original draws {site:5, godown:15} for 20 — Site is now fully
+      // drained (0 left), so any further draw must come from Godown.
+      const original = await service.create(
+        { siteId, materialSizeId, quantity: 20, consumedAt: '2026-09-23' },
+        userId,
+      );
+      expect(original.siteStockQuantity.toString()).toBe('5');
+      expect(original.godownStockQuantity.toString()).toBe('15');
+
+      const correction = await service.create(
+        {
+          siteId,
+          materialSizeId,
+          quantity: 8,
+          consumedAt: '2026-09-23',
+          correctsId: original.id,
+          reason: 'Recount: 8 more units than originally recorded',
+        },
+        userId,
+      );
+
+      expect(correction.siteStockQuantity.toString()).toBe('0');
+      expect(correction.godownStockQuantity.toString()).toBe('8');
+
+      const siteStock = await prisma.siteStock.findUnique({
+        where: { siteId_materialSizeId: { siteId, materialSizeId } },
+      });
+      expect(siteStock?.quantity.toString()).toBe('0');
+      const godownStock = await prisma.godownStock.findUnique({
+        where: { materialSizeId },
+      });
+      // 100 - 15 (original) - 8 (correction) = 77.
+      expect(godownStock?.quantity.toString()).toBe('77');
+    });
+
+    it('a correction-decrease gives back proportionally to the original split — not all to Site', async () => {
+      await prisma.siteStock.create({
+        data: { siteId, materialSizeId, quantity: 5 },
+      });
+      await prisma.godownStock.create({
+        data: { materialSizeId, quantity: 100 },
+      });
+      // Original draws {site:5, godown:15} for 20.
+      const original = await service.create(
+        { siteId, materialSizeId, quantity: 20, consumedAt: '2026-09-23' },
+        userId,
+      );
+
+      const correction = await service.create(
+        {
+          siteId,
+          materialSizeId,
+          quantity: -8,
+          consumedAt: '2026-09-23',
+          correctsId: original.id,
+          reason: 'Recount: 8 fewer units than originally recorded',
+        },
+        userId,
+      );
+
+      // 8 given back at the original 5:15 (1:3) ratio -> Site +2, Godown +6.
+      expect(correction.siteStockQuantity.toString()).toBe('-2');
+      expect(correction.godownStockQuantity.toString()).toBe('-6');
+
+      const siteStock = await prisma.siteStock.findUnique({
+        where: { siteId_materialSizeId: { siteId, materialSizeId } },
+      });
+      expect(siteStock?.quantity.toString()).toBe('2');
+      const godownStock = await prisma.godownStock.findUnique({
+        where: { materialSizeId },
+      });
+      // 100 - 15 (original) + 6 (correction give-back) = 91.
+      expect(godownStock?.quantity.toString()).toBe('91');
+
+      const unchangedOriginal = await prisma.consumption.findUnique({
+        where: { id: original.id },
+      });
+      expect(unchangedOriginal?.quantity.toString()).toBe('20');
+      expect(unchangedOriginal?.siteStockQuantity.toString()).toBe('5');
+      expect(unchangedOriginal?.godownStockQuantity.toString()).toBe('15');
+    });
+  });
 });
