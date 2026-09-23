@@ -32,6 +32,31 @@ export class DailyLabourAttendanceService {
           "A correction's Labourer must match the Attendance row it corrects",
         );
       }
+      if (original.shift !== input.shift) {
+        throw new BadRequestException(
+          "A correction's Shift must match the row it corrects",
+        );
+      }
+    } else {
+      const superseded = await supersededAttendanceIds(this.prisma);
+      // Matches the model's own doc comment: "One row per Labourer per Site
+      // per date per shift" — siteId must be part of the guard, or a
+      // Labourer couldn't have an independent Day-shift row at two
+      // different Sites on the same date.
+      const duplicate = await this.prisma.dailyLabourAttendance.findFirst({
+        where: {
+          labourerId: input.labourerId,
+          siteId: input.siteId,
+          workDate: new Date(input.workDate),
+          shift: input.shift,
+          ...currentAttendanceWhere(superseded),
+        },
+      });
+      if (duplicate) {
+        throw new BadRequestException(
+          `This Labourer already has a ${input.shift === 'DAY' ? 'Day' : 'Night'} entry for this date — correct it instead`,
+        );
+      }
     }
 
     try {
@@ -41,6 +66,8 @@ export class DailyLabourAttendanceService {
             labourerId: input.labourerId,
             siteId: input.siteId,
             workDate: new Date(input.workDate),
+            shift: input.shift,
+            isHalfDay: input.isHalfDay,
             attended: input.attended,
             perDayAmount: input.perDayAmount,
             correctsId: input.correctsId,
@@ -64,7 +91,7 @@ export class DailyLabourAttendanceService {
     }
   }
 
-  // The Labourer detail page's Mon-Sun calendar — current (non-superseded)
+  // The Labourer detail page's Sun-Sat calendar — current (non-superseded)
   // rows only, so a corrected day never double-counts toward totalEarned.
   async listForLabourer(labourerId: string, from?: string, to?: string) {
     const superseded = await supersededAttendanceIds(this.prisma);

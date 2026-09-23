@@ -20,11 +20,15 @@ async function postJson(path: string, body: unknown): Promise<LabourPaymentFormS
   if (res.status === 400) {
     const responseBody = (await res.json()) as {
       error?: { details?: { fieldErrors?: Record<string, string[]> }; message?: string };
+      message?: string;
     };
     if (responseBody.error?.details?.fieldErrors) {
       return { errors: responseBody.error.details.fieldErrors };
     }
-    return { formError: responseBody.error?.message ?? "Something went wrong. Please try again." };
+    return {
+      formError:
+        responseBody.error?.message ?? responseBody.message ?? "Something went wrong. Please try again.",
+    };
   }
   if (!res.ok) {
     return { formError: "Something went wrong. Please try again." };

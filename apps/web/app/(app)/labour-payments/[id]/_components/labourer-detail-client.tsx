@@ -10,12 +10,21 @@ import { AttendanceFormModal } from "./attendance-form-modal";
 import { WeeklyPaymentFormModal, type AdvanceOption } from "./weekly-payment-form-modal";
 import { addWeeks, currentWeekStart, weekDates } from "../week-utils";
 
+type LabourShift = "DAY" | "NIGHT";
+
 interface AttendanceRow {
   id: string;
   workDate: string;
+  shift: LabourShift;
+  isHalfDay: boolean;
   attended: boolean;
   perDayAmount: number;
   site: { name: string };
+}
+
+interface AttendanceModalTarget {
+  date: string;
+  shift: LabourShift;
 }
 
 export interface WeeklyPaymentLedgerRow {
@@ -64,7 +73,7 @@ export function LabourerDetailClient({
   const [weekStart, setWeekStart] = useState(() => currentWeekStart());
   const [attendance, setAttendance] = useState<AttendanceRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [attendanceModal, setAttendanceModal] = useState<string | null>(null);
+  const [attendanceModal, setAttendanceModal] = useState<AttendanceModalTarget | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   const days = useMemo(() => weekDates(weekStart), [weekStart]);
@@ -100,8 +109,9 @@ export function LabourerDetailClient({
   // The API returns workDate as a full ISO datetime string
   // ("2026-09-21T00:00:00.000Z") — `days` are plain "YYYY-MM-DD", so this
   // must slice to the date portion before keying the lookup, or every
-  // calendar cell misses its own attendance row.
-  const attendanceByDate = new Map(attendance.map((a) => [a.workDate.slice(0, 10), a]));
+  // calendar cell misses its own attendance row. Keyed by date AND shift —
+  // the same labourer/date can have an independent Day row and Night row.
+  const attendanceByDate = new Map(attendance.map((a) => [`${a.workDate.slice(0, 10)}::${a.shift}`, a]));
   const totalEarnedThisWeek = attendance
     .filter((a) => a.attended)
     .reduce((sum, a) => sum + toNum(a.perDayAmount), 0);
@@ -146,31 +156,46 @@ export function LabourerDetailClient({
         </div>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-7">
-          {days.map((day) => {
-            const row = attendanceByDate.get(day);
-            return (
-              <button
-                key={day}
-                type="button"
-                onClick={() => setAttendanceModal(day)}
-                className="flex flex-col gap-1 rounded-md border border-border-hairline bg-surface-1 p-3 text-left transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-surface-2"
-              >
-                <span className="text-caption text-ink-500">{formatDate(day)}</span>
-                {row ? (
-                  <>
-                    <Badge variant={row.attended ? "success" : "danger"}>{row.attended ? "Present" : "Absent"}</Badge>
-                    <span className="text-body-sm font-semibold text-ink-900">{formatMoney(toNum(row.perDayAmount))}</span>
-                    <span className="text-caption text-ink-500">{row.site.name}</span>
-                  </>
-                ) : (
-                  <span className="flex items-center gap-1 text-caption text-ink-500">
-                    <PlusIcon className="size-3" />
-                    Record
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          {days.map((day) => (
+            <div key={day} className="flex flex-col gap-1.5 rounded-md border border-border-hairline bg-surface-1 p-3">
+              <span className="text-caption text-ink-500">{formatDate(day)}</span>
+              {(["DAY", "NIGHT"] as const).map((shift) => {
+                const row = attendanceByDate.get(`${day}::${shift}`);
+                const statusLabel = row
+                  ? row.attended
+                    ? row.isHalfDay
+                      ? ", Present, Half Day"
+                      : ", Present"
+                    : ", Absent"
+                  : ", not recorded";
+                return (
+                  <button
+                    key={shift}
+                    type="button"
+                    onClick={() => setAttendanceModal({ date: day, shift })}
+                    aria-label={`${formatDate(day)} — ${shift === "DAY" ? "Day" : "Night"} shift${statusLabel}`}
+                    className="flex flex-col gap-1 rounded-md border border-border-hairline bg-surface-2 p-2 text-left transition-colors duration-(--default-transition-duration) ease-(--ease-standard) hover:bg-surface-3"
+                  >
+                    <span className="text-eyebrow font-semibold text-ink-500">{shift === "DAY" ? "Day" : "Night"}</span>
+                    {row ? (
+                      <>
+                        <Badge variant={row.attended ? "success" : "danger"}>
+                          {row.attended ? (row.isHalfDay ? "Present · Half Day" : "Present") : "Absent"}
+                        </Badge>
+                        <span className="text-body-sm font-semibold text-ink-900">{formatMoney(toNum(row.perDayAmount))}</span>
+                        <span className="text-caption text-ink-500">{row.site.name}</span>
+                      </>
+                    ) : (
+                      <span className="flex items-center gap-1 text-caption text-ink-500">
+                        <PlusIcon className="size-3" />
+                        Record
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </div>
         {loading ? <p className="mt-2 text-caption text-ink-500">Loading…</p> : null}
         <p className="mt-3 text-body-sm text-ink-700">
@@ -225,7 +250,8 @@ export function LabourerDetailClient({
           onOpenChange={(open) => setAttendanceModal(open ? attendanceModal : null)}
           labourerId={labourerId}
           defaultPerDayAmount={defaultPerDayAmount}
-          workDate={attendanceModal}
+          workDate={attendanceModal.date}
+          shift={attendanceModal.shift}
           sites={sites}
           onSuccess={() => {
             setAttendanceModal(null);

@@ -85,6 +85,23 @@ describe("LabourerDetailClient", () => {
     expect(await screen.findByRole("dialog", { name: "Record Attendance" })).toBeInTheDocument();
   });
 
+  // Regression: the only prior click-interaction test clicked the first
+  // ("Record") button in DOM order, which is always the Day sub-cell — so
+  // nothing proved the Night sub-cell actually wires shift: "NIGHT" through.
+  // Each day cell renders Day then Night, so index 1 is the first day's
+  // Night sub-cell.
+  it("opens the attendance modal scoped to Night shift when the Night sub-cell is clicked", async () => {
+    const user = userEvent.setup();
+    renderClient();
+    await waitFor(() => expect(attendanceFetchMock).toHaveBeenCalled());
+
+    const dayButtons = screen.getAllByText("Record");
+    await user.click(dayButtons[1]!.closest("button")!);
+
+    const dialog = await screen.findByRole("dialog", { name: "Record Attendance" });
+    expect(dialog).toHaveTextContent("· Night shift");
+  });
+
   // Regression: the API returns workDate as a full ISO datetime string
   // ("2026-09-21T00:00:00.000Z"), not the plain "YYYY-MM-DD" `days` uses —
   // a real browser run caught the calendar showing every day as empty
@@ -97,6 +114,8 @@ describe("LabourerDetailClient", () => {
         {
           id: "att1",
           workDate: `${currentWeekStart()}T00:00:00.000Z`,
+          shift: "DAY",
+          isHalfDay: false,
           attended: true,
           perDayAmount: 800,
           site: { name: "Verify Site" },
@@ -112,8 +131,46 @@ describe("LabourerDetailClient", () => {
     expect(screen.getAllByText("₹800").length).toBeGreaterThan(0);
     expect(screen.getByText("Verify Site")).toBeInTheDocument();
     expect(screen.getByText("Weekly payable so far:")).toBeInTheDocument();
-    // Six other days still show the empty "Record" affordance.
-    expect(screen.getAllByText("Record")).toHaveLength(6);
+    // 7 days x 2 shifts (Day/Night) = 14 sub-rows, minus the one filled Day
+    // row above = 13 still showing the empty "Record" affordance.
+    expect(screen.getAllByText("Record")).toHaveLength(13);
+  });
+
+  // Day/Night shift: the same labourer/date can have an independent Day
+  // entry and Night entry, each shown and clickable separately.
+  it("shows Day and Night as independently-clickable entries for the same date, and reflects Half Day", async () => {
+    attendanceFetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [
+        {
+          id: "att-day",
+          workDate: `${currentWeekStart()}T00:00:00.000Z`,
+          shift: "DAY",
+          isHalfDay: false,
+          attended: true,
+          perDayAmount: 800,
+          site: { name: "NH-48" },
+        },
+        {
+          id: "att-night",
+          workDate: `${currentWeekStart()}T00:00:00.000Z`,
+          shift: "NIGHT",
+          isHalfDay: true,
+          attended: true,
+          perDayAmount: 400,
+          site: { name: "NH-48" },
+        },
+      ],
+    });
+
+    renderClient();
+
+    expect(await screen.findByText("Present")).toBeInTheDocument();
+    expect(screen.getByText("Present · Half Day")).toBeInTheDocument();
+    expect(screen.getByText("₹800")).toBeInTheDocument();
+    expect(screen.getByText("₹400")).toBeInTheDocument();
+    // Weekly payable sums both shifts.
+    expect(screen.getByText("₹1,200")).toBeInTheDocument();
   });
 
   it("navigates to the previous/next week and refetches attendance for the new range", async () => {

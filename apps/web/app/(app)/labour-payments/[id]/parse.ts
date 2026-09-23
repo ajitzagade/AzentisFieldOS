@@ -3,6 +3,9 @@ import { optionalNumber } from "../../../../lib/parse-helpers";
 
 // The single FormData→schema coercion for the attendance entry form (AD-7),
 // run by both the Server Action and the client's useClientValidation hook.
+// `shift` travels as a hidden input (the calendar cell that opened the
+// modal already fixes which shift is being recorded — not a user choice in
+// this form) and `isHalfDay` as a "1"/"0" hidden input mirroring `attended`.
 // The "Advance" checkbox nests amount/description under `advance` — absent
 // entirely unless the checkbox is on, so the shared schema's `.optional()`
 // stays honest about "no advance this entry" vs. "an advance of ₹0".
@@ -12,6 +15,8 @@ export function parseCreateAttendanceForm(formData: FormData) {
     labourerId: formData.get("labourerId"),
     siteId: formData.get("siteId"),
     workDate: formData.get("workDate"),
+    shift: formData.get("shift") || undefined,
+    isHalfDay: formData.get("isHalfDay") === "1",
     attended: formData.get("attended") === "1",
     perDayAmount: optionalNumber(formData.get("perDayAmount")),
     advance: advanceChecked

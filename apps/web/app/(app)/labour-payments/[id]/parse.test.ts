@@ -7,6 +7,8 @@ function formData(fields: Record<string, string>) {
   return data;
 }
 
+// `shift` is deliberately absent here (defaults to DAY) so the "defaults"
+// test below exercises the absent-hidden-input case honestly.
 const baseAttendance = {
   labourerId: "11111111-1111-4111-8111-111111111111",
   siteId: "22222222-2222-4222-8222-222222222222",
@@ -21,6 +23,26 @@ describe("parseCreateAttendanceForm", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.advance).toBeUndefined();
+    }
+  });
+
+  it("defaults shift to DAY and isHalfDay to false when absent from the form", () => {
+    const result = parseCreateAttendanceForm(formData(baseAttendance));
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shift).toBe("DAY");
+      expect(result.data.isHalfDay).toBe(false);
+    }
+  });
+
+  it("coerces a NIGHT shift and a checked isHalfDay hidden input", () => {
+    const result = parseCreateAttendanceForm(
+      formData({ ...baseAttendance, shift: "NIGHT", isHalfDay: "1" }),
+    );
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shift).toBe("NIGHT");
+      expect(result.data.isHalfDay).toBe(true);
     }
   });
 

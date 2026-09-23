@@ -52,6 +52,8 @@ describeIfDb('Labour Payment module (integration)', () => {
       labourerId: labourer.id,
       siteId,
       workDate: '2026-08-10',
+      shift: 'DAY',
+      isHalfDay: false,
       attended: true,
       perDayAmount: 800,
       advance: { amount: 500, description: 'Medical' },
@@ -61,6 +63,8 @@ describeIfDb('Labour Payment module (integration)', () => {
       labourerId: labourer.id,
       siteId,
       workDate: '2026-08-11',
+      shift: 'DAY',
+      isHalfDay: false,
       attended: true,
       perDayAmount: 800,
     });
@@ -69,6 +73,8 @@ describeIfDb('Labour Payment module (integration)', () => {
       labourerId: labourer.id,
       siteId,
       workDate: '2026-08-12',
+      shift: 'DAY',
+      isHalfDay: false,
       attended: false,
       perDayAmount: 800,
     });
@@ -122,6 +128,8 @@ describeIfDb('Labour Payment module (integration)', () => {
       labourerId: labourer.id,
       siteId,
       workDate: '2026-08-10',
+      shift: 'DAY',
+      isHalfDay: false,
       attended: true,
       perDayAmount: 800,
     });
@@ -148,6 +156,8 @@ describeIfDb('Labour Payment module (integration)', () => {
       labourerId: labourer.id,
       siteId,
       workDate: '2026-08-10',
+      shift: 'DAY',
+      isHalfDay: false,
       attended: true,
       perDayAmount: 700,
     });
@@ -155,6 +165,8 @@ describeIfDb('Labour Payment module (integration)', () => {
       labourerId: labourer.id,
       siteId,
       workDate: '2026-08-10',
+      shift: 'DAY',
+      isHalfDay: false,
       attended: true,
       perDayAmount: 900,
       correctsId: original.id,

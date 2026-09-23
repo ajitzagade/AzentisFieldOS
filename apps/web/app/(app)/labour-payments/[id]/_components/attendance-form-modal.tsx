@@ -38,6 +38,7 @@ export function AttendanceFormModal({
   labourerId,
   defaultPerDayAmount,
   workDate,
+  shift,
   sites,
   onSuccess,
 }: {
@@ -46,6 +47,7 @@ export function AttendanceFormModal({
   labourerId: string;
   defaultPerDayAmount: number | null;
   workDate: string;
+  shift: "DAY" | "NIGHT";
   sites: SiteOption[];
   onSuccess: () => void;
 }) {
@@ -57,7 +59,15 @@ export function AttendanceFormModal({
 
   const [attended, setAttended] = useState(true);
   const [perDayAmount, setPerDayAmount] = useState(defaultPerDayAmount ? String(defaultPerDayAmount) : "");
+  const [isHalfDay, setIsHalfDay] = useState(false);
   const [advanceGiven, setAdvanceGiven] = useState(false);
+
+  function handleDayTypeChange(half: boolean) {
+    setIsHalfDay(half);
+    if (defaultPerDayAmount) {
+      setPerDayAmount(String(half ? defaultPerDayAmount / 2 : defaultPerDayAmount));
+    }
+  }
 
   const announcedRef = useRef(false);
   useEffect(() => {
@@ -73,12 +83,16 @@ export function AttendanceFormModal({
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-ink-900/50" />
         <Dialog.Popup className="fixed top-1/2 left-1/2 z-50 max-h-[85vh] w-[calc(100vw-2rem)] max-w-100 -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-surface-1 p-6 shadow-3">
           <Dialog.Title className="mb-1 text-card-title text-ink-900">Record Attendance</Dialog.Title>
-          <Dialog.Description className="mb-4 text-body-sm text-ink-500">{workDate}</Dialog.Description>
+          <Dialog.Description className="mb-4 text-body-sm text-ink-500">
+            {workDate} · {shift === "DAY" ? "Day" : "Night"} shift
+          </Dialog.Description>
 
           <form ref={formRef} action={formAction} onSubmit={validation.guard()} noValidate>
             <input type="hidden" name="labourerId" value={labourerId} />
             <input type="hidden" name="workDate" value={workDate} />
+            <input type="hidden" name="shift" value={shift} />
             <input type="hidden" name="attended" value={attended ? "1" : "0"} />
+            <input type="hidden" name="isHalfDay" value={isHalfDay ? "1" : "0"} />
 
             <SiteField sites={sites} required error={errorFor("siteId")} />
 
@@ -87,12 +101,30 @@ export function AttendanceFormModal({
               name="attendedSelect"
               icon={<CalendarIcon className="size-4" />}
               value={attended ? "1" : "0"}
-              onChange={(e) => setAttended(e.target.value === "1")}
+              onChange={(e) => {
+                const nowAttended = e.target.value === "1";
+                setAttended(nowAttended);
+                if (!nowAttended) setIsHalfDay(false);
+              }}
               options={[
                 { value: "1", label: "Present" },
                 { value: "0", label: "Absent" },
               ]}
             />
+
+            {attended ? (
+              <SelectField
+                label="Day Type"
+                name="dayTypeSelect"
+                value={isHalfDay ? "half" : "full"}
+                onChange={(e) => handleDayTypeChange(e.target.value === "half")}
+                hint="Half Day only suggests half the amount below — always editable"
+                options={[
+                  { value: "full", label: "Full Day" },
+                  { value: "half", label: "Half Day" },
+                ]}
+              />
+            ) : null}
 
             <div className="mb-1 flex flex-wrap gap-2">
               {QUICK_AMOUNTS.map((amount) => (

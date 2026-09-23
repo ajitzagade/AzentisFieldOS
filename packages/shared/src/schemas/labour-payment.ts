@@ -8,6 +8,8 @@ import { z } from "zod";
 
 export const dailyLabourWeeklyPaymentStatusSchema = z.enum(["PAID", "PARTIAL", "UNPAID"]);
 
+export const labourShiftSchema = z.enum(["DAY", "NIGHT"]);
+
 export const createDailyLabourerSchema = z.object({
   name: z.string().min(1).max(200),
   // Free text (e.g. "Mason", "Helper") — matches DailySiteReport's
@@ -19,18 +21,25 @@ export const createDailyLabourerSchema = z.object({
 
 export type CreateDailyLabourerInput = z.infer<typeof createDailyLabourerSchema>;
 
-// One row per Labourer per Site per date. A correction is a fresh row
-// (correctsId set) restating attended/perDayAmount for that same date —
-// never an edit of the original (AD-9). `advance` is the daily-entry form's
-// optional "Advance" checkbox (per the ask) — when present, a
-// DailyLabourAdvance is created in the same transaction as this attendance
-// row (never on a correction, since re-filing a day's attendance must not
-// silently create a second advance).
+// One row per Labourer per Site per date per shift — a labourer may have an
+// independent Day entry AND Night entry on the same date. A correction is a
+// fresh row (correctsId set) restating attended/perDayAmount/isHalfDay for
+// that same date+shift — never an edit of the original (AD-9); a
+// correction's shift must match the original's, enforced at the service
+// level (a Zod cross-field check can't see the original row). `isHalfDay` is
+// a descriptive flag only — the UI suggests half of defaultPerDayAmount when
+// toggled, but perDayAmount is stored exactly as given, never derived here.
+// `advance` is the daily-entry form's optional "Advance" checkbox (per the
+// ask) — when present, a DailyLabourAdvance is created in the same
+// transaction as this attendance row (never on a correction, since
+// re-filing a day's attendance must not silently create a second advance).
 export const createDailyLabourAttendanceSchema = z
   .object({
     labourerId: z.uuid(),
     siteId: z.uuid(),
     workDate: z.iso.date(),
+    shift: labourShiftSchema.default("DAY"),
+    isHalfDay: z.boolean().default(false),
     attended: z.boolean().default(true),
     perDayAmount: z.number().positive(),
     advance: z

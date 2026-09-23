@@ -690,11 +690,22 @@ model DailyLabourer {
   payments   DailyLabourWeeklyPayment[]
 }
 
-// Append-only (AD-9). One row per Labourer per Site per date — a correction
-// inserts a fresh row (never edits an existing one), same reasoning as
-// WorkRecord above; a weekly payment's totalEarned must resolve to only the
-// current (non-superseded) row per date, never both (see
-// current-labour-rows.ts).
+// DAY/NIGHT — a labourer may have an independent Day entry AND Night entry
+// on the same date, each stored and displayed separately (see
+// DailyLabourAttendance.shift below).
+enum LabourShift {
+  DAY
+  NIGHT
+}
+
+// Append-only (AD-9). One row per Labourer per Site per date per shift — a
+// correction inserts a fresh row (never edits an existing one), same
+// reasoning as WorkRecord above; a weekly payment's totalEarned must resolve
+// to only the current (non-superseded) row per date, never both (see
+// current-labour-rows.ts). `isHalfDay` is a descriptive flag only —
+// `perDayAmount` already means "the actual amount earned by this row" and is
+// never multiplied by it; the UI merely suggests half of
+// DailyLabourer.defaultPerDayAmount when toggled, always overridable.
 model DailyLabourAttendance {
   id               String        @id @default(uuid(7))
   labourerId       String
@@ -702,6 +713,8 @@ model DailyLabourAttendance {
   siteId           String
   site             Site          @relation(fields: [siteId], references: [id])
   workDate         DateTime      @db.Date
+  shift            LabourShift   @default(DAY)
+  isHalfDay        Boolean       @default(false)
   attended         Boolean       @default(true)
   perDayAmount     Decimal
   createdAt        DateTime      @default(now())
