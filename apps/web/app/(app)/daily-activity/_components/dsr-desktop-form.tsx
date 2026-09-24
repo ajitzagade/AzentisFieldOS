@@ -36,6 +36,7 @@ import { VendorQuickCreateModal } from "../../vendors/_components/vendor-quick-c
 import { VehicleQuickCreateModal } from "../../machinery-vehicles/vehicles/_components/vehicle-quick-create-modal";
 import { SubcontractorQuickCreateModal } from "../../subcontractors/_components/subcontractor-quick-create-modal";
 import { DailyLabourerQuickCreateModal } from "../../labour-payments/_components/daily-labourer-quick-create-modal";
+import { SiteContractQuickCreateModal } from "../../sites/[id]/contracts/site-contract-quick-create-modal";
 
 interface SiteOption {
   id: string;
@@ -104,6 +105,7 @@ interface SiteContractOption {
   subcontractorId: string;
   workCategory: string | null;
   rateType: string;
+  status: string;
   subcontractor: { name: string };
 }
 
@@ -318,6 +320,7 @@ export function DsrDesktopForm({
     withPreservedRowIds(initial?.subcontractorEntries),
   );
   const [subcontractorQuickCreateRow, setSubcontractorQuickCreateRow] = useState<number | null>(null);
+  const [siteContractQuickCreateRow, setSiteContractQuickCreateRow] = useState<number | null>(null);
   const [labourEntries, setLabourEntries] = useState<LabourRow[]>(() => withRowIds(initial?.labourEntries));
   const [labourerQuickCreateRow, setLabourerQuickCreateRow] = useState<number | null>(null);
   const [wasteEntries, setWasteEntries] = useState<WasteRow[]>(() => withPreservedRowIds(initial?.wasteDisposalEntries));
@@ -329,38 +332,68 @@ export function DsrDesktopForm({
   // read — never an eager synchronous reset inside the effect) — not part
   // of useDsrReferenceData since that hook loads once, globally, with no
   // Site scoping.
-  const [siteContractState, setSiteContractState] = useState<{ siteId: string; options: SiteContractOption[] } | null>(
+  // Fetches EVERY status now (was `&status=ACTIVE` only) — the picker
+  // itself still only offers Active/non-Fixed-Cost contracts (Work Entries
+  // can only be recorded against one, see work-entry-write.ts), but a
+  // Draft/Completed/Cancelled contract needs to be visible too so
+  // existingNonActiveContractFor below can tell the user one already
+  // exists, instead of the field reading as if nothing was ever synced.
+  const [siteContractState, setSiteContractState] = useState<{ siteId: string; contracts: SiteContractOption[] } | null>(
     null,
   );
+  // Bumped after a successful "+ Create Site Contract" quick-create so the
+  // fetch below re-runs — simpler and more correct than trying to splice a
+  // partial local object (QuickCreateResult only carries {id, name}, not
+  // the full status/rateType/workCategory this list needs).
+  const [siteContractRefreshKey, setSiteContractRefreshKey] = useState(0);
   useEffect(() => {
     if (!siteId) return;
     let cancelled = false;
-    authedFetch(`/site-contracts?siteId=${siteId}&status=ACTIVE`)
+    authedFetch(`/site-contracts?siteId=${siteId}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`${res.status}`))))
       .then((data: SiteContractOption[]) => {
         if (cancelled) return;
-        setSiteContractState({ siteId, options: Array.isArray(data) ? data.filter((c) => c.rateType !== "FIXED_COST") : [] });
+        setSiteContractState({ siteId, contracts: Array.isArray(data) ? data : [] });
       })
       .catch(() => {
-        if (!cancelled) setSiteContractState({ siteId, options: [] });
+        if (!cancelled) setSiteContractState({ siteId, contracts: [] });
       });
     return () => {
       cancelled = true;
     };
-  }, [siteId, authedFetch]);
-  // Review fix (finding #5): scoped per-row to the row's OWN picked
-  // Subcontractor — a flat, Site-wide list let a user pick Subcontractor A
-  // in one field and materialize the ledger entry against Subcontractor
-  // B's contract in the sibling field. A row with no Subcontractor picked
-  // yet sees every Active contract for the Site (nothing to narrow by).
+  }, [siteId, authedFetch, siteContractRefreshKey]);
+  function contractsForSite() {
+    return siteContractState?.siteId === siteId ? siteContractState.contracts : [];
+  }
+  // Revised 2026-09-24 (user-requested): lists EVERY contract for this
+  // Site (any status), not just Active/non-Fixed-Cost — a Subcontractor
+  // already synced from a previous DSR (dsr.service.ts's
+  // syncMissingSiteContracts) starts DRAFT, and hiding it here made the
+  // field look like nothing was ever synced. Non-Active contracts are still
+  // pickable (for the Work note pairing / to see the link exists) but
+  // won't accept a Quantity — see isPickedContractActive below, which gates
+  // that field and the submit-time materialization. Scoped per-row to the
+  // row's OWN picked Subcontractor (Review fix (finding #5)) — a row with
+  // no Subcontractor picked yet sees every contract for the Site.
   function siteContractOptionsFor(row: SubcontractorRow) {
-    const options = siteContractState?.siteId === siteId ? siteContractState.options : [];
-    return options
+    return contractsForSite()
       .filter((c) => !row.subcontractorId || c.subcontractorId === row.subcontractorId)
       .map((c) => ({
         value: c.id,
-        label: `${c.subcontractor.name} — ${c.workCategory ?? "General"}`,
+        label:
+          c.status === "ACTIVE"
+            ? `${c.subcontractor.name} — ${c.workCategory ?? "General"}`
+            : `${c.subcontractor.name} — ${c.workCategory ?? "General"} (${c.status === "DRAFT" ? "Draft" : c.status.charAt(0) + c.status.slice(1).toLowerCase()})`,
       }));
+  }
+  // Work Entries can only be recorded against an Active, non-Fixed-Cost
+  // contract (work-entry-write.ts) — gates the Quantity Completed field and
+  // the submit-time materialization below, now that the picker above lists
+  // every status instead of narrowing to just the linkable ones.
+  function isPickedContractActive(row: SubcontractorRow): boolean {
+    if (!row.siteContractId) return false;
+    const contract = contractsForSite().find((c) => c.id === row.siteContractId);
+    return !!contract && contract.status === "ACTIVE" && contract.rateType !== "FIXED_COST";
   }
   // Waste Material's "Own machinery / vehicle" picker (goal 3) reuses the
   // same Machinery+Vehicle registers equipmentUsed already loads, minus the
@@ -618,8 +651,13 @@ export function DsrDesktopForm({
             // (blank/0/negative) quantity is dropped back to informational-
             // only client-side, rather than reaching the server as a
             // positive()-violating value that fails the whole submission.
-            siteContractId: isSubcontractorLinkValid(s) ? s.siteContractId! : undefined,
-            quantity: isSubcontractorLinkValid(s) ? Number(s.quantity) : undefined,
+            // Revised 2026-09-24: the picker now also lists non-Active
+            // contracts (see siteContractOptionsFor), so the same drop-back
+            // now also applies when the picked contract isn't Active — the
+            // server would otherwise reject the whole submission with
+            // CONTRACT_NOT_ACTIVE (work-entry-write.ts).
+            siteContractId: isSubcontractorLinkValid(s) && isPickedContractActive(s) ? s.siteContractId! : undefined,
+            quantity: isSubcontractorLinkValid(s) && isPickedContractActive(s) ? Number(s.quantity) : undefined,
           })),
         // spec-dsr-labour-dropdown, revised 2026-09-24: only complete rows
         // submit (a Labourer picked, and/or a headcount entered), same rule
@@ -1323,7 +1361,9 @@ export function DsrDesktopForm({
                   )
                 }
                 placeholder="Type to link a Site Contract…"
-                emptyMessage="No matching Active Site Contract for this Site"
+                emptyMessage="No matching Site Contract for this Site"
+                onCreateNew={row.subcontractorId ? () => setSiteContractQuickCreateRow(index) : undefined}
+                createNewLabel="+ Create Site Contract"
               />
             </div>
             <div className="sm:col-span-2">
@@ -1332,8 +1372,8 @@ export function DsrDesktopForm({
                 type="number"
                 min={0}
                 step="any"
-                disabled={!row.siteContractId}
-                hint={row.siteContractId ? "Optional" : "Pick a Contract"}
+                disabled={!isPickedContractActive(row)}
+                hint={!row.siteContractId ? "Pick a Contract" : isPickedContractActive(row) ? "Optional" : "Needs an Active Contract"}
                 value={row.quantity}
                 onChange={(e) =>
                   setSubcontractorEntries((rows) => rows.map((r, i) => (i === index ? { ...r, quantity: e.target.value } : r)))
@@ -1374,7 +1414,7 @@ export function DsrDesktopForm({
           >
             <ComboboxField
               label="Labour"
-              className="sm:col-span-6"
+              className="sm:col-span-12"
               options={reference.labourerOptions}
               value={row.labourerId}
               onValueChange={(value) =>
@@ -1393,36 +1433,42 @@ export function DsrDesktopForm({
               onCreateNew={() => setLabourerQuickCreateRow(index)}
               createNewLabel="+ Add Labour"
             />
-            <TextField
-              label="Men"
-              type="number"
-              min={0}
-              step="1"
-              hint="Optional"
-              className="sm:col-span-2"
-              value={row.men}
-              onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, men: e.target.value } : r)))}
-            />
-            <TextField
-              label="Women"
-              type="number"
-              min={0}
-              step="1"
-              hint="Optional"
-              className="sm:col-span-2"
-              value={row.women}
-              onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, women: e.target.value } : r)))}
-            />
-            <TextField
-              label="Mistri"
-              type="number"
-              min={0}
-              step="1"
-              hint="Optional"
-              className="sm:col-span-2"
-              value={row.mistri}
-              onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, mistri: e.target.value } : r)))}
-            />
+            {/* Own row, generously wide (1/3 each) — a narrower shared row
+                with the Labour picker overflowed the "Optional" hint text
+                into the neighbouring column at smaller viewports.
+                TextField (unlike ComboboxField) applies `className` to its
+                inner <input>, not its outer wrapper — col-span must go on a
+                wrapping div, same pattern as "Quantity completed" below. */}
+            <div className="sm:col-span-4">
+              <TextField
+                label="Men"
+                type="number"
+                min={0}
+                step="1"
+                value={row.men}
+                onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, men: e.target.value } : r)))}
+              />
+            </div>
+            <div className="sm:col-span-4">
+              <TextField
+                label="Women"
+                type="number"
+                min={0}
+                step="1"
+                value={row.women}
+                onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, women: e.target.value } : r)))}
+              />
+            </div>
+            <div className="sm:col-span-4">
+              <TextField
+                label="Mistri"
+                type="number"
+                min={0}
+                step="1"
+                value={row.mistri}
+                onChange={(e) => setLabourEntries((rows) => rows.map((r, i) => (i === index ? { ...r, mistri: e.target.value } : r)))}
+              />
+            </div>
             <div className="sm:col-span-12 flex sm:justify-end">
               <Button type="button" variant="ghost" onClick={() => setLabourEntries((rows) => rows.filter((_, i) => i !== index))}>
                 Remove
@@ -1675,6 +1721,24 @@ export function DsrDesktopForm({
           setLabourerQuickCreateRow(null);
         }}
       />
+      {siteContractQuickCreateRow !== null && subcontractorEntries[siteContractQuickCreateRow]?.subcontractorId ? (
+        <SiteContractQuickCreateModal
+          open={siteContractQuickCreateRow !== null}
+          onOpenChange={(open) => {
+            if (!open) setSiteContractQuickCreateRow(null);
+          }}
+          siteId={siteId}
+          subcontractorId={subcontractorEntries[siteContractQuickCreateRow]!.subcontractorId!}
+          onSuccess={(contract) => {
+            const index = siteContractQuickCreateRow;
+            if (index !== null) {
+              setSubcontractorEntries((rows) => rows.map((r, i) => (i === index ? { ...r, siteContractId: contract.id } : r)));
+            }
+            setSiteContractQuickCreateRow(null);
+            setSiteContractRefreshKey((k) => k + 1);
+          }}
+        />
+      ) : null}
     </form>
   );
 }
