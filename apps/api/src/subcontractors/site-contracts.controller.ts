@@ -21,11 +21,20 @@ import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import { SiteContractsService } from './site-contracts.service';
 
-// Every handler here is Owner/Admin-only (@UseGuards at controller level
-// with @Roles on the class-equivalent — see each handler): engaging a
-// Subcontractor and setting commercial terms is a money/hiring decision,
-// unlike Story 18.3's Work Entries, which is the Supervisor-facing surface
-// in this feature area.
+// Class-level @Roles('OWNER_ADMIN') is the default; handlers override with
+// their own empty @Roles() to open individually (Reflector.getAllAndOverride
+// checks handler-level metadata before class-level).
+//
+// `create` (revised 2026-09-24, user-requested): a Site Engineer creates a
+// Site Contract too now — this is exactly the "+ Create Site Contract"
+// quick-create embedded in a DSR Subcontractor row (site-contract-quick-
+// create-modal.tsx), which a Site Engineer routinely needs while filing a
+// Daily Report, same as syncMissingSiteContracts already silently
+// auto-creates a bare Draft one server-side regardless of role. `update`
+// stays Owner/Admin-only: correcting an already-engaged contract's
+// commercial terms after the fact (Edit terms) is the money/hiring
+// decision this controller was originally locked down for, not the act of
+// registering the engagement itself.
 @UseGuards(RolesGuard)
 @Roles('OWNER_ADMIN')
 @Controller('site-contracts')
@@ -33,6 +42,7 @@ export class SiteContractsController {
   constructor(private readonly siteContractsService: SiteContractsService) {}
 
   @Post()
+  @Roles()
   @UsePipes(new ZodValidationPipe(createSiteContractSchema))
   create(@CurrentUser() user: AuthUser, @Body() body: CreateSiteContractInput) {
     return this.siteContractsService.create(body, user.id);

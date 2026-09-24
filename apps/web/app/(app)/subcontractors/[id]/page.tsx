@@ -188,17 +188,16 @@ export default async function SubcontractorDetailPage({ params }: { params: Prom
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div className="text-section-header text-ink-900">Site Contracts</div>
-        {/* Owner/Admin-only, same rule as the Site page's "Add Subcontractor"
-            (both create a Site Contract via site-contracts.controller.ts). */}
-        {viewerRole === "OWNER_ADMIN" ? (
-          <Link
-            href={`/subcontractors/${subcontractor.id}/contracts/new`}
-            className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
-          >
-            <PlusIcon className="size-4" />
-            Add Site Contract
-          </Link>
-        ) : null}
+        {/* FR-56 (revised 2026-09-24): same rule as the Site page's "Add
+            Subcontractor" — creating a Site Contract is no longer
+            Owner/Admin-only. */}
+        <Link
+          href={`/subcontractors/${subcontractor.id}/contracts/new`}
+          className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
+        >
+          <PlusIcon className="size-4" />
+          Add Site Contract
+        </Link>
       </div>
       <DataTable
         columns={siteContractColumns}

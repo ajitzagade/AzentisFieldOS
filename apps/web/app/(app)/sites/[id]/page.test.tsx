@@ -160,15 +160,15 @@ describe("SiteDetailPage", () => {
     );
   });
 
-  // Engaging a Subcontractor creates a Site Contract via an Owner-gated API
-  // endpoint (FR-55) — a Site Engineer must never see a button (header or
-  // empty-state) that would 403 on submit.
-  it("hides both Add Subcontractor affordances from a Supervisor", async () => {
+  // FR-56 (revised 2026-09-24): a Site Engineer creates a Site Contract too
+  // now — both Add Subcontractor affordances (header and empty-state) must
+  // stay visible for a Supervisor, not just an Owner/Admin.
+  it("shows both Add Subcontractor affordances to a Supervisor too", async () => {
     mockSitePage({ siteContracts: [], role: "SITE_SUPERVISOR" });
 
     await renderDetailPage("site-1");
 
-    expect(screen.queryByRole("link", { name: /Add Subcontractor/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Add Subcontractor/ }).length).toBeGreaterThan(0);
   });
 
   it("renders a distinct error state, not the empty state, when the Site Contracts fetch fails", async () => {
@@ -229,7 +229,9 @@ describe("SiteDetailPage", () => {
     expect(screen.getByText("3 Subcontractors logged with no Site Contract")).toBeInTheDocument();
   });
 
-  it("hides the Subcontractor gap-flag from a Supervisor — only Owner/Admin can act on it", async () => {
+  // FR-56 (revised 2026-09-24): a Site Engineer can also act on this
+  // deep-link now — creating a Site Contract is no longer Owner-only.
+  it("shows the Subcontractor gap-flag to a Supervisor too", async () => {
     mockSitePage({
       subcontractorGap: { count: 1, subcontractorIds: ["sub-1"] },
       role: "SITE_SUPERVISOR",
@@ -237,6 +239,6 @@ describe("SiteDetailPage", () => {
 
     await renderDetailPage("site-1");
 
-    expect(screen.queryByText(/logged with no Site Contract/)).not.toBeInTheDocument();
+    expect(screen.getByText("1 Subcontractor logged with no Site Contract")).toBeInTheDocument();
   });
 });

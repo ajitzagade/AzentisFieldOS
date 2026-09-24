@@ -26,7 +26,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function mockFetch(subcontractors: unknown[], role: "OWNER_ADMIN" | "SITE_SUPERVISOR" = "OWNER_ADMIN") {
+function mockFetch(subcontractors: unknown[]) {
   global.fetch = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url.includes("/subcontractors?")) {
@@ -34,9 +34,6 @@ function mockFetch(subcontractors: unknown[], role: "OWNER_ADMIN" | "SITE_SUPERV
         ok: true,
         json: async () => ({ rows: subcontractors, total: subcontractors.length, page: 1, pageSize: 25 }),
       } as Response;
-    }
-    if (url.includes("/users/me")) {
-      return { ok: true, json: async () => ({ role }) } as Response;
     }
     throw new Error(`Unexpected fetch: ${url}`);
   }) as unknown as typeof fetch;
@@ -97,15 +94,4 @@ describe("SubcontractorsPage", () => {
     expect(screen.getByRole("link", { name: /Add Subcontractor/ })).toHaveAttribute("href", "/subcontractors/new");
   });
 
-  // FR-55: Owner/Admin creates and maintains Subcontractor records — a Site
-  // Engineer can browse this list (and log Work Entries elsewhere) but has
-  // no path to a create form the API would 403 on submit.
-  it("hides Add Subcontractor (header and empty-state) for a Site Engineer", async () => {
-    mockFetch([], "SITE_SUPERVISOR");
-
-    await renderSubcontractorsPage();
-
-    expect(screen.queryByRole("link", { name: /Add Subcontractor/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Add your first Subcontractor/ })).not.toBeInTheDocument();
-  });
 });

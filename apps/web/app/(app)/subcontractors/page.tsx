@@ -1,5 +1,4 @@
 import { authedFetch } from "@/lib/api";
-import { currentRole } from "@/lib/current-role";
 import Link from "next/link";
 import type { PaginatedResult } from "@azentisfieldos/shared";
 import { PlusIcon, buttonVariants, cn } from "@azentisfieldos/ui";
@@ -59,7 +58,7 @@ export default async function SubcontractorsPage({
   searchParams?: Promise<SubcontractorsPageSearchParams>;
 }) {
   const params = (await searchParams) ?? {};
-  const [result, role] = await Promise.all([getSubcontractors(params), currentRole()]);
+  const result = await getSubcontractors(params);
 
   return (
     <>
@@ -70,15 +69,14 @@ export default async function SubcontractorsPage({
             Everyone you outsource site work to, and every Site Contract you&apos;ve engaged them for
           </p>
         </div>
-        {/* FR-55: Owner/Admin creates and maintains Subcontractor records —
-            a Site Engineer can browse this list and log Work Entries against
-            an existing Site Contract, but not add a new Subcontractor. */}
-        {role === "OWNER_ADMIN" ? (
-          <Link href="/subcontractors/new" className={cn(buttonVariants({ variant: "primary" }))}>
-            <PlusIcon className="size-4" />
-            Add Subcontractor
-          </Link>
-        ) : null}
+        {/* FR-55 (revised 2026-09-24): a Site Engineer creates Subcontractor
+            records too now, same as Vendor/Machinery/Vehicle — this button
+            is no longer Owner/Admin-only. Editing/deleting an existing
+            record stays Owner/Admin-only (subcontractors/[id]/edit). */}
+        <Link href="/subcontractors/new" className={cn(buttonVariants({ variant: "primary" }))}>
+          <PlusIcon className="size-4" />
+          Add Subcontractor
+        </Link>
       </div>
 
       <SubcontractorsListClient
@@ -86,7 +84,7 @@ export default async function SubcontractorsPage({
         total={result.total}
         page={result.page}
         pageSize={result.pageSize}
-        canCreate={role === "OWNER_ADMIN"}
+        canCreate
       />
     </>
   );

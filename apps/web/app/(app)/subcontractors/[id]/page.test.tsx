@@ -107,21 +107,27 @@ describe("SubcontractorDetailPage", () => {
     expect(screen.queryByRole("button", { name: /Delete Subcontractor/ })).not.toBeInTheDocument();
   });
 
-  // FR-55: Owner/Admin creates and maintains Subcontractor records — Edit
-  // and Add Site Contract both hit an Owner-gated API endpoint, so a Site
-  // Engineer must never see a button that would 403 on submit.
-  it("shows Edit and Add Site Contract to an Owner/Admin", async () => {
+  // FR-55: editing an existing Subcontractor record stays an Owner-gated
+  // API endpoint, so a Site Engineer must never see a button that would
+  // 403 on submit.
+  it("shows Edit to an Owner/Admin", async () => {
     mockPage({ role: "OWNER_ADMIN" });
     await renderDetailPage("sc1");
     expect(screen.getByRole("link", { name: /^Edit$/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Add Site Contract/ })).toBeInTheDocument();
   });
 
-  it("hides Edit and Add Site Contract from a Supervisor", async () => {
+  it("hides Edit from a Supervisor", async () => {
     mockPage({ role: "SITE_SUPERVISOR" });
     await renderDetailPage("sc1");
     expect(screen.queryByRole("link", { name: /^Edit$/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Add Site Contract/ })).not.toBeInTheDocument();
+  });
+
+  // FR-56 (revised 2026-09-24): a Site Engineer creates a Site Contract too
+  // now — Add Site Contract must stay visible for a Supervisor.
+  it("shows Add Site Contract to a Supervisor too", async () => {
+    mockPage({ role: "SITE_SUPERVISOR" });
+    await renderDetailPage("sc1");
+    expect(screen.getByRole("link", { name: /Add Site Contract/ })).toBeInTheDocument();
   });
 
   it("renders an explicit empty state for zero Site Contracts", async () => {

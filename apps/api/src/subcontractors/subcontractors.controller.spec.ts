@@ -103,16 +103,16 @@ describe('SubcontractorsController', () => {
 describe('SubcontractorsController authorization wiring', () => {
   const reflector = new Reflector();
 
-  it('create/update carry their own OWNER_ADMIN restriction — FR-55', () => {
-    expect(
-      reflector.get(ROLES_KEY, SubcontractorsController.prototype.create),
-    ).toEqual(['OWNER_ADMIN']);
+  it('update carries its own OWNER_ADMIN restriction — FR-55 (revised 2026-09-24: create is no longer gated)', () => {
     expect(
       reflector.get(ROLES_KEY, SubcontractorsController.prototype.update),
     ).toEqual(['OWNER_ADMIN']);
   });
 
-  it('list/findOne/contracts carry no @Roles() metadata — open to both roles for entry-form pickers', () => {
+  it('create/list/findOne/contracts carry no @Roles() metadata — open to both roles (create: user-requested 2026-09-24, to match Vendor/Machinery/Vehicle; the others were already open for entry-form pickers)', () => {
+    expect(
+      reflector.get(ROLES_KEY, SubcontractorsController.prototype.create),
+    ).toBeUndefined();
     expect(
       reflector.get(ROLES_KEY, SubcontractorsController.prototype.list),
     ).toBeUndefined();

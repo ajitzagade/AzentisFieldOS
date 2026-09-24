@@ -466,25 +466,22 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
       <div className="mb-8">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="text-section-header text-ink-900">Subcontractors</div>
-          {/* Engaging a Subcontractor (a new Site Contract) is Owner/Admin-only
-              (FR-55/site-contracts.controller.ts) — same rule as
-              /subcontractors' own "Add Subcontractor", enforced here too. */}
-          {viewerRole === "OWNER_ADMIN" ? (
-            <Link
-              href={`/sites/${site.id}/contracts/new`}
-              className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
-            >
-              <PlusIcon className="size-4" />
-              Add Subcontractor
-            </Link>
-          ) : null}
+          {/* FR-56 (revised 2026-09-24): a Site Engineer creates a Site
+              Contract too now, same as /subcontractors' own "Add
+              Subcontractor" — no longer Owner/Admin-only. */}
+          <Link
+            href={`/sites/${site.id}/contracts/new`}
+            className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+          >
+            <PlusIcon className="size-4" />
+            Add Subcontractor
+          </Link>
         </div>
         {/* spec-subcontractor-dsr-gap-flag: a Subcontractor logged via a
             DSR with no SiteContract at this Site is otherwise invisible in
-            the table below — nudge the Owner to formalize it. Gated to
-            OWNER_ADMIN like "Add Subcontractor" above: only that role can
-            act on the deep link (creating a SiteContract is Owner-only). */}
-        {viewerRole === "OWNER_ADMIN" && subcontractorGap && subcontractorGap.count > 0 ? (
+            the table below — nudge either role to formalize it (revised
+            2026-09-24: creating a SiteContract is no longer Owner-only). */}
+        {subcontractorGap && subcontractorGap.count > 0 ? (
           <div className="mb-4">
             <GapFlag
               icon={<UsersIcon />}
@@ -514,13 +511,12 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
                     status: "empty",
                     icon: <UsersIcon />,
                     message: "No Subcontractors engaged at this Site yet.",
-                    action:
-                      viewerRole === "OWNER_ADMIN" ? (
-                        <Link href={`/sites/${site.id}/contracts/new`} className={cn(buttonVariants({ variant: "primary" }))}>
-                          <PlusIcon className="size-4" />
-                          Add Subcontractor
-                        </Link>
-                      ) : undefined,
+                    action: (
+                      <Link href={`/sites/${site.id}/contracts/new`} className={cn(buttonVariants({ variant: "primary" }))}>
+                        <PlusIcon className="size-4" />
+                        Add Subcontractor
+                      </Link>
+                    ),
                   }
                 : { status: "success", rows: siteContracts }
           }

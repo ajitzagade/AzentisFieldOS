@@ -38,9 +38,10 @@ const RATE_TYPE_OPTIONS = [
 // Fixed Amount/Unit Label, Start/End Date, Status), not a silent bare-DRAFT
 // auto-sync. Site and Subcontractor are FIXED here (hidden inputs) — both
 // are already known from the DSR row that triggered this, unlike the full
-// form's pickable versions. Same OWNER_ADMIN-only 403 as the full form,
-// surfaced as `formError` exactly the way SubcontractorQuickCreateModal
-// does.
+// form's pickable versions. Create is open to both roles (revised
+// 2026-09-24, user-requested — a Site Engineer routinely needs this while
+// filing a Daily Report); only Editing an existing Site Contract's terms
+// afterward stays Owner/Admin-only.
 export function SiteContractQuickCreateModal({
   open,
   onOpenChange,

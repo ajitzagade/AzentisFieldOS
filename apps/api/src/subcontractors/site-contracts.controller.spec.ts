@@ -106,19 +106,19 @@ describe('SiteContractsController', () => {
 describe('SiteContractsController authorization wiring', () => {
   const reflector = new Reflector();
 
-  it('create/update inherit the class-level OWNER_ADMIN restriction (no handler override)', () => {
+  it('update inherits the class-level OWNER_ADMIN restriction (no handler override)', () => {
     expect(reflector.get<string[]>(ROLES_KEY, SiteContractsController)).toEqual(
       ['OWNER_ADMIN'],
     );
-    expect(
-      reflector.get(ROLES_KEY, SiteContractsController.prototype.create),
-    ).toBeUndefined();
     expect(
       reflector.get(ROLES_KEY, SiteContractsController.prototype.update),
     ).toBeUndefined();
   });
 
-  it('list/findOne carry their own empty @Roles() override, opening them to both roles', () => {
+  it('create/list/findOne carry their own empty @Roles() override, opening them to both roles (create: user-requested 2026-09-24, to unblock the DSR quick-create)', () => {
+    expect(
+      reflector.get(ROLES_KEY, SiteContractsController.prototype.create),
+    ).toEqual([]);
     expect(
       reflector.get(ROLES_KEY, SiteContractsController.prototype.list),
     ).toEqual([]);
