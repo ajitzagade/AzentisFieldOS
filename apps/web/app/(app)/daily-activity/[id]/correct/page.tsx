@@ -33,12 +33,16 @@ interface DsrForCorrection {
     quantity?: number;
     clientGeneratedId?: string;
   }[];
-  // spec-dsr-labour-dropdown: a historical DSR may carry either shape — the
-  // new {labourerId} shape (a report already using the picker) or the
-  // legacy free-text {category, men, women} shape (a report from before
-  // this change). Only the new shape is representable in the correction
-  // form's picker-only Labour UI; see the pre-fill mapping below.
-  labourEntries: ({ labourerId: string } | { category: string; men: number; women: number })[];
+  // spec-dsr-labour-dropdown, revised 2026-09-24: a historical DSR may carry
+  // either shape — the new {labourerId?, men?, women?, mistri?} shape (a
+  // report already using the picker/headcount form) or the legacy free-text
+  // {category, men, women} shape (a report from before either existed).
+  // Only the new shape is representable in the correction form; see the
+  // pre-fill mapping below.
+  labourEntries: (
+    | { labourerId?: string; men?: number; women?: number; mistri?: number }
+    | { category: string; men: number; women: number }
+  )[];
   // goal 3: real WasteDisposal rows materialized against this DSR (findOne's
   // `wasteDisposalEntries: { include: { vendor: true } }`) — pre-fills the
   // desktop correction form's own Waste Material section the same way
@@ -131,17 +135,19 @@ export default async function CorrectDsrPage({ params }: { params: Promise<{ id:
       quantity: s.quantity != null ? String(s.quantity) : "",
       clientGeneratedId: s.clientGeneratedId,
     })),
-    // spec-dsr-labour-dropdown: only rows already in the new {labourerId}
-    // shape are representable in this form's picker-only Labour UI — a
-    // legacy {category, men, women} row on the report being edited stays
-    // exactly as it was originally stored on that (now superseded) report
-    // (AD-9, never rewritten); it just isn't reproducible in this picker,
-    // so editing this report re-states the Labour section from scratch. See
-    // droppedLegacyLabourCount below — the user is warned before submitting
-    // rather than silently losing this from the edited version.
+    // spec-dsr-labour-dropdown, revised 2026-09-24: the new shape
+    // ({labourerId?, men?, women?, mistri?}) is fully representable in the
+    // form now — a row is anything WITHOUT `category` (the legacy shape's
+    // one distinguishing field). Only true pre-dropdown legacy rows are
+    // still not carried forward (droppedLegacyLabourCount below).
     labourEntries: (dsr.labourEntries ?? [])
-      .filter((l): l is { labourerId: string } => "labourerId" in l)
-      .map((l) => ({ labourerId: l.labourerId })),
+      .filter((l): l is { labourerId?: string; men?: number; women?: number; mistri?: number } => !("category" in l))
+      .map((l) => ({
+        labourerId: l.labourerId ?? null,
+        men: l.men != null ? String(l.men) : "",
+        women: l.women != null ? String(l.women) : "",
+        mistri: l.mistri != null ? String(l.mistri) : "",
+      })),
     // goal 3: NOTE — unlike the mobile form's Save-Draft/Resume path, this
     // read comes straight from findOne's real WasteDisposal rows (not the
     // draftContent gap noted in dsr/new/page.tsx), so a correction here
@@ -168,12 +174,12 @@ export default async function CorrectDsrPage({ params }: { params: Promise<{ id:
   };
 
   // spec-dsr-labour-dropdown: how many of the original report's Labour rows
-  // use the pre-dropdown legacy shape and couldn't be carried into this
-  // picker-only form — without this, they'd silently disappear from the
-  // edited version the moment it's submitted (AD-9 keeps the original's raw
-  // data intact, but the "current" view going forward would under-report
+  // use the pre-dropdown legacy {category, men, women} shape and can't be
+  // carried into this form — without this, they'd silently disappear from
+  // the edited version the moment it's submitted (AD-9 keeps the original's
+  // raw data intact, but the "current" view going forward would under-report
   // Labour with no indication why).
-  const droppedLegacyLabourCount = (dsr.labourEntries ?? []).filter((l) => !("labourerId" in l)).length;
+  const droppedLegacyLabourCount = (dsr.labourEntries ?? []).filter((l) => "category" in l).length;
 
   return (
     <>

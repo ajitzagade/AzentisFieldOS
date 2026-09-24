@@ -1,7 +1,6 @@
 import { authedFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
-import { LabourerDetailClient, type WeeklyPaymentLedgerRow } from "./_components/labourer-detail-client";
-import type { AdvanceOption } from "./_components/weekly-payment-form-modal";
+import { LabourerDetailClient, type AdvanceHistoryRow, type WeeklyPaymentLedgerRow } from "./_components/labourer-detail-client";
 import type { SiteOption } from "../../_components/site-field";
 
 interface LabourerDetail {
@@ -29,13 +28,28 @@ async function getSites(): Promise<SiteOption[]> {
   return res.json();
 }
 
-async function getAdvances(labourerId: string): Promise<AdvanceOption[]> {
+// Everything the Advance History section needs — a superset of AdvanceOption
+// (the "Advance given today" payment-modal dropdown only needs id/amount/
+// givenAt, which this structurally satisfies).
+async function getAdvanceHistory(labourerId: string): Promise<AdvanceHistoryRow[]> {
   const res = await authedFetch(`/daily-labour-advances?labourerId=${labourerId}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to load Advances (${res.status})`);
   }
-  const rows = (await res.json()) as { id: string; amount: number; givenAt: string }[];
-  return rows.map((r) => ({ id: r.id, amount: r.amount, givenAt: r.givenAt.slice(0, 10) }));
+  const rows = (await res.json()) as {
+    id: string;
+    amount: number;
+    description: string | null;
+    givenAt: string;
+    adjustments: {
+      id: string;
+      amount: number;
+      note: string | null;
+      adjustedAt: string;
+      payment: { weekStartDate: string; weekEndDate: string } | null;
+    }[];
+  }[];
+  return rows.map((r) => ({ ...r, givenAt: r.givenAt.slice(0, 10) }));
 }
 
 async function getLedger(labourerId: string): Promise<WeeklyPaymentLedgerRow[]> {
@@ -52,7 +66,7 @@ export default async function LabourerDetailPage({ params }: { params: Promise<{
   if (!labourer) {
     notFound();
   }
-  const [sites, advances, ledger] = await Promise.all([getSites(), getAdvances(id), getLedger(id)]);
+  const [sites, advances, ledger] = await Promise.all([getSites(), getAdvanceHistory(id), getLedger(id)]);
 
   return (
     <LabourerDetailClient

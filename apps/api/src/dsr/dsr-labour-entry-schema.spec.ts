@@ -51,18 +51,48 @@ describe('dsrLabourEntrySchema (spec-dsr-labour-dropdown)', () => {
     expect(parsed.success).toBe(false);
   });
 
-  it('has no headcount/quantity field on the new shape — extra keys are stripped, not rejected', () => {
-    // "Never" boundary: no headcount field on the new row shape (one row =
-    // one named person). A stray `men` alongside a real labourerId still
-    // validates as the new shape (z.object strips unrecognized keys) —
-    // this documents that it is silently dropped, not accumulated anywhere.
+  // Revised 2026-09-24 (user-requested): the new row shape gained a
+  // Men/Women/Mistri headcount tally alongside labourerId — both optional,
+  // a row is complete once at least one of the four is set.
+  it('accepts a headcount-only row (no labourerId)', () => {
+    const parsed = dsrLabourEntrySchema.safeParse({
+      men: 3,
+      women: 1,
+      mistri: 2,
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('accepts a row combining a named Labourer AND a headcount', () => {
     const parsed = dsrLabourEntrySchema.safeParse({
       labourerId: 'labourer-1',
       men: 5,
     });
     expect(parsed.success).toBe(true);
-    if (parsed.success) {
-      expect(parsed.data).not.toHaveProperty('men');
+    if (parsed.success && 'men' in parsed.data) {
+      expect(parsed.data.men).toBe(5);
     }
+  });
+
+  it('rejects a new-shape row with every field absent or zero', () => {
+    const parsed = dsrLabourEntrySchema.safeParse({
+      men: 0,
+      women: 0,
+      mistri: 0,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('rejects a legacy-shaped row (has `category`) with a stray `mistri` key — the new schema is .strict() so it cannot silently absorb and strip category', () => {
+    const parsed = dsrLabourEntrySchema.safeParse({
+      category: 'Mason',
+      men: 3,
+      women: 1,
+      mistri: 2,
+    });
+    // Neither branch matches: the legacy schema is `.strict()` too and has
+    // no `mistri` field, so this correctly fails rather than silently
+    // matching the new schema and dropping `category`.
+    expect(parsed.success).toBe(false);
   });
 });

@@ -330,6 +330,46 @@ export class DsrService {
   // -by-clientGeneratedId + signed-difference stock logic is preserved
   // verbatim from create()'s original inline loops so a retried offline sync
   // (AD-8) still drains stock exactly once.
+  // User-requested (2026-09-24): a Subcontractor tagged in a DSR at a Site
+  // with no SiteContract there yet was otherwise invisible under Site
+  // Details -> Subcontractors until an Owner separately visited "Add Site
+  // Contract" (spec-subcontractor-dsr-gap-flag's nudge banner). This closes
+  // that gap automatically, the moment the DSR is written, instead of
+  // waiting on a manual follow-up: a bare DRAFT SiteContract (no commercial
+  // terms — those still need a deliberate Owner decision, same reasoning as
+  // every other Owner-gated pricing/terms field in this app) is enough to
+  // satisfy getSiteSubcontractorGap's existence check and make the pairing
+  // show up in the Subcontractors table. Runs for every role (Site Engineer
+  // or Owner) since it's an internal write, not a direct POST /site-contracts
+  // call — same class of auto-materialization as Purchase-creates-stock.
+  private async syncMissingSiteContracts(
+    tx: Prisma.TransactionClient,
+    siteId: string,
+    subcontractorEntries: CreateDsrInput['subcontractorEntries'],
+  ) {
+    const namedIds = Array.from(
+      new Set(
+        subcontractorEntries
+          .map((s) => s.subcontractorId)
+          .filter((id): id is string => !!id),
+      ),
+    );
+    if (namedIds.length === 0) return;
+
+    const existing = await tx.siteContract.findMany({
+      where: { siteId, subcontractorId: { in: namedIds } },
+      select: { subcontractorId: true },
+    });
+    const existingIds = new Set(existing.map((c) => c.subcontractorId));
+    const missingIds = namedIds.filter((id) => !existingIds.has(id));
+
+    for (const subcontractorId of missingIds) {
+      await tx.siteContract.create({
+        data: { siteId, subcontractorId, status: 'DRAFT' },
+      });
+    }
+  }
+
   private async materializeSubRecords(
     tx: Prisma.TransactionClient,
     dsrId: string,
@@ -337,6 +377,12 @@ export class DsrService {
     reportDate: Date,
     submittedByUserId: string,
   ) {
+    await this.syncMissingSiteContracts(
+      tx,
+      input.siteId,
+      input.subcontractorEntries,
+    );
+
     for (const workRecord of this.sortedWorkRecords(input)) {
       // assertNoDoubleBooking's own findFirst already found this
       // person's existing row for this date (if any) — if it exists at
@@ -1447,6 +1493,12 @@ export class DsrService {
             });
           }
         }
+
+        await this.syncMissingSiteContracts(
+          tx,
+          input.siteId,
+          input.subcontractorEntries,
+        );
 
         // Client-readiness batch (2026-09-20), goal 4: same correctsId-
         // chain reasoning as Waste Material above — SiteContract.

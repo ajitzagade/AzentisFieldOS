@@ -62,10 +62,25 @@ export function AttendanceFormModal({
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [advanceGiven, setAdvanceGiven] = useState(false);
 
+  // Tracks the last Full-Day amount the user actually saw/entered, so
+  // toggling Day Type can always suggest a live half/full figure instead of
+  // a stale `defaultPerDayAmount` (which is often null for a first-time
+  // entry, silently no-op'ing the toggle) or ignoring a quick-amount/typed
+  // value the user picked after opening the modal.
+  const fullDayAmountRef = useRef(defaultPerDayAmount ? String(defaultPerDayAmount) : "");
+
+  function handlePerDayAmountChange(value: string) {
+    setPerDayAmount(value);
+    if (!isHalfDay) fullDayAmountRef.current = value;
+  }
+
   function handleDayTypeChange(half: boolean) {
     setIsHalfDay(half);
-    if (defaultPerDayAmount) {
-      setPerDayAmount(String(half ? defaultPerDayAmount / 2 : defaultPerDayAmount));
+    if (half) {
+      const base = Number(perDayAmount || fullDayAmountRef.current || defaultPerDayAmount || 0);
+      if (base > 0) setPerDayAmount(String(base / 2));
+    } else if (fullDayAmountRef.current) {
+      setPerDayAmount(fullDayAmountRef.current);
     }
   }
 
@@ -114,15 +129,22 @@ export function AttendanceFormModal({
 
             {attended ? (
               <SelectField
-                label="Day Type"
+                label={shift === "NIGHT" ? "Night Type" : "Day Type"}
                 name="dayTypeSelect"
                 value={isHalfDay ? "half" : "full"}
                 onChange={(e) => handleDayTypeChange(e.target.value === "half")}
-                hint="Half Day only suggests half the amount below — always editable"
-                options={[
-                  { value: "full", label: "Full Day" },
-                  { value: "half", label: "Half Day" },
-                ]}
+                hint={`Half ${shift === "NIGHT" ? "Night" : "Day"} only suggests half the amount below — always editable`}
+                options={
+                  shift === "NIGHT"
+                    ? [
+                        { value: "full", label: "Full Night" },
+                        { value: "half", label: "Half Night" },
+                      ]
+                    : [
+                        { value: "full", label: "Full Day" },
+                        { value: "half", label: "Half Day" },
+                      ]
+                }
               />
             ) : null}
 
@@ -133,7 +155,10 @@ export function AttendanceFormModal({
                   type="button"
                   variant={perDayAmount === String(amount) ? "primary" : "secondary"}
                   size="sm"
-                  onClick={() => setPerDayAmount(String(amount))}
+                  onClick={() => {
+                    fullDayAmountRef.current = String(amount);
+                    setPerDayAmount(isHalfDay ? String(amount / 2) : String(amount));
+                  }}
                 >
                   ₹{amount}
                 </Button>
@@ -145,7 +170,7 @@ export function AttendanceFormModal({
               required
               hint="Quick amounts above stay editable — type any other figure directly"
               value={perDayAmount}
-              onChange={(e) => setPerDayAmount(e.target.value)}
+              onChange={(e) => handlePerDayAmountChange(e.target.value)}
               error={errorFor("perDayAmount")}
             />
 

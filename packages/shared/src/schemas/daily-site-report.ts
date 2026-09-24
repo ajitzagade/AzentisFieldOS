@@ -87,14 +87,28 @@ export const dsrEquipmentUsedSchema = z
 
 export type DsrEquipmentUsed = z.infer<typeof dsrEquipmentUsedSchema>;
 
-// spec-dsr-labour-dropdown: a DSR Labour row now names a specific Labourer
-// from the DailyLabourer registry (searchable dropdown + inline
-// quick-create), one row = one named person — no headcount field, multiple
-// people are multiple rows.
-export const dsrLabourEntryNewSchema = z.object({
-  labourerId: z.string(),
-  clientGeneratedId: z.string().optional(),
-});
+// spec-dsr-labour-dropdown, revised 2026-09-24 (user-requested): a DSR
+// Labour row supports TWO entry modes together on one row — the
+// named-Labourer picker (searchable dropdown + inline quick-create) AND a
+// Men/Women/Mistri headcount tally, all four fields optional. A row is
+// complete when at least one is set (pick a person, or just log a count, or
+// both). `.strict()` so a legacy {category,...} row (below) can never
+// accidentally validate against THIS schema first in the union — Zod
+// silently strips unknown keys rather than rejecting them by default, which
+// would otherwise parse a legacy row through here and silently drop its
+// `category` field.
+export const dsrLabourEntryNewSchema = z
+  .object({
+    labourerId: z.string().optional(),
+    men: z.number().int().nonnegative().optional(),
+    women: z.number().int().nonnegative().optional(),
+    mistri: z.number().int().nonnegative().optional(),
+    clientGeneratedId: z.string().optional(),
+  })
+  .strict()
+  .refine((d) => !!d.labourerId || (d.men ?? 0) > 0 || (d.women ?? 0) > 0 || (d.mistri ?? 0) > 0, {
+    message: "Pick a Labourer or enter at least one headcount (Men/Women/Mistri)",
+  });
 
 export type DsrLabourEntryNew = z.infer<typeof dsrLabourEntryNewSchema>;
 
@@ -102,12 +116,12 @@ export type DsrLabourEntryNew = z.infer<typeof dsrLabourEntryNewSchema>;
 // same reasoning as WasteDisposal.wasteType). `total` is derived
 // client-side (men + women) and never submitted as its own field.
 //
-// spec-dsr-labour-dropdown: this is now the LEGACY shape, kept valid only so
-// a historical row already stored in DailySiteReport.labourEntries keeps
-// validating and rendering exactly as before (AD-9) — the form no longer
-// produces this shape; see dsrLabourEntryNewSchema/dsrLabourEntrySchema
-// below (same additive-backward-compat approach dsrSubcontractorEntrySchema
-// used for siteContractId/quantity).
+// spec-dsr-labour-dropdown: this is the LEGACY shape, kept valid only so a
+// historical row already stored in DailySiteReport.labourEntries keeps
+// validating and rendering exactly as before (AD-9) — predates both the
+// named-picker AND the restored Men/Women/Mistri tally above, which is a
+// distinct shape (three fixed categories, no free-text `category` field).
+// `.strict()` — see dsrLabourEntryNewSchema's comment above for why.
 export const dsrLabourEntryLegacySchema = z
   .object({
     category: z.string().min(1),
@@ -115,6 +129,7 @@ export const dsrLabourEntryLegacySchema = z
     women: z.number().int().nonnegative(),
     clientGeneratedId: z.string().optional(),
   })
+  .strict()
   // Defense-in-depth (client-readiness batch review): the web forms already
   // filter out a men=0/women=0 row before submitting, but that filter used
   // to compare the raw string form value (`"0"` is truthy) — a direct API
@@ -126,9 +141,9 @@ export const dsrLabourEntryLegacySchema = z
 export type DsrLabourEntryLegacy = z.infer<typeof dsrLabourEntryLegacySchema>;
 
 // spec-dsr-labour-dropdown: a union — new writes always match
-// dsrLabourEntryNewSchema (labourerId), while a historical row missing
-// labourerId still matches dsrLabourEntryLegacySchema. Never migrated/
-// rewritten (AD-9) — both shapes stay valid indefinitely.
+// dsrLabourEntryNewSchema (labourerId and/or Men/Women/Mistri), while a
+// historical free-text-category row still matches dsrLabourEntryLegacySchema.
+// Never migrated/rewritten (AD-9) — both shapes stay valid indefinitely.
 export const dsrLabourEntrySchema = z.union([dsrLabourEntryNewSchema, dsrLabourEntryLegacySchema]);
 
 export type DsrLabourEntry = z.infer<typeof dsrLabourEntrySchema>;

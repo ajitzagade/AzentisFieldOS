@@ -30,11 +30,23 @@ export class DailyLabourAdvancesService {
     }
   }
 
+  // Includes adjustments (with the settling payment's week, if any) so the
+  // Labourer detail page's Advance History section can show the full
+  // give -> settle trail, not just the bare advance rows the "Advance given
+  // today" dropdown needed before this.
   list(labourerId?: string, from?: string, to?: string) {
     return this.prisma.dailyLabourAdvance.findMany({
       where: {
         labourerId,
         givenAt: dateRangeBounds(from, to),
+      },
+      include: {
+        adjustments: {
+          include: {
+            payment: { select: { weekStartDate: true, weekEndDate: true } },
+          },
+          orderBy: { adjustedAt: 'desc' },
+        },
       },
       orderBy: { givenAt: 'desc' },
     });

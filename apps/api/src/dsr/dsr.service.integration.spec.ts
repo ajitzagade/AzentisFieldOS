@@ -3036,4 +3036,132 @@ describeIfDb('DsrService (integration)', () => {
       await prisma.movement.deleteMany({ where: { id: movement.id } });
     });
   });
+
+  // User-requested (2026-09-24): a DSR naming a Subcontractor with no
+  // SiteContract at this Site should sync automatically instead of leaving
+  // that Subcontractor invisible under Site Details -> Subcontractors until
+  // a separate manual "Add Site Contract" trip.
+  describe('DsrService — auto-syncs a missing SiteContract for a DSR-named Subcontractor', () => {
+    afterEach(async () => {
+      await prisma.dailySiteReport.deleteMany({
+        where: { siteId, reportDate: new Date('2026-08-19') },
+      });
+      await prisma.siteContract.deleteMany({ where: { siteId } });
+    });
+
+    it('creates a bare DRAFT SiteContract on a fresh submission naming a Subcontractor with none yet', async () => {
+      await create({
+        siteId,
+        reportDate: '2026-08-19',
+        workCompleted: 'x',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [
+          { subcontractorId, workNote: 'informational only' },
+        ],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+
+      const contract = await prisma.siteContract.findFirst({
+        where: { siteId, subcontractorId },
+      });
+      expect(contract).not.toBeNull();
+      expect(contract?.status).toBe('DRAFT');
+      expect(contract?.workCategory).toBeNull();
+    });
+
+    it('does not create a duplicate SiteContract when one already exists at this Site', async () => {
+      await prisma.siteContract.create({
+        data: { siteId, subcontractorId, status: 'DRAFT' },
+      });
+
+      await create({
+        siteId,
+        reportDate: '2026-08-19',
+        workCompleted: 'x',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [
+          { subcontractorId, workNote: 'informational only' },
+        ],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+
+      const contracts = await prisma.siteContract.findMany({
+        where: { siteId, subcontractorId },
+      });
+      expect(contracts).toHaveLength(1);
+    });
+
+    it('does not create a SiteContract when the DSR names no Subcontractor', async () => {
+      await create({
+        siteId,
+        reportDate: '2026-08-19',
+        workCompleted: 'x',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+
+      const contracts = await prisma.siteContract.findMany({
+        where: { siteId, subcontractorId },
+      });
+      expect(contracts).toHaveLength(0);
+    });
+
+    it('also syncs on a correction that (re)names a Subcontractor with no SiteContract yet', async () => {
+      const original = await create({
+        siteId,
+        reportDate: '2026-08-19',
+        workCompleted: 'x',
+        workRecords: [],
+        consumptions: [],
+        rmcEntries: [],
+        expenses: [],
+        equipmentUsed: [],
+        subcontractorEntries: [],
+        labourEntries: [],
+        wasteDisposalEntries: [],
+      });
+
+      await correct(
+        original.id,
+        {
+          siteId,
+          reportDate: '2026-08-19',
+          workCompleted: 'x, corrected',
+          workRecords: [],
+          consumptions: [],
+          rmcEntries: [],
+          expenses: [],
+          equipmentUsed: [],
+          subcontractorEntries: [
+            { subcontractorId, workNote: 'added on correction' },
+          ],
+          labourEntries: [],
+          wasteDisposalEntries: [],
+        },
+        'Forgot the Subcontractor on the original',
+      );
+
+      const contract = await prisma.siteContract.findFirst({
+        where: { siteId, subcontractorId },
+      });
+      expect(contract).not.toBeNull();
+      expect(contract?.status).toBe('DRAFT');
+    });
+  });
 });

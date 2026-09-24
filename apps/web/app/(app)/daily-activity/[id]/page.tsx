@@ -144,11 +144,15 @@ interface DsrDetail {
     siteContractId?: string;
     quantity?: number;
   }[];
-  // spec-dsr-labour-dropdown: a historical row may carry either shape —
-  // the new {labourerId} shape (resolved to a name/category below via
-  // getLabourerNames, same pattern as subcontractorNames) or the legacy
-  // free-text {category, men, women} shape, rendered exactly as before.
-  labourEntries?: ({ labourerId: string } | { category: string; men: number; women: number })[];
+  // spec-dsr-labour-dropdown, revised 2026-09-24: a historical row may carry
+  // either shape — the new {labourerId?, men?, women?, mistri?} shape
+  // (labourerId resolved to a name/category below via getLabourerNames,
+  // same pattern as subcontractorNames) or the legacy free-text
+  // {category, men, women} shape, rendered exactly as before.
+  labourEntries?: (
+    | { labourerId?: string; men?: number; women?: number; mistri?: number }
+    | { category: string; men: number; women: number }
+  )[];
   workRecords: WorkRecordDetail[];
   consumptions: ConsumptionDetail[];
   rmcEntries: RmcEntryDetail[];
@@ -262,9 +266,9 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
   const subcontractorNames =
     subcontractorEntries.length > 0 ? await getSubcontractorNames() : new Map<string, string>();
   // spec-dsr-labour-dropdown: only fetched when at least one row needs a
-  // name resolved (new-shape row) — a report with only legacy free-text
-  // rows never hits this.
-  const labourerNames = labourEntries.some((l) => "labourerId" in l)
+  // name resolved (a new-shape row with labourerId set) — a report with
+  // only headcount-only or legacy free-text rows never hits this.
+  const labourerNames = labourEntries.some((l) => "labourerId" in l && l.labourerId)
     ? await getLabourerNames()
     : new Map<string, { name: string; category: string }>();
 
@@ -612,18 +616,28 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
           ) : (
             <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
               {labourEntries.map((l, index) =>
-                "labourerId" in l ? (
-                  // spec-dsr-labour-dropdown: new shape — one named person.
-                  <li key={`${l.labourerId}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
-                    <span>{labourerNames.get(l.labourerId)?.name ?? "Labourer"}</span>
-                    <span className="font-semibold text-ink-700">{labourerNames.get(l.labourerId)?.category ?? "—"}</span>
-                  </li>
-                ) : (
+                "category" in l ? (
                   // Legacy shape — renders exactly as it always has.
-                  <li key={`${l.category}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                  <li key={`legacy-${l.category}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
                     <span>{l.category}</span>
                     <span className="font-semibold text-ink-700">
                       {l.men} men · {l.women} women · {l.men + l.women} total
+                    </span>
+                  </li>
+                ) : (
+                  // spec-dsr-labour-dropdown, revised 2026-09-24: new shape —
+                  // a named person, a Men/Women/Mistri headcount, or both.
+                  <li key={`new-${l.labourerId ?? "tally"}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                    <span>{l.labourerId ? (labourerNames.get(l.labourerId)?.name ?? "Labourer") : "Headcount"}</span>
+                    <span className="font-semibold text-ink-700">
+                      {[
+                        l.labourerId ? (labourerNames.get(l.labourerId)?.category ?? null) : null,
+                        l.men ? `${l.men} Men` : null,
+                        l.women ? `${l.women} Women` : null,
+                        l.mistri ? `${l.mistri} Mistri` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
                     </span>
                   </li>
                 ),
