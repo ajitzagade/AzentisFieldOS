@@ -164,21 +164,35 @@ export function LabourerDetailClient({
       </div>
 
       <div>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={() => setWeekStart((w) => addWeeks(w, -1))}>
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center justify-between gap-2 sm:justify-start">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="shrink-0 px-2 sm:px-3"
+              aria-label="Previous week"
+              onClick={() => setWeekStart((w) => addWeeks(w, -1))}
+            >
               <ChevronRightIcon className="size-4 rotate-180" />
-              Previous week
+              <span className="hidden sm:inline">Previous week</span>
             </Button>
-            <span className="text-body-sm font-medium text-ink-900">
+            <span className="whitespace-nowrap text-center text-caption font-medium text-ink-900 sm:text-body-sm">
               {formatDate(weekStart)} – {formatDate(weekEnd)}
             </span>
-            <Button type="button" variant="secondary" size="sm" onClick={() => setWeekStart((w) => addWeeks(w, 1))}>
-              Next week
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="shrink-0 px-2 sm:px-3"
+              aria-label="Next week"
+              onClick={() => setWeekStart((w) => addWeeks(w, 1))}
+            >
+              <span className="hidden sm:inline">Next week</span>
               <ChevronRightIcon className="size-4" />
             </Button>
           </div>
-          <Button type="button" onClick={() => setPaymentModalOpen(true)}>
+          <Button type="button" className="w-full sm:w-auto" onClick={() => setPaymentModalOpen(true)}>
             <WalletIcon className="size-4" />
             Make Payment
           </Button>
