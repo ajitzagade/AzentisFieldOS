@@ -278,7 +278,7 @@ export function SiteContractForm({
           label="Status"
           name="status"
           defaultValue={initial?.status ?? "DRAFT"}
-          hint="Draft may be saved with terms still incomplete. Switching to Active requires work category, rate type, the rate/amount, and a start date to all be filled in."
+          hint="Draft may be saved with terms still incomplete. Saving a Draft contract with work category, rate type, the rate/amount, and a start date all filled in activates it automatically — leave one of those blank to keep it in Draft."
           options={[
             { value: "DRAFT", label: "Draft — terms not final yet" },
             { value: "ACTIVE", label: "Active — engagement is live and billable" },

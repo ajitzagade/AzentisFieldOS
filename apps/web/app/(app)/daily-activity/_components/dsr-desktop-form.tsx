@@ -3,6 +3,7 @@
 import { type DragEvent, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangleIcon,
   AmountField,
   Badge,
   Button,
@@ -1403,6 +1404,15 @@ export function DsrDesktopForm({
                 }
               />
             </div>
+            {row.siteContractId && !isPickedContractActive(row) ? (
+              <div className="sm:col-span-12 mb-2 flex items-start gap-2 rounded-md border border-warning-700 bg-warning-100 px-3 py-2 text-caption text-warning-700">
+                <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  This won&apos;t create a billable Work Entry — its Site Contract isn&apos;t Active yet. The Work note is still
+                  saved, but no quantity is recorded until an Owner/Admin completes the contract&apos;s terms.
+                </span>
+              </div>
+            ) : null}
             <div className="sm:col-span-12 flex sm:justify-end">
               <Button type="button" variant="ghost" onClick={() => setSubcontractorEntries((rows) => rows.filter((_, i) => i !== index))}>
                 Remove

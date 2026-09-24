@@ -168,6 +168,30 @@ export class SiteContractsService {
         : existing.status) as UpdateSiteContractInput['status'],
     };
 
+    // Client-readiness UX fix (2026-09-24): an Owner completing a Draft
+    // contract's terms via this same PATCH (the "Edit terms" form) rarely
+    // also remembers to flip the Status dropdown to Active — and a DSR
+    // Subcontractor row logged against a still-Draft contract silently
+    // never becomes a billable Work Entry (Quantity stays disabled
+    // client-side until the contract is Active, see
+    // dsr-desktop-form.tsx's isPickedContractActive). If the resulting
+    // record satisfies every ACTIVE-required field (FR-57) while its status
+    // would otherwise still read Draft, promote it to Active as part of
+    // this same save. An explicit non-Draft status (Active/Completed/
+    // Cancelled) sent in this request always wins over this inference —
+    // deliberately NOT gated on whether the caller happened to also send
+    // `status: 'DRAFT'` explicitly, since the Edit terms form's Status
+    // <select> always submits a value and can't distinguish "left alone"
+    // from "actively re-picked." An Owner who wants to stage complete terms
+    // without going live yet can leave one required field blank instead.
+    const autoActivated =
+      existing.status === 'DRAFT' &&
+      merged.status === 'DRAFT' &&
+      collectActiveRequiredIssues({ ...merged, status: 'ACTIVE' }).length === 0;
+    if (autoActivated) {
+      merged.status = 'ACTIVE';
+    }
+
     const issues = [
       ...collectRateTypeIssues(merged),
       ...collectActiveRequiredIssues(merged),
@@ -182,10 +206,14 @@ export class SiteContractsService {
       });
     }
 
+    const dataToPersist: UpdateSiteContractInput = autoActivated
+      ? { ...input, status: 'ACTIVE' }
+      : input;
+
     try {
       const updated = await this.prisma.siteContract.update({
         where: { id },
-        data: input,
+        data: dataToPersist,
       });
       return this.withComputed(updated);
     } catch (error) {

@@ -576,7 +576,10 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
           ) : (
             <ul className="flex flex-col gap-1 text-body-sm text-ink-900">
               {subcontractorEntries.map((s, index) => (
-                <li key={`dsr-${s.subcontractorId}-${index}`} className="flex justify-between border-b border-border-hairline py-1.5 last:border-b-0">
+                <li
+                  key={`dsr-${s.subcontractorId}-${index}`}
+                  className="flex flex-col gap-1 border-b border-border-hairline py-1.5 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
+                >
                   <span>
                     {subcontractorNames.get(s.subcontractorId) ?? "Subcontractor"}
                     {/* goal 4: a picked Site Contract + quantity created a real
@@ -585,6 +588,16 @@ export default async function DsrDetailPage({ params }: { params: Promise<{ id: 
                         Site Contract's ledger. */}
                     {s.quantity !== undefined ? (
                       <span className="ml-2 text-ink-500">— {s.quantity} logged</span>
+                    ) : s.siteContractId ? (
+                      // Data-sync UX fix (2026-09-24): a note+contract were
+                      // saved but the linked Site Contract wasn't Active at
+                      // submit time, so dsr.service.ts's materializeSubRecords
+                      // skipped creating a SubcontractorWorkEntry — this row
+                      // otherwise looked "complete" with nothing flagging the
+                      // missing ledger entry.
+                      <Badge variant="warning" icon={<AlertTriangleIcon />} className="ml-2">
+                        Not recorded to Site Contract ledger
+                      </Badge>
                     ) : null}
                   </span>
                   <span className="font-semibold text-ink-700">{s.workNote ?? "—"}</span>

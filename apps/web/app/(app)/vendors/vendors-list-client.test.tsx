@@ -20,22 +20,6 @@ vi.mock("../../../lib/use-list-query-state", () => ({
   }),
 }));
 
-// The detail panel's own open state is exercised by
-// use-detail-panel-state.test.ts — mocked out here (backed by a plain
-// variable, same pattern as hookState above) so this file's row/panel
-// assertions don't also need a real next/navigation router context.
-const panelOpen = vi.fn();
-const panelClose = vi.fn();
-let panelId: string | null = null;
-vi.mock("../../../lib/use-detail-panel-state", () => ({
-  useDetailPanelState: () => ({ id: panelId, open: panelOpen, close: panelClose }),
-}));
-
-const authedFetchMock = vi.fn();
-vi.mock("../../../lib/use-authed-fetch", () => ({
-  useAuthedFetch: () => authedFetchMock,
-}));
-
 const vendor: VendorRow = {
   id: "v1",
   name: "Anand RMC Suppliers",
@@ -49,7 +33,6 @@ const vendor: VendorRow = {
 
 beforeEach(() => {
   hookState = { q: "" };
-  panelId = null;
 });
 
 afterEach(() => {
@@ -109,89 +92,17 @@ describe("VendorsListClient", () => {
     expect(clearAll).toHaveBeenCalledOnce();
   });
 
-  it("links each row to the Vendor detail route", () => {
+  it("links each row directly to the Vendor detail route, with no intermediate panel", () => {
     renderClient();
-    expect(within(screen.getByRole("table")).getByText("Anand RMC Suppliers").closest("a")).toHaveAttribute(
-      "href",
-      "/vendors/v1",
-    );
+    const link = within(screen.getByRole("table")).getByText("Anand RMC Suppliers").closest("a") as HTMLAnchorElement;
+    expect(link).toHaveAttribute("href", "/vendors/v1");
+    const notPrevented = fireEvent.click(link);
+    expect(notPrevented).toBe(true);
   });
 
   it("calls setSort with the column's sortKey when a sortable header is clicked", () => {
     renderClient();
     fireEvent.click(screen.getByRole("button", { name: /^Vendor/ }));
     expect(setSort).toHaveBeenCalledWith("name");
-  });
-
-  describe("detail panel", () => {
-    it("opens the panel (via panel.open) on a plain left-click, instead of navigating", () => {
-      renderClient();
-      const link = within(screen.getByRole("table")).getByText("Anand RMC Suppliers").closest("a") as HTMLAnchorElement;
-      const notPrevented = fireEvent.click(link);
-      expect(notPrevented).toBe(false);
-      expect(panelOpen).toHaveBeenCalledWith("v1");
-    });
-
-    it("fetches and renders the Vendor's contact/address/materials fields when the panel is open", async () => {
-      panelId = "v1";
-      authedFetchMock.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          id: "v1",
-          name: "Anand RMC Suppliers",
-          contactPerson: "Ravi Kumar",
-          phone: "9876543210",
-          email: "ravi@example.com",
-          address: "Plot 12, MIDC",
-          materialsSupplied: ["Cement"],
-        }),
-      });
-
-      renderClient();
-
-      expect(await screen.findByText("Ravi Kumar")).toBeInTheDocument();
-      expect(screen.getByText("Plot 12, MIDC")).toBeInTheDocument();
-      expect(screen.getByText("Cement")).toBeInTheDocument();
-      const detailLink = screen.getByRole("link", { name: /View full details/ });
-      expect(detailLink).toHaveAttribute("href", "/vendors/v1");
-      fireEvent.click(detailLink);
-      expect(panelClose).toHaveBeenCalled();
-    });
-
-    it("shows a not-found state when the fetch 404s", async () => {
-      panelId = "missing";
-      authedFetchMock.mockResolvedValue({ ok: false, status: 404 });
-
-      renderClient();
-
-      expect(await screen.findByText("This Vendor could not be found.")).toBeInTheDocument();
-    });
-
-    it("shows an error state with a working retry on a fetch failure", async () => {
-      panelId = "v1";
-      authedFetchMock.mockResolvedValueOnce({ ok: false, status: 500 });
-
-      renderClient();
-
-      expect(await screen.findByText("Couldn't load this Vendor.")).toBeInTheDocument();
-
-      authedFetchMock.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          id: "v1",
-          name: "Anand RMC Suppliers",
-          contactPerson: "Ravi Kumar",
-          phone: null,
-          email: null,
-          address: null,
-          materialsSupplied: [],
-        }),
-      });
-      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-
-      expect(await screen.findByText("Ravi Kumar")).toBeInTheDocument();
-    });
   });
 });

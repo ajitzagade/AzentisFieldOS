@@ -407,6 +407,78 @@ describe('SiteContractsService.update — ACTIVE-requires-terms merged check', (
     expect(update).toHaveBeenCalled();
   });
 
+  it('auto-activates a Draft contract once a PATCH completes its terms, without the caller sending status at all', async () => {
+    const findUnique = vi.fn().mockResolvedValue(LIVE_DRAFT_MISSING_TERMS);
+    const update = vi
+      .fn()
+      .mockResolvedValue({ ...LIVE_DRAFT_COMPLETE_TERMS, status: 'ACTIVE' });
+    const { service } = makeService({ findUnique, update });
+
+    const result = await service.update('c1', {
+      workCategory: 'Storm-water pipe laying',
+      rateType: 'PER_PIPE',
+      rate: 250,
+      startDate: new Date('2026-09-08'),
+    } as never);
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: {
+        workCategory: 'Storm-water pipe laying',
+        rateType: 'PER_PIPE',
+        rate: 250,
+        startDate: new Date('2026-09-08'),
+        status: 'ACTIVE',
+      },
+    });
+    expect(result).toMatchObject({ id: 'c1', status: 'ACTIVE' });
+  });
+
+  it('does not auto-activate a Draft contract whose PATCH still leaves a required term missing', async () => {
+    const findUnique = vi.fn().mockResolvedValue(LIVE_DRAFT_MISSING_TERMS);
+    const update = vi.fn().mockResolvedValue({
+      ...LIVE_DRAFT_MISSING_TERMS,
+      workCategory: 'Storm-water pipe laying',
+    });
+    const { service } = makeService({ findUnique, update });
+
+    await service.update('c1', {
+      workCategory: 'Storm-water pipe laying',
+    });
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { workCategory: 'Storm-water pipe laying' },
+    });
+  });
+
+  // Deliberate tradeoff: the Edit terms form's Status <select> always
+  // submits a value (it can't distinguish "the Owner left this on Draft"
+  // from "the Owner actively re-picked Draft"), so this can't gate on
+  // whether the request happened to include `status: 'DRAFT'` — it must
+  // key off whether the terms are complete, full stop. An Owner who wants
+  // to stage complete terms without going live yet still can: leave one
+  // required field (e.g. start date) blank until ready.
+  it('auto-activates a Draft contract even when the PATCH explicitly re-sends status: DRAFT, once its terms are complete', async () => {
+    const findUnique = vi.fn().mockResolvedValue(LIVE_DRAFT_COMPLETE_TERMS);
+    const update = vi.fn().mockResolvedValue({
+      ...LIVE_DRAFT_COMPLETE_TERMS,
+      status: 'ACTIVE',
+      description: 'still finalizing',
+    });
+    const { service } = makeService({ findUnique, update });
+
+    await service.update('c1', {
+      status: 'DRAFT',
+      description: 'still finalizing',
+    } as never);
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { status: 'ACTIVE', description: 'still finalizing' },
+    });
+  });
+
   it('does not enforce ACTIVE-requires-terms when the resulting status is not ACTIVE', async () => {
     const findUnique = vi.fn().mockResolvedValue(LIVE_DRAFT_MISSING_TERMS);
     const update = vi.fn().mockResolvedValue({

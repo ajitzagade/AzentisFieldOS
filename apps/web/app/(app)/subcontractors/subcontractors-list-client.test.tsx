@@ -21,22 +21,6 @@ vi.mock("../../../lib/use-list-query-state", () => ({
   }),
 }));
 
-// The detail panel's own open state is exercised by
-// use-detail-panel-state.test.ts — mocked out here (backed by a plain
-// variable, same pattern as hookState above) so this file's row/panel
-// assertions don't also need a real next/navigation router context.
-const panelOpen = vi.fn();
-const panelClose = vi.fn();
-let panelId: string | null = null;
-vi.mock("../../../lib/use-detail-panel-state", () => ({
-  useDetailPanelState: () => ({ id: panelId, open: panelOpen, close: panelClose }),
-}));
-
-const authedFetchMock = vi.fn();
-vi.mock("../../../lib/use-authed-fetch", () => ({
-  useAuthedFetch: () => authedFetchMock,
-}));
-
 const subcontractor: Subcontractor = {
   id: "s1",
   name: "Sharma Excavation Works",
@@ -49,7 +33,6 @@ const subcontractor: Subcontractor = {
 
 beforeEach(() => {
   hookState = { q: "" };
-  panelId = null;
 });
 
 afterEach(() => {
@@ -111,88 +94,17 @@ describe("SubcontractorsListClient", () => {
     expect(clearAll).toHaveBeenCalledOnce();
   });
 
-  it("links each row to the Subcontractor detail route", () => {
+  it("links each row directly to the Subcontractor detail route, with no intermediate panel", () => {
     renderClient();
-    expect(
-      within(screen.getByRole("table")).getByText("Sharma Excavation Works").closest("a"),
-    ).toHaveAttribute("href", "/subcontractors/s1");
+    const link = within(screen.getByRole("table")).getByText("Sharma Excavation Works").closest("a") as HTMLAnchorElement;
+    expect(link).toHaveAttribute("href", "/subcontractors/s1");
+    const notPrevented = fireEvent.click(link);
+    expect(notPrevented).toBe(true);
   });
 
   it("calls setSort with the column's sortKey when a sortable header is clicked", () => {
     renderClient();
     fireEvent.click(screen.getByRole("button", { name: /^Name/ }));
     expect(setSort).toHaveBeenCalledWith("name");
-  });
-
-  describe("detail panel", () => {
-    it("opens the panel (via panel.open) on a plain left-click, instead of navigating", () => {
-      renderClient();
-      const link = within(screen.getByRole("table")).getByText("Sharma Excavation Works").closest("a") as HTMLAnchorElement;
-      const notPrevented = fireEvent.click(link);
-      expect(notPrevented).toBe(false);
-      expect(panelOpen).toHaveBeenCalledWith("s1");
-    });
-
-    it("fetches and renders the Subcontractor's contact/address/work-category fields when the panel is open", async () => {
-      panelId = "s1";
-      authedFetchMock.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          id: "s1",
-          name: "Sharma Excavation Works",
-          contactPerson: "Meena Shah",
-          phone: "9876543210",
-          email: "meena@example.com",
-          address: "Plot 12, MIDC",
-          workCategories: ["Excavation"],
-        }),
-      });
-
-      renderClient();
-
-      expect(await screen.findByText("Meena Shah")).toBeInTheDocument();
-      expect(screen.getByText("Plot 12, MIDC")).toBeInTheDocument();
-      expect(screen.getByText("Excavation")).toBeInTheDocument();
-      const detailLink = screen.getByRole("link", { name: /View full details/ });
-      expect(detailLink).toHaveAttribute("href", "/subcontractors/s1");
-      fireEvent.click(detailLink);
-      expect(panelClose).toHaveBeenCalled();
-    });
-
-    it("shows a not-found state when the fetch 404s", async () => {
-      panelId = "missing";
-      authedFetchMock.mockResolvedValue({ ok: false, status: 404 });
-
-      renderClient();
-
-      expect(await screen.findByText("This Subcontractor could not be found.")).toBeInTheDocument();
-    });
-
-    it("shows an error state with a working retry on a fetch failure", async () => {
-      panelId = "s1";
-      authedFetchMock.mockResolvedValueOnce({ ok: false, status: 500 });
-
-      renderClient();
-
-      expect(await screen.findByText("Couldn't load this Subcontractor.")).toBeInTheDocument();
-
-      authedFetchMock.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          id: "s1",
-          name: "Sharma Excavation Works",
-          contactPerson: "Meena Shah",
-          phone: null,
-          email: null,
-          address: null,
-          workCategories: [],
-        }),
-      });
-      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-
-      expect(await screen.findByText("Meena Shah")).toBeInTheDocument();
-    });
   });
 });
