@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  createDsrSchema,
   saveDraftSchema,
   type CreateDsrInput,
   type PaginatedResult,
@@ -1095,7 +1096,21 @@ export class DsrService {
             "This draft's saved data is no longer valid — edit the draft before finalizing.",
           );
         }
-        const input: CreateDsrInput = parsed.data;
+        // Revised 2026-09-24: a draft may legitimately have an incomplete
+        // Subcontractor row (Work note / Site Contract are optional while
+        // saved as a draft — see dsrSubcontractorEntryDraftSchema) — but
+        // Finalize is a real submission, where both are required. The web
+        // client already blocks this in normal use before ever calling
+        // Finalize; this is the server-side backstop so a stale client or
+        // a direct API call can't bypass it (server is the authoritative
+        // enforcement point).
+        const strictParsed = createDsrSchema.safeParse(parsed.data);
+        if (!strictParsed.success) {
+          throw new BadRequestException(
+            'Every Subcontractor row needs a Work note and a Site Contract before this report can be finalized.',
+          );
+        }
+        const input: CreateDsrInput = strictParsed.data;
 
         await tx.dailySiteReport.update({
           where: { id },

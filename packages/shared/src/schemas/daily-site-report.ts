@@ -151,18 +151,22 @@ export type DsrLabourEntry = z.infer<typeof dsrLabourEntrySchema>;
 // Picks from the existing Subcontractor register; workNote is a free-text
 // note about what the Subcontractor did that day.
 //
-// spec-dsr-activity-sync-detail-panel (goal 4): siteContractId/quantity are
-// ADDITIVE optional fields — a historical row's JSON (or a fresh entry that
-// only names the Subcontractor informally) has neither and keeps validating
-// and rendering exactly as before. Only when BOTH are present does
-// dsr.service.ts create a real SubcontractorWorkEntry against that Site
-// Contract; an entry with workNote only stays exactly as informational as
-// today.
+// Revised 2026-09-24 (user-requested): workNote and siteContractId are now
+// REQUIRED — every DSR-tagged Subcontractor must carry a note and link to a
+// real Site Contract (any status; dsr.service.ts's syncMissingSiteContracts
+// auto-creates a bare Draft one the moment a new Subcontractor is named, so
+// a contract always exists to link to by submit time). Only `quantity`
+// stays optional — Work Entries can only be recorded against an Active
+// contract (work-entry-write.ts), so a Draft-linked row simply can't have
+// one yet. This validates NEW writes only (POST /dsr, /dsr/:id/correct,
+// /dsr/draft) — a historical row's already-stored JSON is never re-validated
+// or rewritten (AD-9), so this change can't retroactively invalidate
+// anything already submitted.
 export const dsrSubcontractorEntrySchema = z.object({
   subcontractorId: z.string(),
-  workNote: z.string().optional(),
+  workNote: z.string().min(1, "Work note is required"),
   clientGeneratedId: z.string().optional(),
-  siteContractId: z.string().optional(),
+  siteContractId: z.string().min(1, "Site Contract is required"),
   quantity: z.number().positive().optional(),
 });
 
@@ -269,6 +273,20 @@ export const createDsrSchema = z.object({
 
 export type CreateDsrInput = z.infer<typeof createDsrSchema>;
 
+// Revised 2026-09-24: workNote/siteContractId became required on
+// dsrSubcontractorEntrySchema for a real submission (user-requested), but a
+// DRAFT is explicitly a partial, still-being-built report — a Subcontractor
+// row picked but not yet fully filled in must still be saveable, or "Save
+// Draft" would block on exactly the in-progress state it exists to capture.
+// This is the pre-2026-09-24 relaxed shape, kept ONLY for drafts.
+const dsrSubcontractorEntryDraftSchema = z.object({
+  subcontractorId: z.string(),
+  workNote: z.string().optional(),
+  clientGeneratedId: z.string().optional(),
+  siteContractId: z.string().optional(),
+  quantity: z.number().positive().optional(),
+});
+
 // spec-dsr-drafts (AD-7): the single validator for a Save Draft, imported by
 // both apps/api (source of truth) and apps/web (inline pre-submit errors). A
 // DRAFT is a partial, still-being-built report — the exact same field shape
@@ -277,9 +295,12 @@ export type CreateDsrInput = z.infer<typeof createDsrSchema>;
 // createDsrSchema, so a draft with no crew/materials/expenses yet validates
 // cleanly; each row that *is* present is still validated by its own schema,
 // so Finalize can materialise it straight from draftContent without
-// re-parsing. Kept as a distinct export (not an alias) so the draft and
-// submit shapes can diverge later without touching either call site.
-export const saveDraftSchema = createDsrSchema;
+// re-parsing. subcontractorEntries is the one deliberate divergence (see
+// dsrSubcontractorEntryDraftSchema above) — everything else stays identical
+// to createDsrSchema.
+export const saveDraftSchema = createDsrSchema.extend({
+  subcontractorEntries: z.array(dsrSubcontractorEntryDraftSchema).default([]),
+});
 
 export type SaveDraftInput = z.infer<typeof saveDraftSchema>;
 

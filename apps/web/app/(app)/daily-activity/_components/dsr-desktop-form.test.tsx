@@ -321,7 +321,7 @@ describe("DsrDesktopForm correction pre-fill preserves clientGeneratedId (Waste 
             {
               clientGeneratedId: "sub-original-1",
               subcontractorId: "subc-1",
-              workNote: "",
+              workNote: "On site today",
               siteContractId: "contract-1",
               quantity: "7",
             },

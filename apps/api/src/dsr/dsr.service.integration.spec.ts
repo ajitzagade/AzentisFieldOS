@@ -21,6 +21,7 @@ import { WasteDisposalService } from '../waste-disposal/waste-disposal.service';
 import { DsrService } from './dsr.service';
 import { getSitePhotoGallery } from '../sites/site-photo-gallery';
 import type { StorageService } from '../storage/storage.service';
+import type { CreateDsrInput } from '@azentisfieldos/shared';
 
 // Real integration test against a live Postgres instance (not a mocked
 // Prisma) — this story's core risk is transactional/constraint behavior
@@ -2306,28 +2307,18 @@ describeIfDb('DsrService (integration)', () => {
       });
     }
 
-    it('an entry with workNote only stays informational — no SubcontractorWorkEntry is created', async () => {
-      const result = await create({
-        siteId,
-        reportDate: '2026-09-25',
-        workRecords: [],
-        consumptions: [],
-        rmcEntries: [],
-        expenses: [],
-        equipmentUsed: [],
-        subcontractorEntries: [{ subcontractorId, workNote: 'On site today' }],
-        labourEntries: [],
-        wasteDisposalEntries: [],
-      });
-
-      expect(result.subcontractorWorkEntries).toHaveLength(0);
-      const dsr = await prisma.dailySiteReport.findUniqueOrThrow({
-        where: { id: result.id },
-      });
-      expect(dsr.subcontractorEntries).toEqual([
-        { subcontractorId, workNote: 'On site today' },
-      ]);
-    });
+    // Removed 2026-09-24 (user-requested): this test documented the
+    // pre-change "workNote only, no Site Contract, stays informational"
+    // shape — dsrSubcontractorEntrySchema now requires siteContractId (and
+    // workNote) on every row, so that payload is rejected before it ever
+    // reaches DsrService.create() via the real HTTP boundary (the
+    // controller's ZodValidationPipe). DsrService.create() itself has no
+    // schema gate of its own (only the controller does), so calling it
+    // directly here with that shape would still silently "succeed" —
+    // testing that would be misleading, since it no longer represents any
+    // reachable real-world behavior. The new required-field rejection is
+    // now covered at the correct layer in
+    // dsr-subcontractor-entry-schema.spec.ts.
 
     it('an entry with a picked Active, non-Fixed-Cost Site Contract + quantity creates a real SubcontractorWorkEntry and increments quantityCompleted', async () => {
       const contract = await createActiveContract();
@@ -2343,6 +2334,7 @@ describeIfDb('DsrService (integration)', () => {
         subcontractorEntries: [
           {
             subcontractorId,
+            workNote: 'Test work note',
             siteContractId: contract.id,
             quantity: 6,
             clientGeneratedId: 'sub-cg-1',
@@ -2373,7 +2365,7 @@ describeIfDb('DsrService (integration)', () => {
           expenses: [],
           equipmentUsed: [],
           subcontractorEntries: [
-            { subcontractorId, siteContractId: contract.id, quantity: 6 },
+            { subcontractorId, workNote: 'Test work note', siteContractId: contract.id, quantity: 6 },
           ],
           labourEntries: [],
           wasteDisposalEntries: [],
@@ -2400,6 +2392,7 @@ describeIfDb('DsrService (integration)', () => {
         subcontractorEntries: [
           {
             subcontractorId,
+            workNote: 'Test work note',
             siteContractId: contract.id,
             quantity: 10,
             clientGeneratedId: 'sub-cg-2',
@@ -2429,6 +2422,7 @@ describeIfDb('DsrService (integration)', () => {
           subcontractorEntries: [
             {
               subcontractorId,
+              workNote: 'Test work note',
               siteContractId: contract.id,
               quantity: 7,
               clientGeneratedId: 'sub-cg-2',
@@ -2486,6 +2480,7 @@ describeIfDb('DsrService (integration)', () => {
         subcontractorEntries: [
           {
             subcontractorId,
+            workNote: 'Test work note',
             siteContractId: contract.id,
             quantity: 5,
             clientGeneratedId: 'sub-retry-1',
@@ -2524,6 +2519,7 @@ describeIfDb('DsrService (integration)', () => {
         subcontractorEntries: [
           {
             subcontractorId,
+            workNote: 'Test work note',
             siteContractId: contract.id,
             quantity: 10,
             clientGeneratedId: 'sub-cg-3',
@@ -2546,6 +2542,7 @@ describeIfDb('DsrService (integration)', () => {
           subcontractorEntries: [
             {
               subcontractorId,
+              workNote: 'Test work note',
               siteContractId: contract.id,
               quantity: 7,
               clientGeneratedId: 'sub-cg-3',
@@ -2570,6 +2567,7 @@ describeIfDb('DsrService (integration)', () => {
           subcontractorEntries: [
             {
               subcontractorId,
+              workNote: 'Test work note',
               siteContractId: contract.id,
               quantity: 12,
               clientGeneratedId: 'sub-cg-3',
@@ -2605,6 +2603,7 @@ describeIfDb('DsrService (integration)', () => {
         subcontractorEntries: [
           {
             subcontractorId,
+            workNote: 'Test work note',
             siteContractId: contract.id,
             quantity: 4,
             clientGeneratedId: 'sub-cg-4',
@@ -2639,7 +2638,12 @@ describeIfDb('DsrService (integration)', () => {
       expect(corrections).toHaveLength(0);
     });
 
-    it('correct(): refuses when an already-materialized Work Entry is present but unlinked (siteContractId/quantity dropped)', async () => {
+    // Revised 2026-09-24 (user-requested): siteContractId is now required on
+    // every row, so "unlinked" can no longer mean "siteContractId dropped" —
+    // that shape is rejected by the schema before this business rule would
+    // even run. The only remaining way to unlink an already-materialized
+    // Work Entry is dropping `quantity` while keeping siteContractId.
+    it('correct(): refuses when an already-materialized Work Entry is present but unlinked (quantity dropped)', async () => {
       const contract = await createActiveContract();
       const original = await create({
         siteId,
@@ -2652,6 +2656,7 @@ describeIfDb('DsrService (integration)', () => {
         subcontractorEntries: [
           {
             subcontractorId,
+            workNote: 'Test work note',
             siteContractId: contract.id,
             quantity: 4,
             clientGeneratedId: 'sub-cg-5',
@@ -2676,7 +2681,9 @@ describeIfDb('DsrService (integration)', () => {
               {
                 subcontractorId,
                 workNote: 'Unlinked from the contract',
+                siteContractId: contract.id,
                 clientGeneratedId: 'sub-cg-5',
+                // quantity intentionally omitted.
               },
             ],
             labourEntries: [],
@@ -2715,6 +2722,7 @@ describeIfDb('DsrService (integration)', () => {
           subcontractorEntries: [
             {
               subcontractorId,
+              workNote: 'Test work note',
               siteContractId: foreignContract.id,
               quantity: 3,
             },
@@ -2752,7 +2760,7 @@ describeIfDb('DsrService (integration)', () => {
         expenses: [{ categoryId, amount: 500 }],
         equipmentUsed: [],
         subcontractorEntries: [
-          { subcontractorId, siteContractId: contract.id, quantity: 4 },
+          { subcontractorId, workNote: 'Test work note', siteContractId: contract.id, quantity: 4 },
         ],
         labourEntries: [],
         wasteDisposalEntries: [
@@ -2837,6 +2845,7 @@ describeIfDb('DsrService (integration)', () => {
         subcontractorEntries: [
           {
             subcontractorId,
+            workNote: 'Test work note',
             siteContractId: contract.id,
             quantity: 5,
             clientGeneratedId: 'other-activity-sub-1',
@@ -2868,6 +2877,7 @@ describeIfDb('DsrService (integration)', () => {
           subcontractorEntries: [
             {
               subcontractorId,
+              workNote: 'Test work note',
               siteContractId: contract.id,
               quantity: 8,
               clientGeneratedId: 'other-activity-sub-1',
@@ -3059,9 +3069,17 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        // This shape (no siteContractId) is intentionally invalid at the
+        // real HTTP boundary (createDsrSchema requires it, 2026-09-24) —
+        // the cast below documents that DsrService.create() itself has no
+        // schema gate of its own (only the controller's ZodValidationPipe
+        // does), so calling it directly still exercises
+        // syncMissingSiteContracts's real defensive behavior at the
+        // service layer, same as every other test in this file that calls
+        // create()/correct() directly without going through the controller.
         subcontractorEntries: [
           { subcontractorId, workNote: 'informational only' },
-        ],
+        ] as CreateDsrInput['subcontractorEntries'],
         labourEntries: [],
         wasteDisposalEntries: [],
       });
@@ -3088,9 +3106,17 @@ describeIfDb('DsrService (integration)', () => {
         rmcEntries: [],
         expenses: [],
         equipmentUsed: [],
+        // This shape (no siteContractId) is intentionally invalid at the
+        // real HTTP boundary (createDsrSchema requires it, 2026-09-24) —
+        // the cast below documents that DsrService.create() itself has no
+        // schema gate of its own (only the controller's ZodValidationPipe
+        // does), so calling it directly still exercises
+        // syncMissingSiteContracts's real defensive behavior at the
+        // service layer, same as every other test in this file that calls
+        // create()/correct() directly without going through the controller.
         subcontractorEntries: [
           { subcontractorId, workNote: 'informational only' },
-        ],
+        ] as CreateDsrInput['subcontractorEntries'],
         labourEntries: [],
         wasteDisposalEntries: [],
       });
@@ -3148,9 +3174,11 @@ describeIfDb('DsrService (integration)', () => {
           rmcEntries: [],
           expenses: [],
           equipmentUsed: [],
+          // Same intentional-cast reasoning as create() above — correct()
+          // also has no schema gate of its own.
           subcontractorEntries: [
             { subcontractorId, workNote: 'added on correction' },
-          ],
+          ] as CreateDsrInput['subcontractorEntries'],
           labourEntries: [],
           wasteDisposalEntries: [],
         },

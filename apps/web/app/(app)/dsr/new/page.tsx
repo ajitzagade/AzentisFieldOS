@@ -26,7 +26,7 @@ import {
   WifiOffIcon,
 } from "@azentisfieldos/ui";
 import { SiteField } from "../../_components/site-field";
-import { dsrEquipmentUsedSchema, type CreateDsrInput } from "@azentisfieldos/shared";
+import { dsrEquipmentUsedSchema, type CreateDsrInput, type SaveDraftInput } from "@azentisfieldos/shared";
 import {
   clearDsrAutosave,
   loadDsrAutosave,
@@ -162,8 +162,12 @@ function isWasteRowComplete(row: WasteRow): boolean {
 // with no inline warning. A siteContractId with an invalid quantity falls
 // back to informational-only (matches the "both stay additive/optional"
 // rule) rather than being sent to the server as a real link.
-function isSubcontractorLinkValid(row: SubcontractorRow): boolean {
-  return !!row.siteContractId && row.quantity.trim() !== "" && Number(row.quantity) > 0;
+// Revised 2026-09-24 (user-requested): siteContractId is no longer
+// conditionally-included — Work note and Site Contract are both required
+// now (enforced by the onSubmit/Finalize guards), so only the Quantity
+// value's own validity needs checking here.
+function hasValidQuantity(row: SubcontractorRow): boolean {
+  return row.quantity.trim() !== "" && Number(row.quantity) > 0;
 }
 
 // spec-dsr-labour-dropdown: one row = one named Labourer picked from the
@@ -1072,7 +1076,7 @@ function NewDsrForm() {
   // one-shot Submit, Save Draft, and Finalize. Only complete sub-record rows
   // are sent (a half-filled material row is dropped) — same rule the one-shot
   // submit always used, so a draft never persists an unmaterialisable row.
-  function buildPayload(): CreateDsrInput {
+  function buildPayload(): SaveDraftInput {
     return withClientGeneratedIds({
       siteId,
       reportDate,
@@ -1115,20 +1119,18 @@ function NewDsrForm() {
         .map((s) => ({
           clientGeneratedId: s.clientGeneratedId,
           subcontractorId: s.subcontractorId!,
+          // Revised 2026-09-24 (user-requested): Work note and Site
+          // Contract are required for a real submission (blocked earlier by
+          // the onSubmit/Finalize guards, which only run for that path —
+          // buildPayload() is ALSO used by Save Draft, which must still
+          // allow an in-progress, not-yet-filled-in row). `|| undefined`
+          // converts an empty/unset value to a dropped key either way: the
+          // strict createDsrSchema then genuinely can't be missing it
+          // (guard already checked), while the relaxed saveDraftSchema
+          // accepts the gap.
           workNote: s.workNote || undefined,
-          // goal 4: both stay additive/optional — an entry with neither
-          // submits exactly as informational-only as it always has.
-          // Review fix (finding #10): a siteContractId with an invalid
-          // (blank/0/negative) quantity is dropped back to informational-
-          // only client-side, rather than reaching the server as a
-          // positive()-violating value that fails the whole submission.
-          // Revised 2026-09-24: the picker now also lists non-Active
-          // contracts (see siteContractOptionsFor), so the same drop-back
-          // now also applies when the picked contract isn't Active — the
-          // server would otherwise reject the whole submission with
-          // CONTRACT_NOT_ACTIVE (work-entry-write.ts).
-          siteContractId: isSubcontractorLinkValid(s) && isPickedContractActive(s) ? s.siteContractId! : undefined,
-          quantity: isSubcontractorLinkValid(s) && isPickedContractActive(s) ? Number(s.quantity) : undefined,
+          siteContractId: s.siteContractId || undefined,
+          quantity: hasValidQuantity(s) && isPickedContractActive(s) ? Number(s.quantity) : undefined,
         })),
       // spec-dsr-labour-dropdown, revised 2026-09-24: only complete rows
       // submit (a Labourer picked, and/or a headcount entered), same rule
@@ -1335,7 +1337,13 @@ function NewDsrForm() {
     setIsSubmitting(true);
 
     try {
-      const payload: CreateDsrInput = buildPayload();
+      // buildPayload() is typed as the looser SaveDraftInput (Save Draft,
+      // its other caller, must allow an incomplete Subcontractor row) — but
+      // doSubmit() only ever runs after the onSubmit/Finalize guard above
+      // already confirmed every Subcontractor row has its required Work
+      // note + Site Contract, so the shape genuinely IS a valid
+      // CreateDsrInput by this point; TS just can't see across that guard.
+      const payload = buildPayload() as unknown as CreateDsrInput;
 
       // Submitting never fails from the Supervisor's point of view (Task 1)
       // — a network failure, timeout, or 5xx falls back to the local queue
@@ -1450,6 +1458,18 @@ function NewDsrForm() {
           // POST could land both a draft row and a one-shot report for the
           // same (site, date).
           if (!siteId || isSubmitting || isSavingDraft || isDiscarding) return;
+          // Revised 2026-09-24 (user-requested): Work note and Site
+          // Contract are now required on every started Subcontractor row —
+          // checked before even opening the confirm dialog, since silently
+          // excluding a filled-in row would lose data the user typed with
+          // no indication why.
+          const incompleteSubcontractorRow = subcontractorEntries.find(
+            (s) => s.subcontractorId && (!s.workNote.trim() || !s.siteContractId),
+          );
+          if (incompleteSubcontractorRow) {
+            setError("Every Subcontractor row needs a Work note and a Site Contract before this report can be submitted.");
+            return;
+          }
           setConfirmAction("submit");
         }}
       >
@@ -2051,7 +2071,7 @@ function NewDsrForm() {
               <div className="sm:col-span-5">
                 <TextField
                   label="Work note"
-                  hint="Optional"
+                  required
                   placeholder="e.g. Shuttering — 2nd floor"
                   value={row.workNote}
                   onChange={(e) =>
@@ -2059,13 +2079,24 @@ function NewDsrForm() {
                   }
                 />
               </div>
-              {/* goal 4: both OPTIONAL — an entry with neither stays exactly
-                  as informational-JSON-only as before. Only picking a
-                  Contract AND typing a quantity creates a real ledger row. */}
+              {/* Revised 2026-09-24 (user-requested): both required now —
+                  every DSR-tagged Subcontractor must carry a note and link
+                  to a real Site Contract (any status). Only Quantity stays
+                  optional (Work Entries need an Active contract). */}
               <div className="sm:col-span-5">
                 <ComboboxField
                   label="Site Contract"
-                  hint="Optional — links to a Site Contract for quantity tracking"
+                  // Deliberately NOT using the `required` prop here: it
+                  // drives native HTML5 validation off Combobox.Input's
+                  // resolved *display* value (options.find(...)), not the
+                  // underlying row.siteContractId state — if the matching
+                  // contract isn't in the currently-loaded options list yet
+                  // (async fetch timing), the input reads as empty and the
+                  // browser silently blocks the whole form's submit event
+                  // before the onSubmit guard's own (state-accurate) check
+                  // ever runs. That guard is the real enforcement; this
+                  // hint is just the visual cue.
+                  hint="Required"
                   options={siteContractOptionsFor(row)}
                   value={row.siteContractId}
                   onValueChange={(value) =>
@@ -2334,7 +2365,21 @@ function NewDsrForm() {
           <div className="flex flex-col gap-2">
             <Button
               type="button"
-              onClick={() => setConfirmAction("finalize")}
+              onClick={() => {
+                // Revised 2026-09-24 (user-requested): same Work note /
+                // Site Contract required-fields guard as the one-shot
+                // Submit path above — Finalize bypasses the form's onSubmit
+                // entirely (it's a plain button, not a submit input), so
+                // this needs its own copy of the check.
+                const incompleteSubcontractorRow = subcontractorEntries.find(
+                  (s) => s.subcontractorId && (!s.workNote.trim() || !s.siteContractId),
+                );
+                if (incompleteSubcontractorRow) {
+                  setError("Every Subcontractor row needs a Work note and a Site Contract before this report can be submitted.");
+                  return;
+                }
+                setConfirmAction("finalize");
+              }}
               isLoading={isSubmitting}
               disabled={!siteId || isDiscarding}
               className="w-full justify-center"

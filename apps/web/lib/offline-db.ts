@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from "dexie";
-import type { CreateDsrInput } from "@azentisfieldos/shared";
+import type { CreateDsrInput, SaveDraftInput } from "@azentisfieldos/shared";
 
 // Story 3.2 (AD-8, AC #1/#4): a DSR submission that can't reach the server
 // is saved here instead of being surfaced as a failure. Keyed by
@@ -44,13 +44,24 @@ export function localDsrKey(siteId: string, reportDate: string): string {
 // expenses) get a client-generated UUID at queue-write time, not at sync
 // time, so a retried sync (e.g. the app closes and reopens mid-sync)
 // reuses the same keys instead of creating duplicates.
-export function withClientGeneratedIds(input: CreateDsrInput): CreateDsrInput {
+//
+// Typed against the looser SaveDraftInput (not CreateDsrInput) — its own
+// caller, buildPayload() in dsr/new/page.tsx, is shared by both Save Draft
+// and Submit, and a valid CreateDsrInput value already structurally
+// satisfies SaveDraftInput (required fields trivially satisfy the looser
+// optional ones), so this stays correct for both callers.
+export function withClientGeneratedIds<T extends SaveDraftInput>(input: T): T {
+  // subcontractorEntries (the one field whose shape actually differs
+  // between CreateDsrInput and SaveDraftInput) passes through untouched via
+  // the spread below — only consumptions/rmcEntries/expenses are rebuilt —
+  // so the result is genuinely still a T, TS just can't verify an object
+  // literal against a generic type parameter on its own.
   return {
     ...input,
     consumptions: input.consumptions.map((c) => ({ ...c, clientGeneratedId: c.clientGeneratedId ?? crypto.randomUUID() })),
     rmcEntries: input.rmcEntries.map((r) => ({ ...r, clientGeneratedId: r.clientGeneratedId ?? crypto.randomUUID() })),
     expenses: input.expenses.map((e) => ({ ...e, clientGeneratedId: e.clientGeneratedId ?? crypto.randomUUID() })),
-  };
+  } as T;
 }
 
 export async function queueDsr(input: CreateDsrInput): Promise<void> {
