@@ -77,7 +77,24 @@ export class SiteContractsService {
       throw new BadRequestException('This Site does not exist');
     }
 
-    const contract = await this.prisma.siteContract.create({ data: input });
+    // Client-readiness UX fix (2026-09-25): same reasoning as this
+    // service's own update() auto-activate — a Site Engineer creating a
+    // brand-new Site Contract (the DSR "+ Create Site Contract"
+    // quick-create) with every ACTIVE-required field filled in shouldn't
+    // also have to remember to flip the Status dropdown off its DRAFT
+    // default. If the contract would otherwise be created Draft but
+    // already satisfies FR-57's requirements, create it Active instead. An
+    // explicit non-Draft status the caller actually chose always wins —
+    // this only fires when `input.status` is still DRAFT.
+    const dataToPersist: CreateSiteContractInput =
+      input.status === 'DRAFT' &&
+      collectActiveRequiredIssues({ ...input, status: 'ACTIVE' }).length === 0
+        ? { ...input, status: 'ACTIVE' }
+        : input;
+
+    const contract = await this.prisma.siteContract.create({
+      data: dataToPersist,
+    });
 
     if (this.isPendingTerms(contract)) {
       void this.pushNotifications.sendToRole(

@@ -2130,7 +2130,8 @@ function NewDsrForm() {
                   <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
                   <span>
                     This won&apos;t create a billable Work Entry — its Site Contract isn&apos;t Active yet. The Work note is still
-                    saved, but no quantity is recorded until an Owner/Admin completes the contract&apos;s terms.
+                    saved, but no quantity is recorded until the contract has its terms — ask an Owner/Admin to complete this
+                    one, or use &ldquo;+ Create Site Contract&rdquo; above to start a new one with full terms.
                   </span>
                 </div>
               ) : null}

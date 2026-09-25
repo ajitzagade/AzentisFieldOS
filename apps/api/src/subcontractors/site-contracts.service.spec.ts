@@ -178,6 +178,62 @@ describe('SiteContractsService.create', () => {
 
     expect(pushNotifications.sendToRole).not.toHaveBeenCalled();
   });
+
+  // Client-readiness UX fix (2026-09-25): the DSR "+ Create Site Contract"
+  // quick-create defaults its Status field to Draft — a Site Engineer
+  // filling in every required field shouldn't also have to remember to
+  // flip that dropdown to Active themselves. Mirrors update()'s own
+  // auto-activate tests below.
+  it('creates the contract Active, not Draft, when the submitted terms are already complete', async () => {
+    const create = vi.fn().mockResolvedValue({
+      ...LIVE_DRAFT_COMPLETE_TERMS,
+      status: 'ACTIVE',
+    });
+    const { service } = makeService({ create });
+
+    await service.create({
+      subcontractorId: 'sc1',
+      siteId: 's1',
+      status: 'DRAFT',
+      workCategory: 'Storm-water pipe laying',
+      rateType: 'PER_PIPE',
+      rate: 250,
+      startDate: new Date('2026-09-08'),
+    } as never);
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        subcontractorId: 'sc1',
+        siteId: 's1',
+        status: 'ACTIVE',
+        workCategory: 'Storm-water pipe laying',
+        rateType: 'PER_PIPE',
+        rate: 250,
+        startDate: new Date('2026-09-08'),
+      },
+    });
+  });
+
+  it('leaves the contract Draft when the submitted terms are still incomplete', async () => {
+    const create = vi.fn().mockResolvedValue(LIVE_DRAFT_MISSING_TERMS);
+    const { service } = makeService({ create });
+
+    await service.create({
+      subcontractorId: 'sc1',
+      siteId: 's1',
+      status: 'DRAFT',
+      workCategory: 'Storm-water pipe laying',
+    } as never);
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        subcontractorId: 'sc1',
+        siteId: 's1',
+        status: 'DRAFT',
+        workCategory: 'Storm-water pipe laying',
+      },
+    });
+  });
 });
 
 // Regression guard for the two hand-synced "pending terms" definitions
