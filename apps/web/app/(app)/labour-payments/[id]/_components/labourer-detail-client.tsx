@@ -278,7 +278,9 @@ export function LabourerDetailClient({
                           <Badge variant={row.attended ? "success" : "danger"}>
                             {row.attended ? (row.isHalfDay ? "Present · Half Day" : "Present") : "Absent"}
                           </Badge>
-                          <span className="text-body-sm font-semibold text-ink-900">{formatMoney(toNum(row.perDayAmount))}</span>
+                          {row.attended ? (
+                            <span className="text-body-sm font-semibold text-ink-900">{formatMoney(toNum(row.perDayAmount))}</span>
+                          ) : null}
                           <span className="text-caption text-ink-500">{row.site.name}</span>
                         </div>
                       );

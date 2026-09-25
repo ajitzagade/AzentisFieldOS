@@ -141,6 +141,46 @@ describe("LabourerDetailClient", () => {
     expect(screen.getAllByText("Record")).toHaveLength(13);
   });
 
+  // Bug report (2026-09-25): an Absent day's card still showed its
+  // perDayAmount right under the red "Absent" badge, reading as if that
+  // day was being paid — the weekly total already correctly excludes an
+  // absent row (see the totalEarnedThisWeek filter above `render`), so
+  // this was a display-only defect, never an actual overpayment. An
+  // Absent row now renders no amount at all.
+  it("shows no amount on an Absent day's card, and excludes it from the weekly total", async () => {
+    attendanceFetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [
+        {
+          id: "att-present",
+          workDate: `${currentWeekStart()}T00:00:00.000Z`,
+          shift: "DAY",
+          isHalfDay: false,
+          attended: true,
+          perDayAmount: 800,
+          site: { name: "Mhaladevi Mandir, Dhayari" },
+        },
+        {
+          id: "att-absent",
+          workDate: `${currentWeekStart()}T00:00:00.000Z`,
+          shift: "NIGHT",
+          isHalfDay: false,
+          attended: false,
+          perDayAmount: 800,
+          site: { name: "Mhaladevi Mandir, Dhayari" },
+        },
+      ],
+    });
+
+    renderClient();
+
+    expect(await screen.findByText("Present")).toBeInTheDocument();
+    expect(screen.getByText("Absent")).toBeInTheDocument();
+    // Only the Present row's amount renders (once for the day cell, once
+    // for the week total) — the Absent row contributes no ₹800 of its own.
+    expect(screen.getAllByText("₹800")).toHaveLength(2);
+  });
+
   // Day/Night shift: the same labourer/date can have an independent Day
   // entry and Night entry, each shown and clickable separately.
   it("shows Day and Night as independently-clickable entries for the same date, and reflects Half Day", async () => {
