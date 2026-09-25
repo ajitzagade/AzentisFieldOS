@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HistoryListClient, type DsrHistoryRow } from "./history-list-client";
 
@@ -79,12 +79,21 @@ describe("HistoryListClient", () => {
     }
   });
 
-  it("links each row's View action to its own detail page", () => {
+  it("makes the whole row a link to its own detail page, separate from the Edit action", () => {
     renderClient({ rows: [row({ id: "dsr-42" })] });
-    const viewLinks = screen.getAllByRole("link", { name: /View Daily Report/ });
-    expect(viewLinks.length).toBeGreaterThan(0);
-    for (const link of viewLinks) {
-      expect(link).toHaveAttribute("href", "/daily-activity/dsr-42");
+
+    const table = screen.getByRole("table");
+    const tableSiteLink = within(table).getByText("NH-48 Highway Widening").closest("a");
+    expect(tableSiteLink).toHaveAttribute("href", "/daily-activity/dsr-42");
+
+    const list = screen.getByRole("list");
+    const cardSiteLink = within(list).getByText("NH-48 Highway Widening").closest("a");
+    expect(cardSiteLink).toHaveAttribute("href", "/daily-activity/dsr-42");
+
+    // The Edit link must never be nested inside the row's own link (invalid
+    // markup, and would make Edit unclickable on its own).
+    for (const editLink of screen.getAllByRole("link", { name: "Edit" })) {
+      expect(editLink.closest("a[href='/daily-activity/dsr-42']")).toBeNull();
     }
   });
 

@@ -341,7 +341,15 @@ export function DataTable<T>({
                   className="border-b border-border-hairline last:border-b-0 transition-colors duration-fast ease-(--ease-standard) even:bg-surface-2 hover:bg-accent-teal-100"
                 >
                   {columns.map((column) =>
-                    href ? (
+                    // Action columns (empty header — same convention
+                    // DataTableCardList's `detailColumns` filter and
+                    // `mobileCard.action` already use) never nest inside the
+                    // row's own Link, even when rowHref is set: a distinct
+                    // per-row action (e.g. Correct) needs its own
+                    // independently-clickable Link, not one physically
+                    // nested inside another <a> (invalid markup, and the
+                    // outer row-link would otherwise swallow the click).
+                    href && column.header !== "" ? (
                       <td key={column.header} className={cn(bodyCellClass(column.align), "p-0")}>
                         <Link
                           href={href}

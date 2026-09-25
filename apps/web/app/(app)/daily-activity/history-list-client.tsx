@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   Badge,
   Button,
-  ChevronRightIcon,
   ClipboardIcon,
   CorrectAction,
   DataTable,
@@ -60,13 +59,6 @@ const columns: DataTableColumn<DsrHistoryRow>[] = [
     header: "",
     cell: (row) => (
       <div className="flex items-center justify-end gap-1">
-        <Link
-          href={`/daily-activity/${row.id}`}
-          aria-label={`View Daily Report for ${row.site.name}`}
-          className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}
-        >
-          <ChevronRightIcon className="size-4" />
-        </Link>
         <CorrectAction
           icon={<PencilIcon className="size-4" />}
           href={`/daily-activity/${row.id}/correct`}
@@ -87,13 +79,6 @@ const mobileCard: DataTableMobileCard<DsrHistoryRow> = {
   omitHeaders: ["Site", "Report Date"],
   action: (row) => (
     <div className="flex items-center gap-1">
-      <Link
-        href={`/daily-activity/${row.id}`}
-        aria-label={`View Daily Report for ${row.site.name}`}
-        className={cn(buttonVariants({ variant: "ghost", size: "sm", iconOnly: true }))}
-      >
-        <ChevronRightIcon className="size-4" />
-      </Link>
       <CorrectAction icon={<PencilIcon className="size-4" />} href={`/daily-activity/${row.id}/correct`} label="Edit" />
     </div>
   ),
@@ -158,6 +143,7 @@ export function HistoryListClient({
         columns={columns}
         mobileCard={mobileCard}
         rowKey={(row) => row.id}
+        rowHref={(row) => `/daily-activity/${row.id}`}
         // Matches apps/api's listAllSubmitted default (dsr.service.ts:
         // isSortOrder(query.order) ? query.order : 'desc') — only reachable
         // via a hand-crafted URL in practice (setSort always writes both
