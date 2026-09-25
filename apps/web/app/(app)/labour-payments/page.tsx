@@ -19,6 +19,7 @@ interface LabourPaymentsPageSearchParams {
   pageSize?: string;
   sort?: string;
   order?: string;
+  status?: string;
 }
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -32,6 +33,11 @@ async function getLabourers(
   if (params.q) query.set("q", params.q);
   if (params.sort) query.set("sort", params.sort);
   if (params.order) query.set("order", params.order);
+  // "Delete Labour" is a deactivate, not a real delete (attendance/advance/
+  // payment history must survive it) — the active tab (default) hides
+  // deactivated Labourers, a separate tab shows only them, mirroring the
+  // Users & Roles Active/Deactivated split in Settings.
+  query.set("isActive", params.status === "deactivated" ? "false" : "true");
 
   const res = await authedFetch(`/daily-labourers?${query.toString()}`, { cache: "no-store" });
   if (!res.ok) {
@@ -46,6 +52,7 @@ export default async function LabourPaymentsPage({
   searchParams?: Promise<LabourPaymentsPageSearchParams>;
 }) {
   const params = (await searchParams) ?? {};
+  const status = params.status === "deactivated" ? "deactivated" : "active";
   const labourersResult = await getLabourers(params);
 
   return (
@@ -68,6 +75,7 @@ export default async function LabourPaymentsPage({
         total={labourersResult.total}
         page={labourersResult.page}
         pageSize={labourersResult.pageSize}
+        status={status}
       />
     </>
   );

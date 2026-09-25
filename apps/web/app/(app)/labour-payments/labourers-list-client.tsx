@@ -6,6 +6,11 @@ import { useListQueryState } from "../../../lib/use-list-query-state";
 import { useDebouncedSearch } from "../../../lib/use-debounced-search";
 import type { DailyLabourerListItem } from "./page";
 
+const STATUS_TABS = [
+  { key: "active", label: "Active" },
+  { key: "deactivated", label: "Deactivated" },
+] as const;
+
 const columns: DataTableColumn<DailyLabourerListItem>[] = [
   { header: "Name", cell: (l) => l.name, sortKey: "name" },
   { header: "Category", cell: (l) => l.category, sortKey: "category" },
@@ -38,11 +43,13 @@ export function LabourersListClient({
   total,
   page,
   pageSize,
+  status,
 }: {
   rows: DailyLabourerListItem[];
   total: number;
   page: number;
   pageSize: number;
+  status: "active" | "deactivated";
 }) {
   const query = useListQueryState();
   const search = useDebouncedSearch(query.q, query.setQuery);
@@ -51,6 +58,29 @@ export function LabourersListClient({
 
   return (
     <>
+      <div className="mb-4 flex gap-2" role="tablist" aria-label="Labourer status">
+        {STATUS_TABS.map((tab) => {
+          const active = status === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => query.setFilter("status", tab.key === "active" ? null : tab.key)}
+              className={cn(
+                "rounded-full border px-4 py-2 text-body-sm font-semibold transition-colors duration-fast ease-(--ease-standard)",
+                active
+                  ? "border-accent-teal-700 bg-accent-teal-700 text-white"
+                  : "border-border-hairline bg-surface-1 text-ink-700 hover:bg-surface-2",
+              )}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="mb-4">
         <TextField
           label="Search"
@@ -81,17 +111,23 @@ export function LabourersListClient({
                     </Button>
                   ),
                 }
-              : {
-                  status: "empty",
-                  icon: <UsersIcon />,
-                  message: "No Labourers added yet.",
-                  action: (
-                    <Link href="/labour-payments/new" className={cn(buttonVariants({ variant: "primary" }))}>
-                      <PlusIcon className="size-4" />
-                      Add your first Labourer
-                    </Link>
-                  ),
-                }
+              : status === "deactivated"
+                ? {
+                    status: "empty",
+                    icon: <UsersIcon />,
+                    message: "No deactivated Labourers.",
+                  }
+                : {
+                    status: "empty",
+                    icon: <UsersIcon />,
+                    message: "No Labourers added yet.",
+                    action: (
+                      <Link href="/labour-payments/new" className={cn(buttonVariants({ variant: "primary" }))}>
+                        <PlusIcon className="size-4" />
+                        Add your first Labourer
+                      </Link>
+                    ),
+                  }
             : { status: "success", rows }
         }
       />

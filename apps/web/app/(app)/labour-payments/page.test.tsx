@@ -8,8 +8,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
 }));
 
-async function renderLabourPaymentsPage() {
-  const element = await LabourPaymentsPage({ searchParams: Promise.resolve({}) });
+async function renderLabourPaymentsPage(searchParams: Record<string, string> = {}) {
+  const element = await LabourPaymentsPage({ searchParams: Promise.resolve(searchParams) });
   render(element);
 }
 
@@ -78,5 +78,23 @@ describe("LabourPaymentsPage", () => {
     await renderLabourPaymentsPage();
 
     expect(screen.getByText("Showing 1–25 of 60")).toBeInTheDocument();
+  });
+
+  it("fetches isActive=true by default (the Active tab)", async () => {
+    mockLabourers([]);
+
+    await renderLabourPaymentsPage();
+
+    const url = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as string;
+    expect(url).toContain("isActive=true");
+  });
+
+  it("fetches isActive=false when the Deactivated tab is selected via ?status=deactivated", async () => {
+    mockLabourers([]);
+
+    await renderLabourPaymentsPage({ status: "deactivated" });
+
+    const url = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as string;
+    expect(url).toContain("isActive=false");
   });
 });

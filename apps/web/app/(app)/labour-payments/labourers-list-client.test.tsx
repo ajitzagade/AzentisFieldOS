@@ -6,6 +6,7 @@ import type { DailyLabourerListItem } from "./page";
 const setQuery = vi.fn();
 const setPage = vi.fn();
 const setSort = vi.fn();
+const setFilter = vi.fn();
 const clearAll = vi.fn();
 let hookState: { q: string; sort?: string; order?: "asc" | "desc" };
 
@@ -17,7 +18,7 @@ vi.mock("../../../lib/use-list-query-state", () => ({
     setSort,
     clearAll,
     getFilter: () => null,
-    setFilter: vi.fn(),
+    setFilter,
   }),
 }));
 
@@ -39,7 +40,9 @@ afterEach(() => {
 });
 
 function renderClient(overrides: Partial<Parameters<typeof LabourersListClient>[0]> = {}) {
-  return render(<LabourersListClient rows={[labourer]} total={1} page={1} pageSize={25} {...overrides} />);
+  return render(
+    <LabourersListClient rows={[labourer]} total={1} page={1} pageSize={25} status="active" {...overrides} />,
+  );
 }
 
 describe("LabourersListClient", () => {
@@ -101,5 +104,37 @@ describe("LabourersListClient", () => {
     renderClient();
     fireEvent.click(screen.getByRole("button", { name: /^Category/ }));
     expect(setSort).toHaveBeenCalledWith("category");
+  });
+
+  describe("Active/Deactivated tabs", () => {
+    it("marks Active selected by default and Deactivated unselected", () => {
+      renderClient();
+      expect(screen.getByRole("tab", { name: "Active" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("tab", { name: "Deactivated" })).toHaveAttribute("aria-selected", "false");
+    });
+
+    it("marks Deactivated selected when status is deactivated", () => {
+      renderClient({ status: "deactivated" });
+      expect(screen.getByRole("tab", { name: "Deactivated" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("tab", { name: "Active" })).toHaveAttribute("aria-selected", "false");
+    });
+
+    it("clicking Deactivated sets the status filter", () => {
+      renderClient();
+      fireEvent.click(screen.getByRole("tab", { name: "Deactivated" }));
+      expect(setFilter).toHaveBeenCalledWith("status", "deactivated");
+    });
+
+    it("clicking Active clears the status filter (back to the default)", () => {
+      renderClient({ status: "deactivated" });
+      fireEvent.click(screen.getByRole("tab", { name: "Active" }));
+      expect(setFilter).toHaveBeenCalledWith("status", null);
+    });
+
+    it("shows a Deactivated-specific empty state with no Add-Labourer action", () => {
+      renderClient({ status: "deactivated", rows: [], total: 0 });
+      expect(screen.getAllByText("No deactivated Labourers.").length).toBeGreaterThan(0);
+      expect(screen.queryByRole("link", { name: /Add your first Labourer/ })).not.toBeInTheDocument();
+    });
   });
 });

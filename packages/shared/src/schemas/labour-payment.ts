@@ -34,6 +34,33 @@ export const createDailyLabourerSchema = z.object({
 
 export type CreateDailyLabourerInput = z.infer<typeof createDailyLabourerSchema>;
 
+// The edit form always resubmits every field (full-replace, not a diff) —
+// mirrors updateVendorSchema's own convention. `isActive` is deliberately
+// NOT part of this schema: deactivate/reactivate is its own explicit,
+// dedicated action (updateDailyLabourerActiveSchema below), not something
+// that can be silently flipped as a side effect of an unrelated name/rate
+// edit — same separation UsersController keeps between `PATCH :id/role`
+// and `PATCH :id/active`.
+export const updateDailyLabourerSchema = z.object({
+  name: z.string().min(1).max(200),
+  category: z.enum(DAILY_LABOURER_CATEGORIES),
+  defaultPerDayAmount: z.number().positive().nullable(),
+});
+
+export type UpdateDailyLabourerInput = z.infer<typeof updateDailyLabourerSchema>;
+
+// Deactivate ("Delete", in the product's own vocabulary) / Reactivate a
+// Labourer — never a real DELETE: DailyLabourAttendance/DailyLabourAdvance/
+// DailyLabourWeeklyPayment all carry a required, non-cascading labourerId
+// FK, so their history (and every downstream payment calculation) stays
+// intact and correct regardless of this flag. Mirrors
+// updateUserActiveSchema exactly.
+export const updateDailyLabourerActiveSchema = z.object({
+  isActive: z.boolean(),
+});
+
+export type UpdateDailyLabourerActiveInput = z.infer<typeof updateDailyLabourerActiveSchema>;
+
 // One row per Labourer per Site per date per shift — a labourer may have an
 // independent Day entry AND Night entry on the same date. A correction is a
 // fresh row (correctsId set) restating attended/perDayAmount/isHalfDay for

@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Reflector } from '@nestjs/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ROLES_KEY } from '../auth/roles.decorator';
 import { DailyLabourersController } from './daily-labourers.controller';
 import { DailyLabourersService } from './daily-labourers.service';
 
@@ -9,10 +11,18 @@ describe('DailyLabourersController', () => {
     create: ReturnType<typeof vi.fn>;
     list: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    setActive: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
-    service = { create: vi.fn(), list: vi.fn(), findOne: vi.fn() };
+    service = {
+      create: vi.fn(),
+      list: vi.fn(),
+      findOne: vi.fn(),
+      update: vi.fn(),
+      setActive: vi.fn(),
+    };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [DailyLabourersController],
       providers: [{ provide: DailyLabourersService, useValue: service }],
@@ -70,5 +80,52 @@ describe('DailyLabourersController', () => {
       order: undefined,
       isActive: undefined,
     });
+  });
+
+  it('update delegates to the service with the id and validated body', async () => {
+    service.update.mockResolvedValue({ id: 'l1', name: 'Renamed' });
+
+    const result = await controller.update('l1', { name: 'Renamed' } as never);
+
+    expect(service.update).toHaveBeenCalledWith('l1', { name: 'Renamed' });
+    expect(result).toEqual({ id: 'l1', name: 'Renamed' });
+  });
+
+  it('setActive delegates to the service with the id and the boolean flag', async () => {
+    service.setActive.mockResolvedValue({ id: 'l1', isActive: false });
+
+    const result = await controller.setActive('l1', { isActive: false });
+
+    expect(service.setActive).toHaveBeenCalledWith('l1', false);
+    expect(result).toEqual({ id: 'l1', isActive: false });
+  });
+});
+
+// Reading decorator metadata off a method reference (never invoking it) is
+// safe — the established pattern for these authorization-wiring tests (see
+// subcontractors.controller.spec.ts / site-contracts.controller.spec.ts).
+/* eslint-disable @typescript-eslint/unbound-method */
+describe('DailyLabourersController authorization wiring', () => {
+  const reflector = new Reflector();
+
+  it('update/setActive carry their own OWNER_ADMIN restriction', () => {
+    expect(
+      reflector.get(ROLES_KEY, DailyLabourersController.prototype.update),
+    ).toEqual(['OWNER_ADMIN']);
+    expect(
+      reflector.get(ROLES_KEY, DailyLabourersController.prototype.setActive),
+    ).toEqual(['OWNER_ADMIN']);
+  });
+
+  it('create/list/findOne carry no @Roles() metadata — open to both roles, unchanged', () => {
+    expect(
+      reflector.get(ROLES_KEY, DailyLabourersController.prototype.create),
+    ).toBeUndefined();
+    expect(
+      reflector.get(ROLES_KEY, DailyLabourersController.prototype.list),
+    ).toBeUndefined();
+    expect(
+      reflector.get(ROLES_KEY, DailyLabourersController.prototype.findOne),
+    ).toBeUndefined();
   });
 });

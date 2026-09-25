@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type {
   CreateDailyLabourerInput,
   PaginatedResult,
+  UpdateDailyLabourerInput,
 } from '@azentisfieldos/shared';
 import { Prisma, type DailyLabourer } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -99,5 +100,49 @@ export class DailyLabourersService {
       throw new NotFoundException(`Labourer ${id} not found`);
     }
     return labourer;
+  }
+
+  // Deliberately NOT gated on isActive (unlike Vendor/Subcontractor's
+  // deletedAt-null findOne) — a deactivated Labourer's own detail page,
+  // and this update path, must stay reachable so their attendance/advance/
+  // payment history remains viewable and correctable for future reference.
+  // Only entry-flow pickers (isActive=true filter above) and the admin
+  // list's default tab hide them.
+  async update(id: string, input: UpdateDailyLabourerInput) {
+    try {
+      return await this.prisma.dailyLabourer.update({
+        where: { id },
+        data: input,
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`Labourer ${id} not found`);
+      }
+      throw error;
+    }
+  }
+
+  // Deactivate/Reactivate — flips isActive only, never a real DELETE.
+  // DailyLabourAttendance/DailyLabourAdvance/DailyLabourWeeklyPayment all
+  // carry a required labourerId FK with no cascade, so every existing row
+  // (and any calculation reading it) is untouched either way.
+  async setActive(id: string, isActive: boolean) {
+    try {
+      return await this.prisma.dailyLabourer.update({
+        where: { id },
+        data: { isActive },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`Labourer ${id} not found`);
+      }
+      throw error;
+    }
   }
 }

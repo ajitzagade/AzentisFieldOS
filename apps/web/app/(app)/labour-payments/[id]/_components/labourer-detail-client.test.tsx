@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { currentWeekStart } from "../week-utils";
@@ -15,9 +15,11 @@ vi.mock("@/lib/use-authed-fetch", () => ({
 
 const createAttendanceActionMock = vi.fn();
 const createWeeklyPaymentActionMock = vi.fn();
+const setDailyLabourerActiveActionMock = vi.fn();
 vi.mock("../actions", () => ({
   createAttendanceAction: (...args: unknown[]) => createAttendanceActionMock(...args),
   createWeeklyPaymentAction: (...args: unknown[]) => createWeeklyPaymentActionMock(...args),
+  setDailyLabourerActiveAction: (...args: unknown[]) => setDailyLabourerActiveActionMock(...args),
 }));
 
 import { LabourerDetailClient } from "./labourer-detail-client";
@@ -32,6 +34,8 @@ function renderClient(overrides: Partial<Parameters<typeof LabourerDetailClient>
       category="Mason"
       defaultPerDayAmount={800}
       outstandingBalance={500}
+      isActive={true}
+      viewerRole="OWNER_ADMIN"
       sites={sites}
       advances={[]}
       ledger={[]}
@@ -45,6 +49,8 @@ describe("LabourerDetailClient", () => {
     refreshMock.mockClear();
     createAttendanceActionMock.mockClear();
     createWeeklyPaymentActionMock.mockClear();
+    setDailyLabourerActiveActionMock.mockClear();
+    setDailyLabourerActiveActionMock.mockResolvedValue(undefined);
     attendanceFetchMock.mockReset();
     attendanceFetchMock.mockResolvedValue({ ok: true, json: async () => [] });
   });
@@ -229,5 +235,50 @@ describe("LabourerDetailClient", () => {
     });
 
     expect(screen.getByText("10/Aug/2026 – 16/Aug/2026")).toBeInTheDocument();
+  });
+
+  describe("Edit / Delete / Reactivate", () => {
+    it("shows Edit and Delete Labourer to an Owner/Admin viewing an active Labourer", () => {
+      renderClient({ isActive: true, viewerRole: "OWNER_ADMIN" });
+      expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/labour-payments/l1/edit");
+      expect(screen.getByRole("button", { name: "Delete Labourer" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Reactivate" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Deactivated")).not.toBeInTheDocument();
+    });
+
+    it("hides Edit and Delete from a Supervisor", () => {
+      renderClient({ viewerRole: "SITE_SUPERVISOR" });
+      expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete Labourer" })).not.toBeInTheDocument();
+    });
+
+    it("shows a Deactivated badge and a Reactivate button, not Delete, for an inactive Labourer", () => {
+      renderClient({ isActive: false, viewerRole: "OWNER_ADMIN" });
+      expect(screen.getByText("Deactivated")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Reactivate" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete Labourer" })).not.toBeInTheDocument();
+    });
+
+    it("calls setDailyLabourerActiveAction(id, false) after confirming Delete", async () => {
+      const user = userEvent.setup();
+      renderClient({ isActive: true, viewerRole: "OWNER_ADMIN" });
+
+      await user.click(screen.getByRole("button", { name: "Delete Labourer" }));
+      const dialog = await screen.findByRole("alertdialog");
+      await user.click(within(dialog).getByRole("button", { name: "Delete Labourer" }));
+
+      await waitFor(() => expect(setDailyLabourerActiveActionMock).toHaveBeenCalledWith("l1", false));
+    });
+
+    it("calls setDailyLabourerActiveAction(id, true) after confirming Reactivate", async () => {
+      const user = userEvent.setup();
+      renderClient({ isActive: false, viewerRole: "OWNER_ADMIN" });
+
+      await user.click(screen.getByRole("button", { name: "Reactivate" }));
+      const dialog = await screen.findByRole("alertdialog");
+      await user.click(within(dialog).getByRole("button", { name: "Reactivate" }));
+
+      await waitFor(() => expect(setDailyLabourerActiveActionMock).toHaveBeenCalledWith("l1", true));
+    });
   });
 });

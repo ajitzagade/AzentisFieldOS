@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
+import { Prisma } from '../generated/prisma/client';
 import { DailyLabourersService } from './daily-labourers.service';
 
 function makeService(
@@ -8,6 +9,7 @@ function makeService(
     findMany?: ReturnType<typeof vi.fn>;
     count?: ReturnType<typeof vi.fn>;
     findUnique?: ReturnType<typeof vi.fn>;
+    update?: ReturnType<typeof vi.fn>;
   } = {},
 ) {
   const prisma = {
@@ -16,6 +18,7 @@ function makeService(
       findMany: overrides.findMany ?? vi.fn().mockResolvedValue([]),
       count: overrides.count ?? vi.fn().mockResolvedValue(0),
       findUnique: overrides.findUnique ?? vi.fn(),
+      update: overrides.update ?? vi.fn(),
     },
   };
   return {
@@ -26,6 +29,14 @@ function makeService(
     ),
     prisma,
   };
+}
+
+function p2025Error() {
+  const error = Object.create(
+    Prisma.PrismaClientKnownRequestError.prototype,
+  ) as InstanceType<typeof Prisma.PrismaClientKnownRequestError>;
+  Object.assign(error, { code: 'P2025', message: 'not found' });
+  return error;
 }
 
 describe('DailyLabourersService', () => {
@@ -166,5 +177,72 @@ describe('DailyLabourersService', () => {
     });
 
     await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
+  });
+
+  describe('update', () => {
+    it('passes the id and input straight through to dailyLabourer.update', async () => {
+      const update = vi.fn().mockResolvedValue({ id: 'l1', name: 'Renamed' });
+      const { service } = makeService({ update });
+      const input = {
+        name: 'Renamed',
+        category: 'Mistri' as const,
+        defaultPerDayAmount: 900,
+      };
+
+      const result = await service.update('l1', input);
+
+      expect(update).toHaveBeenCalledWith({ where: { id: 'l1' }, data: input });
+      expect(result).toEqual({ id: 'l1', name: 'Renamed' });
+    });
+
+    it('throws NotFoundException, not a raw 500, when Prisma reports P2025', async () => {
+      const update = vi.fn().mockRejectedValue(p2025Error());
+      const { service } = makeService({ update });
+
+      await expect(
+        service.update('missing', {
+          name: 'X',
+          category: 'Men' as const,
+          defaultPerDayAmount: null,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('setActive', () => {
+    it('flips isActive to false (Deactivate)', async () => {
+      const update = vi.fn().mockResolvedValue({ id: 'l1', isActive: false });
+      const { service } = makeService({ update });
+
+      const result = await service.setActive('l1', false);
+
+      expect(update).toHaveBeenCalledWith({
+        where: { id: 'l1' },
+        data: { isActive: false },
+      });
+      expect(result).toEqual({ id: 'l1', isActive: false });
+    });
+
+    it('flips isActive to true (Reactivate)', async () => {
+      const update = vi.fn().mockResolvedValue({ id: 'l1', isActive: true });
+      const { service } = makeService({ update });
+
+      const result = await service.setActive('l1', true);
+
+      expect(update).toHaveBeenCalledWith({
+        where: { id: 'l1' },
+        data: { isActive: true },
+      });
+      expect(result).toEqual({ id: 'l1', isActive: true });
+    });
+
+    it('throws NotFoundException, not a raw 500, when Prisma reports P2025', async () => {
+      const update = vi.fn().mockRejectedValue(p2025Error());
+      const { service } = makeService({ update });
+
+      await expect(service.setActive('missing', false)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
   });
 });
