@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge, Button, ChevronRightIcon, ConfirmDialog, PencilIcon, cn, buttonVariants, PlusIcon, WalletIcon } from "@azentisfieldos/ui";
-import type { Role } from "@azentisfieldos/shared";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useAuthedFetch } from "@/lib/use-authed-fetch";
 import type { SiteOption } from "../../../_components/site-field";
@@ -107,7 +106,6 @@ export function LabourerDetailClient({
   defaultPerDayAmount,
   outstandingBalance,
   isActive,
-  viewerRole,
   sites,
   advances,
   ledger,
@@ -118,7 +116,6 @@ export function LabourerDetailClient({
   defaultPerDayAmount: number | null;
   outstandingBalance: number;
   isActive: boolean;
-  viewerRole: Role;
   sites: SiteOption[];
   advances: AdvanceHistoryRow[];
   ledger: WeeklyPaymentLedgerRow[];
@@ -199,27 +196,25 @@ export function LabourerDetailClient({
           <p className="text-body-sm text-ink-500">{category}</p>
         </div>
         <div className="flex flex-wrap items-start gap-3">
-          {viewerRole === "OWNER_ADMIN" ? (
-            <div className="action-button-row">
-              <Link
-                href={`/labour-payments/${labourerId}/edit`}
-                className={cn(buttonVariants({ variant: "secondary" }))}
-              >
-                <PencilIcon className="size-4" />
-                Edit
-              </Link>
-              {isActive ? (
-                <DeleteEntityButton
-                  label="Delete Labourer"
-                  title={`Delete ${labourerName}?`}
-                  description="This removes them from the active list and every new-entry picker (attendance, payments). Their attendance, advance, and payment history stays in the database and is not destroyed — reactivate them anytime from the Deactivated tab."
-                  action={setDailyLabourerActiveAction.bind(null, labourerId, false)}
-                />
-              ) : (
-                <ReactivateLabourerButton labourerId={labourerId} labourerName={labourerName} />
-              )}
-            </div>
-          ) : null}
+          <div className="action-button-row">
+            <Link
+              href={`/labour-payments/${labourerId}/edit`}
+              className={cn(buttonVariants({ variant: "secondary" }))}
+            >
+              <PencilIcon className="size-4" />
+              Edit
+            </Link>
+            {isActive ? (
+              <DeleteEntityButton
+                label="Delete Labourer"
+                title={`Delete ${labourerName}?`}
+                description="This removes them from the active list and every new-entry picker (attendance, payments). Their attendance, advance, and payment history stays in the database and is not destroyed — reactivate them anytime from the Deactivated tab."
+                action={setDailyLabourerActiveAction.bind(null, labourerId, false)}
+              />
+            ) : (
+              <ReactivateLabourerButton labourerId={labourerId} labourerName={labourerName} />
+            )}
+          </div>
           <div className="rounded-md bg-surface-2 px-4 py-2 text-right">
             <div className="text-caption text-ink-500">Outstanding Advance</div>
             <div className="text-card-title font-semibold text-gold-700">{formatMoney(outstandingBalance)}</div>

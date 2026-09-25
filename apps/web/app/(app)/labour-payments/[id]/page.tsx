@@ -1,5 +1,4 @@
 import { authedFetch } from "@/lib/api";
-import { currentRole } from "@/lib/current-role";
 import { notFound } from "next/navigation";
 import { LabourerDetailClient, type AdvanceHistoryRow, type WeeklyPaymentLedgerRow } from "./_components/labourer-detail-client";
 import type { SiteOption } from "../../_components/site-field";
@@ -68,12 +67,7 @@ export default async function LabourerDetailPage({ params }: { params: Promise<{
   if (!labourer) {
     notFound();
   }
-  const [sites, advances, ledger, viewerRole] = await Promise.all([
-    getSites(),
-    getAdvanceHistory(id),
-    getLedger(id),
-    currentRole(),
-  ]);
+  const [sites, advances, ledger] = await Promise.all([getSites(), getAdvanceHistory(id), getLedger(id)]);
 
   return (
     <LabourerDetailClient
@@ -83,7 +77,6 @@ export default async function LabourerDetailPage({ params }: { params: Promise<{
       defaultPerDayAmount={labourer.defaultPerDayAmount}
       outstandingBalance={labourer.outstandingAdvanceBalance}
       isActive={labourer.isActive}
-      viewerRole={viewerRole}
       sites={sites}
       advances={advances}
       ledger={ledger}

@@ -35,7 +35,6 @@ function renderClient(overrides: Partial<Parameters<typeof LabourerDetailClient>
       defaultPerDayAmount={800}
       outstandingBalance={500}
       isActive={true}
-      viewerRole="OWNER_ADMIN"
       sites={sites}
       advances={[]}
       ledger={[]}
@@ -238,22 +237,19 @@ describe("LabourerDetailClient", () => {
   });
 
   describe("Edit / Delete / Reactivate", () => {
-    it("shows Edit and Delete Labourer to an Owner/Admin viewing an active Labourer", () => {
-      renderClient({ isActive: true, viewerRole: "OWNER_ADMIN" });
+    // Revised 2026-09-25 (user-requested): open to both roles now, same as
+    // create — a Site Engineer is the one actually doing Labour management
+    // day to day, so this no longer gates on viewerRole at all.
+    it("shows Edit and Delete Labourer for an active Labourer", () => {
+      renderClient({ isActive: true });
       expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/labour-payments/l1/edit");
       expect(screen.getByRole("button", { name: "Delete Labourer" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Reactivate" })).not.toBeInTheDocument();
       expect(screen.queryByText("Deactivated")).not.toBeInTheDocument();
     });
 
-    it("hides Edit and Delete from a Supervisor", () => {
-      renderClient({ viewerRole: "SITE_SUPERVISOR" });
-      expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Delete Labourer" })).not.toBeInTheDocument();
-    });
-
     it("shows a Deactivated badge and a Reactivate button, not Delete, for an inactive Labourer", () => {
-      renderClient({ isActive: false, viewerRole: "OWNER_ADMIN" });
+      renderClient({ isActive: false });
       expect(screen.getByText("Deactivated")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Reactivate" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Delete Labourer" })).not.toBeInTheDocument();
@@ -261,7 +257,7 @@ describe("LabourerDetailClient", () => {
 
     it("calls setDailyLabourerActiveAction(id, false) after confirming Delete", async () => {
       const user = userEvent.setup();
-      renderClient({ isActive: true, viewerRole: "OWNER_ADMIN" });
+      renderClient({ isActive: true });
 
       await user.click(screen.getByRole("button", { name: "Delete Labourer" }));
       const dialog = await screen.findByRole("alertdialog");
@@ -272,7 +268,7 @@ describe("LabourerDetailClient", () => {
 
     it("calls setDailyLabourerActiveAction(id, true) after confirming Reactivate", async () => {
       const user = userEvent.setup();
-      renderClient({ isActive: false, viewerRole: "OWNER_ADMIN" });
+      renderClient({ isActive: false });
 
       await user.click(screen.getByRole("button", { name: "Reactivate" }));
       const dialog = await screen.findByRole("alertdialog");

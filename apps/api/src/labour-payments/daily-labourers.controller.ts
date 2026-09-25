@@ -6,7 +6,6 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
   UsePipes,
 } from '@nestjs/common';
 import {
@@ -18,14 +17,15 @@ import {
   type UpdateDailyLabourerInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
-import { Roles } from '../auth/roles.decorator';
-import { RolesGuard } from '../auth/roles.guard';
 import { DailyLabourersService } from './daily-labourers.service';
 
-// RolesGuard is a no-op on handlers without @Roles() metadata, so adding it
-// at controller level restricts ONLY update/setActive below — create/list/
-// findOne stay open to both roles, unchanged.
-@UseGuards(RolesGuard)
+// Every route here is open to both roles (revised 2026-09-25,
+// user-requested): a Site Engineer is the one actually doing Labour
+// management day to day (attendance, payments), so editing a Labourer's
+// details or deactivating one is routine upkeep, not an Owner-reserved
+// decision — unlike Vendor/Subcontractor/Site Contract, where correcting
+// an existing record stays Owner/Admin-only. No RolesGuard needed here at
+// all now that nothing carries @Roles() metadata.
 @Controller('daily-labourers')
 export class DailyLabourersController {
   constructor(private readonly labourersService: DailyLabourersService) {}
@@ -63,21 +63,19 @@ export class DailyLabourersController {
     return this.labourersService.findOne(id);
   }
 
-  // Editing an existing Labourer's details (name/category/rate) stays
-  // Owner/Admin-only — same rule as Vendor/Subcontractor: registering a
-  // new one is open to both roles, correcting an existing record is not.
+  // Either role edits an existing Labourer's details (name/category/rate)
+  // — see the controller-level comment above for why Labour departs from
+  // Vendor/Subcontractor's usual "create open, edit Owner-only" split.
   @Patch(':id')
-  @Roles('OWNER_ADMIN')
   @UsePipes(new ZodValidationPipe(updateDailyLabourerSchema))
   update(@Param('id') id: string, @Body() body: UpdateDailyLabourerInput) {
     return this.labourersService.update(id, body);
   }
 
   // Deactivate ("Delete" in the product's own vocabulary) / Reactivate —
-  // Owner/Admin-only, mirrors PATCH /users/:id/active exactly. Never a real
-  // DELETE: attendance/advance/payment history stays intact either way.
+  // either role. Never a real DELETE: attendance/advance/payment history
+  // stays intact either way.
   @Patch(':id/active')
-  @Roles('OWNER_ADMIN')
   setActive(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(updateDailyLabourerActiveSchema))

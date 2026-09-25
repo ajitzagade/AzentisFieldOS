@@ -108,16 +108,7 @@ describe('DailyLabourersController', () => {
 describe('DailyLabourersController authorization wiring', () => {
   const reflector = new Reflector();
 
-  it('update/setActive carry their own OWNER_ADMIN restriction', () => {
-    expect(
-      reflector.get(ROLES_KEY, DailyLabourersController.prototype.update),
-    ).toEqual(['OWNER_ADMIN']);
-    expect(
-      reflector.get(ROLES_KEY, DailyLabourersController.prototype.setActive),
-    ).toEqual(['OWNER_ADMIN']);
-  });
-
-  it('create/list/findOne carry no @Roles() metadata — open to both roles, unchanged', () => {
+  it('every route carries no @Roles() metadata — open to both roles (revised 2026-09-25, user-requested: update/setActive were briefly Owner-only, now match create/list/findOne)', () => {
     expect(
       reflector.get(ROLES_KEY, DailyLabourersController.prototype.create),
     ).toBeUndefined();
@@ -126,6 +117,12 @@ describe('DailyLabourersController authorization wiring', () => {
     ).toBeUndefined();
     expect(
       reflector.get(ROLES_KEY, DailyLabourersController.prototype.findOne),
+    ).toBeUndefined();
+    expect(
+      reflector.get(ROLES_KEY, DailyLabourersController.prototype.update),
+    ).toBeUndefined();
+    expect(
+      reflector.get(ROLES_KEY, DailyLabourersController.prototype.setActive),
     ).toBeUndefined();
   });
 });
