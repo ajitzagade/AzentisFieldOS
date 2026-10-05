@@ -161,7 +161,7 @@ describe("TeamMemberDetailPage", () => {
     // renders once in the desktop table and once in the stacked mobile card.
     expect(screen.getAllByText("Medical")).toHaveLength(2);
     expect(screen.getByRole("link", { name: "Record Advance" })).toHaveAttribute("href", "/team/tm1/advances/new");
-    for (const link of screen.getAllByRole("link", { name: "Correct" })) {
+    for (const link of screen.getAllByRole("link", { name: "Edit advance" })) {
       expect(link).toHaveAttribute("href", "/team/tm1/advances/adv1/correct");
     }
     for (const link of screen.getAllByRole("link", { name: /Adjust/ })) {
@@ -216,7 +216,8 @@ describe("TeamMemberDetailPage", () => {
     // OWNER_ADMIN role, so it would never have caught it.
     expect(screen.getAllByText("Medical")).toHaveLength(2);
     expect(screen.getAllByText("Adjusted against July payment")).toHaveLength(2);
-    expect(screen.queryByRole("link", { name: "Correct" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Edit advance" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Edit adjustment" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Adjust/ })).not.toBeInTheDocument();
   });
 
@@ -249,7 +250,7 @@ describe("TeamMemberDetailPage", () => {
     expect(screen.getAllByText("Adjustment")).toHaveLength(2);
     expect(screen.getAllByText("Adjusted against July payment")).toHaveLength(2);
     expect(screen.getAllByText("−₹3,000")).toHaveLength(2);
-    const correctLinks = screen.getAllByRole("link", { name: "Correct" });
+    const correctLinks = screen.getAllByRole("link", { name: "Edit adjustment" });
     expect(correctLinks.map((link) => link.getAttribute("href"))).toContain(
       "/team/tm1/advances/adv1/adjustments/aa1/correct",
     );

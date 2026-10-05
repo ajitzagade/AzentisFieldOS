@@ -134,7 +134,7 @@ export async function getSiteMaterialActivity(
     workEntries,
   ] = await Promise.all([
     prisma.purchase.findMany({
-      where: { siteId, purchasedAt: bounds },
+      where: { siteId, purchasedAt: bounds, deletedAt: null },
       include: {
         materialSize: { include: { material: { include: { unit: true } } } },
         vendor: true,
@@ -149,7 +149,7 @@ export async function getSiteMaterialActivity(
     // all, so it never qualifies here either — correct, since the sending
     // Site didn't receive anything.
     prisma.movement.findMany({
-      where: { destinationSiteId: siteId, movedAt: bounds },
+      where: { destinationSiteId: siteId, movedAt: bounds, deletedAt: null },
       include: {
         materialSize: { include: { material: { include: { unit: true } } } },
         sourceSite: true,
@@ -157,17 +157,32 @@ export async function getSiteMaterialActivity(
       },
     }),
     prisma.consumption.findMany({
-      where: { siteId, consumedAt: bounds, dailySiteReportId: null },
+      where: {
+        siteId,
+        consumedAt: bounds,
+        dailySiteReportId: null,
+        deletedAt: null,
+      },
       include: {
         materialSize: { include: { material: { include: { unit: true } } } },
       },
     }),
     prisma.rmcEntry.findMany({
-      where: { siteId, deliveredAt: bounds, dailySiteReportId: null },
+      where: {
+        siteId,
+        deliveredAt: bounds,
+        dailySiteReportId: null,
+        deletedAt: null,
+      },
       include: { vendor: true },
     }),
     prisma.wasteDisposal.findMany({
-      where: { siteId, disposedAt: bounds, dailySiteReportId: null },
+      where: {
+        siteId,
+        disposedAt: bounds,
+        dailySiteReportId: null,
+        deletedAt: null,
+      },
       include: { vendor: true },
     }),
     prisma.returnWastage.findMany({

@@ -100,7 +100,7 @@ describe("RmcPage", () => {
 
     await renderRmcPage();
 
-    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/rmc/rmc1/correct");
+    expect(screen.getAllByRole("link", { name: "Edit" })[0]).toHaveAttribute("href", "/rmc/rmc1/correct");
     expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Delete" }).length).toBeGreaterThan(0);
   });

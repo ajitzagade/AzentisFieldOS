@@ -17,6 +17,11 @@ export interface DataTableColumn<T> {
    * when this header is clicked. A column with no sortKey renders as a
    * plain, unclickable header even when the table as a whole is sortable. */
   sortKey?: string;
+  /** Opt out of the row-level link wrapping `rowHref` would otherwise apply
+   * to this column's cell. Set this on a column whose cell renders its own
+   * nested link/button (e.g. a "view photo" link) — wrapping it in the
+   * row's own Link would produce invalid nested `<a>` markup. */
+  disableRowLink?: boolean;
 }
 
 export type DataTableState<T> =
@@ -345,11 +350,13 @@ export function DataTable<T>({
                     // DataTableCardList's `detailColumns` filter and
                     // `mobileCard.action` already use) never nest inside the
                     // row's own Link, even when rowHref is set: a distinct
-                    // per-row action (e.g. Correct) needs its own
+                    // per-row action (e.g. Edit) needs its own
                     // independently-clickable Link, not one physically
                     // nested inside another <a> (invalid markup, and the
                     // outer row-link would otherwise swallow the click).
-                    href && column.header !== "" ? (
+                    // `disableRowLink` opts out the same way for a column
+                    // whose own cell renders a nested link/button.
+                    href && column.header !== "" && !column.disableRowLink ? (
                       <td key={column.header} className={cn(bodyCellClass(column.align), "p-0")}>
                         <Link
                           href={href}

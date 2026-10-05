@@ -252,7 +252,7 @@ export class WasteDisposalService {
     let frontier = rootIds;
     while (frontier.length > 0) {
       const corrections = await this.prisma.wasteDisposal.findMany({
-        where: { correctsId: { in: frontier } },
+        where: { correctsId: { in: frontier }, deletedAt: null },
         select: {
           id: true,
           correctsId: true,

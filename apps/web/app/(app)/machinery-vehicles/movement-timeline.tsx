@@ -1,5 +1,5 @@
 import { formatDate } from "@/lib/format";
-import { Badge, Card, CorrectAction, RotateCcwIcon } from "@azentisfieldos/ui";
+import { Badge, Card, CorrectAction, PencilIcon } from "@azentisfieldos/ui";
 import type { AssetLocationStatus } from "./status-badge";
 
 export interface MovementHistoryItem {
@@ -72,8 +72,9 @@ export function MovementTimeline({
                 <div className="mt-0.5 flex items-center gap-3 text-body-sm text-ink-500">
                   <span>{formatDate(movement.movedAt)}</span>
                   <CorrectAction
-                    icon={<RotateCcwIcon className="size-4" />}
+                    icon={<PencilIcon className="size-4" />}
                     href={`/machinery-vehicles/${basePath}/${assetId}/movements/${movement.id}/correct`}
+                    label="Edit movement"
                   />
                 </div>
               </div>

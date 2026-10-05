@@ -8,7 +8,7 @@ import {
   DataTable,
   Pagination,
   PlusIcon,
-  RotateCcwIcon,
+  PencilIcon,
   TextField,
   TruckIcon,
   buttonVariants,
@@ -35,7 +35,7 @@ function renderRowActions(v: VehicleListItem) {
     <>
       {v.movementLogs[0] ? (
         <CorrectAction
-          icon={<RotateCcwIcon className="size-4" />}
+          icon={<PencilIcon className="size-4" />}
           href={`/machinery-vehicles/vehicles/${v.id}/movements/${v.movementLogs[0].id}/correct`}
         />
       ) : null}

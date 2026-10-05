@@ -9,7 +9,7 @@ import {
   DataTable,
   Pagination,
   PlusIcon,
-  RotateCcwIcon,
+  PencilIcon,
   TextField,
   WalletIcon,
   buttonVariants,
@@ -90,7 +90,7 @@ function buildColumns(canManage: boolean): DataTableColumn<PaymentListItem>[] {
       <div className="flex items-center justify-end gap-1">
         {canManage && p.status === "pending" ? <MarkPaidButton id={p.id} /> : null}
         {canManage ? (
-          <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/payments/${p.id}/correct`} />
+          <CorrectAction icon={<PencilIcon className="size-4" />} href={`/payments/${p.id}/correct`} />
         ) : null}
         <Link
           href={`/team/${p.teamMember.id}`}
@@ -112,7 +112,7 @@ function buildMobileCard(canManage: boolean): DataTableMobileCard<PaymentListIte
     action: (p) => (
       <>
         {canManage ? (
-          <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/payments/${p.id}/correct`} />
+          <CorrectAction icon={<PencilIcon className="size-4" />} href={`/payments/${p.id}/correct`} />
         ) : null}
         <Link
           href={`/team/${p.teamMember.id}`}

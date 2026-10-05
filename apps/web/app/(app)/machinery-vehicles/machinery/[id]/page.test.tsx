@@ -109,8 +109,8 @@ describe("MachineryDetailPage", () => {
     expect(screen.getByText("Recorded at NH-48 Highway Widening")).toBeInTheDocument();
     expect(screen.getByText("Sent to Maintenance")).toBeInTheDocument();
     expect(screen.getByText("Current")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Correct" })).toHaveLength(2);
-    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: "Edit movement" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Edit movement" })[0]).toHaveAttribute(
       "href",
       "/machinery-vehicles/machinery/m1/movements/log2/correct",
     );

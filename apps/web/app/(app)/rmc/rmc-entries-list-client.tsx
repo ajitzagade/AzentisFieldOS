@@ -10,7 +10,7 @@ import {
   DropletIcon,
   Pagination,
   PlusIcon,
-  RotateCcwIcon,
+  PencilIcon,
   TextField,
   TrashIcon,
   buttonVariants,
@@ -72,6 +72,7 @@ const columns: DataTableColumn<RmcEntryRow>[] = [
   },
   {
     header: "Invoice #",
+    disableRowLink: true,
     cell: (row) => (
       <span className="flex items-center gap-1.5">
         {row.invoiceOrChallanNo ?? <span className="text-ink-500">—</span>}
@@ -93,7 +94,7 @@ const columns: DataTableColumn<RmcEntryRow>[] = [
     header: "",
     cell: (row) => (
       <div className="flex items-center justify-end gap-1">
-        <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/rmc/${row.id}/correct`} />
+        <CorrectAction icon={<PencilIcon className="size-4" />} href={`/rmc/${row.id}/correct`} />
         <DeleteMovementEntryButton
           icon={<TrashIcon className="size-4" />}
           title="Delete this RMC delivery?"
@@ -114,7 +115,7 @@ const mobileCard: DataTableMobileCard<RmcEntryRow> = {
   omitHeaders: ["Vendor", "Grade"],
   action: (row) => (
     <>
-      <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/rmc/${row.id}/correct`} />
+      <CorrectAction icon={<PencilIcon className="size-4" />} href={`/rmc/${row.id}/correct`} />
       <DeleteMovementEntryButton
         icon={<TrashIcon className="size-4" />}
         title="Delete this RMC delivery?"
@@ -157,6 +158,7 @@ export function RmcEntriesListClient({
         columns={columns}
         mobileCard={mobileCard}
         rowKey={(row) => row.id}
+        rowHref={(row) => `/rmc/${row.id}/correct`}
         sort={query.sort ? { key: query.sort, order: query.order ?? "asc" } : undefined}
         onSortChange={query.setSort}
         state={

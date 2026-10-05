@@ -9,7 +9,7 @@ import {
   GearIcon,
   Pagination,
   PlusIcon,
-  RotateCcwIcon,
+  PencilIcon,
   TextField,
   buttonVariants,
   cn,
@@ -35,7 +35,7 @@ function renderRowActions(m: MachineryListItem) {
     <>
       {m.movementLogs[0] ? (
         <CorrectAction
-          icon={<RotateCcwIcon className="size-4" />}
+          icon={<PencilIcon className="size-4" />}
           href={`/machinery-vehicles/machinery/${m.id}/movements/${m.movementLogs[0].id}/correct`}
         />
       ) : null}

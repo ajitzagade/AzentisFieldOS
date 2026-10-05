@@ -14,7 +14,7 @@ import {
   DeleteMovementEntryButton,
   PlusIcon,
   ReceiptIcon,
-  RotateCcwIcon,
+  PencilIcon,
   SelectField,
   TextField,
   TrashIcon,
@@ -260,7 +260,7 @@ const columns: DataTableColumn<MovementRow>[] = [
             Attach Bill
           </Link>
         ) : null}
-        <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={r.correctHref} />
+        <CorrectAction icon={<PencilIcon className="size-4" />} href={r.correctHref} />
         {r.deleteAction ? (
           <DeleteMovementEntryButton
             icon={<TrashIcon className="size-4" />}
@@ -284,7 +284,7 @@ const mobileCard: DataTableMobileCard<MovementRow> = {
   omitHeaders: ["Type", "Material"],
   action: (r) => (
     <>
-      <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={r.correctHref} />
+      <CorrectAction icon={<PencilIcon className="size-4" />} href={r.correctHref} />
       {r.deleteAction ? (
         <DeleteMovementEntryButton
           icon={<TrashIcon className="size-4" />}
@@ -430,6 +430,7 @@ export function MovementsListClient({
         columns={columns}
         mobileCard={mobileCard}
         rowKey={(r) => r.id}
+        rowHref={(r) => r.correctHref}
         sort={query.sort ? { key: query.sort, order: query.order ?? "asc" } : undefined}
         onSortChange={query.setSort}
         state={

@@ -10,7 +10,6 @@ import {
   CorrectAction,
   DataTable,
   PencilIcon,
-  RotateCcwIcon,
   buttonVariants,
   cn,
   type DataTableColumn,
@@ -292,7 +291,7 @@ const advanceColumns: DataTableColumn<VendorAdvance>[] = [
     align: "right",
     cell: (row) => (
       <CorrectAction
-        icon={<RotateCcwIcon className="size-4" />}
+        icon={<PencilIcon className="size-4" />}
         href={`/vendor-advances/${row.id}/correct`}
       />
     ),
@@ -303,7 +302,7 @@ const advanceMobileCard: DataTableMobileCard<VendorAdvance> = {
   primary: (row) => formatDate(row.givenAt),
   omitHeaders: ["Date"],
   action: (row) => (
-    <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/vendor-advances/${row.id}/correct`} />
+    <CorrectAction icon={<PencilIcon className="size-4" />} href={`/vendor-advances/${row.id}/correct`} />
   ),
 };
 

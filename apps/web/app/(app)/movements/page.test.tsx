@@ -108,7 +108,7 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/movements/purchases/p1/correct");
+    expect(screen.getAllByRole("link", { name: "Edit" })[0]).toHaveAttribute("href", "/movements/purchases/p1/correct");
   });
 
   it("renders a gold Movement badge and a Godown -> destination Site flow", async () => {
@@ -157,7 +157,7 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/movements/godown-to-site/m2/correct");
+    expect(screen.getAllByRole("link", { name: "Edit" })[0]).toHaveAttribute("href", "/movements/godown-to-site/m2/correct");
   });
 
   it("renders the empty state with a record-first-Purchase action when there are zero rows", async () => {
@@ -228,7 +228,7 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/movements/consumption/c1/correct");
+    expect(screen.getAllByRole("link", { name: "Edit" })[0]).toHaveAttribute("href", "/movements/consumption/c1/correct");
   });
 
   it("renders a danger Wastage / Return badge with matching Sent/Received Qty (no sent/received-gap concept)", async () => {
@@ -277,7 +277,7 @@ describe("MovementsPage", () => {
 
     await renderMovementsPage();
 
-    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/movements/return-wastage/rw1/correct");
+    expect(screen.getAllByRole("link", { name: "Edit" })[0]).toHaveAttribute("href", "/movements/return-wastage/rw1/correct");
   });
 
   it("requests page 1 / the default page size when no searchParams are given", async () => {

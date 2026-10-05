@@ -169,6 +169,7 @@ export class MovementsLogService {
     // the two must always agree on the filtered universe, or `total`
     // silently drifts from what the rows actually show.
     const purchaseWhere: Prisma.PurchaseWhereInput = {
+      deletedAt: null,
       ...(siteId ? { siteId } : {}),
       ...(dateRange ? { purchasedAt: dateRange } : {}),
       ...purchaseSearch,
@@ -179,6 +180,7 @@ export class MovementsLogService {
     };
 
     const movementWhere: Prisma.MovementWhereInput = {
+      deletedAt: null,
       ...(siteId
         ? { OR: [{ sourceSiteId: siteId }, { destinationSiteId: siteId }] }
         : {}),
@@ -221,6 +223,7 @@ export class MovementsLogService {
       : [];
     const consumptionSearch = siteSearch('site');
     const consumptionWhere: Prisma.ConsumptionWhereInput = {
+      deletedAt: null,
       ...(siteId ? { siteId } : {}),
       ...(dateRange ? { consumedAt: dateRange } : {}),
       ...currentDsrRowsWhere(superseded),

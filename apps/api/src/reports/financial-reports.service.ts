@@ -128,7 +128,7 @@ export class FinancialReportsService {
     ] = await Promise.all([
       this.prisma.purchase.groupBy({
         by: ['siteId'],
-        where: { purchasedAt: bounds },
+        where: { purchasedAt: bounds, deletedAt: null },
         _sum: { totalAmount: true },
       }),
       this.prisma.payment.aggregate({
@@ -139,7 +139,7 @@ export class FinancialReportsService {
       }),
       this.prisma.rmcEntry.groupBy({
         by: ['siteId'],
-        where: { deliveredAt: bounds, ...currentRows },
+        where: { deliveredAt: bounds, deletedAt: null, ...currentRows },
         _sum: { totalAmount: true },
       }),
       this.prisma.machineryServiceLog.aggregate({
@@ -160,7 +160,7 @@ export class FinancialReportsService {
       // RMC/Expense above).
       this.prisma.wasteDisposal.groupBy({
         by: ['siteId'],
-        where: { disposedAt: bounds },
+        where: { disposedAt: bounds, deletedAt: null },
         _sum: { totalAmount: true },
       }),
     ]);

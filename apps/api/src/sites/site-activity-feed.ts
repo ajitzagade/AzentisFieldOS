@@ -61,13 +61,14 @@ export async function getSiteActivityFeed(
     subcontractorPayments,
   ] = await Promise.all([
     prisma.purchase.findMany({
-      where: { siteId, purchasedAt: bounds },
+      where: { siteId, purchasedAt: bounds, deletedAt: null },
       include: { materialSize: { include: { material: true } }, vendor: true },
     }),
     prisma.movement.findMany({
       where: {
         OR: [{ sourceSiteId: siteId }, { destinationSiteId: siteId }],
         movedAt: bounds,
+        deletedAt: null,
       },
       include: {
         materialSize: { include: { material: true } },
@@ -76,7 +77,7 @@ export async function getSiteActivityFeed(
       },
     }),
     prisma.consumption.findMany({
-      where: { siteId, consumedAt: bounds, ...currentRows },
+      where: { siteId, consumedAt: bounds, deletedAt: null, ...currentRows },
       include: { materialSize: { include: { material: true } } },
     }),
     prisma.returnWastage.findMany({
@@ -92,7 +93,7 @@ export async function getSiteActivityFeed(
       include: { category: true },
     }),
     prisma.rmcEntry.findMany({
-      where: { siteId, deliveredAt: bounds, ...currentRows },
+      where: { siteId, deliveredAt: bounds, deletedAt: null, ...currentRows },
       include: { vendor: true },
     }),
     prisma.dailySiteReport.findMany({
@@ -111,7 +112,7 @@ export async function getSiteActivityFeed(
       include: { vehicle: { include: { type: true } } },
     }),
     prisma.wasteDisposal.findMany({
-      where: { siteId, disposedAt: bounds },
+      where: { siteId, disposedAt: bounds, deletedAt: null },
       include: { vendor: true },
     }),
     // Epic 18 (Subcontractor Management): Site Contract, Work Entry, and

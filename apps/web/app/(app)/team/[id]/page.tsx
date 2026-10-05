@@ -12,7 +12,6 @@ import {
   DataTable,
   PencilIcon,
   PlusIcon,
-  RotateCcwIcon,
   WalletIcon,
   buttonVariants,
   cn,
@@ -125,7 +124,11 @@ function advanceToLedgerRow(a: AdvanceListItem, canManage: boolean): LedgerRow {
           <PlusIcon className="size-4" />
           Adjust
         </Link>
-        <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/team/${a.teamMember.id}/advances/${a.id}/correct`} />
+        <CorrectAction
+          icon={<PencilIcon className="size-4" />}
+          href={`/team/${a.teamMember.id}/advances/${a.id}/correct`}
+          label="Edit advance"
+        />
       </div>
     ) : null,
   };
@@ -148,8 +151,9 @@ function adjustmentToLedgerRow(adj: AdjustmentListItem, canManage: boolean): Led
     actions: canManage ? (
       <div className="flex justify-end">
         <CorrectAction
-          icon={<RotateCcwIcon className="size-4" />}
+          icon={<PencilIcon className="size-4" />}
           href={`/team/${teamMemberId}/advances/${adj.advance.id}/adjustments/${adj.id}/correct`}
+          label="Edit adjustment"
         />
       </div>
     ) : null,

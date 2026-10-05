@@ -11,7 +11,6 @@ import {
   CorrectAction,
   DataTable,
   PencilIcon,
-  RotateCcwIcon,
   StatTile,
   WalletIcon,
   buttonVariants,
@@ -128,7 +127,7 @@ function rateOrAmountLabel(contract: SiteContractDetail): string {
 function renderWorkEntryAction(entry: WorkEntryRow, siteId: string, contractId: string) {
   return (
     <CorrectAction
-      icon={<RotateCcwIcon />}
+      icon={<PencilIcon />}
       href={`/sites/${siteId}/contracts/${contractId}/work-entries/${entry.id}/correct`}
     />
   );
@@ -169,7 +168,7 @@ function workEntryMobileCard(siteId: string, contractId: string): DataTableMobil
 function renderPaymentAction(payment: SubcontractorPaymentRow, siteId: string, contractId: string, viewerRole: Role) {
   return viewerRole !== "OWNER_ADMIN" ? null : (
     <CorrectAction
-      icon={<RotateCcwIcon />}
+      icon={<PencilIcon />}
       href={`/sites/${siteId}/contracts/${contractId}/payments/${payment.id}/correct`}
     />
   );

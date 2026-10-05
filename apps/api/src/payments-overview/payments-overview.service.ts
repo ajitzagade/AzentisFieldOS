@@ -171,6 +171,7 @@ export class PaymentsOverviewService {
         : {}),
     };
     const purchaseWhere: Prisma.PurchaseWhereInput = {
+      deletedAt: null,
       ...(dateRange ? { purchasedAt: dateRange } : {}),
       ...(nameContains ? { vendor: { name: nameContains } } : {}),
       // PAID/PARTIAL/UNPAID narrow to that recorded status; PENDING means
@@ -185,6 +186,7 @@ export class PaymentsOverviewService {
           : {}),
     };
     const wasteDisposalWhere: Prisma.WasteDisposalWhereInput = {
+      deletedAt: null,
       ...(dateRange ? { disposedAt: dateRange } : {}),
       ...(nameContains ? { vendor: { name: nameContains } } : {}),
       // HIRED trips only — an OWN-asset disposal has no counterparty being
@@ -218,6 +220,7 @@ export class PaymentsOverviewService {
         : {}),
     };
     const rmcWhere: Prisma.RmcEntryWhereInput = {
+      deletedAt: null,
       ...(dateRange ? { deliveredAt: dateRange } : {}),
       ...(nameContains ? { vendor: { name: nameContains } } : {}),
     };
@@ -554,6 +557,7 @@ export class PaymentsOverviewService {
       }),
       this.prisma.purchase.aggregate({
         where: {
+          deletedAt: null,
           paymentStatus: 'PAID',
           ...(dateRange ? { purchasedAt: dateRange } : {}),
         },
@@ -561,6 +565,7 @@ export class PaymentsOverviewService {
       }),
       this.prisma.purchase.aggregate({
         where: {
+          deletedAt: null,
           paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
           ...(dateRange ? { purchasedAt: dateRange } : {}),
         },
@@ -568,6 +573,7 @@ export class PaymentsOverviewService {
       }),
       this.prisma.wasteDisposal.aggregate({
         where: {
+          deletedAt: null,
           paymentStatus: 'PAID',
           ...(dateRange ? { disposedAt: dateRange } : {}),
         },
@@ -575,6 +581,7 @@ export class PaymentsOverviewService {
       }),
       this.prisma.wasteDisposal.aggregate({
         where: {
+          deletedAt: null,
           paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
           ...(dateRange ? { disposedAt: dateRange } : {}),
         },
@@ -602,6 +609,7 @@ export class PaymentsOverviewService {
       }),
       this.prisma.purchase.count({
         where: {
+          deletedAt: null,
           totalAmount: null,
           correctsId: null,
           ...(dateRange ? { purchasedAt: dateRange } : {}),
@@ -612,6 +620,7 @@ export class PaymentsOverviewService {
       // ever looking at Purchase.
       this.prisma.rmcEntry.count({
         where: {
+          deletedAt: null,
           totalAmount: null,
           correctsId: null,
           ...(dateRange ? { deliveredAt: dateRange } : {}),
@@ -619,6 +628,7 @@ export class PaymentsOverviewService {
       }),
       this.prisma.wasteDisposal.count({
         where: {
+          deletedAt: null,
           totalAmount: null,
           correctsId: null,
           ...(dateRange ? { disposedAt: dateRange } : {}),

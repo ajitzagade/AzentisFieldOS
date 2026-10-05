@@ -107,8 +107,8 @@ describe("VehicleDetailPage", () => {
     expect(screen.getByText("Available")).toBeInTheDocument();
     expect(screen.getByText("Recorded at Sector 12 Metro Depot")).toBeInTheDocument();
     expect(screen.getByText("Current")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Correct" })).toHaveLength(2);
-    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: "Edit movement" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Edit movement" })[0]).toHaveAttribute(
       "href",
       "/machinery-vehicles/vehicles/v1/movements/log2/correct",
     );

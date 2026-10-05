@@ -160,12 +160,14 @@ export class DashboardService {
       // same local-timezone day (`dateOnly`) the other six tiles use, so the
       // Labour figure never lags them by a calendar day near UTC midnight.
       this.teamMembersService.getTeamSummary({ today: dateOnly }),
-      this.prisma.purchase.count({ where: { purchasedAt: dayRange } }),
+      this.prisma.purchase.count({
+        where: { purchasedAt: dayRange, deletedAt: null },
+      }),
       this.prisma.consumption.count({
-        where: { consumedAt: dayRange, ...currentRows },
+        where: { consumedAt: dayRange, deletedAt: null, ...currentRows },
       }),
       this.prisma.rmcEntry.aggregate({
-        where: { deliveredAt: dayRange, ...currentRows },
+        where: { deliveredAt: dayRange, deletedAt: null, ...currentRows },
         _sum: { quantityM3: true },
       }),
       // Live materialized current state (Epic 8 Story 8.2), not a "today"
@@ -349,12 +351,12 @@ export class DashboardService {
       // inward entries, never a money figure.
       this.prisma.purchase.groupBy({
         by: ['siteId'],
-        where: { purchasedAt: dayRange },
+        where: { purchasedAt: dayRange, deletedAt: null },
         _count: { _all: true },
       }),
       this.prisma.consumption.groupBy({
         by: ['siteId'],
-        where: { consumedAt: dayRange, ...currentRows },
+        where: { consumedAt: dayRange, deletedAt: null, ...currentRows },
         _count: { _all: true },
       }),
       this.prisma.expense.groupBy({

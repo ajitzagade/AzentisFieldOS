@@ -109,7 +109,7 @@ describe("PaymentsPage", () => {
     expect(screen.getAllByText("−₹3,000").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Pending").length).toBeGreaterThan(0);
     expect(screen.getAllByTestId("mark-paid-p1").length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/payments/p1/correct");
+    expect(screen.getAllByRole("link", { name: "Edit" })[0]).toHaveAttribute("href", "/payments/p1/correct");
   });
 
   it("does not render a Mark Paid action for an already-paid row", async () => {
@@ -157,6 +157,6 @@ describe("PaymentsPage", () => {
 
     expect(screen.queryByRole("link", { name: /^Employee Payment/ })).not.toBeInTheDocument();
     expect(screen.queryAllByTestId("mark-paid-p1")).toHaveLength(0);
-    expect(screen.queryByRole("link", { name: "Correct" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
   });
 });

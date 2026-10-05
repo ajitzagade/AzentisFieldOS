@@ -182,7 +182,7 @@ export class DsrService {
 
     while (frontier.length > 0) {
       const children = await tx.wasteDisposal.findMany({
-        where: { correctsId: { in: frontier } },
+        where: { correctsId: { in: frontier }, deletedAt: null },
       });
       if (children.length === 0) break;
       frontier = [];

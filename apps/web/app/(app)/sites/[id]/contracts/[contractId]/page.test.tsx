@@ -176,7 +176,7 @@ describe("SiteContractDetailPage", () => {
 
     mockContractPage({ role: "OWNER_ADMIN", payments });
     await renderDetailPage("site-1", "c1");
-    expect(screen.getAllByRole("link", { name: /Correct/ })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Edit" })).toHaveLength(2);
   });
 
   it("hides the Correct action on Payment rows from a Supervisor", async () => {
@@ -186,7 +186,7 @@ describe("SiteContractDetailPage", () => {
 
     mockContractPage({ role: "SITE_SUPERVISOR", payments });
     await renderDetailPage("site-1", "c1");
-    expect(screen.queryByRole("link", { name: /Correct/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
   });
 
   it("renders a distinct 'couldn't load' message, not a crash, when the Work Entries fetch fails", async () => {

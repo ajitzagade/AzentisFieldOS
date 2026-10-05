@@ -95,7 +95,7 @@ describe("ExpensesPage", () => {
 
     await renderExpensesPage();
 
-    expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/expenses/exp1/correct");
+    expect(screen.getAllByRole("link", { name: "Edit" })[0]).toHaveAttribute("href", "/expenses/exp1/correct");
     expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
   });

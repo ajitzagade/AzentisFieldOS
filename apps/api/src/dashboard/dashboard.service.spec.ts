@@ -298,6 +298,7 @@ describe('DashboardService.getToday', () => {
           gte: new Date('2026-08-26T18:30:00.000Z'),
           lt: new Date('2026-08-27T18:30:00.000Z'),
         },
+        deletedAt: null,
       },
     });
   });
@@ -607,7 +608,7 @@ describe('DashboardService.getSiteBreakdown', () => {
     };
     expect(consumptionGroupBy).toHaveBeenCalledWith({
       by: ['siteId'],
-      where: { consumedAt: dayRange, ...currentRows },
+      where: { consumedAt: dayRange, deletedAt: null, ...currentRows },
       _count: { _all: true },
     });
     expect(expenseGroupBy).toHaveBeenCalledWith({
@@ -662,6 +663,7 @@ describe('DashboardService.getSiteBreakdown', () => {
             gte: new Date('2026-08-26T18:30:00.000Z'),
             lt: new Date('2026-08-27T18:30:00.000Z'),
           },
+          deletedAt: null,
         },
       }),
     );

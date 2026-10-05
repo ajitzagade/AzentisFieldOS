@@ -10,7 +10,7 @@ import {
   DeleteMovementEntryButton,
   HashIcon,
   PlusIcon,
-  RotateCcwIcon,
+  PencilIcon,
   SelectField,
   StatTile,
   TextField,
@@ -188,7 +188,7 @@ const columns: DataTableColumn<WasteDisposalRow>[] = [
     align: "right",
     cell: (r) => (
       <span className="flex items-center justify-end gap-1">
-        <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/waste-disposal/${r.id}/correct`} />
+        <CorrectAction icon={<PencilIcon className="size-4" />} href={`/waste-disposal/${r.id}/correct`} />
         <DeleteMovementEntryButton
           icon={<TrashIcon className="size-4" />}
           title="Delete this Waste Material entry?"
@@ -210,7 +210,7 @@ const mobileCard: DataTableMobileCard<WasteDisposalRow> = {
   omitHeaders: ["Waste type"],
   action: (r) => (
     <>
-      <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/waste-disposal/${r.id}/correct`} />
+      <CorrectAction icon={<PencilIcon className="size-4" />} href={`/waste-disposal/${r.id}/correct`} />
       <DeleteMovementEntryButton
         icon={<TrashIcon className="size-4" />}
         title="Delete this Waste Material entry?"
@@ -353,6 +353,7 @@ export default async function WasteDisposalPage({
         columns={columns}
         mobileCard={mobileCard}
         rowKey={(r) => r.id}
+        rowHref={(r) => `/waste-disposal/${r.id}/correct`}
         state={
           rows.length === 0
             ? {

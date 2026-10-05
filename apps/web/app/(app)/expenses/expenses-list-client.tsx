@@ -8,7 +8,7 @@ import {
   Pagination,
   PlusIcon,
   ReceiptIcon,
-  RotateCcwIcon,
+  PencilIcon,
   TextField,
   buttonVariants,
   cn,
@@ -59,7 +59,7 @@ const columns: DataTableColumn<ExpenseRow>[] = [
     header: "",
     cell: (row) => (
       <div className="flex items-center justify-end">
-        <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/expenses/${row.id}/correct`} />
+        <CorrectAction icon={<PencilIcon className="size-4" />} href={`/expenses/${row.id}/correct`} />
       </div>
     ),
   },
@@ -73,7 +73,7 @@ const mobileCard: DataTableMobileCard<ExpenseRow> = {
     </>
   ),
   omitHeaders: ["Category", "Amount"],
-  action: (row) => <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/expenses/${row.id}/correct`} />,
+  action: (row) => <CorrectAction icon={<PencilIcon className="size-4" />} href={`/expenses/${row.id}/correct`} />,
 };
 
 export function ExpensesListClient({

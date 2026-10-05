@@ -63,7 +63,7 @@ describe("MachineryVehiclesPage", () => {
     for (const link of screen.getAllByRole("link", { name: "JCB 3DX" })) {
       expect(link).toHaveAttribute("href", "/machinery-vehicles/machinery/m1");
     }
-    for (const link of screen.getAllByRole("link", { name: "Correct" })) {
+    for (const link of screen.getAllByRole("link", { name: "Edit" })) {
       expect(link).toHaveAttribute("href", "/machinery-vehicles/machinery/m1/movements/log1/correct");
     }
   });
@@ -86,7 +86,7 @@ describe("MachineryVehiclesPage", () => {
 
     await renderMachineryVehiclesPage();
 
-    expect(screen.queryByRole("link", { name: "Correct" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
   });
 
   it("renders Vehicle rows (Number/Type/Driver/Current Site-Usage/Status) linking to the detail route", async () => {

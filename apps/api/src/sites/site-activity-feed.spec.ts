@@ -126,9 +126,10 @@ describe('getSiteActivityFeed', () => {
 
     expect(movementFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
+        where: expect.objectContaining({
           OR: [{ sourceSiteId: 'site-1' }, { destinationSiteId: 'site-1' }],
-        },
+          deletedAt: null,
+        }) as object,
       }),
     );
   });
