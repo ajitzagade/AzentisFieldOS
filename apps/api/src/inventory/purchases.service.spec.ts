@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../generated/prisma/client';
 import { PurchasesService } from './purchases.service';
@@ -6,20 +10,32 @@ import { PurchasesService } from './purchases.service';
 function makeService(overrides: {
   purchaseCreate?: ReturnType<typeof vi.fn>;
   purchaseFindUnique?: ReturnType<typeof vi.fn>;
+  purchaseFindFirst?: ReturnType<typeof vi.fn>;
+  purchaseUpdate?: ReturnType<typeof vi.fn>;
   siteFindUnique?: ReturnType<typeof vi.fn>;
   godownStockUpsert?: ReturnType<typeof vi.fn>;
   siteStockUpsert?: ReturnType<typeof vi.fn>;
+  godownStockUpdateMany?: ReturnType<typeof vi.fn>;
+  siteStockUpdateMany?: ReturnType<typeof vi.fn>;
   purchaseUpdateMany?: ReturnType<typeof vi.fn>;
   purchaseCount?: ReturnType<typeof vi.fn>;
   sendToRole?: ReturnType<typeof vi.fn>;
 }) {
   const purchaseCreate =
     overrides.purchaseCreate ?? vi.fn().mockResolvedValue({ id: 'p1' });
+  const purchaseUpdate =
+    overrides.purchaseUpdate ?? vi.fn().mockResolvedValue({ id: 'p1' });
   const godownStockUpsert =
     overrides.godownStockUpsert ?? vi.fn().mockResolvedValue({});
   const siteStockUpsert =
     overrides.siteStockUpsert ?? vi.fn().mockResolvedValue({});
+  const godownStockUpdateMany =
+    overrides.godownStockUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
+  const siteStockUpdateMany =
+    overrides.siteStockUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
   const purchaseFindUnique = overrides.purchaseFindUnique ?? vi.fn();
+  const purchaseFindFirst =
+    overrides.purchaseFindFirst ?? vi.fn().mockResolvedValue(null);
   const siteFindUnique =
     overrides.siteFindUnique ??
     vi.fn().mockResolvedValue({ name: 'Test Site' });
@@ -27,9 +43,12 @@ function makeService(overrides: {
     overrides.sendToRole ?? vi.fn().mockResolvedValue(undefined);
 
   const tx = {
-    purchase: { create: purchaseCreate },
-    godownStock: { upsert: godownStockUpsert },
-    siteStock: { upsert: siteStockUpsert },
+    purchase: { create: purchaseCreate, update: purchaseUpdate },
+    godownStock: {
+      upsert: godownStockUpsert,
+      updateMany: godownStockUpdateMany,
+    },
+    siteStock: { upsert: siteStockUpsert, updateMany: siteStockUpdateMany },
   };
 
   const purchaseUpdateMany =
@@ -39,6 +58,7 @@ function makeService(overrides: {
   const prisma = {
     purchase: {
       findUnique: purchaseFindUnique,
+      findFirst: purchaseFindFirst,
       updateMany: purchaseUpdateMany,
       count: purchaseCount,
     },
@@ -57,10 +77,14 @@ function makeService(overrides: {
     service,
     prisma,
     purchaseCreate,
+    purchaseUpdate,
     godownStockUpsert,
     siteStockUpsert,
+    godownStockUpdateMany,
+    siteStockUpdateMany,
     purchaseUpdateMany,
     purchaseCount,
+    purchaseFindFirst,
     siteFindUnique,
     sendToRole,
   };
@@ -163,6 +187,7 @@ describe('PurchasesService.create', () => {
       materialSizeId: 'ms1',
       destination: 'GODOWN',
       siteId: null,
+      deletedAt: null,
     });
     const purchaseCreate = vi.fn().mockResolvedValue({
       id: 'p2',
@@ -203,8 +228,11 @@ describe('PurchasesService.create', () => {
       materialSizeId: 'ms1',
       destination: 'GODOWN',
       siteId: null,
+      deletedAt: null,
     });
-    const { service, godownStockUpsert } = makeService({ purchaseFindUnique });
+    const { service, godownStockUpdateMany } = makeService({
+      purchaseFindUnique,
+    });
 
     await service.create({
       ...godownInput,
@@ -213,9 +241,90 @@ describe('PurchasesService.create', () => {
       reason: 'Recount',
     });
 
-    expect(godownStockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({ update: { quantity: { increment: -20 } } }),
-    );
+    // A negative correction delta is a floor-checked decrement (bugfix),
+    // not a bare upsert increment — a downward Purchase correction can no
+    // longer silently drive Godown Stock negative.
+    expect(godownStockUpdateMany).toHaveBeenCalledWith({
+      where: { materialSizeId: 'ms1', quantity: { gte: 20 } },
+      data: { quantity: { decrement: 20 } },
+    });
+  });
+
+  it('rejects a downward Purchase correction that would drive Godown Stock negative (count 0)', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      materialSizeId: 'ms1',
+      destination: 'GODOWN',
+      siteId: null,
+      deletedAt: null,
+    });
+    const godownStockUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const { service } = makeService({
+      purchaseFindUnique,
+      godownStockUpdateMany,
+    });
+
+    await expect(
+      service.create({
+        ...godownInput,
+        quantity: -20,
+        correctsId: 'orig',
+        reason: 'Recount',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  // Mirrors the two GODOWN-branch tests above for the SITE destination
+  // (code review finding: the floor-check fix was previously only
+  // exercised via the GODOWN branch, leaving SiteStock's own floor-checked
+  // decrement unverified).
+  it('proceeds when correctsId references an existing SITE-destined Purchase, floor-checking SiteStock', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      materialSizeId: 'ms1',
+      destination: 'SITE',
+      siteId: 'site1',
+      deletedAt: null,
+    });
+    const { service, siteStockUpdateMany } = makeService({
+      purchaseFindUnique,
+    });
+
+    await service.create({
+      ...siteInput,
+      quantity: -20,
+      correctsId: 'orig',
+      reason: 'Recount',
+    });
+
+    expect(siteStockUpdateMany).toHaveBeenCalledWith({
+      where: { siteId: 'site1', materialSizeId: 'ms1', quantity: { gte: 20 } },
+      data: { quantity: { decrement: 20 } },
+    });
+  });
+
+  it('rejects a downward SITE-destined Purchase correction that would drive SiteStock negative (count 0)', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      materialSizeId: 'ms1',
+      destination: 'SITE',
+      siteId: 'site1',
+      deletedAt: null,
+    });
+    const siteStockUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const { service } = makeService({
+      purchaseFindUnique,
+      siteStockUpdateMany,
+    });
+
+    await expect(
+      service.create({
+        ...siteInput,
+        quantity: -20,
+        correctsId: 'orig',
+        reason: 'Recount',
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('rejects a correction whose materialSizeId does not match the original Purchase — it would apply the delta to the wrong stock row', async () => {
@@ -224,6 +333,7 @@ describe('PurchasesService.create', () => {
       materialSizeId: 'a-different-material-size',
       destination: 'GODOWN',
       siteId: null,
+      deletedAt: null,
     });
     const { service } = makeService({ purchaseFindUnique });
 
@@ -283,7 +393,10 @@ describe('PurchasesService.findOne', () => {
       vi.fn().mockResolvedValue({ id: 'p1', bills: [] }),
     );
 
-    await expect(service.findOne('p1')).resolves.toEqual({ id: 'p1', bills: [] });
+    await expect(service.findOne('p1')).resolves.toEqual({
+      id: 'p1',
+      bills: [],
+    });
   });
 
   // Attach Bill (2026-09-22): a bill's `uploadedBy` relation is a full User
@@ -303,19 +416,24 @@ describe('PurchasesService.findOne', () => {
     });
     const prisma = { purchase: { findUnique } };
     const storage = {
-      getThumbnailUrl: vi.fn().mockResolvedValue('https://cdn.example.com/bill.jpg'),
+      getThumbnailUrl: vi
+        .fn()
+        .mockResolvedValue('https://cdn.example.com/bill.jpg'),
     };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
-      { sendToRole: () => Promise.resolve(undefined) } as unknown as ConstructorParameters<
-        typeof PurchasesService
-      >[1],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
       storage as unknown as ConstructorParameters<typeof PurchasesService>[2],
     );
 
     const result = await service.findOne('p1');
 
-    expect(storage.getThumbnailUrl).toHaveBeenCalledWith('purchase-bill/p1/abc', 1200);
+    expect(storage.getThumbnailUrl).toHaveBeenCalledWith(
+      'purchase-bill/p1/abc',
+      1200,
+    );
     expect(result.bills).toEqual([
       {
         id: 'bill1',
@@ -330,7 +448,9 @@ describe('PurchasesService.findOne', () => {
 
 describe('PurchasesService.attachBill', () => {
   it('creates a PurchaseBill row and never touches the Purchase row itself (AD-9)', async () => {
-    const purchaseFindUnique = vi.fn().mockResolvedValue({ id: 'p1' });
+    const purchaseFindUnique = vi
+      .fn()
+      .mockResolvedValue({ id: 'p1', deletedAt: null });
     const purchaseBillCreate = vi.fn().mockResolvedValue({
       id: 'bill1',
       storageKey: 'purchase-bill/p1/abc',
@@ -343,13 +463,15 @@ describe('PurchasesService.attachBill', () => {
       purchaseBill: { create: purchaseBillCreate },
     };
     const storage = {
-      getThumbnailUrl: vi.fn().mockResolvedValue('https://cdn.example.com/bill.jpg'),
+      getThumbnailUrl: vi
+        .fn()
+        .mockResolvedValue('https://cdn.example.com/bill.jpg'),
     };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
-      { sendToRole: () => Promise.resolve(undefined) } as unknown as ConstructorParameters<
-        typeof PurchasesService
-      >[1],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
       storage as unknown as ConstructorParameters<typeof PurchasesService>[2],
     );
 
@@ -381,14 +503,14 @@ describe('PurchasesService.attachBill', () => {
     };
     const service = new PurchasesService(
       prisma as unknown as ConstructorParameters<typeof PurchasesService>[0],
-      { sendToRole: () => Promise.resolve(undefined) } as unknown as ConstructorParameters<
-        typeof PurchasesService
-      >[1],
+      {
+        sendToRole: () => Promise.resolve(undefined),
+      } as unknown as ConstructorParameters<typeof PurchasesService>[1],
     );
 
-    await expect(
-      service.attachBill('missing', 'key', 'u1'),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.attachBill('missing', 'key', 'u1')).rejects.toThrow(
+      NotFoundException,
+    );
     expect(purchaseBillCreate).not.toHaveBeenCalled();
   });
 });
@@ -408,7 +530,7 @@ describe('PurchasesService.listByVendor', () => {
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { vendorId: 'v1' },
+        where: { vendorId: 'v1', deletedAt: null },
         orderBy: { purchasedAt: 'desc' },
       }),
     );
@@ -460,6 +582,7 @@ describe('PurchasesService.summaryForVendor', () => {
     expect(purchaseAggregate.mock.calls[1]![0].where).toEqual({
       vendorId: 'v1',
       paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
+      deletedAt: null,
     });
   });
 
@@ -513,6 +636,7 @@ describe('PurchasesService.summaryForVendor', () => {
     expect(wasteDisposalAggregate.mock.calls[1]![0].where).toEqual({
       vendorId: 'v1',
       paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
+      deletedAt: null,
     });
   });
 });
@@ -624,6 +748,7 @@ describe('PurchasesService.summaryForVendors', () => {
             gte: new Date(2026, 0, 1),
             lt: new Date(2027, 0, 1),
           },
+          deletedAt: null,
         },
         _sum: { totalAmount: true },
       });
@@ -632,6 +757,7 @@ describe('PurchasesService.summaryForVendors', () => {
         where: {
           vendorId: { in: ['v1', 'v2'] },
           paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
+          deletedAt: null,
         },
         _sum: { totalAmount: true },
       });
@@ -689,7 +815,7 @@ describe('PurchasesService.outstandingAcrossVendors', () => {
     expect(result).toBe(15650);
     expect(purchaseAggregate).toHaveBeenCalledTimes(1);
     expect(purchaseAggregate).toHaveBeenCalledWith({
-      where: { paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
+      where: { paymentStatus: { in: ['UNPAID', 'PARTIAL'] }, deletedAt: null },
       _sum: { totalAmount: true },
     });
   });
@@ -733,7 +859,7 @@ describe('PurchasesService.outstandingAcrossVendors', () => {
 
     expect(result).toBe(19850);
     expect(wasteDisposalAggregate).toHaveBeenCalledWith({
-      where: { paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
+      where: { paymentStatus: { in: ['UNPAID', 'PARTIAL'] }, deletedAt: null },
       _sum: { totalAmount: true },
     });
   });
@@ -780,7 +906,12 @@ describe('PurchasesService.completePricing', () => {
   it('fills rate/totalAmount/paymentStatus via a totalAmount:null-conditional write', async () => {
     const purchaseFindUnique = vi
       .fn()
-      .mockResolvedValueOnce({ id: 'p1', totalAmount: null, correctsId: null })
+      .mockResolvedValueOnce({
+        id: 'p1',
+        totalAmount: null,
+        correctsId: null,
+        deletedAt: null,
+      })
       .mockResolvedValueOnce({ id: 'p1', ...pricing });
     const purchaseUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const { service } = makeService({ purchaseFindUnique, purchaseUpdateMany });
@@ -800,6 +931,7 @@ describe('PurchasesService.completePricing', () => {
       id: 'p1',
       totalAmount: new Prisma.Decimal(5000),
       correctsId: null,
+      deletedAt: null,
     });
     const purchaseUpdateMany = vi.fn();
     const { service } = makeService({ purchaseFindUnique, purchaseUpdateMany });
@@ -811,9 +943,12 @@ describe('PurchasesService.completePricing', () => {
   });
 
   it('rejects a correction row — deltas are never priced separately', async () => {
-    const purchaseFindUnique = vi
-      .fn()
-      .mockResolvedValue({ id: 'c1', totalAmount: null, correctsId: 'p1' });
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'c1',
+      totalAmount: null,
+      correctsId: 'p1',
+      deletedAt: null,
+    });
     const purchaseUpdateMany = vi.fn();
     const { service } = makeService({ purchaseFindUnique, purchaseUpdateMany });
 
@@ -824,9 +959,12 @@ describe('PurchasesService.completePricing', () => {
   });
 
   it('loses the race gracefully: 0 updated rows surfaces already-priced, never an overwrite', async () => {
-    const purchaseFindUnique = vi
-      .fn()
-      .mockResolvedValue({ id: 'p1', totalAmount: null, correctsId: null });
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'p1',
+      totalAmount: null,
+      correctsId: null,
+      deletedAt: null,
+    });
     const purchaseUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
     const { service } = makeService({ purchaseFindUnique, purchaseUpdateMany });
 
@@ -913,7 +1051,7 @@ describe('PurchasesService.countPendingPricing', () => {
 
     await expect(service.countPendingPricing()).resolves.toBe(3);
     expect(purchaseCount).toHaveBeenCalledWith({
-      where: { totalAmount: null, correctsId: null },
+      where: { totalAmount: null, correctsId: null, deletedAt: null },
     });
   });
 });
@@ -934,6 +1072,7 @@ describe('PurchasesService.searchCandidates', () => {
 
     expect(findMany).toHaveBeenCalledWith({
       where: {
+        deletedAt: null,
         OR: [
           { vendor: { name: { contains: 'cement', mode: 'insensitive' } } },
           {
@@ -950,6 +1089,7 @@ describe('PurchasesService.searchCandidates', () => {
     });
     expect(count).toHaveBeenCalledWith({
       where: {
+        deletedAt: null,
         OR: [
           { vendor: { name: { contains: 'cement', mode: 'insensitive' } } },
           {
@@ -962,5 +1102,198 @@ describe('PurchasesService.searchCandidates', () => {
       },
     });
     expect(result).toEqual({ candidates: [{ id: 'p1' }], total: 1 });
+  });
+});
+
+// AD-9 exception (approved 2026-10-05): soft-delete.
+describe('PurchasesService.remove', () => {
+  const owner = { id: 'owner1', role: 'OWNER_ADMIN' };
+  const engineer = { id: 'engineer1', role: 'SITE_SUPERVISOR' };
+
+  it('throws NotFoundException when the id does not exist', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue(null);
+    const { service } = makeService({ purchaseFindUnique });
+
+    await expect(
+      service.remove('missing', owner, 'Duplicate entry'),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('rejects deleting an already-deleted Purchase', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'p1',
+      deletedAt: new Date('2026-10-01'),
+    });
+    const { service } = makeService({ purchaseFindUnique });
+
+    await expect(
+      service.remove('p1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('allows a Site Engineer to delete a Purchase they recorded themselves', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'p1',
+      destination: 'GODOWN',
+      siteId: null,
+      materialSizeId: 'ms1',
+      quantity: new Prisma.Decimal(100),
+      deletedAt: null,
+      recordedByUserId: 'engineer1',
+    });
+    const { service, purchaseUpdate } = makeService({ purchaseFindUnique });
+
+    await service.remove(
+      'p1',
+      engineer,
+      'Duplicate entry — entered twice by mistake',
+    );
+
+    expect(purchaseUpdate).toHaveBeenCalledWith({
+      where: { id: 'p1' },
+      data: {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        deletedAt: expect.any(Date),
+        deletedByUserId: 'engineer1',
+        deleteReason: 'Duplicate entry — entered twice by mistake',
+      },
+    });
+  });
+
+  it("rejects a Site Engineer deleting a colleague's Purchase", async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'p1',
+      destination: 'GODOWN',
+      siteId: null,
+      materialSizeId: 'ms1',
+      quantity: new Prisma.Decimal(100),
+      deletedAt: null,
+      recordedByUserId: 'someone-else',
+    });
+    const { service } = makeService({ purchaseFindUnique });
+
+    await expect(
+      service.remove('p1', engineer, 'Duplicate entry'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('rejects a Site Engineer deleting a legacy Purchase with no known creator', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'p1',
+      destination: 'GODOWN',
+      siteId: null,
+      materialSizeId: 'ms1',
+      quantity: new Prisma.Decimal(100),
+      deletedAt: null,
+      recordedByUserId: null,
+    });
+    const { service } = makeService({ purchaseFindUnique });
+
+    await expect(
+      service.remove('p1', engineer, 'Duplicate entry'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('allows the Owner to delete any Purchase, including one recorded by someone else', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'p1',
+      destination: 'GODOWN',
+      siteId: null,
+      materialSizeId: 'ms1',
+      quantity: new Prisma.Decimal(100),
+      deletedAt: null,
+      recordedByUserId: 'someone-else',
+    });
+    const { service, purchaseUpdate } = makeService({ purchaseFindUnique });
+
+    await service.remove('p1', owner, 'Duplicate entry');
+
+    expect(purchaseUpdate).toHaveBeenCalled();
+  });
+
+  it('rejects deleting a Purchase that has been corrected — would orphan the correction', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'p1',
+      destination: 'GODOWN',
+      siteId: null,
+      materialSizeId: 'ms1',
+      quantity: new Prisma.Decimal(100),
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    const purchaseFindFirst = vi.fn().mockResolvedValue({ id: 'correction1' });
+    const { service, purchaseUpdate } = makeService({
+      purchaseFindUnique,
+      purchaseFindFirst,
+    });
+
+    await expect(
+      service.remove('p1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+    expect(purchaseUpdate).not.toHaveBeenCalled();
+  });
+
+  it('reverses the stock this Purchase added, floor-checked like a downward correction', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'p1',
+      destination: 'GODOWN',
+      siteId: null,
+      materialSizeId: 'ms1',
+      quantity: new Prisma.Decimal(100),
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    const { service, godownStockUpdateMany } = makeService({
+      purchaseFindUnique,
+    });
+
+    await service.remove('p1', owner, 'Duplicate entry');
+
+    expect(godownStockUpdateMany).toHaveBeenCalledWith({
+      where: { materialSizeId: 'ms1', quantity: { gte: 100 } },
+      data: { quantity: { decrement: 100 } },
+    });
+  });
+
+  it('rejects deleting a Purchase whose stock was already drawn down elsewhere (count 0)', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'p1',
+      destination: 'GODOWN',
+      siteId: null,
+      materialSizeId: 'ms1',
+      quantity: new Prisma.Decimal(100),
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    const godownStockUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const { service } = makeService({
+      purchaseFindUnique,
+      godownStockUpdateMany,
+    });
+
+    await expect(
+      service.remove('p1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('gives stock back (plain increment) when deleting a correction row that itself removed stock', async () => {
+    const purchaseFindUnique = vi.fn().mockResolvedValue({
+      id: 'c1',
+      destination: 'GODOWN',
+      siteId: null,
+      materialSizeId: 'ms1',
+      quantity: new Prisma.Decimal(-20),
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    const { service, godownStockUpsert } = makeService({ purchaseFindUnique });
+
+    await service.remove('c1', owner, 'Correction was itself wrong');
+
+    expect(godownStockUpsert).toHaveBeenCalledWith({
+      where: { materialSizeId: 'ms1' },
+      update: { quantity: { increment: 20 } },
+      create: { materialSizeId: 'ms1', quantity: 20 },
+    });
   });
 });

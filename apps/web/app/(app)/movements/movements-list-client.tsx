@@ -11,11 +11,13 @@ import {
   CheckCircleIcon,
   CorrectAction,
   DataTable,
+  DeleteMovementEntryButton,
   PlusIcon,
   ReceiptIcon,
   RotateCcwIcon,
   SelectField,
   TextField,
+  TrashIcon,
   Pagination,
   WalletIcon,
   buttonVariants,
@@ -25,6 +27,11 @@ import {
 } from "@azentisfieldos/ui";
 import { useListQueryState } from "../../../lib/use-list-query-state";
 import { useDebouncedSearch } from "../../../lib/use-debounced-search";
+import {
+  deleteConsumptionAction,
+  deleteMovementAction,
+  deletePurchaseAction,
+} from "./actions";
 
 interface MovementRow {
   id: string;
@@ -39,6 +46,11 @@ interface MovementRow {
   confirmReceiptHref?: string;
   pricingHref?: string;
   billHref?: string;
+  // AD-9 exception: undefined for ReturnWastage rows — that entity is
+  // outside this feature's scope and has no delete action.
+  deleteAction?: (reason: string) => Promise<void>;
+  deleteTitle?: string;
+  deleteDescription?: string;
 }
 
 interface PurchaseListItem {
@@ -126,6 +138,10 @@ function purchaseToMovementRow(purchase: PurchaseListItem, canPrice: boolean): M
     // is this row set's existing "is Owner/Admin" flag, reused rather than a
     // second identically-scoped prop.
     billHref: canPrice ? `/movements/purchases/${purchase.id}/bill` : undefined,
+    deleteAction: (reason) => deletePurchaseAction(purchase.id, reason),
+    deleteTitle: "Delete this Purchase?",
+    deleteDescription:
+      "This Purchase will disappear from every list and report, and its stock effect will be reversed.",
   };
 }
 
@@ -159,6 +175,10 @@ function movementToMovementRow(movement: MovementListItem): MovementRow {
     date: formatDate(movement.movedAt),
     correctHref: `/movements/godown-to-site/${movement.id}/correct`,
     confirmReceiptHref: pending ? `/movements/${movement.id}/confirm-receipt` : undefined,
+    deleteAction: (reason) => deleteMovementAction(movement.id, reason),
+    deleteTitle: "Delete this Movement?",
+    deleteDescription:
+      "This Movement will disappear from every list and report, and both ends of its stock transfer will be reversed.",
   };
 }
 
@@ -175,6 +195,10 @@ function consumptionToMovementRow(consumption: ConsumptionListItem): MovementRow
     receivedQty: <span className="text-ink-500">—</span>,
     date: formatDate(consumption.consumedAt),
     correctHref: `/movements/consumption/${consumption.id}/correct`,
+    deleteAction: (reason) => deleteConsumptionAction(consumption.id, reason),
+    deleteTitle: "Delete this Material Used entry?",
+    deleteDescription:
+      "This entry will disappear from every list and report, and the Material it drew will be given back to stock.",
   };
 }
 
@@ -237,6 +261,14 @@ const columns: DataTableColumn<MovementRow>[] = [
           </Link>
         ) : null}
         <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={r.correctHref} />
+        {r.deleteAction ? (
+          <DeleteMovementEntryButton
+            icon={<TrashIcon className="size-4" />}
+            title={r.deleteTitle!}
+            description={r.deleteDescription}
+            action={r.deleteAction}
+          />
+        ) : null}
       </div>
     ),
   },
@@ -250,7 +282,19 @@ const mobileCard: DataTableMobileCard<MovementRow> = {
     </span>
   ),
   omitHeaders: ["Type", "Material"],
-  action: (r) => <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={r.correctHref} />,
+  action: (r) => (
+    <>
+      <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={r.correctHref} />
+      {r.deleteAction ? (
+        <DeleteMovementEntryButton
+          icon={<TrashIcon className="size-4" />}
+          title={r.deleteTitle!}
+          description={r.deleteDescription}
+          action={r.deleteAction}
+        />
+      ) : null}
+    </>
+  ),
   footer: (r) => {
     if (!r.pricingHref && !r.confirmReceiptHref && !r.billHref) return null;
     return (

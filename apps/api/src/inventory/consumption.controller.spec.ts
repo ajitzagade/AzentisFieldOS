@@ -12,10 +12,16 @@ describe('ConsumptionController', () => {
     create: ReturnType<typeof vi.fn>;
     list: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
+    remove: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
-    service = { create: vi.fn(), list: vi.fn(), findOne: vi.fn() };
+    service = {
+      create: vi.fn(),
+      list: vi.fn(),
+      findOne: vi.fn(),
+      remove: vi.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ConsumptionController],
@@ -60,6 +66,19 @@ describe('ConsumptionController', () => {
 
     expect(service.findOne).toHaveBeenCalledWith('1');
     expect(result).toEqual({ id: '1' });
+  });
+
+  it('remove delegates the id, acting user, and reason to the service', async () => {
+    const user = { id: 'u1', role: 'SITE_SUPERVISOR' } as never;
+    service.remove.mockResolvedValue({ id: 'c1', deletedAt: new Date() });
+
+    const result = await controller.remove('c1', user, {
+      reason: 'Duplicate entry',
+    });
+
+    expect(service.remove).toHaveBeenCalledWith('c1', user, 'Duplicate entry');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+    expect(result).toEqual({ id: 'c1', deletedAt: expect.any(Date) });
   });
 });
 
@@ -108,5 +127,35 @@ describe('ZodValidationPipe(createConsumptionSchema)', () => {
         correctsId: '44444444-4444-4444-8444-444444444444',
       }),
     ).toThrow(BadRequestException);
+  });
+
+  it('rejects a future-dated fresh entry, accepts one dated today', () => {
+    const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+
+    expect(() =>
+      pipe.transform({ ...base, quantity: 10, consumedAt: tomorrow }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      pipe.transform({ ...base, quantity: 10, consumedAt: today }),
+    ).not.toThrow();
+  });
+
+  it('does not reject a correction just because its (inherited) date is in the future', () => {
+    const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
+    expect(() =>
+      pipe.transform({
+        ...base,
+        consumedAt: tomorrow,
+        quantity: -3,
+        correctsId: '44444444-4444-4444-8444-444444444444',
+        reason: 'Recount',
+      }),
+    ).not.toThrow();
   });
 });

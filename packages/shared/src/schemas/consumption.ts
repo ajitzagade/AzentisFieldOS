@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isFutureIstDate } from "../date-validation";
 
 // FR-12: the recording user is resolved server-side from the session
 // (CustomAuthGuard + @CurrentUser), the same way DSR submissions are
@@ -31,12 +32,24 @@ export const createConsumptionSchema = z
           message: "A reason is required when filing a correction",
         });
       }
-    } else if (data.quantity <= 0) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["quantity"],
-        message: "Quantity must be positive",
-      });
+      // No future-date check here — same reasoning as Purchase/Movement: a
+      // correction form pre-fills consumedAt from the original row, and a
+      // legacy future-dated row must still be correctable.
+    } else {
+      if (data.quantity <= 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["quantity"],
+          message: "Quantity must be positive",
+        });
+      }
+      if (isFutureIstDate(data.consumedAt)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["consumedAt"],
+          message: "Date can't be in the future",
+        });
+      }
     }
   });
 

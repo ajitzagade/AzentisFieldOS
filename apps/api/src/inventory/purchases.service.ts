@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -16,6 +17,7 @@ import { dateRangeBounds } from '../common/date-range';
 import { paginationParams } from '../common/pagination';
 import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 import { StorageService } from '../storage/storage.service';
+import { decrementStockWithFloorCheck } from './stock-delta';
 
 type PurchaseListRow = Prisma.PurchaseGetPayload<{
   include: {
@@ -65,6 +67,11 @@ export class PurchasesService {
           `Purchase ${input.correctsId} does not exist`,
         );
       }
+      if (original.deletedAt !== null) {
+        throw new BadRequestException(
+          `Purchase ${input.correctsId} has been deleted and cannot be corrected`,
+        );
+      }
       // The correction form locks/hides these fields client-side, but
       // that's a UI convenience, not enforcement — a correction must stay
       // tied to the same Material Size/destination/Site as the Purchase
@@ -85,34 +92,27 @@ export class PurchasesService {
     try {
       purchaseResult = await this.prisma.$transaction(async (tx) => {
         const purchase = await tx.purchase.create({
-          data: { ...input, purchasedAt: new Date(input.purchasedAt) },
+          data: {
+            ...input,
+            purchasedAt: new Date(input.purchasedAt),
+            recordedByUserId: recordedByUserId ?? null,
+          },
         });
 
-        if (input.destination === 'GODOWN') {
-          await tx.godownStock.upsert({
-            where: { materialSizeId: input.materialSizeId },
-            update: { quantity: { increment: input.quantity } },
-            create: {
-              materialSizeId: input.materialSizeId,
-              quantity: input.quantity,
-            },
-          });
-        } else {
-          await tx.siteStock.upsert({
-            where: {
-              siteId_materialSizeId: {
-                siteId: input.siteId!,
-                materialSizeId: input.materialSizeId,
-              },
-            },
-            update: { quantity: { increment: input.quantity } },
-            create: {
-              siteId: input.siteId!,
-              materialSizeId: input.materialSizeId,
-              quantity: input.quantity,
-            },
-          });
-        }
+        // input.quantity is a plain positive amount on a fresh Purchase, but
+        // a signed delta on a correction — a downward correction (negative
+        // delta) must float-check against the real balance the same way
+        // Movement's source leg and Consumption already do, instead of a
+        // bare upsert increment, which would happily drive stock negative
+        // (bugfix: a correction decrementing a Purchase already partly
+        // consumed elsewhere used to corrupt the balance silently).
+        await this.applyStockDelta(tx, {
+          destination: input.destination,
+          siteId: input.siteId ?? null,
+          materialSizeId: input.materialSizeId,
+          quantity: input.quantity,
+          context: 'correction',
+        });
 
         return purchase;
       });
@@ -151,6 +151,116 @@ export class PurchasesService {
     }
 
     return purchaseResult;
+  }
+
+  // Shared by create() (a fresh entry's positive quantity, or a
+  // correction's signed delta) and remove() (the exact inverse of a row's
+  // own stored quantity) — one implementation of "apply this signed
+  // quantity to the right stock row, floor-checked when it's a decrement."
+  private async applyStockDelta(
+    tx: Prisma.TransactionClient,
+    params: {
+      destination: 'GODOWN' | 'SITE';
+      siteId: string | null;
+      materialSizeId: string;
+      quantity: number;
+      context: 'correction' | 'deletion';
+    },
+  ): Promise<void> {
+    const { destination, siteId, materialSizeId, quantity, context } = params;
+    if (destination === 'GODOWN') {
+      if (quantity >= 0) {
+        await tx.godownStock.upsert({
+          where: { materialSizeId },
+          update: { quantity: { increment: quantity } },
+          create: { materialSizeId, quantity },
+        });
+      } else {
+        await decrementStockWithFloorCheck(
+          tx,
+          { model: 'godownStock', materialSizeId },
+          -quantity,
+          `This ${context} would leave Godown Stock negative.`,
+        );
+      }
+    } else {
+      if (quantity >= 0) {
+        await tx.siteStock.upsert({
+          where: {
+            siteId_materialSizeId: { siteId: siteId!, materialSizeId },
+          },
+          update: { quantity: { increment: quantity } },
+          create: { siteId: siteId!, materialSizeId, quantity },
+        });
+      } else {
+        await decrementStockWithFloorCheck(
+          tx,
+          { model: 'siteStock', siteId: siteId!, materialSizeId },
+          -quantity,
+          `This ${context} would leave the Site's Stock negative.`,
+        );
+      }
+    }
+  }
+
+  // AD-9 exception (approved 2026-10-05): soft-delete. A duplicate or
+  // mistaken Purchase disappears from every list/aggregate and its stock
+  // effect is reversed — floor-checked exactly like a downward correction,
+  // since the stock this row added may have already been drawn down by a
+  // later Movement/Consumption — but the row itself is never destroyed.
+  async remove(id: string, user: { id: string; role: string }, reason: string) {
+    const purchase = await this.prisma.purchase.findUnique({ where: { id } });
+    if (!purchase) {
+      throw new NotFoundException(`Purchase ${id} not found`);
+    }
+    if (purchase.deletedAt !== null) {
+      throw new BadRequestException('This Purchase has already been deleted');
+    }
+    // Owner/Admin can delete any Purchase; a Site Engineer only one they
+    // themselves recorded — including a legacy row with no known creator
+    // (recordedByUserId predates this field), which only the Owner can
+    // delete.
+    if (user.role !== 'OWNER_ADMIN' && purchase.recordedByUserId !== user.id) {
+      throw new ForbiddenException(
+        'You can only delete a Purchase you recorded yourself',
+      );
+    }
+    // A corrected Purchase can't be deleted without orphaning its
+    // correction row(s) — the correction's delta would apply against a
+    // GodownStock/SiteStock history that no longer has this entry's
+    // contribution in it.
+    const hasCorrections = await this.prisma.purchase.findFirst({
+      where: { correctsId: id },
+      select: { id: true },
+    });
+    if (hasCorrections) {
+      throw new BadRequestException(
+        'This Purchase has been corrected and cannot be deleted — the correction must be addressed first',
+      );
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await this.applyStockDelta(tx, {
+          destination: purchase.destination,
+          siteId: purchase.siteId,
+          materialSizeId: purchase.materialSizeId,
+          quantity: -purchase.quantity.toNumber(),
+          context: 'deletion',
+        });
+
+        return tx.purchase.update({
+          where: { id },
+          data: {
+            deletedAt: new Date(),
+            deletedByUserId: user.id,
+            deleteReason: reason,
+          },
+        });
+      });
+    } catch (error) {
+      throw this.translateWriteError(error);
+    }
   }
 
   // Story 13.2 (FR-43): the same Purchase list the Inventory page shows,
@@ -198,7 +308,10 @@ export class PurchasesService {
   private reportWhere(
     filters: InventoryReportFilters,
   ): Prisma.PurchaseWhereInput {
-    const where: Prisma.PurchaseWhereInput = {};
+    // A deleted Purchase disappears from every list/aggregate (AD-9
+    // exception) — reportWhere() is list()'s own where clause, so this one
+    // filter covers every caller of list().
+    const where: Prisma.PurchaseWhereInput = { deletedAt: null };
     if (filters.siteId) where.siteId = filters.siteId;
     if (filters.materialId) {
       where.materialSize = { materialId: filters.materialId };
@@ -225,6 +338,11 @@ export class PurchasesService {
     const purchase = await this.prisma.purchase.findUnique({ where: { id } });
     if (!purchase) {
       throw new NotFoundException(`Purchase ${id} not found`);
+    }
+    if (purchase.deletedAt !== null) {
+      throw new BadRequestException(
+        'This Purchase has been deleted and cannot be priced',
+      );
     }
     // A correction row's quantity is a signed delta — it never carries its
     // own pricing (the original does); pricing one would compute nonsense.
@@ -266,7 +384,7 @@ export class PurchasesService {
   // them would keep the flag lit forever.
   countPendingPricing() {
     return this.prisma.purchase.count({
-      where: { totalAmount: null, correctsId: null },
+      where: { totalAmount: null, correctsId: null, deletedAt: null },
     });
   }
 
@@ -277,7 +395,10 @@ export class PurchasesService {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     return this.prisma.purchase.count({
-      where: { purchasedAt: { gte: monthStart, lt: nextMonthStart } },
+      where: {
+        purchasedAt: { gte: monthStart, lt: nextMonthStart },
+        deletedAt: null,
+      },
     });
   }
 
@@ -301,7 +422,9 @@ export class PurchasesService {
     if (!purchase) {
       throw new NotFoundException(`Purchase ${id} not found`);
     }
-    const bills = await Promise.all(purchase.bills.map((bill) => this.mapBill(bill)));
+    const bills = await Promise.all(
+      purchase.bills.map((bill) => this.mapBill(bill)),
+    );
     return { ...purchase, bills };
   }
 
@@ -333,12 +456,21 @@ export class PurchasesService {
   // AGENTS.md says never to widen). Entirely optional record-keeping: a
   // Purchase with zero bills attached is already valid and complete, so
   // there is nothing here to validate beyond the Purchase existing.
-  async attachBill(purchaseId: string, storageKey: string, uploadedByUserId: string) {
+  async attachBill(
+    purchaseId: string,
+    storageKey: string,
+    uploadedByUserId: string,
+  ) {
     const purchase = await this.prisma.purchase.findUnique({
       where: { id: purchaseId },
     });
     if (!purchase) {
       throw new NotFoundException(`Purchase ${purchaseId} not found`);
+    }
+    if (purchase.deletedAt !== null) {
+      throw new BadRequestException(
+        'This Purchase has been deleted and cannot take a new bill',
+      );
     }
     const bill = await this.prisma.purchaseBill.create({
       data: { purchaseId, storageKey, uploadedByUserId },
@@ -353,7 +485,7 @@ export class PurchasesService {
   // over this table.
   listByVendor(vendorId: string) {
     return this.prisma.purchase.findMany({
-      where: { vendorId },
+      where: { vendorId, deletedAt: null },
       include: {
         materialSize: { include: { material: { include: { unit: true } } } },
       },
@@ -385,20 +517,32 @@ export class PurchasesService {
       wasteDisposalNotFullyPaid,
     ] = await Promise.all([
       this.prisma.purchase.aggregate({
-        where: { vendorId, purchasedAt: { gte: yearStart, lt: nextYearStart } },
+        where: {
+          vendorId,
+          purchasedAt: { gte: yearStart, lt: nextYearStart },
+          deletedAt: null,
+        },
         _sum: { totalAmount: true },
       }),
       this.prisma.purchase.aggregate({
         // Explicit statuses, not `not: 'PAID'` — see UNPAID_OR_PARTIAL.
-        where: { vendorId, paymentStatus: UNPAID_OR_PARTIAL },
+        where: { vendorId, paymentStatus: UNPAID_OR_PARTIAL, deletedAt: null },
         _sum: { totalAmount: true },
       }),
       this.prisma.wasteDisposal.aggregate({
-        where: { vendorId, disposedAt: { gte: yearStart, lt: nextYearStart } },
+        where: {
+          vendorId,
+          disposedAt: { gte: yearStart, lt: nextYearStart },
+          deletedAt: null,
+        },
         _sum: { totalAmount: true },
       }),
       this.prisma.wasteDisposal.aggregate({
-        where: { vendorId, paymentStatus: WASTE_DISPOSAL_UNPAID_OR_PARTIAL },
+        where: {
+          vendorId,
+          paymentStatus: WASTE_DISPOSAL_UNPAID_OR_PARTIAL,
+          deletedAt: null,
+        },
         _sum: { totalAmount: true },
       }),
     ]);
@@ -455,6 +599,7 @@ export class PurchasesService {
         where: {
           vendorId: { in: vendorIds },
           purchasedAt: { gte: yearStart, lt: nextYearStart },
+          deletedAt: null,
         },
         _sum: { totalAmount: true },
       }),
@@ -464,6 +609,7 @@ export class PurchasesService {
         where: {
           vendorId: { in: vendorIds },
           paymentStatus: UNPAID_OR_PARTIAL,
+          deletedAt: null,
         },
         _sum: { totalAmount: true },
       }),
@@ -472,6 +618,7 @@ export class PurchasesService {
         where: {
           vendorId: { in: vendorIds },
           disposedAt: { gte: yearStart, lt: nextYearStart },
+          deletedAt: null,
         },
         _sum: { totalAmount: true },
       }),
@@ -480,6 +627,7 @@ export class PurchasesService {
         where: {
           vendorId: { in: vendorIds },
           paymentStatus: WASTE_DISPOSAL_UNPAID_OR_PARTIAL,
+          deletedAt: null,
         },
         _sum: { totalAmount: true },
       }),
@@ -522,11 +670,14 @@ export class PurchasesService {
   async outstandingAcrossVendors(): Promise<number> {
     const [purchaseResult, wasteDisposalResult] = await Promise.all([
       this.prisma.purchase.aggregate({
-        where: { paymentStatus: UNPAID_OR_PARTIAL },
+        where: { paymentStatus: UNPAID_OR_PARTIAL, deletedAt: null },
         _sum: { totalAmount: true },
       }),
       this.prisma.wasteDisposal.aggregate({
-        where: { paymentStatus: WASTE_DISPOSAL_UNPAID_OR_PARTIAL },
+        where: {
+          paymentStatus: WASTE_DISPOSAL_UNPAID_OR_PARTIAL,
+          deletedAt: null,
+        },
         _sum: { totalAmount: true },
       }),
     ]);
@@ -546,6 +697,7 @@ export class PurchasesService {
     total: number;
   }> {
     const where: Prisma.PurchaseWhereInput = {
+      deletedAt: null,
       OR: [
         { vendor: { name: { contains: q, mode: 'insensitive' as const } } },
         {

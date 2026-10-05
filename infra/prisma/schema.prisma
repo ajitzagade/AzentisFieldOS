@@ -277,6 +277,21 @@ model Purchase {
   createdAt            DateTime            @default(now())
   correctsId           String?
   reason               String?             // required when correctsId is set
+  // Who created this row — nullable because rows predating this field have
+  // no known creator; always populated by the service going forward. Needed
+  // so a Site Engineer can delete only entries they themselves recorded
+  // (see deletedAt below) — plain string, no @relation, same loose-FK
+  // convention Consumption/WasteDisposal already use for this.
+  recordedByUserId     String?
+  // Soft delete (AD-9 exception, approved 2026-10-05 — see
+  // PurchasesService.remove's own comment for the full reasoning): a
+  // duplicate/mistaken Purchase disappears from every list/aggregate and
+  // its stock effect is reversed, but the row itself is never destroyed —
+  // the one sanctioned way to make a transaction-history row vanish from
+  // view without literally deleting history.
+  deletedAt            DateTime?
+  deletedByUserId      String?
+  deleteReason         String?             // required when deletedAt is set
 
   expenses Expense[]
   bills    PurchaseBill[]
@@ -333,6 +348,14 @@ model Movement {
   createdAt              DateTime    @default(now())
   correctsId             String?
   reason                 String?
+  // Who created this row — nullable (legacy rows predate this field), same
+  // reasoning as Purchase.recordedByUserId.
+  recordedByUserId       String?
+  // Soft delete (AD-9 exception, approved 2026-10-05) — same reasoning as
+  // Purchase.deletedAt.
+  deletedAt              DateTime?
+  deletedByUserId        String?
+  deleteReason           String?     // required when deletedAt is set
 
   // reportWhere() filters via OR(sourceSiteId, destinationSiteId) and always
   // orders by movedAt desc — a compound per leg lets Postgres satisfy each
@@ -371,6 +394,11 @@ model Consumption {
   // model has no other natural key (a Site can legitimately have two
   // separate Consumption entries for the same Material on the same day).
   clientGeneratedId    String?  @unique
+  // Soft delete (AD-9 exception, approved 2026-10-05) — same reasoning as
+  // Purchase.deletedAt.
+  deletedAt            DateTime?
+  deletedByUserId      String?
+  deleteReason         String?  // required when deletedAt is set
 
   // list()/reportWhere() filters by siteId, always orders by consumedAt
   // desc — the highest-write-volume table in the schema had no index at all.
@@ -821,6 +849,14 @@ model RmcEntry {
   // Story 3.2 offline-sync idempotency key — same reasoning as
   // Consumption.clientGeneratedId.
   clientGeneratedId String? @unique
+  // Who created this row — nullable (legacy rows predate this field), same
+  // reasoning as Purchase.recordedByUserId.
+  recordedByUserId  String?
+  // Soft delete (AD-9 exception, approved 2026-10-05) — same reasoning as
+  // Purchase.deletedAt.
+  deletedAt         DateTime?
+  deletedByUserId   String?
+  deleteReason      String?  // required when deletedAt is set
 
   // list() filters by siteId or vendorId, always orders by deliveredAt desc.
   @@index([siteId, deliveredAt])
@@ -1079,6 +1115,12 @@ model WasteDisposal {
   dailySiteReportId String?
   dailySiteReport   DailySiteReport? @relation(fields: [dailySiteReportId], references: [id])
   clientGeneratedId String? @unique
+  // Soft delete (AD-9 exception, approved 2026-10-05) — same reasoning as
+  // Purchase.deletedAt. Blocked by the service when vendorAdvances is
+  // non-empty (an advance paid against this trip would be orphaned).
+  deletedAt         DateTime?
+  deletedByUserId   String?
+  deleteReason      String? // required when deletedAt is set
 
   vendorAdvances VendorAdvance[]
 

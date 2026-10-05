@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -9,7 +10,9 @@ import {
 } from '@nestjs/common';
 import {
   createConsumptionSchema,
+  deleteMovementEntrySchema,
   type CreateConsumptionInput,
+  type DeleteMovementEntryInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
@@ -37,5 +40,18 @@ export class ConsumptionController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.consumptionService.findOne(id);
+  }
+
+  // AD-9 exception (approved 2026-10-05): soft-delete, open to both roles —
+  // the service itself enforces that a Site Engineer may only delete a
+  // Material Used entry they recorded (Owner/Admin can delete any).
+  @Delete(':id')
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(deleteMovementEntrySchema))
+    body: DeleteMovementEntryInput,
+  ) {
+    return this.consumptionService.remove(id, user, body.reason);
   }
 }

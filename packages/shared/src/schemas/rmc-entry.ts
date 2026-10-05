@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isFutureIstDateObj } from "../date-validation";
 
 // FR-26: an RMC delivery is its own entity — separate from the Material
 // Catalog/Inventory Transactions data model (AC #1) — but it reuses the
@@ -28,20 +29,13 @@ export const createRmcEntrySchema = z
   })
   .superRefine((data, ctx) => {
     if (data.correctsId) {
-      if (data.quantityM3 === 0) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["quantityM3"],
-          message: "A correction's quantity delta must not be zero",
-        });
-      }
-      // Pricing (ratePerM3/totalAmount) travels as a group here too: when
-      // the delivery being corrected has no rate yet, a correction must not
-      // carry a totalAmount either — there is no dedicated pricing-
-      // completion workflow for RMC deliveries, so introducing pricing
-      // through a correction is rejected outright rather than silently
-      // accepted. When a rate IS present, the existing rule holds: the
-      // total-amount delta is required and must actually change something.
+      // Pricing (ratePerM3/totalAmount) travels as a group here too, same
+      // as a fresh entry: supply both or neither. Unlike quantityM3,
+      // totalAmount's "delta" and "first-time absolute price" are the same
+      // number — a pricing-pending original's totalAmount is null, which
+      // every aggregate already treats as 0, so a correction's totalAmount
+      // is simply added to that running total either way (completing
+      // pricing for the first time is not a special case server-side).
       const hasRate = data.ratePerM3 !== undefined;
       if (hasRate) {
         if (data.totalAmount === undefined || data.totalAmount === 0) {
@@ -54,8 +48,19 @@ export const createRmcEntrySchema = z
       } else if (data.totalAmount !== undefined) {
         ctx.addIssue({
           code: "custom",
-          path: ["totalAmount"],
-          message: "Pricing can't be added to an RMC delivery through a correction — it can only be set when the delivery is first recorded",
+          path: ["ratePerM3"],
+          message: "Rate is required when a total amount is entered",
+        });
+      }
+      // A correction must change something: the quantity, or the pricing.
+      // Quantity alone no longer has to be nonzero — a correction that only
+      // completes a pricing-pending delivery's rate/total is a real,
+      // meaningful change even with quantityM3 left at 0.
+      if (data.quantityM3 === 0 && !hasRate) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["quantityM3"],
+          message: "A correction must change the quantity or the pricing",
         });
       }
       if (!data.reason) {
@@ -96,6 +101,17 @@ export const createRmcEntrySchema = z
           code: "custom",
           path: ["totalAmount"],
           message: "Total amount must be positive",
+        });
+      }
+      // No future-date check on a correction — same reasoning as Purchase/
+      // Movement/Consumption: the correct form pre-fills deliveredAt from
+      // the original row, and a legacy future-dated delivery must still be
+      // correctable.
+      if (isFutureIstDateObj(data.deliveredAt)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["deliveredAt"],
+          message: "Date can't be in the future",
         });
       }
     }

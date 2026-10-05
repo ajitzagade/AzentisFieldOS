@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   completePurchasePricingSchema,
   createPurchaseSchema,
+  deleteMovementEntrySchema,
 } from '@azentisfieldos/shared';
 import { ROLES_KEY } from '../auth/roles.decorator';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
@@ -21,6 +22,7 @@ describe('PurchasesController', () => {
     outstandingAcrossVendors: ReturnType<typeof vi.fn>;
     completePricing: ReturnType<typeof vi.fn>;
     attachBill: ReturnType<typeof vi.fn>;
+    remove: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -33,6 +35,7 @@ describe('PurchasesController', () => {
       outstandingAcrossVendors: vi.fn(),
       completePricing: vi.fn(),
       attachBill: vi.fn(),
+      remove: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -169,6 +172,28 @@ describe('PurchasesController', () => {
     ) as string[] | undefined;
     expect(roles).toEqual(['OWNER_ADMIN']);
   });
+
+  // AD-9 exception: open to both roles — the service itself enforces that
+  // a Site Engineer may only delete a Purchase they recorded.
+  it('remove delegates the id, acting user, and reason to the service', async () => {
+    const user = { id: 'u1', role: 'SITE_SUPERVISOR' } as never;
+    service.remove.mockResolvedValue({ id: 'p1', deletedAt: new Date() });
+
+    const result = await controller.remove('p1', user, {
+      reason: 'Duplicate entry',
+    });
+
+    expect(service.remove).toHaveBeenCalledWith('p1', user, 'Duplicate entry');
+    expect(result).toEqual({ id: 'p1', deletedAt: expect.any(Date) });
+  });
+
+  it('remove is NOT restricted by @Roles metadata — both roles may call it', () => {
+    const roles = Reflect.getMetadata(
+      ROLES_KEY,
+      PurchasesController.prototype.remove,
+    ) as string[] | undefined;
+    expect(roles).toBeUndefined();
+  });
 });
 
 describe('ZodValidationPipe(createPurchaseSchema)', () => {
@@ -304,6 +329,43 @@ describe('ZodValidationPipe(createPurchaseSchema)', () => {
       }),
     ).toThrow(BadRequestException);
   });
+
+  // Wrong-entry prevention: a typo'd year must not silently record a
+  // future-dated Purchase (code review follow-up — the IST date check
+  // itself had no test coverage).
+  it('rejects a future-dated fresh entry, accepts one dated today', () => {
+    const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+
+    expect(() =>
+      pipe.transform({ ...base, destination: 'GODOWN', purchasedAt: tomorrow }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      pipe.transform({ ...base, destination: 'GODOWN', purchasedAt: today }),
+    ).not.toThrow();
+  });
+
+  // A correction form pre-fills purchasedAt from the original row — a
+  // legacy future-dated Purchase (possible only from before this
+  // validation existed) must still be correctable, not permanently locked.
+  it('does not reject a correction just because its (inherited) date is in the future', () => {
+    const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
+    expect(() =>
+      pipe.transform({
+        ...base,
+        destination: 'GODOWN',
+        purchasedAt: tomorrow,
+        quantity: -20,
+        correctsId: '44444444-4444-4444-8444-444444444444',
+        reason: 'Recount',
+      }),
+    ).not.toThrow();
+  });
 });
 
 // D7: the Owner's one-time pricing completion — all three fields required,
@@ -334,5 +396,18 @@ describe('ZodValidationPipe(completePurchasePricingSchema)', () => {
     expect(() => pipe.transform({ rate: 390, totalAmount: 19500 })).toThrow(
       BadRequestException,
     );
+  });
+});
+
+describe('ZodValidationPipe(deleteMovementEntrySchema)', () => {
+  const pipe = new ZodValidationPipe(deleteMovementEntrySchema);
+
+  it('rejects a missing reason', () => {
+    expect(() => pipe.transform({})).toThrow(BadRequestException);
+    expect(() => pipe.transform({ reason: '' })).toThrow(BadRequestException);
+  });
+
+  it('accepts a non-empty reason', () => {
+    expect(() => pipe.transform({ reason: 'Duplicate entry' })).not.toThrow();
   });
 });

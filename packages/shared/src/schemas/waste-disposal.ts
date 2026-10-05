@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isFutureIstDateObj } from "../date-validation";
 
 // Waste & Disposal (debris/excavated-material removal) — a per-trip COST
 // record against a Site. `totalAmount` is deliberately NOT an input:
@@ -154,6 +155,17 @@ export const createWasteDisposalSchema = z
           code: "custom",
           path: ["otherCharges"],
           message: "Other charges cannot be negative on a fresh entry",
+        });
+      }
+      // No future-date check on a correction — same reasoning as Purchase/
+      // Movement/Consumption/RMC: the correct form pre-fills disposedAt
+      // from the original row, and a legacy future-dated trip must still
+      // be correctable.
+      if (isFutureIstDateObj(data.disposedAt)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["disposedAt"],
+          message: "Date can't be in the future",
         });
       }
     }

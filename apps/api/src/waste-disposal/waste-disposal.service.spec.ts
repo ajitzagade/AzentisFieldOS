@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CreateWasteDisposalInput } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
@@ -9,10 +13,13 @@ function makeService() {
     create: vi.fn(),
     findMany: vi.fn().mockResolvedValue([]),
     findUnique: vi.fn().mockResolvedValue(null),
+    findFirst: vi.fn().mockResolvedValue(null),
+    update: vi.fn().mockResolvedValue({ id: 'wd-1' }),
   };
   const vendorAdvance = {
     create: vi.fn(),
     groupBy: vi.fn().mockResolvedValue([]),
+    findFirst: vi.fn().mockResolvedValue(null),
   };
   const tx = { wasteDisposal, vendorAdvance };
   const prisma = {
@@ -77,6 +84,7 @@ describe('WasteDisposalService.create', () => {
       ownership: 'HIRED',
       vendorId: HIRED_INPUT.vendorId,
       ratePerTrip: new Prisma.Decimal(450),
+      deletedAt: null,
     });
 
     await ctx.service.create(
@@ -113,6 +121,7 @@ describe('WasteDisposalService.create', () => {
       ownership: 'HIRED',
       vendorId: HIRED_INPUT.vendorId,
       ratePerTrip: new Prisma.Decimal(500), // original rate differs
+      deletedAt: null,
     });
 
     await expect(
@@ -452,6 +461,7 @@ describe('WasteDisposalService.searchCandidates', () => {
     await service.searchCandidates('debris');
 
     const expectedWhere = {
+      deletedAt: null,
       OR: [
         { site: { name: { contains: 'debris', mode: 'insensitive' } } },
         { vendor: { name: { contains: 'debris', mode: 'insensitive' } } },
@@ -463,5 +473,92 @@ describe('WasteDisposalService.searchCandidates', () => {
       expect.objectContaining({ where: expectedWhere }),
     );
     expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});
+
+// AD-9 exception (approved 2026-10-05): soft-delete.
+describe('WasteDisposalService.remove', () => {
+  const owner = { id: 'owner1', role: 'OWNER_ADMIN' };
+  const engineer = { id: 'engineer1', role: 'SITE_SUPERVISOR' };
+
+  it('throws NotFoundException when the id does not exist', async () => {
+    await expect(
+      ctx.service.remove('missing', owner, 'Duplicate entry'),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('rejects deleting an already-deleted entry', async () => {
+    ctx.prisma.wasteDisposal.findUnique.mockResolvedValue({
+      id: 'wd-1',
+      deletedAt: new Date('2026-10-01'),
+    });
+
+    await expect(
+      ctx.service.remove('wd-1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a Site Engineer deleting a colleague's entry", async () => {
+    ctx.prisma.wasteDisposal.findUnique.mockResolvedValue({
+      id: 'wd-1',
+      deletedAt: null,
+      recordedByUserId: 'someone-else',
+    });
+
+    await expect(
+      ctx.service.remove('wd-1', engineer, 'Duplicate entry'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('rejects deleting an entry that has been corrected', async () => {
+    ctx.prisma.wasteDisposal.findUnique.mockResolvedValue({
+      id: 'wd-1',
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    ctx.prisma.wasteDisposal.findFirst.mockResolvedValue({ id: 'correction1' });
+
+    await expect(
+      ctx.service.remove('wd-1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+    expect(ctx.prisma.wasteDisposal.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects deleting an entry with a Vendor Advance recorded against it', async () => {
+    ctx.prisma.wasteDisposal.findUnique.mockResolvedValue({
+      id: 'wd-1',
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    ctx.prisma.vendorAdvance.findFirst.mockResolvedValue({ id: 'advance1' });
+
+    await expect(
+      ctx.service.remove('wd-1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+    expect(ctx.prisma.wasteDisposal.update).not.toHaveBeenCalled();
+  });
+
+  it('soft-deletes when all guards pass', async () => {
+    ctx.prisma.wasteDisposal.findUnique.mockResolvedValue({
+      id: 'wd-1',
+      deletedAt: null,
+      recordedByUserId: 'engineer1',
+    });
+
+    await ctx.service.remove(
+      'wd-1',
+      engineer,
+      'Duplicate entry — entered twice',
+    );
+
+    expect(ctx.prisma.wasteDisposal.update).toHaveBeenCalledWith({
+      where: { id: 'wd-1' },
+      data: {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        deletedAt: expect.any(Date),
+        deletedByUserId: 'engineer1',
+        deleteReason: 'Duplicate entry — entered twice',
+      },
+    });
   });
 });

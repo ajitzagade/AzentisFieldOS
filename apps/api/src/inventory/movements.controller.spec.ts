@@ -16,6 +16,7 @@ describe('MovementsController', () => {
     confirmReceipt: ReturnType<typeof vi.fn>;
     list: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
+    remove: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -24,6 +25,7 @@ describe('MovementsController', () => {
       confirmReceipt: vi.fn(),
       list: vi.fn(),
       findOne: vi.fn(),
+      remove: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -34,7 +36,7 @@ describe('MovementsController', () => {
     controller = module.get<MovementsController>(MovementsController);
   });
 
-  it('create delegates to MovementsService.create with the validated body', async () => {
+  it('create delegates to MovementsService.create with the validated body and the acting user id', async () => {
     const input = {
       kind: 'GODOWN_TO_SITE' as const,
       materialSizeId: '22222222-2222-4222-8222-222222222222',
@@ -42,12 +44,26 @@ describe('MovementsController', () => {
       sentQuantity: 100,
       movedAt: '2026-08-13',
     };
+    const user = { id: 'u1', role: 'OWNER_ADMIN' } as never;
     service.create.mockResolvedValue({ id: '1', ...input });
 
-    const result = await controller.create(input);
+    const result = await controller.create(user, input);
 
-    expect(service.create).toHaveBeenCalledWith(input);
+    expect(service.create).toHaveBeenCalledWith(input, 'u1');
     expect(result).toEqual({ id: '1', ...input });
+  });
+
+  it('remove delegates the id, acting user, and reason to the service', async () => {
+    const user = { id: 'u1', role: 'SITE_SUPERVISOR' } as never;
+    service.remove.mockResolvedValue({ id: 'm1', deletedAt: new Date() });
+
+    const result = await controller.remove('m1', user, {
+      reason: 'Duplicate entry',
+    });
+
+    expect(service.remove).toHaveBeenCalledWith('m1', user, 'Duplicate entry');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+    expect(result).toEqual({ id: 'm1', deletedAt: expect.any(Date) });
   });
 
   it('confirmReceipt delegates to MovementsService.confirmReceipt with id and validated body', async () => {
@@ -150,6 +166,37 @@ describe('ZodValidationPipe(createMovementSchema)', () => {
         sourceSiteId: base.destinationSiteId,
       }),
     ).toThrow(BadRequestException);
+  });
+
+  it('rejects a future-dated fresh entry, accepts one dated today', () => {
+    const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+
+    expect(() =>
+      pipe.transform({ ...base, kind: 'GODOWN_TO_SITE', movedAt: tomorrow }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      pipe.transform({ ...base, kind: 'GODOWN_TO_SITE', movedAt: today }),
+    ).not.toThrow();
+  });
+
+  it('does not reject a correction just because its (inherited) date is in the future', () => {
+    const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
+    expect(() =>
+      pipe.transform({
+        ...base,
+        kind: 'GODOWN_TO_SITE',
+        movedAt: tomorrow,
+        sentQuantity: -10,
+        correctsId: '55555555-5555-4555-8555-555555555555',
+        reason: 'Recount',
+      }),
+    ).not.toThrow();
   });
 });
 

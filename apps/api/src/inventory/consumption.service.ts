@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -23,7 +24,11 @@ import {
   currentDsrRowsWhere,
   supersededDsrIds,
 } from '../common/superseded-dsrs';
-import { giveBackConsumptionStock, takeConsumptionStock } from './stock-delta';
+import {
+  decrementStockWithFloorCheck,
+  giveBackConsumptionStock,
+  takeConsumptionStock,
+} from './stock-delta';
 
 // FR-12: Site Supervisor or Owner/Admin records Material Consumption at a
 // Site against an activity reference.
@@ -42,6 +47,11 @@ export class ConsumptionService {
       if (!original) {
         throw new BadRequestException(
           `Material Used entry ${input.correctsId} does not exist`,
+        );
+      }
+      if (original.deletedAt !== null) {
+        throw new BadRequestException(
+          `Material Used entry ${input.correctsId} has been deleted and cannot be corrected`,
         );
       }
       // The correction form locks/hides these fields client-side, but
@@ -148,6 +158,103 @@ export class ConsumptionService {
     };
   }
 
+  // AD-9 exception (approved 2026-10-05): soft-delete. A duplicate or
+  // mistaken Consumption disappears from every list/aggregate and its
+  // stock effect is reversed using the row's own stored split — never a
+  // re-derived guess (same principle applyCorrectionStockDelta's own
+  // comment explains) — but the row itself is never destroyed.
+  async remove(id: string, user: { id: string; role: string }, reason: string) {
+    const consumption = await this.prisma.consumption.findUnique({
+      where: { id },
+    });
+    if (!consumption) {
+      throw new NotFoundException(`Material Used entry ${id} not found`);
+    }
+    if (consumption.deletedAt !== null) {
+      throw new BadRequestException(
+        'This Material Used entry has already been deleted',
+      );
+    }
+    if (
+      user.role !== 'OWNER_ADMIN' &&
+      consumption.recordedByUserId !== user.id
+    ) {
+      throw new ForbiddenException(
+        'You can only delete a Material Used entry you recorded yourself',
+      );
+    }
+    const hasCorrections = await this.prisma.consumption.findFirst({
+      where: { correctsId: id },
+      select: { id: true },
+    });
+    if (hasCorrections) {
+      throw new BadRequestException(
+        'This Material Used entry has been corrected and cannot be deleted — the correction must be addressed first',
+      );
+    }
+
+    const quantity = consumption.quantity.toNumber();
+    const siteAmount = consumption.siteStockQuantity.toNumber();
+    const godownAmount = consumption.godownStockQuantity.toNumber();
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (quantity >= 0) {
+          // This row drew stock — give back exactly what it drew, to
+          // exactly where it drew from. Always safe (no floor check
+          // needed), same as a negative correction's give-back.
+          await giveBackConsumptionStock(
+            tx,
+            consumption.siteId,
+            consumption.materialSizeId,
+            siteAmount,
+            godownAmount,
+          );
+        } else {
+          // This row gave stock back (a correction's negative delta) —
+          // reverse by taking exactly that back again, floor-checked per
+          // leg. Not takeConsumptionStock's site-first-then-Godown
+          // fallback, which could pull from the wrong location — this
+          // must undo precisely what the row itself recorded.
+          if (siteAmount < 0) {
+            await decrementStockWithFloorCheck(
+              tx,
+              {
+                model: 'siteStock',
+                siteId: consumption.siteId,
+                materialSizeId: consumption.materialSizeId,
+              },
+              -siteAmount,
+              "This deletion would leave the Site's Stock negative.",
+            );
+          }
+          if (godownAmount < 0) {
+            await decrementStockWithFloorCheck(
+              tx,
+              {
+                model: 'godownStock',
+                materialSizeId: consumption.materialSizeId,
+              },
+              -godownAmount,
+              'This deletion would leave Godown Stock negative.',
+            );
+          }
+        }
+
+        return tx.consumption.update({
+          where: { id },
+          data: {
+            deletedAt: new Date(),
+            deletedByUserId: user.id,
+            deleteReason: reason,
+          },
+        });
+      });
+    } catch (error) {
+      throw this.translateWriteError(error);
+    }
+  }
+
   // Story 13.2 (FR-43): the same Consumption list, optionally narrowed by
   // Site / Material / date window. Rows belonging to a superseded (since
   // corrected) DSR are excluded — the correction's restated rows already
@@ -195,7 +302,9 @@ export class ConsumptionService {
   private reportWhere(
     filters: InventoryReportFilters,
   ): Prisma.ConsumptionWhereInput {
-    const where: Prisma.ConsumptionWhereInput = {};
+    // A deleted Consumption disappears from every list/aggregate (AD-9
+    // exception) — reportWhere() is list()'s own where clause.
+    const where: Prisma.ConsumptionWhereInput = { deletedAt: null };
     if (filters.siteId) where.siteId = filters.siteId;
     if (filters.materialId) {
       where.materialSize = { materialId: filters.materialId };
@@ -239,6 +348,7 @@ export class ConsumptionService {
     // currentDsrRowsWhere's `OR` (supersession filter) use the same key;
     // spreading one after the other would silently drop the first.
     const where: Prisma.ConsumptionWhereInput = {
+      deletedAt: null,
       AND: [
         currentDsrRowsWhere(superseded),
         {

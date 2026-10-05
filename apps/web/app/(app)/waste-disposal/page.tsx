@@ -7,18 +7,21 @@ import {
   BuildingIcon,
   CorrectAction,
   DataTable,
+  DeleteMovementEntryButton,
   HashIcon,
   PlusIcon,
   RotateCcwIcon,
   SelectField,
   StatTile,
   TextField,
+  TrashIcon,
   TruckIcon,
   buttonVariants,
   cn,
   type DataTableColumn,
   type DataTableMobileCard,
 } from "@azentisfieldos/ui";
+import { deleteWasteDisposalAction } from "./actions";
 
 interface SiteOption {
   id: string;
@@ -183,7 +186,17 @@ const columns: DataTableColumn<WasteDisposalRow>[] = [
   {
     header: "",
     align: "right",
-    cell: (r) => <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/waste-disposal/${r.id}/correct`} />,
+    cell: (r) => (
+      <span className="flex items-center justify-end gap-1">
+        <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/waste-disposal/${r.id}/correct`} />
+        <DeleteMovementEntryButton
+          icon={<TrashIcon className="size-4" />}
+          title="Delete this Waste Material entry?"
+          description="This entry will disappear from every list and report."
+          action={deleteWasteDisposalAction.bind(null, r.id)}
+        />
+      </span>
+    ),
   },
 ];
 
@@ -195,7 +208,17 @@ const mobileCard: DataTableMobileCard<WasteDisposalRow> = {
     </span>
   ),
   omitHeaders: ["Waste type"],
-  action: (r) => <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/waste-disposal/${r.id}/correct`} />,
+  action: (r) => (
+    <>
+      <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/waste-disposal/${r.id}/correct`} />
+      <DeleteMovementEntryButton
+        icon={<TrashIcon className="size-4" />}
+        title="Delete this Waste Material entry?"
+        description="This entry will disappear from every list and report."
+        action={deleteWasteDisposalAction.bind(null, r.id)}
+      />
+    </>
+  ),
 };
 
 const breakdownColumns = <T,>(

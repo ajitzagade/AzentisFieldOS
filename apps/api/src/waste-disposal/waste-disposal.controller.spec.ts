@@ -64,4 +64,34 @@ describe('ZodValidationPipe(createWasteDisposalSchema) — advance to the hired 
       }),
     ).toThrow(BadRequestException);
   });
+
+  it('rejects a future-dated fresh entry, accepts one dated today', () => {
+    const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+
+    expect(() =>
+      pipe.transform({ ...hiredBase, disposedAt: tomorrow }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      pipe.transform({ ...hiredBase, disposedAt: today }),
+    ).not.toThrow();
+  });
+
+  it('does not reject a correction just because its (inherited) date is in the future', () => {
+    const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
+    expect(() =>
+      pipe.transform({
+        ...hiredBase,
+        disposedAt: tomorrow,
+        tripCount: -1,
+        correctsId: '33333333-3333-4333-8333-333333333333',
+        reason: 'Trip double-counted',
+      }),
+    ).not.toThrow();
+  });
 });

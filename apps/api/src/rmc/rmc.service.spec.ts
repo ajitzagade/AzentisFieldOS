@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { CreateRmcEntryInput } from '@azentisfieldos/shared';
 import { Prisma } from '../generated/prisma/client';
@@ -12,6 +16,8 @@ import { RmcService } from './rmc.service';
 function makeService(overrides: {
   rmcEntryCreate?: ReturnType<typeof vi.fn>;
   rmcEntryFindUnique?: ReturnType<typeof vi.fn>;
+  rmcEntryFindFirst?: ReturnType<typeof vi.fn>;
+  rmcEntryUpdate?: ReturnType<typeof vi.fn>;
   rmcEntryFindMany?: ReturnType<typeof vi.fn>;
   rmcEntryCount?: ReturnType<typeof vi.fn>;
   rmcEntryAggregate?: ReturnType<typeof vi.fn>;
@@ -19,6 +25,10 @@ function makeService(overrides: {
   const rmcEntryCreate =
     overrides.rmcEntryCreate ?? vi.fn().mockResolvedValue({ id: 'r1' });
   const rmcEntryFindUnique = overrides.rmcEntryFindUnique ?? vi.fn();
+  const rmcEntryFindFirst =
+    overrides.rmcEntryFindFirst ?? vi.fn().mockResolvedValue(null);
+  const rmcEntryUpdate =
+    overrides.rmcEntryUpdate ?? vi.fn().mockResolvedValue({ id: 'r1' });
   const rmcEntryFindMany =
     overrides.rmcEntryFindMany ?? vi.fn().mockResolvedValue([]);
   const rmcEntryCount = overrides.rmcEntryCount ?? vi.fn().mockResolvedValue(0);
@@ -28,6 +38,8 @@ function makeService(overrides: {
     rmcEntry: {
       create: rmcEntryCreate,
       findUnique: rmcEntryFindUnique,
+      findFirst: rmcEntryFindFirst,
+      update: rmcEntryUpdate,
       findMany: rmcEntryFindMany,
       count: rmcEntryCount,
       aggregate: rmcEntryAggregate,
@@ -46,6 +58,8 @@ function makeService(overrides: {
     prisma,
     rmcEntryCreate,
     rmcEntryFindUnique,
+    rmcEntryFindFirst,
+    rmcEntryUpdate,
     rmcEntryFindMany,
     rmcEntryCount,
   };
@@ -68,7 +82,11 @@ describe('RmcService.create', () => {
     await service.create(baseInput);
 
     expect(rmcEntryCreate).toHaveBeenCalledWith({
-      data: { ...baseInput, deliveredAt: new Date(baseInput.deliveredAt) },
+      data: {
+        ...baseInput,
+        deliveredAt: new Date(baseInput.deliveredAt),
+        recordedByUserId: null,
+      },
     });
   });
 
@@ -90,6 +108,7 @@ describe('RmcService.create', () => {
       data: {
         ...pricingPendingInput,
         deliveredAt: new Date(pricingPendingInput.deliveredAt),
+        recordedByUserId: null,
       },
     });
     expect(result.ratePerM3).toBeNull();
@@ -111,6 +130,7 @@ describe('RmcService.create', () => {
       siteId: 'site1',
       vendorId: 'vendor1',
       grade: 'M25',
+      deletedAt: null,
     });
     const { service, rmcEntryCreate } = makeService({ rmcEntryFindUnique });
 
@@ -128,6 +148,7 @@ describe('RmcService.create', () => {
         correctsId: 'orig',
         reason: 'Recount',
         deliveredAt: new Date(baseInput.deliveredAt),
+        recordedByUserId: null,
       },
     });
   });
@@ -138,6 +159,7 @@ describe('RmcService.create', () => {
       siteId: 'a-different-site',
       vendorId: 'vendor1',
       grade: 'M25',
+      deletedAt: null,
     });
     const { service } = makeService({ rmcEntryFindUnique });
 
@@ -157,6 +179,7 @@ describe('RmcService.create', () => {
       siteId: 'site1',
       vendorId: 'a-different-vendor',
       grade: 'M25',
+      deletedAt: null,
     });
     const { service } = makeService({ rmcEntryFindUnique });
 
@@ -176,6 +199,7 @@ describe('RmcService.create', () => {
       siteId: 'site1',
       vendorId: 'vendor1',
       grade: 'M30',
+      deletedAt: null,
     });
     const { service } = makeService({ rmcEntryFindUnique });
 
@@ -187,6 +211,83 @@ describe('RmcService.create', () => {
         reason: 'Recount',
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  // Code review follow-up: completing pricing for the first time via a
+  // correction (the original had no rate) means the correction's
+  // totalAmount IS the price, not a delta — it must be positive. The Zod
+  // schema alone can't enforce this (it has no view of the original row's
+  // rate), so the service must.
+  it('rejects a correction completing pricing for the first time with a non-positive total amount', async () => {
+    const rmcEntryFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      siteId: 'site1',
+      vendorId: 'vendor1',
+      grade: 'M25',
+      ratePerM3: null,
+      deletedAt: null,
+    });
+    const { service } = makeService({ rmcEntryFindUnique });
+
+    await expect(
+      service.create({
+        ...baseInput,
+        quantityM3: 0,
+        ratePerM3: 6200,
+        totalAmount: -260400,
+        correctsId: 'orig',
+        reason: 'Adding pricing now that the invoice arrived',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('accepts a correction completing pricing for the first time with a positive total amount', async () => {
+    const rmcEntryFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      siteId: 'site1',
+      vendorId: 'vendor1',
+      grade: 'M25',
+      ratePerM3: null,
+      deletedAt: null,
+    });
+    const { service, rmcEntryCreate } = makeService({ rmcEntryFindUnique });
+
+    await service.create({
+      ...baseInput,
+      quantityM3: 0,
+      ratePerM3: 6200,
+      totalAmount: 260400,
+      correctsId: 'orig',
+      reason: 'Adding pricing now that the invoice arrived',
+    });
+
+    expect(rmcEntryCreate).toHaveBeenCalled();
+  });
+
+  // The guard is scoped to "completing pricing for the first time" only —
+  // an already-priced delivery's correction delta is legitimately allowed
+  // to be negative (a price reduction), and must not be blocked by this.
+  it('does not apply the positive-total guard to an already-priced delivery correction', async () => {
+    const rmcEntryFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      siteId: 'site1',
+      vendorId: 'vendor1',
+      grade: 'M25',
+      ratePerM3: 6200,
+      deletedAt: null,
+    });
+    const { service, rmcEntryCreate } = makeService({ rmcEntryFindUnique });
+
+    await service.create({
+      ...baseInput,
+      quantityM3: 0,
+      ratePerM3: 6200,
+      totalAmount: -500,
+      correctsId: 'orig',
+      reason: 'Price was overstated',
+    });
+
+    expect(rmcEntryCreate).toHaveBeenCalled();
   });
 
   it('translates a foreign-key violation (P2003) into a clear 400, not a raw 500', async () => {
@@ -214,6 +315,7 @@ describe('RmcService.create', () => {
 // The supersession baseline every read-path where clause now carries:
 // keep standalone rows and rows whose parent DSR is still current.
 const CURRENT_ROWS_WHERE = {
+  deletedAt: null,
   OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],
 };
 
@@ -624,6 +726,7 @@ describe('RmcService.searchCandidates', () => {
     const result = await service.searchCandidates('m25', []);
 
     const expectedWhere = {
+      deletedAt: null,
       OR: [{ dailySiteReportId: null }, { dailySiteReportId: { notIn: [] } }],
       AND: [
         {
@@ -643,5 +746,84 @@ describe('RmcService.searchCandidates', () => {
     });
     expect(rmcEntryCount).toHaveBeenCalledWith({ where: expectedWhere });
     expect(result).toEqual({ candidates: [{ id: 'r1' }], total: 1 });
+  });
+});
+
+// AD-9 exception (approved 2026-10-05): soft-delete.
+describe('RmcService.remove', () => {
+  const owner = { id: 'owner1', role: 'OWNER_ADMIN' };
+  const engineer = { id: 'engineer1', role: 'SITE_SUPERVISOR' };
+
+  it('throws NotFoundException when the id does not exist', async () => {
+    const rmcEntryFindUnique = vi.fn().mockResolvedValue(null);
+    const { service } = makeService({ rmcEntryFindUnique });
+
+    await expect(
+      service.remove('missing', owner, 'Duplicate entry'),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('rejects deleting an already-deleted delivery', async () => {
+    const rmcEntryFindUnique = vi.fn().mockResolvedValue({
+      id: 'r1',
+      deletedAt: new Date('2026-10-01'),
+    });
+    const { service } = makeService({ rmcEntryFindUnique });
+
+    await expect(
+      service.remove('r1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a Site Engineer deleting a colleague's delivery", async () => {
+    const rmcEntryFindUnique = vi.fn().mockResolvedValue({
+      id: 'r1',
+      deletedAt: null,
+      recordedByUserId: 'someone-else',
+    });
+    const { service } = makeService({ rmcEntryFindUnique });
+
+    await expect(
+      service.remove('r1', engineer, 'Duplicate entry'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('rejects deleting a delivery that has been corrected', async () => {
+    const rmcEntryFindUnique = vi.fn().mockResolvedValue({
+      id: 'r1',
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    const rmcEntryFindFirst = vi.fn().mockResolvedValue({ id: 'correction1' });
+    const { service, rmcEntryUpdate } = makeService({
+      rmcEntryFindUnique,
+      rmcEntryFindFirst,
+    });
+
+    await expect(
+      service.remove('r1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+    expect(rmcEntryUpdate).not.toHaveBeenCalled();
+  });
+
+  it('soft-deletes when all guards pass', async () => {
+    const rmcEntryFindUnique = vi.fn().mockResolvedValue({
+      id: 'r1',
+      deletedAt: null,
+      recordedByUserId: 'engineer1',
+    });
+    const { service, rmcEntryUpdate } = makeService({ rmcEntryFindUnique });
+
+    await service.remove('r1', engineer, 'Duplicate entry — entered twice');
+
+    expect(rmcEntryUpdate).toHaveBeenCalledWith({
+      where: { id: 'r1' },
+      data: {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        deletedAt: expect.any(Date),
+        deletedByUserId: 'engineer1',
+        deleteReason: 'Duplicate entry — entered twice',
+      },
+    });
   });
 });

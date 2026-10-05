@@ -139,3 +139,47 @@ describe("RmcForm — downward correction passes the shared parse", () => {
     }
   });
 });
+
+// Pricing-completion-via-correction (code review follow-up): a correction
+// of a delivery with no recorded rate/total yet must let the user fill
+// them in, rather than lock the fields closed as before.
+const pricingPendingInitial = {
+  ...correctionInitial,
+  ratePerM3: undefined,
+  totalAmount: undefined,
+};
+
+describe("RmcForm — correcting a pricing-pending delivery", () => {
+  it("renders Rate and Total enabled, not locked, with a pricing-pending hint instead of a fabricated ₹0", () => {
+    render(
+      <RmcForm mode="correct" correctsId="rmc1" sites={sites} vendors={vendors} initial={pricingPendingInitial} />,
+    );
+
+    expect(screen.getByLabelText("Rate / m³")).toBeEnabled();
+    expect(screen.getByLabelText("Corrected total amount")).toBeEnabled();
+    expect(screen.getByLabelText("Corrected total amount")).not.toBeRequired();
+    expect(screen.getByText(/Pricing pending — enter a rate and total to complete it/)).toBeInTheDocument();
+    expect(screen.queryByText(/Currently recorded: ₹0/)).not.toBeInTheDocument();
+  });
+
+  it("submits the typed rate/total as the delta (no original to subtract, since the baseline was pricing-pending)", async () => {
+    const user = userEvent.setup();
+    render(
+      <RmcForm mode="correct" correctsId="rmc1" sites={sites} vendors={vendors} initial={pricingPendingInitial} />,
+    );
+
+    await user.type(screen.getByLabelText("Rate / m³"), "6200");
+    await user.type(screen.getByLabelText("Corrected total amount"), "260400");
+
+    expect(document.querySelector('input[name="ratePerM3"]')).toHaveValue(6200);
+    expect(document.querySelector('input[name="totalAmount"]')).toHaveValue("260400");
+  });
+
+  it("still requires the corrected quantity field, defaulting to no change if left at the original", async () => {
+    render(
+      <RmcForm mode="correct" correctsId="rmc1" sites={sites} vendors={vendors} initial={pricingPendingInitial} />,
+    );
+
+    expect(screen.getByLabelText("Corrected quantity (m³)")).toBeRequired();
+  });
+});

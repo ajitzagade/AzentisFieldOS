@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -10,9 +11,12 @@ import {
 } from '@nestjs/common';
 import {
   createRmcEntrySchema,
+  deleteMovementEntrySchema,
   type CreateRmcEntryInput,
+  type DeleteMovementEntryInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
+import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import {
   RMC_REPORT_GROUP_BYS,
   RmcService,
@@ -25,8 +29,8 @@ export class RmcController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(createRmcEntrySchema))
-  create(@Body() body: CreateRmcEntryInput) {
-    return this.rmcService.create(body);
+  create(@CurrentUser() user: AuthUser, @Body() body: CreateRmcEntryInput) {
+    return this.rmcService.create(body, user.id);
   }
 
   // AC #2: queryable by day, Site, or Vendor via filter params.
@@ -83,5 +87,18 @@ export class RmcController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.rmcService.findOne(id);
+  }
+
+  // AD-9 exception (approved 2026-10-05): soft-delete, open to both roles —
+  // the service itself enforces that a Site Engineer may only delete an
+  // RMC delivery they recorded (Owner/Admin can delete any).
+  @Delete(':id')
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(deleteMovementEntrySchema))
+    body: DeleteMovementEntryInput,
+  ) {
+    return this.rmcService.remove(id, user, body.reason);
   }
 }

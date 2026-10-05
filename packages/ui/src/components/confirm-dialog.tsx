@@ -23,6 +23,8 @@ export interface ConfirmDialogProps {
   onConfirm: () => void;
   /** Puts the confirm button in its loading state while an async confirm runs. */
   confirmLoading?: boolean;
+  /** Disables the confirm button — e.g. a required field inside `children` is still empty. */
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmDialog({
@@ -35,6 +37,7 @@ export function ConfirmDialog({
   cancelLabel = "Go back",
   onConfirm,
   confirmLoading = false,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   return (
     <AlertDialog.Root
@@ -62,7 +65,12 @@ export function ConfirmDialog({
             >
               {cancelLabel}
             </AlertDialog.Close>
-            <Button type="button" onClick={onConfirm} isLoading={confirmLoading}>
+            <Button
+              type="button"
+              onClick={onConfirm}
+              isLoading={confirmLoading}
+              disabled={confirmDisabled}
+            >
               {confirmLabel}
             </Button>
           </div>

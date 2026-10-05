@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -44,7 +45,7 @@ import { decrementStockWithFloorCheck } from './stock-delta';
 export class MovementsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(input: CreateMovementInput) {
+  async create(input: CreateMovementInput, recordedByUserId?: string) {
     if (input.correctsId) {
       const original = await this.prisma.movement.findUnique({
         where: { id: input.correctsId },
@@ -52,6 +53,11 @@ export class MovementsService {
       if (!original) {
         throw new BadRequestException(
           `Movement ${input.correctsId} does not exist`,
+        );
+      }
+      if (original.deletedAt !== null) {
+        throw new BadRequestException(
+          `Movement ${input.correctsId} has been deleted and cannot be corrected`,
         );
       }
       // The correction form locks/hides these fields client-side, but
@@ -86,13 +92,18 @@ export class MovementsService {
             // `receivedQuantity` so the two never drift apart on a
             // corrected row either.
             receivedQuantity: input.sentQuantity,
+            recordedByUserId: recordedByUserId ?? null,
           },
         });
 
         // Story 5.2's canonical floor check (extracted in Story 5.5 once a
         // third call site needed it) targets Godown (GODOWN_TO_SITE) or
         // the sending Site (SITE_TO_SITE / SITE_TO_GODOWN) — same
-        // technique, different target.
+        // technique, different target. decrementStockWithFloorCheck itself
+        // handles a negative quantity (a correction's give-back) as a
+        // trivially-floor-checked increment, so this one call covers both
+        // directions already — no branching needed here, unlike the
+        // destination leg below.
         await decrementStockWithFloorCheck(
           tx,
           isGodownToSite
@@ -111,34 +122,141 @@ export class MovementsService {
         // The destination's credit — a signed delta on a correction,
         // exactly mirroring the source-side decrement above, so a
         // corrected Movement adjusts both ends of the transfer together.
-        // SITE_TO_GODOWN's destination is the Godown itself (no Site row).
-        if (isSiteToGodown) {
-          await tx.godownStock.upsert({
-            where: { materialSizeId: input.materialSizeId },
-            update: { quantity: { increment: input.sentQuantity } },
-            create: {
-              materialSizeId: input.materialSizeId,
-              quantity: input.sentQuantity,
-            },
-          });
-        } else {
-          await tx.siteStock.upsert({
-            where: {
-              siteId_materialSizeId: {
-                siteId: input.destinationSiteId!,
-                materialSizeId: input.materialSizeId,
-              },
-            },
-            update: { quantity: { increment: input.sentQuantity } },
-            create: {
-              siteId: input.destinationSiteId!,
-              materialSizeId: input.materialSizeId,
-              quantity: input.sentQuantity,
-            },
-          });
-        }
+        await this.applyDestinationDelta(tx, {
+          isSiteToGodown,
+          siteId: input.destinationSiteId ?? null,
+          materialSizeId: input.materialSizeId,
+          quantity: input.sentQuantity,
+          context: 'correction',
+        });
 
         return movement;
+      });
+    } catch (error) {
+      throw this.translateWriteError(error);
+    }
+  }
+
+  // Shared by create() (a fresh Movement's positive sentQuantity, or a
+  // correction's signed delta) and remove() (the exact inverse of a row's
+  // own stored sentQuantity) — SITE_TO_GODOWN's destination is the Godown
+  // itself (no Site row); the other two kinds credit the destination Site.
+  // sentQuantity is positive on a fresh Movement but can be a negative
+  // delta here, which a bare upsert increment would apply as an unguarded
+  // decrement — floor-check it the same way the source leg already is
+  // (bugfix: a downward correction/deletion could otherwise drive the
+  // destination's stock negative).
+  private async applyDestinationDelta(
+    tx: Prisma.TransactionClient,
+    params: {
+      isSiteToGodown: boolean;
+      siteId: string | null;
+      materialSizeId: string;
+      quantity: number;
+      context: 'correction' | 'deletion';
+    },
+  ): Promise<void> {
+    const { isSiteToGodown, siteId, materialSizeId, quantity, context } =
+      params;
+    if (isSiteToGodown) {
+      if (quantity >= 0) {
+        await tx.godownStock.upsert({
+          where: { materialSizeId },
+          update: { quantity: { increment: quantity } },
+          create: { materialSizeId, quantity },
+        });
+      } else {
+        await decrementStockWithFloorCheck(
+          tx,
+          { model: 'godownStock', materialSizeId },
+          -quantity,
+          `This ${context} would leave Godown Stock negative.`,
+        );
+      }
+    } else {
+      if (quantity >= 0) {
+        await tx.siteStock.upsert({
+          where: {
+            siteId_materialSizeId: { siteId: siteId!, materialSizeId },
+          },
+          update: { quantity: { increment: quantity } },
+          create: { siteId: siteId!, materialSizeId, quantity },
+        });
+      } else {
+        await decrementStockWithFloorCheck(
+          tx,
+          { model: 'siteStock', siteId: siteId!, materialSizeId },
+          -quantity,
+          `This ${context} would leave the destination Site's Stock negative.`,
+        );
+      }
+    }
+  }
+
+  // AD-9 exception (approved 2026-10-05): soft-delete. A duplicate or
+  // mistaken Movement disappears from every list/aggregate and both legs
+  // of its stock effect are reversed — floor-checked exactly like a
+  // downward correction — but the row itself is never destroyed.
+  async remove(id: string, user: { id: string; role: string }, reason: string) {
+    const movement = await this.prisma.movement.findUnique({ where: { id } });
+    if (!movement) {
+      throw new NotFoundException(`Movement ${id} not found`);
+    }
+    if (movement.deletedAt !== null) {
+      throw new BadRequestException('This Movement has already been deleted');
+    }
+    if (user.role !== 'OWNER_ADMIN' && movement.recordedByUserId !== user.id) {
+      throw new ForbiddenException(
+        'You can only delete a Movement you recorded yourself',
+      );
+    }
+    const hasCorrections = await this.prisma.movement.findFirst({
+      where: { correctsId: id },
+      select: { id: true },
+    });
+    if (hasCorrections) {
+      throw new BadRequestException(
+        'This Movement has been corrected and cannot be deleted — the correction must be addressed first',
+      );
+    }
+
+    const isGodownToSite = movement.kind === 'GODOWN_TO_SITE';
+    const isSiteToGodown = movement.kind === 'SITE_TO_GODOWN';
+    const sentQuantity = movement.sentQuantity.toNumber();
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await decrementStockWithFloorCheck(
+          tx,
+          isGodownToSite
+            ? { model: 'godownStock', materialSizeId: movement.materialSizeId }
+            : {
+                model: 'siteStock',
+                siteId: movement.sourceSiteId!,
+                materialSizeId: movement.materialSizeId,
+              },
+          -sentQuantity,
+          isGodownToSite
+            ? 'This deletion would leave Godown Stock negative.'
+            : "This deletion would leave the source Site's Stock negative.",
+        );
+
+        await this.applyDestinationDelta(tx, {
+          isSiteToGodown,
+          siteId: movement.destinationSiteId,
+          materialSizeId: movement.materialSizeId,
+          quantity: -sentQuantity,
+          context: 'deletion',
+        });
+
+        return tx.movement.update({
+          where: { id },
+          data: {
+            deletedAt: new Date(),
+            deletedByUserId: user.id,
+            deleteReason: reason,
+          },
+        });
       });
     } catch (error) {
       throw this.translateWriteError(error);
@@ -153,6 +271,11 @@ export class MovementsService {
     const movement = await this.prisma.movement.findUnique({ where: { id } });
     if (!movement) {
       throw new NotFoundException(`Movement ${id} not found`);
+    }
+    if (movement.deletedAt !== null) {
+      throw new BadRequestException(
+        'This Movement has been deleted and cannot be confirmed',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -243,7 +366,9 @@ export class MovementsService {
   private reportWhere(
     filters: InventoryReportFilters,
   ): Prisma.MovementWhereInput {
-    const where: Prisma.MovementWhereInput = {};
+    // A deleted Movement disappears from every list/aggregate (AD-9
+    // exception) — reportWhere() is list()'s own where clause.
+    const where: Prisma.MovementWhereInput = { deletedAt: null };
     if (filters.siteId) {
       where.OR = [
         { sourceSiteId: filters.siteId },
@@ -286,6 +411,7 @@ export class MovementsService {
     total: number;
   }> {
     const where: Prisma.MovementWhereInput = {
+      deletedAt: null,
       OR: [
         {
           materialSize: {

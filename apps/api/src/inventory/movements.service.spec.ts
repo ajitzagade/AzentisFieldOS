@@ -1,19 +1,30 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { MovementsService } from './movements.service';
 
 function makeService(overrides: {
   movementCreate?: ReturnType<typeof vi.fn>;
   movementFindUnique?: ReturnType<typeof vi.fn>;
+  movementFindFirst?: ReturnType<typeof vi.fn>;
+  movementUpdate?: ReturnType<typeof vi.fn>;
   movementUpdateMany?: ReturnType<typeof vi.fn>;
   movementFindUniqueOrThrow?: ReturnType<typeof vi.fn>;
   godownStockUpdateMany?: ReturnType<typeof vi.fn>;
+  godownStockUpsert?: ReturnType<typeof vi.fn>;
   siteStockUpdateMany?: ReturnType<typeof vi.fn>;
   siteStockUpsert?: ReturnType<typeof vi.fn>;
 }) {
   const movementCreate =
     overrides.movementCreate ?? vi.fn().mockResolvedValue({ id: 'm1' });
+  const movementUpdate =
+    overrides.movementUpdate ?? vi.fn().mockResolvedValue({ id: 'm1' });
   const movementFindUnique = overrides.movementFindUnique ?? vi.fn();
+  const movementFindFirst =
+    overrides.movementFindFirst ?? vi.fn().mockResolvedValue(null);
   const movementUpdateMany =
     overrides.movementUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
   const movementFindUniqueOrThrow =
@@ -21,6 +32,8 @@ function makeService(overrides: {
     vi.fn().mockResolvedValue({ id: 'm1' });
   const godownStockUpdateMany =
     overrides.godownStockUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
+  const godownStockUpsert =
+    overrides.godownStockUpsert ?? vi.fn().mockResolvedValue({});
   const siteStockUpdateMany =
     overrides.siteStockUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
   const siteStockUpsert =
@@ -29,15 +42,19 @@ function makeService(overrides: {
   const tx = {
     movement: {
       create: movementCreate,
+      update: movementUpdate,
       updateMany: movementUpdateMany,
       findUniqueOrThrow: movementFindUniqueOrThrow,
     },
-    godownStock: { updateMany: godownStockUpdateMany },
+    godownStock: {
+      updateMany: godownStockUpdateMany,
+      upsert: godownStockUpsert,
+    },
     siteStock: { updateMany: siteStockUpdateMany, upsert: siteStockUpsert },
   };
 
   const prisma = {
-    movement: { findUnique: movementFindUnique },
+    movement: { findUnique: movementFindUnique, findFirst: movementFindFirst },
     $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(tx)),
   };
 
@@ -49,10 +66,13 @@ function makeService(overrides: {
     service,
     prisma,
     movementCreate,
+    movementUpdate,
     movementFindUnique,
+    movementFindFirst,
     movementUpdateMany,
     movementFindUniqueOrThrow,
     godownStockUpdateMany,
+    godownStockUpsert,
     siteStockUpdateMany,
     siteStockUpsert,
   };
@@ -109,6 +129,7 @@ describe('MovementsService.create', () => {
       materialSizeId: 'a-different-material-size',
       sourceSiteId: null,
       destinationSiteId: 'site1',
+      deletedAt: null,
     });
     const { service } = makeService({ movementFindUnique });
 
@@ -124,6 +145,7 @@ describe('MovementsService.create', () => {
       materialSizeId: 'ms1',
       sourceSiteId: null,
       destinationSiteId: 'site1',
+      deletedAt: null,
     });
     const { service, godownStockUpdateMany } = makeService({
       movementFindUnique,
@@ -205,8 +227,11 @@ describe('MovementsService.create', () => {
       materialSizeId: 'ms1',
       sourceSiteId: null,
       destinationSiteId: 'site1',
+      deletedAt: null,
     });
-    const { service, siteStockUpsert } = makeService({ movementFindUnique });
+    const { service, siteStockUpdateMany } = makeService({
+      movementFindUnique,
+    });
 
     await service.create({
       ...createInput,
@@ -215,9 +240,127 @@ describe('MovementsService.create', () => {
       reason: 'Recount',
     });
 
-    expect(siteStockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({ update: { quantity: { increment: -10 } } }),
-    );
+    // A negative correction delta is a floor-checked decrement on the
+    // destination now (bugfix), not a bare upsert increment — the same
+    // technique the source leg already used, so a downward correction can
+    // never drive either side of the transfer negative.
+    expect(siteStockUpdateMany).toHaveBeenCalledWith({
+      where: {
+        siteId: 'site1',
+        materialSizeId: 'ms1',
+        quantity: { gte: 10 },
+      },
+      data: { quantity: { decrement: 10 } },
+    });
+  });
+
+  it('a negative correction delta that would drive the destination Site negative is rejected (count 0)', async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId: 'ms1',
+      sourceSiteId: null,
+      destinationSiteId: 'site1',
+      deletedAt: null,
+    });
+    const siteStockUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const { service } = makeService({
+      movementFindUnique,
+      siteStockUpdateMany,
+    });
+
+    await expect(
+      service.create({
+        ...createInput,
+        sentQuantity: -10,
+        correctsId: 'orig',
+        reason: 'Recount',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  // SITE_TO_GODOWN mirrors the GODOWN_TO_SITE tests above — the destination
+  // is GodownStock instead of SiteStock here, so the same floor-check fix
+  // needs its own coverage on this branch (code review finding: the fix
+  // was previously only exercised via GODOWN_TO_SITE's SiteStock
+  // destination, leaving the GodownStock destination branch unverified).
+  it('a SITE_TO_GODOWN create immediately credits GodownStock via upsert', async () => {
+    const { service, godownStockUpsert } = makeService({});
+
+    await service.create({
+      ...createInput,
+      kind: 'SITE_TO_GODOWN',
+      sourceSiteId: 'source-site',
+      destinationSiteId: undefined,
+    });
+
+    expect(godownStockUpsert).toHaveBeenCalledWith({
+      where: { materialSizeId: 'ms1' },
+      update: { quantity: { increment: 100 } },
+      create: { materialSizeId: 'ms1', quantity: 100 },
+    });
+  });
+
+  it("a SITE_TO_GODOWN correction's negative delta floor-checks a decrement on GodownStock, not a bare upsert", async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      kind: 'SITE_TO_GODOWN',
+      materialSizeId: 'ms1',
+      sourceSiteId: 'source-site',
+      destinationSiteId: null,
+      deletedAt: null,
+    });
+    const { service, godownStockUpdateMany, godownStockUpsert } = makeService({
+      movementFindUnique,
+    });
+
+    await service.create({
+      ...createInput,
+      kind: 'SITE_TO_GODOWN',
+      sourceSiteId: 'source-site',
+      destinationSiteId: undefined,
+      sentQuantity: -10,
+      correctsId: 'orig',
+      reason: 'Recount',
+    });
+
+    expect(godownStockUpdateMany).toHaveBeenCalledWith({
+      where: { materialSizeId: 'ms1', quantity: { gte: 10 } },
+      data: { quantity: { decrement: 10 } },
+    });
+    expect(godownStockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('a SITE_TO_GODOWN negative correction that would drive GodownStock negative is rejected (count 0)', async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue({
+      id: 'orig',
+      kind: 'SITE_TO_GODOWN',
+      materialSizeId: 'ms1',
+      sourceSiteId: 'source-site',
+      destinationSiteId: null,
+      deletedAt: null,
+    });
+    // Both legs target GodownStock for a correcting SITE_TO_GODOWN only
+    // when the source is also a Godown, which it never is here — the
+    // source leg targets SiteStock (source-site), so only the destination
+    // (GodownStock) floor check needs to fail for this assertion.
+    const godownStockUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const { service } = makeService({
+      movementFindUnique,
+      godownStockUpdateMany,
+    });
+
+    await expect(
+      service.create({
+        ...createInput,
+        kind: 'SITE_TO_GODOWN',
+        sourceSiteId: 'source-site',
+        destinationSiteId: undefined,
+        sentQuantity: -10,
+        correctsId: 'orig',
+        reason: 'Recount',
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 });
 
@@ -233,6 +376,7 @@ describe('MovementsService.confirmReceipt', () => {
       destinationSiteId: 'site1',
       materialSizeId: 'ms1',
       sentQuantity: 100,
+      deletedAt: null,
     });
     const { service, siteStockUpsert } = makeService({ movementFindUnique });
 
@@ -266,6 +410,7 @@ describe('MovementsService.confirmReceipt', () => {
       destinationSiteId: 'site1',
       materialSizeId: 'ms1',
       sentQuantity: 100,
+      deletedAt: null,
     });
     const movementUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
     const { service, siteStockUpsert } = makeService({
@@ -286,6 +431,7 @@ describe('MovementsService.confirmReceipt', () => {
       destinationSiteId: 'site1',
       materialSizeId: 'ms1',
       sentQuantity: 100,
+      deletedAt: null,
     });
     const { service, movementUpdateMany } = makeService({ movementFindUnique });
 
@@ -310,6 +456,7 @@ describe('MovementsService.searchCandidates', () => {
     await service.searchCandidates('steel');
 
     const expectedWhere = {
+      deletedAt: null,
       OR: [
         {
           materialSize: {
@@ -329,5 +476,153 @@ describe('MovementsService.searchCandidates', () => {
       expect.objectContaining({ where: expectedWhere }),
     );
     expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});
+
+// AD-9 exception (approved 2026-10-05): soft-delete.
+describe('MovementsService.remove', () => {
+  const owner = { id: 'owner1', role: 'OWNER_ADMIN' };
+  const engineer = { id: 'engineer1', role: 'SITE_SUPERVISOR' };
+
+  it('throws NotFoundException when the id does not exist', async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue(null);
+    const { service } = makeService({ movementFindUnique });
+
+    await expect(
+      service.remove('missing', owner, 'Duplicate entry'),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('rejects deleting an already-deleted Movement', async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue({
+      id: 'm1',
+      deletedAt: new Date('2026-10-01'),
+    });
+    const { service } = makeService({ movementFindUnique });
+
+    await expect(
+      service.remove('m1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a Site Engineer deleting a colleague's Movement", async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue({
+      id: 'm1',
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId: 'ms1',
+      sourceSiteId: null,
+      destinationSiteId: 'site1',
+      sentQuantity: { toNumber: () => 100 },
+      deletedAt: null,
+      recordedByUserId: 'someone-else',
+    });
+    const { service } = makeService({ movementFindUnique });
+
+    await expect(
+      service.remove('m1', engineer, 'Duplicate entry'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('rejects deleting a Movement that has been corrected', async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue({
+      id: 'm1',
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId: 'ms1',
+      sourceSiteId: null,
+      destinationSiteId: 'site1',
+      sentQuantity: { toNumber: () => 100 },
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    const movementFindFirst = vi.fn().mockResolvedValue({ id: 'correction1' });
+    const { service, movementUpdate } = makeService({
+      movementFindUnique,
+      movementFindFirst,
+    });
+
+    await expect(
+      service.remove('m1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+    expect(movementUpdate).not.toHaveBeenCalled();
+  });
+
+  it('reverses both legs — gives back the source, floor-checks a decrement on the destination', async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue({
+      id: 'm1',
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId: 'ms1',
+      sourceSiteId: null,
+      destinationSiteId: 'site1',
+      sentQuantity: { toNumber: () => 100 },
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    const { service, godownStockUpdateMany, siteStockUpdateMany } = makeService(
+      {
+        movementFindUnique,
+      },
+    );
+
+    await service.remove('m1', owner, 'Duplicate entry');
+
+    // Source (Godown) gets its 100 back — a negated decrement is a
+    // trivially-floor-checked increment.
+    expect(godownStockUpdateMany).toHaveBeenCalledWith({
+      where: { materialSizeId: 'ms1', quantity: { gte: -100 } },
+      data: { quantity: { decrement: -100 } },
+    });
+    // Destination (Site) loses the 100 it was credited — floor-checked.
+    expect(siteStockUpdateMany).toHaveBeenCalledWith({
+      where: { siteId: 'site1', materialSizeId: 'ms1', quantity: { gte: 100 } },
+      data: { quantity: { decrement: 100 } },
+    });
+  });
+
+  it('rejects deleting a Movement whose destination stock was already drawn down elsewhere (count 0)', async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue({
+      id: 'm1',
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId: 'ms1',
+      sourceSiteId: null,
+      destinationSiteId: 'site1',
+      sentQuantity: { toNumber: () => 100 },
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    const siteStockUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const { service } = makeService({
+      movementFindUnique,
+      siteStockUpdateMany,
+    });
+
+    await expect(
+      service.remove('m1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('allows a Site Engineer to delete a Movement they recorded themselves', async () => {
+    const movementFindUnique = vi.fn().mockResolvedValue({
+      id: 'm1',
+      kind: 'GODOWN_TO_SITE',
+      materialSizeId: 'ms1',
+      sourceSiteId: null,
+      destinationSiteId: 'site1',
+      sentQuantity: { toNumber: () => 100 },
+      deletedAt: null,
+      recordedByUserId: 'engineer1',
+    });
+    const { service, movementUpdate } = makeService({ movementFindUnique });
+
+    await service.remove('m1', engineer, 'Duplicate entry — entered twice');
+
+    expect(movementUpdate).toHaveBeenCalledWith({
+      where: { id: 'm1' },
+      data: {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        deletedAt: expect.any(Date),
+        deletedByUserId: 'engineer1',
+        deleteReason: 'Duplicate entry — entered twice',
+      },
+    });
   });
 });

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -13,9 +14,11 @@ import {
   attachPurchaseBillSchema,
   completePurchasePricingSchema,
   createPurchaseSchema,
+  deleteMovementEntrySchema,
   type AttachPurchaseBillInput,
   type CompletePurchasePricingInput,
   type CreatePurchaseInput,
+  type DeleteMovementEntryInput,
 } from '@azentisfieldos/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { Roles } from '../auth/roles.decorator';
@@ -112,5 +115,18 @@ export class PurchasesController {
     body: AttachPurchaseBillInput,
   ) {
     return this.purchasesService.attachBill(id, body.storageKey, user.id);
+  }
+
+  // AD-9 exception (approved 2026-10-05): soft-delete, open to both roles —
+  // the service itself enforces that a Site Engineer may only delete a
+  // Purchase they recorded (Owner/Admin can delete any).
+  @Delete(':id')
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(deleteMovementEntrySchema))
+    body: DeleteMovementEntryInput,
+  ) {
+    return this.purchasesService.remove(id, user, body.reason);
   }
 }

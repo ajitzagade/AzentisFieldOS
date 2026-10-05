@@ -1,6 +1,7 @@
 "use server";
 
 import { authedFetch } from "@/lib/api";
+import { deleteMovementEntry } from "@/lib/delete-movement-entry";
 import { redirect } from "next/navigation";
 import { parseRmcEntryForm } from "./parse";
 
@@ -57,4 +58,10 @@ export async function createRmcEntryAction(
   redirect(
     `/rmc?flash=${encodeURIComponent(formData.get("correctsId") ? "RMC correction recorded" : "RMC delivery recorded")}`,
   );
+}
+
+// AD-9 exception (approved 2026-10-05): soft-delete, same shared write
+// path every entity's delete action wraps.
+export async function deleteRmcEntryAction(id: string, reason: string) {
+  await deleteMovementEntry("/rmc-entries", id, reason, "/rmc", "RMC delivery");
 }

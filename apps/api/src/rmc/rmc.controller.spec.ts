@@ -14,6 +14,7 @@ describe('RmcController', () => {
     report: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
     statsThisMonth: ReturnType<typeof vi.fn>;
+    remove: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -23,6 +24,7 @@ describe('RmcController', () => {
       report: vi.fn(),
       findOne: vi.fn(),
       statsThisMonth: vi.fn(),
+      remove: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -33,7 +35,7 @@ describe('RmcController', () => {
     controller = module.get<RmcController>(RmcController);
   });
 
-  it('create delegates to RmcService.create with the validated body', async () => {
+  it('create delegates to RmcService.create with the validated body and the acting user id', async () => {
     const input = {
       siteId: '11111111-1111-4111-8111-111111111111',
       vendorId: '22222222-2222-4222-8222-222222222222',
@@ -43,12 +45,26 @@ describe('RmcController', () => {
       totalAmount: 260400,
       deliveredAt: new Date('2026-08-13'),
     };
+    const user = { id: 'u1', role: 'OWNER_ADMIN' } as never;
     service.create.mockResolvedValue({ id: '1', ...input });
 
-    const result = await controller.create(input);
+    const result = await controller.create(user, input);
 
-    expect(service.create).toHaveBeenCalledWith(input);
+    expect(service.create).toHaveBeenCalledWith(input, 'u1');
     expect(result).toEqual({ id: '1', ...input });
+  });
+
+  it('remove delegates the id, acting user, and reason to the service', async () => {
+    const user = { id: 'u1', role: 'SITE_SUPERVISOR' } as never;
+    service.remove.mockResolvedValue({ id: 'r1', deletedAt: new Date() });
+
+    const result = await controller.remove('r1', user, {
+      reason: 'Duplicate entry',
+    });
+
+    expect(service.remove).toHaveBeenCalledWith('r1', user, 'Duplicate entry');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+    expect(result).toEqual({ id: 'r1', deletedAt: expect.any(Date) });
   });
 
   it('list delegates to RmcService.list with siteId/vendorId/date query params (AC #2)', async () => {
@@ -190,15 +206,32 @@ describe('ZodValidationPipe(createRmcEntrySchema)', () => {
     ).not.toThrow();
   });
 
-  it('rejects a zero-quantityM3 correction', () => {
+  it('rejects a zero-quantityM3 correction that also carries no pricing change', () => {
     expect(() =>
       pipe.transform({
         ...base,
+        ratePerM3: undefined,
+        totalAmount: undefined,
         quantityM3: 0,
         correctsId: '33333333-3333-4333-8333-333333333333',
         reason: 'Recount',
       }),
     ).toThrow(BadRequestException);
+  });
+
+  // Pricing-completion via correction (closes the "RMC has no way to price
+  // a pricing-pending delivery" gap): a zero quantity delta is now valid as
+  // long as the correction is actually doing something — completing the
+  // rate/total.
+  it('accepts a zero-quantityM3 correction that completes pricing', () => {
+    expect(() =>
+      pipe.transform({
+        ...base,
+        quantityM3: 0,
+        correctsId: '33333333-3333-4333-8333-333333333333',
+        reason: 'Adding pricing now that the invoice arrived',
+      }),
+    ).not.toThrow();
   });
 
   it('rejects a correction with no reason', () => {
@@ -209,5 +242,35 @@ describe('ZodValidationPipe(createRmcEntrySchema)', () => {
         correctsId: '33333333-3333-4333-8333-333333333333',
       }),
     ).toThrow(BadRequestException);
+  });
+
+  it('rejects a future-dated fresh entry, accepts one dated today', () => {
+    const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+
+    expect(() =>
+      pipe.transform({ ...base, quantityM3: 42, deliveredAt: tomorrow }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      pipe.transform({ ...base, quantityM3: 42, deliveredAt: today }),
+    ).not.toThrow();
+  });
+
+  it('does not reject a correction just because its (inherited) date is in the future', () => {
+    const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
+    expect(() =>
+      pipe.transform({
+        ...base,
+        deliveredAt: tomorrow,
+        quantityM3: -6,
+        correctsId: '33333333-3333-4333-8333-333333333333',
+        reason: 'Recount',
+      }),
+    ).not.toThrow();
   });
 });

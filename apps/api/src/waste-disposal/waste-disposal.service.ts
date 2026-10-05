@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -77,6 +78,11 @@ export class WasteDisposalService {
       if (!original) {
         throw new BadRequestException(
           `Waste Material ${input.correctsId} does not exist`,
+        );
+      }
+      if (original.deletedAt !== null) {
+        throw new BadRequestException(
+          `Waste Material ${input.correctsId} has been deleted and cannot be corrected`,
         );
       }
       // A correction is a signed adjustment to the SAME activity — Site,
@@ -401,6 +407,7 @@ export class WasteDisposalService {
     total: number;
   }> {
     const where: Prisma.WasteDisposalWhereInput = {
+      deletedAt: null,
       OR: [
         { site: { name: { contains: q, mode: 'insensitive' as const } } },
         { vendor: { name: { contains: q, mode: 'insensitive' as const } } },
@@ -423,7 +430,9 @@ export class WasteDisposalService {
   private whereFor(
     filters: WasteDisposalListFilters,
   ): Prisma.WasteDisposalWhereInput {
-    const where: Prisma.WasteDisposalWhereInput = {};
+    // A deleted Waste Material trip disappears from every list/aggregate
+    // (AD-9 exception) — whereFor() backs both list() and summary().
+    const where: Prisma.WasteDisposalWhereInput = { deletedAt: null };
     if (filters.siteId) {
       where.siteId = filters.siteId;
     }
@@ -435,6 +444,57 @@ export class WasteDisposalService {
       where.disposedAt = bounds;
     }
     return where;
+  }
+
+  // AD-9 exception (approved 2026-10-05): soft-delete. Waste Material never
+  // touches GodownStock/SiteStock (by design, see this class's own header
+  // comment), so there is no stock effect to reverse — but a trip with a
+  // VendorAdvance already paid against it, or one that has itself been
+  // corrected, would be orphaned by a delete, so both are blocked.
+  async remove(id: string, user: { id: string; role: string }, reason: string) {
+    const disposal = await this.prisma.wasteDisposal.findUnique({
+      where: { id },
+    });
+    if (!disposal) {
+      throw new NotFoundException(`Waste Material ${id} not found`);
+    }
+    if (disposal.deletedAt !== null) {
+      throw new BadRequestException(
+        'This Waste Material entry has already been deleted',
+      );
+    }
+    if (user.role !== 'OWNER_ADMIN' && disposal.recordedByUserId !== user.id) {
+      throw new ForbiddenException(
+        'You can only delete a Waste Material entry you recorded yourself',
+      );
+    }
+    const hasCorrections = await this.prisma.wasteDisposal.findFirst({
+      where: { correctsId: id },
+      select: { id: true },
+    });
+    if (hasCorrections) {
+      throw new BadRequestException(
+        'This Waste Material entry has been corrected and cannot be deleted — the correction must be addressed first',
+      );
+    }
+    const hasAdvance = await this.prisma.vendorAdvance.findFirst({
+      where: { wasteDisposalId: id },
+      select: { id: true },
+    });
+    if (hasAdvance) {
+      throw new BadRequestException(
+        'This Waste Material entry has a Vendor Advance recorded against it and cannot be deleted',
+      );
+    }
+
+    return this.prisma.wasteDisposal.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        deletedByUserId: user.id,
+        deleteReason: reason,
+      },
+    });
   }
 
   // FK violations arrive as Prisma errors — translate to clean 400s (same

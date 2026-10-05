@@ -6,10 +6,14 @@ import { VendorAdvancesService } from './vendor-advances.service';
 
 describe('VendorAdvancesController', () => {
   let controller: VendorAdvancesController;
-  let service: { list: ReturnType<typeof vi.fn> };
+  let service: {
+    list: ReturnType<typeof vi.fn>;
+    findOne: ReturnType<typeof vi.fn>;
+    correct: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(async () => {
-    service = { list: vi.fn() };
+    service = { list: vi.fn(), findOne: vi.fn(), correct: vi.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [VendorAdvancesController],
@@ -38,5 +42,24 @@ describe('VendorAdvancesController', () => {
 
   it('rejects an empty vendorId', () => {
     expect(() => controller.list('')).toThrow(BadRequestException);
+  });
+
+  it('findOne delegates to VendorAdvancesService.findOne', async () => {
+    service.findOne.mockResolvedValue({ id: '1' });
+
+    const result = await controller.findOne('1');
+
+    expect(service.findOne).toHaveBeenCalledWith('1');
+    expect(result).toEqual({ id: '1' });
+  });
+
+  it('correct delegates to VendorAdvancesService.correct with the validated body', async () => {
+    const body = { correctsId: 'orig', amount: -500, reason: 'Overstated' };
+    service.correct.mockResolvedValue({ id: 'c1', ...body });
+
+    const result = await controller.correct(body);
+
+    expect(service.correct).toHaveBeenCalledWith(body);
+    expect(result).toEqual({ id: 'c1', ...body });
   });
 });

@@ -6,11 +6,13 @@ import {
   CameraIcon,
   CorrectAction,
   DataTable,
+  DeleteMovementEntryButton,
   DropletIcon,
   Pagination,
   PlusIcon,
   RotateCcwIcon,
   TextField,
+  TrashIcon,
   buttonVariants,
   cn,
   type DataTableColumn,
@@ -19,6 +21,7 @@ import {
 import { useListQueryState } from "../../../lib/use-list-query-state";
 import { useDebouncedSearch } from "../../../lib/use-debounced-search";
 import { formatDate, formatMoney } from "../../../lib/format";
+import { deleteRmcEntryAction } from "./actions";
 
 export interface RmcEntryRow {
   id: string;
@@ -89,8 +92,14 @@ const columns: DataTableColumn<RmcEntryRow>[] = [
   {
     header: "",
     cell: (row) => (
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-1">
         <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/rmc/${row.id}/correct`} />
+        <DeleteMovementEntryButton
+          icon={<TrashIcon className="size-4" />}
+          title="Delete this RMC delivery?"
+          description="This delivery will disappear from every list and report."
+          action={(reason) => deleteRmcEntryAction(row.id, reason)}
+        />
       </div>
     ),
   },
@@ -103,7 +112,17 @@ const mobileCard: DataTableMobileCard<RmcEntryRow> = {
     </>
   ),
   omitHeaders: ["Vendor", "Grade"],
-  action: (row) => <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/rmc/${row.id}/correct`} />,
+  action: (row) => (
+    <>
+      <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/rmc/${row.id}/correct`} />
+      <DeleteMovementEntryButton
+        icon={<TrashIcon className="size-4" />}
+        title="Delete this RMC delivery?"
+        description="This delivery will disappear from every list and report."
+        action={(reason) => deleteRmcEntryAction(row.id, reason)}
+      />
+    </>
+  ),
 };
 
 export function RmcEntriesListClient({

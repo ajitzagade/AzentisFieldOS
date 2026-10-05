@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isFutureIstDate } from "../date-validation";
 
 export const purchaseDestinationSchema = z.enum(["GODOWN", "SITE"]);
 export const paymentStatusSchema = z.enum(["PAID", "PARTIAL", "UNPAID"]);
@@ -64,12 +65,26 @@ export const createPurchaseSchema = z
           message: "A reason is required when filing a correction",
         });
       }
-    } else if (data.quantity <= 0) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["quantity"],
-        message: "Quantity must be positive",
-      });
+      // No future-date check here: a correction form pre-fills purchasedAt
+      // from the original row (editable, but easy to leave untouched) —
+      // if a legacy row somehow carries a future date, every correction of
+      // it (even an unrelated quantity fix) must not be permanently
+      // blocked by re-validating a date the user isn't trying to change.
+    } else {
+      if (data.quantity <= 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["quantity"],
+          message: "Quantity must be positive",
+        });
+      }
+      if (isFutureIstDate(data.purchasedAt)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["purchasedAt"],
+          message: "Date can't be in the future",
+        });
+      }
     }
   });
 

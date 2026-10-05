@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -91,7 +92,7 @@ export interface RmcReportRow {
 export class RmcService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(input: CreateRmcEntryInput) {
+  async create(input: CreateRmcEntryInput, recordedByUserId?: string) {
     if (input.correctsId) {
       const original = await this.prisma.rmcEntry.findUnique({
         where: { id: input.correctsId },
@@ -99,6 +100,11 @@ export class RmcService {
       if (!original) {
         throw new BadRequestException(
           `RMC delivery ${input.correctsId} does not exist`,
+        );
+      }
+      if (original.deletedAt !== null) {
+        throw new BadRequestException(
+          `RMC delivery ${input.correctsId} has been deleted and cannot be corrected`,
         );
       }
       // The correction form locks/hides these fields client-side, but
@@ -113,15 +119,76 @@ export class RmcService {
           "A correction's Site, Vendor, and Grade must match the RMC delivery it corrects",
         );
       }
+      // Completing pricing for the first time (the original had no rate)
+      // means this correction's totalAmount IS the price, not a delta off
+      // a real baseline — the null original already contributes 0 to every
+      // aggregate, so it must be positive, same as a fresh entry's
+      // totalAmount. An already-priced entry's correction delta is a
+      // different case and is legitimately allowed to be negative (a price
+      // reduction) — the Zod schema only guards "nonzero" because it can't
+      // see which case applies without the original row.
+      if (
+        original.ratePerM3 === null &&
+        input.totalAmount !== undefined &&
+        input.totalAmount <= 0
+      ) {
+        throw new BadRequestException(
+          'A correction completing pricing for the first time must set a positive total amount',
+        );
+      }
     }
 
     try {
       return await this.prisma.rmcEntry.create({
-        data: { ...input, deliveredAt: new Date(input.deliveredAt) },
+        data: {
+          ...input,
+          deliveredAt: new Date(input.deliveredAt),
+          recordedByUserId: recordedByUserId ?? null,
+        },
       });
     } catch (error) {
       throw this.translateWriteError(error);
     }
+  }
+
+  // AD-9 exception (approved 2026-10-05): soft-delete. An RMC delivery
+  // never touches GodownStock/SiteStock (by design, see this class's own
+  // header comment), so there is no stock effect to reverse — but a
+  // delivery that has itself been corrected would be orphaned by a delete,
+  // so that is blocked.
+  async remove(id: string, user: { id: string; role: string }, reason: string) {
+    const entry = await this.prisma.rmcEntry.findUnique({ where: { id } });
+    if (!entry) {
+      throw new NotFoundException(`RMC delivery ${id} not found`);
+    }
+    if (entry.deletedAt !== null) {
+      throw new BadRequestException(
+        'This RMC delivery has already been deleted',
+      );
+    }
+    if (user.role !== 'OWNER_ADMIN' && entry.recordedByUserId !== user.id) {
+      throw new ForbiddenException(
+        'You can only delete an RMC delivery you recorded yourself',
+      );
+    }
+    const hasCorrections = await this.prisma.rmcEntry.findFirst({
+      where: { correctsId: id },
+      select: { id: true },
+    });
+    if (hasCorrections) {
+      throw new BadRequestException(
+        'This RMC delivery has been corrected and cannot be deleted — the correction must be addressed first',
+      );
+    }
+
+    return this.prisma.rmcEntry.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        deletedByUserId: user.id,
+        deleteReason: reason,
+      },
+    });
   }
 
   // AC #2: queryable by day, Site, or Vendor — filter params on the one
@@ -133,6 +200,7 @@ export class RmcService {
     filters: RmcEntryListFilters = {},
   ): Promise<unknown[] | PaginatedResult<unknown>> {
     const where: Prisma.RmcEntryWhereInput = {
+      deletedAt: null,
       ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
     };
     if (filters.siteId) {
@@ -198,6 +266,7 @@ export class RmcService {
     filters: RmcReportFilters = {},
   ): Promise<RmcReportRow[]> {
     const where: Prisma.RmcEntryWhereInput = {
+      deletedAt: null,
       ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
     };
     if (filters.from || filters.to) {
@@ -294,6 +363,7 @@ export class RmcService {
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const whereThisMonth = {
       deliveredAt: { gte: monthStart, lt: nextMonthStart },
+      deletedAt: null,
       ...currentDsrRowsWhere(await supersededDsrIds(this.prisma)),
     };
 
@@ -334,6 +404,7 @@ export class RmcService {
     total: number;
   }> {
     const where: Prisma.RmcEntryWhereInput = {
+      deletedAt: null,
       ...currentDsrRowsWhere(superseded),
       // Nested under AND, not a top-level OR — currentDsrRowsWhere already
       // occupies the top-level OR key above; a second top-level OR here

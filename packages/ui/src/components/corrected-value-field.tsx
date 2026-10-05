@@ -23,13 +23,19 @@ export interface CorrectedValueFieldProps {
   unit?: string;
   required?: boolean;
   error?: string;
+  /** Overrides the pre-entry hint ("Currently recorded: …") for a field
+   * whose `originalValue` is a math placeholder (e.g. 0 for a pricing-
+   * pending row) rather than a real recorded figure — avoids rendering a
+   * fabricated "Currently recorded: ₹0" (see AGENTS.md's "never a false ₹0"
+   * rule). Leave unset for the normal "there's a real original" case. */
+  originalLabel?: string;
 }
 
 function formatNumber(value: number) {
   return value.toLocaleString("en-IN", { maximumFractionDigits: 4 });
 }
 
-export function CorrectedValueField({ label, name, originalValue, unit, required, error }: CorrectedValueFieldProps) {
+export function CorrectedValueField({ label, name, originalValue, unit, required, error, originalLabel }: CorrectedValueFieldProps) {
   const [entered, setEntered] = useState("");
 
   const parsed = entered.trim() === "" ? null : Number(entered);
@@ -62,7 +68,7 @@ export function CorrectedValueField({ label, name, originalValue, unit, required
         onChange={handleChange}
         icon={isCurrency ? <span className="text-body-sm font-semibold">₹</span> : undefined}
         error={error}
-        hint={negative ? "The corrected value can't be negative" : delta === null ? `Currently recorded: ${speak(originalValue)}` : undefined}
+        hint={negative ? "The corrected value can't be negative" : delta === null ? (originalLabel ?? `Currently recorded: ${speak(originalValue)}`) : undefined}
         hintTone={negative ? "danger" : undefined}
       />
       {/* The server only ever sees the signed delta — same contract as before. */}

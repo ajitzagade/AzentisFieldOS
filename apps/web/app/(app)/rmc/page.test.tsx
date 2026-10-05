@@ -91,14 +91,18 @@ describe("RmcPage", () => {
     expect(screen.getAllByText("INV-RMC-1187").length).toBeGreaterThan(0);
   });
 
-  it("AC #3: offers only a Correct action per row, never Edit/Delete (AD-9)", async () => {
+  // AD-9 exception (approved 2026-10-05): a row now offers Correct and
+  // Delete (soft-delete, never a literal Edit/overwrite) — updated from
+  // this test's original "never Edit/Delete" assertion now that Delete is
+  // a sanctioned, reason-required action.
+  it("AC #3: offers Correct and Delete per row, never a literal Edit", async () => {
     mockFetchRouter({ entries: [entry] });
 
     await renderRmcPage();
 
     expect(screen.getAllByRole("link", { name: "Correct" })[0]).toHaveAttribute("href", "/rmc/rmc1/correct");
     expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Delete" }).length).toBeGreaterThan(0);
   });
 
   it("renders an empty state with a call to action when there are no RMC deliveries yet", async () => {

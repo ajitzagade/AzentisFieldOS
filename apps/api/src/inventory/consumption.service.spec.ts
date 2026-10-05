@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { ConsumptionService } from './consumption.service';
 
@@ -10,7 +14,9 @@ const decimal = (value: number) => ({ toNumber: () => value });
 
 function makeService(overrides: {
   consumptionCreate?: ReturnType<typeof vi.fn>;
+  consumptionUpdate?: ReturnType<typeof vi.fn>;
   consumptionFindUnique?: ReturnType<typeof vi.fn>;
+  consumptionFindFirst?: ReturnType<typeof vi.fn>;
   siteStockUpdateMany?: ReturnType<typeof vi.fn>;
   // Bugfix (2026-09-23): the plain-create path (no correctsId) now reads
   // the current SiteStock balance first (takeConsumptionStock) to decide
@@ -29,7 +35,11 @@ function makeService(overrides: {
 }) {
   const consumptionCreate =
     overrides.consumptionCreate ?? vi.fn().mockResolvedValue({ id: 'c1' });
+  const consumptionUpdate =
+    overrides.consumptionUpdate ?? vi.fn().mockResolvedValue({ id: 'c1' });
   const consumptionFindUnique = overrides.consumptionFindUnique ?? vi.fn();
+  const consumptionFindFirst =
+    overrides.consumptionFindFirst ?? vi.fn().mockResolvedValue(null);
   const siteStockUpdateMany =
     overrides.siteStockUpdateMany ?? vi.fn().mockResolvedValue({ count: 1 });
   const siteStockFindUnique =
@@ -43,7 +53,7 @@ function makeService(overrides: {
     overrides.godownStockUpsert ?? vi.fn().mockResolvedValue({});
 
   const tx = {
-    consumption: { create: consumptionCreate },
+    consumption: { create: consumptionCreate, update: consumptionUpdate },
     siteStock: {
       updateMany: siteStockUpdateMany,
       findUnique: siteStockFindUnique,
@@ -56,7 +66,10 @@ function makeService(overrides: {
   };
 
   const prisma = {
-    consumption: { findUnique: consumptionFindUnique },
+    consumption: {
+      findUnique: consumptionFindUnique,
+      findFirst: consumptionFindFirst,
+    },
     $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(tx)),
   };
 
@@ -68,6 +81,8 @@ function makeService(overrides: {
     service,
     prisma,
     consumptionCreate,
+    consumptionUpdate,
+    consumptionFindFirst,
     siteStockUpdateMany,
     siteStockFindUnique,
     godownStockUpdateMany,
@@ -157,6 +172,7 @@ describe('ConsumptionService.create', () => {
       id: 'orig',
       siteId: 'site1',
       materialSizeId: 'a-different-material-size',
+      deletedAt: null,
     });
     const { service } = makeService({ consumptionFindUnique });
 
@@ -184,6 +200,7 @@ describe('ConsumptionService.create', () => {
       quantity: decimal(20),
       siteStockQuantity: decimal(5),
       godownStockQuantity: decimal(15),
+      deletedAt: null,
     };
 
     it('a decrease gives back proportionally to the original split (not all to Site), and persists the signed split', async () => {
@@ -305,6 +322,7 @@ describe('ConsumptionService.searchCandidates', () => {
     await service.searchCandidates('cement', ['superseded-dsr-1']);
 
     const expectedWhere = {
+      deletedAt: null,
       AND: [
         {
           OR: [
@@ -337,5 +355,179 @@ describe('ConsumptionService.searchCandidates', () => {
       expect.objectContaining({ where: expectedWhere }),
     );
     expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+});
+
+// AD-9 exception (approved 2026-10-05): soft-delete.
+describe('ConsumptionService.remove', () => {
+  const owner = { id: 'owner1', role: 'OWNER_ADMIN' };
+  const engineer = { id: 'engineer1', role: 'SITE_SUPERVISOR' };
+
+  it('throws NotFoundException when the id does not exist', async () => {
+    const consumptionFindUnique = vi.fn().mockResolvedValue(null);
+    const { service } = makeService({ consumptionFindUnique });
+
+    await expect(
+      service.remove('missing', owner, 'Duplicate entry'),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('rejects deleting an already-deleted Material Used entry', async () => {
+    const consumptionFindUnique = vi.fn().mockResolvedValue({
+      id: 'c1',
+      deletedAt: new Date('2026-10-01'),
+    });
+    const { service } = makeService({ consumptionFindUnique });
+
+    await expect(
+      service.remove('c1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a Site Engineer deleting a colleague's entry", async () => {
+    const consumptionFindUnique = vi.fn().mockResolvedValue({
+      id: 'c1',
+      siteId: 'site1',
+      materialSizeId: 'ms1',
+      quantity: decimal(20),
+      siteStockQuantity: decimal(20),
+      godownStockQuantity: decimal(0),
+      deletedAt: null,
+      recordedByUserId: 'someone-else',
+    });
+    const { service } = makeService({ consumptionFindUnique });
+
+    await expect(
+      service.remove('c1', engineer, 'Duplicate entry'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('rejects deleting a Material Used entry that has been corrected', async () => {
+    const consumptionFindUnique = vi.fn().mockResolvedValue({
+      id: 'c1',
+      siteId: 'site1',
+      materialSizeId: 'ms1',
+      quantity: decimal(20),
+      siteStockQuantity: decimal(20),
+      godownStockQuantity: decimal(0),
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    const consumptionFindFirst = vi
+      .fn()
+      .mockResolvedValue({ id: 'correction1' });
+    const { service, consumptionUpdate } = makeService({
+      consumptionFindUnique,
+      consumptionFindFirst,
+    });
+
+    await expect(
+      service.remove('c1', owner, 'Duplicate entry'),
+    ).rejects.toThrow(BadRequestException);
+    expect(consumptionUpdate).not.toHaveBeenCalled();
+  });
+
+  it('gives back the exact recorded split (Site + Godown) when deleting a positive draw', async () => {
+    const consumptionFindUnique = vi.fn().mockResolvedValue({
+      id: 'c1',
+      siteId: 'site1',
+      materialSizeId: 'ms1',
+      quantity: decimal(20),
+      siteStockQuantity: decimal(5),
+      godownStockQuantity: decimal(15),
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    const { service, siteStockUpsert, godownStockUpsert } = makeService({
+      consumptionFindUnique,
+    });
+
+    await service.remove('c1', owner, 'Duplicate entry');
+
+    expect(siteStockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { quantity: { increment: 5 } } }),
+    );
+    expect(godownStockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { quantity: { increment: 15 } } }),
+    );
+  });
+
+  it('takes back (floor-checked) the exact recorded split when deleting a give-back correction', async () => {
+    const consumptionFindUnique = vi.fn().mockResolvedValue({
+      id: 'c1',
+      siteId: 'site1',
+      materialSizeId: 'ms1',
+      quantity: decimal(-8),
+      siteStockQuantity: decimal(-2),
+      godownStockQuantity: decimal(-6),
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    const { service, siteStockUpdateMany, godownStockUpdateMany } = makeService(
+      {
+        consumptionFindUnique,
+      },
+    );
+
+    await service.remove('c1', owner, 'Correction was itself wrong');
+
+    expect(siteStockUpdateMany).toHaveBeenCalledWith({
+      where: { siteId: 'site1', materialSizeId: 'ms1', quantity: { gte: 2 } },
+      data: { quantity: { decrement: 2 } },
+    });
+    expect(godownStockUpdateMany).toHaveBeenCalledWith({
+      where: { materialSizeId: 'ms1', quantity: { gte: 6 } },
+      data: { quantity: { decrement: 6 } },
+    });
+  });
+
+  it('rejects deleting a give-back correction whose stock was already drawn down elsewhere (count 0)', async () => {
+    const consumptionFindUnique = vi.fn().mockResolvedValue({
+      id: 'c1',
+      siteId: 'site1',
+      materialSizeId: 'ms1',
+      quantity: decimal(-8),
+      siteStockQuantity: decimal(-2),
+      godownStockQuantity: decimal(-6),
+      deletedAt: null,
+      recordedByUserId: 'owner1',
+    });
+    const siteStockUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const { service } = makeService({
+      consumptionFindUnique,
+      siteStockUpdateMany,
+    });
+
+    await expect(
+      service.remove('c1', owner, 'Correction was itself wrong'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('allows the Owner to delete any Material Used entry, including one recorded by someone else', async () => {
+    const consumptionFindUnique = vi.fn().mockResolvedValue({
+      id: 'c1',
+      siteId: 'site1',
+      materialSizeId: 'ms1',
+      quantity: decimal(20),
+      siteStockQuantity: decimal(20),
+      godownStockQuantity: decimal(0),
+      deletedAt: null,
+      recordedByUserId: 'someone-else',
+    });
+    const { service, consumptionUpdate } = makeService({
+      consumptionFindUnique,
+    });
+
+    await service.remove('c1', owner, 'Duplicate entry');
+
+    expect(consumptionUpdate).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
+        deletedAt: expect.any(Date),
+        deletedByUserId: 'owner1',
+        deleteReason: 'Duplicate entry',
+      },
+    });
   });
 });

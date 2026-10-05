@@ -12,6 +12,7 @@ export * from "./components/gap-flag-list";
 export * from "./components/photo-thumbnail";
 export * from "./components/help-bubble";
 export * from "./components/correct-action";
+export * from "./components/delete-movement-entry-button";
 export * from "./components/empty-state";
 export * from "./components/field";
 export * from "./components/combobox-field";

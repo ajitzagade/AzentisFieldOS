@@ -1,14 +1,16 @@
 import { authedFetch } from "@/lib/api";
 import { currentRole } from "@/lib/current-role";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   Badge,
   CameraIcon,
   ClipboardIcon,
+  CorrectAction,
   DataTable,
   PencilIcon,
+  RotateCcwIcon,
   buttonVariants,
   cn,
   type DataTableColumn,
@@ -67,6 +69,7 @@ interface VendorAdvance {
   amount: string;
   paymentMethod: string | null;
   givenAt: string;
+  correctsId: string | null;
   wasteDisposal: { id: string; wasteType: string } | null;
 }
 
@@ -266,21 +269,42 @@ const advanceColumns: DataTableColumn<VendorAdvance>[] = [
   {
     header: "Amount",
     align: "right",
+    // A correction row's amount is a signed delta (can be negative) —
+    // formatMoney renders the established "-₹500" sign convention instead
+    // of a bare "₹-500".
     cell: (row) => (
-      <span className="font-semibold text-gold-700 tabular-nums">₹{Number(row.amount).toLocaleString("en-IN")}</span>
+      <span className="font-semibold text-gold-700 tabular-nums">{formatMoney(Number(row.amount))}</span>
     ),
   },
   {
     header: "For trip",
-    cell: (row) => row.wasteDisposal?.wasteType ?? <span className="text-ink-500">—</span>,
+    cell: (row) => (
+      <span className="flex items-center gap-1.5">
+        {row.wasteDisposal?.wasteType ?? <span className="text-ink-500">—</span>}
+        {row.correctsId ? <Badge variant="warning">Correction</Badge> : null}
+      </span>
+    ),
   },
   { header: "Payment Method", cell: (row) => row.paymentMethod ?? <span className="text-ink-500">—</span> },
   { header: "Date", cell: (row) => <span className="text-ink-500">{formatDate(row.givenAt)}</span> },
+  {
+    header: "",
+    align: "right",
+    cell: (row) => (
+      <CorrectAction
+        icon={<RotateCcwIcon className="size-4" />}
+        href={`/vendor-advances/${row.id}/correct`}
+      />
+    ),
+  },
 ];
 
 const advanceMobileCard: DataTableMobileCard<VendorAdvance> = {
   primary: (row) => formatDate(row.givenAt),
   omitHeaders: ["Date"],
+  action: (row) => (
+    <CorrectAction icon={<RotateCcwIcon className="size-4" />} href={`/vendor-advances/${row.id}/correct`} />
+  ),
 };
 
 export default async function VendorDetailPage({ params }: { params: Promise<{ id: string }> }) {

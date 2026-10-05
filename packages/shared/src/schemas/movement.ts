@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isFutureIstDate } from "../date-validation";
 
 export const movementKindSchema = z.enum(["GODOWN_TO_SITE", "SITE_TO_SITE", "SITE_TO_GODOWN"]);
 
@@ -76,12 +77,24 @@ export const createMovementSchema = z
           message: "A reason is required when filing a correction",
         });
       }
-    } else if (data.sentQuantity <= 0) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["sentQuantity"],
-        message: "Sent quantity must be positive",
-      });
+      // No future-date check here — same reasoning as Purchase: a
+      // correction form pre-fills movedAt from the original row, and a
+      // legacy future-dated row must still be correctable.
+    } else {
+      if (data.sentQuantity <= 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["sentQuantity"],
+          message: "Sent quantity must be positive",
+        });
+      }
+      if (isFutureIstDate(data.movedAt)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["movedAt"],
+          message: "Date can't be in the future",
+        });
+      }
     }
   });
 
