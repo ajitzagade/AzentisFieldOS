@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Badge,
   BoxIcon,
@@ -69,14 +68,10 @@ const columns: DataTableColumn<InventoryRow>[] = [
     header: "Material",
     sortKey: "materialName",
     cell: (row) => (
-      <Link
-        href={`/materials/${row.materialId}/availability`}
-        prefetch={false}
-        className="font-semibold text-accent-teal-700 hover:underline"
-      >
+      <span className="font-semibold">
         {row.materialName}
         {row.sizeLabel ? <span className="font-normal text-ink-500"> ({row.sizeLabel})</span> : null}
-      </Link>
+      </span>
     ),
   },
   {
@@ -219,6 +214,7 @@ export function InventoryListClient({
         columns={columns}
         mobileCard={mobileCard}
         rowKey={rowKey}
+        rowHref={(row) => `/materials/${row.materialId}/availability`}
         sort={query.sort ? { key: query.sort, order: query.order ?? "asc" } : undefined}
         onSortChange={query.setSort}
         state={
