@@ -34,7 +34,7 @@ test("Owner can see real Godown and Site Stock on the Inventory page", async ({ 
   await pickCombobox(page, "Material / Size", MATERIAL_NAME);
   await fillField(page, /Quantity/, "40");
   await fillField(page, "Rate", "100");
-  await page.getByRole("button", { name: "Record Purchase" }).click();
+  await page.getByRole("button", { name: "Record Material Purchase" }).click();
   await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
   // Seed Site Stock at the fixture Site.
@@ -45,7 +45,7 @@ test("Owner can see real Godown and Site Stock on the Inventory page", async ({ 
   await pickCombobox(page, "Site", SITE_NAME);
   await fillField(page, /Quantity/, "15");
   await fillField(page, "Rate", "100");
-  await page.getByRole("button", { name: "Record Purchase" }).click();
+  await page.getByRole("button", { name: "Record Material Purchase" }).click();
   await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
   await page.goto("/inventory");

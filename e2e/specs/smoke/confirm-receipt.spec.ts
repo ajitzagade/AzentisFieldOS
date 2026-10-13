@@ -16,7 +16,7 @@ test("Owner can confirm receipt of a Godown-to-Site Movement", async ({ page }) 
   await pickCombobox(page, "Material / Size", MATERIAL_NAME);
   await fillField(page, /Quantity/, "100");
   await fillField(page, "Rate", "100");
-  await page.getByRole("button", { name: "Record Purchase" }).click();
+  await page.getByRole("button", { name: "Record Material Purchase" }).click();
   await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
   await page.goto("/movements/godown-to-site/new");

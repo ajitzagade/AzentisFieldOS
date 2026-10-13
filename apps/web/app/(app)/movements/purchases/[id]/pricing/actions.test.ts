@@ -7,6 +7,9 @@ const redirectMock = vi.hoisted(() =>
 );
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
+const revalidatePathMock = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+
 import { completePricingAction } from "./actions";
 
 const originalFetch = global.fetch;
@@ -15,6 +18,7 @@ const originalApiUrl = process.env.API_URL;
 beforeEach(() => {
   process.env.API_URL = "http://localhost:3001";
   redirectMock.mockClear();
+  revalidatePathMock.mockClear();
 });
 
 afterEach(() => {
@@ -45,6 +49,7 @@ describe("completePricingAction", () => {
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body as string)).toEqual({ rate: 390, totalAmount: 19500, paymentStatus: "UNPAID" });
     expect(redirectMock).toHaveBeenCalledWith(expect.stringContaining("/movements?flash="));
+    expect(revalidatePathMock).toHaveBeenCalledWith("/movements");
   });
 
   it("returns per-field errors for invalid input without calling the API", async () => {

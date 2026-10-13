@@ -7,6 +7,9 @@ const redirectMock = vi.hoisted(() =>
 );
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
+const revalidatePathMock = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+
 import { createMovementAction } from "./actions";
 
 const originalFetch = global.fetch;
@@ -15,6 +18,7 @@ const originalApiUrl = process.env.API_URL;
 beforeEach(() => {
   process.env.API_URL = "http://localhost:3001";
   redirectMock.mockClear();
+  revalidatePathMock.mockClear();
 });
 
 afterEach(() => {
@@ -55,6 +59,8 @@ describe("createMovementAction", () => {
     const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]![1].body);
     expect(body.kind).toBe("GODOWN_TO_SITE");
     expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/movements\?flash=/));
+    expect(revalidatePathMock).toHaveBeenCalledWith("/movements");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/inventory");
   });
 
   it("Story 5.4: posts sourceSiteId and kind SITE_TO_SITE when the form submits a transfer", async () => {

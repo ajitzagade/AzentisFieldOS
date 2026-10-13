@@ -20,7 +20,7 @@ test.describe("Forgiving corrections", () => {
     await expect(page).toHaveURL(/\/expenses/);
     await expect(page.getByText("Expense recorded")).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole("link", { name: "Correct" }).first().click();
+    await page.getByRole("link", { name: "Edit" }).first().click();
     await expect(page).toHaveURL(/\/expenses\/.+\/correct/);
     await expect(page.getByText("Filing a correction")).toBeVisible();
 
@@ -58,13 +58,17 @@ test.describe("Forgiving corrections", () => {
     await pickCombobox(page, "Material / Size", MATERIAL_NAME);
     await fillField(page, /Quantity/, "10");
     await fillField(page, "Rate", "100");
-    await page.getByRole("button", { name: "Record Purchase" }).click();
+    await page.getByRole("button", { name: "Record Material Purchase" }).click();
     await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
     // /movements is a combined list across every movement type — scope by
-    // the Correct link's own href prefix so an unrelated type's row (from
-    // an earlier test in this shared-DB suite) can never win instead.
-    await page.locator('a[href*="/movements/purchases/"][aria-label="Correct"]').first().click();
+    // the Edit link's own href prefix+suffix (CorrectAction carries no
+    // aria-label anymore — its visible "Edit" text is the accessible name
+    // directly — and the bare prefix also matches "Record Material
+    // Purchase"'s /movements/purchases/new, so the /correct suffix is the
+    // actual discriminator) so an unrelated type's row (from an earlier
+    // test in this shared-DB suite) can never win instead.
+    await page.locator('a[href*="/movements/purchases/"][href$="/correct"]').first().click();
     await expect(page).toHaveURL(/\/movements\/purchases\/.+\/correct/);
     await expect(page.getByText("Filing a correction")).toBeVisible();
 
@@ -89,7 +93,7 @@ test.describe("Forgiving corrections", () => {
     await pickCombobox(page, "Site", SITE_NAME);
     await fillField(page, /Quantity/, "100");
     await fillField(page, "Rate", "100");
-    await page.getByRole("button", { name: "Record Purchase" }).click();
+    await page.getByRole("button", { name: "Record Material Purchase" }).click();
     await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
     await page.goto("/movements/consumption/new");
@@ -100,9 +104,10 @@ test.describe("Forgiving corrections", () => {
     await expect(page.getByText("Consumption recorded")).toBeVisible({ timeout: 10_000 });
 
     // /movements is a combined list across every movement type — scope by
-    // the Correct link's own href prefix, not .first(), or a just-seeded
+    // the Edit link's own href prefix+suffix (see the Purchase test above
+    // for why both are needed), not .first() alone, or a just-seeded
     // Purchase's row (also freshly created, above) can win instead.
-    await page.locator('a[href*="/movements/consumption/"][aria-label="Correct"]').first().click();
+    await page.locator('a[href*="/movements/consumption/"][href$="/correct"]').first().click();
     await expect(page).toHaveURL(/\/movements\/consumption\/.+\/correct/);
 
     await fillField(page, /Corrected quantity/, "6");
@@ -126,7 +131,7 @@ test.describe("Forgiving corrections", () => {
     await pickCombobox(page, "Site", SITE_NAME);
     await fillField(page, /Quantity/, "100");
     await fillField(page, "Rate", "100");
-    await page.getByRole("button", { name: "Record Purchase" }).click();
+    await page.getByRole("button", { name: "Record Material Purchase" }).click();
     await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
     await page.goto("/movements/return-wastage/new");
@@ -138,7 +143,7 @@ test.describe("Forgiving corrections", () => {
 
     // See the Consumption test above for why href-scoping (not .first())
     // is needed on this combined multi-type list.
-    await page.locator('a[href*="/movements/return-wastage/"][aria-label="Correct"]').first().click();
+    await page.locator('a[href*="/movements/return-wastage/"][href$="/correct"]').first().click();
     await expect(page).toHaveURL(/\/movements\/return-wastage\/.+\/correct/);
 
     await fillField(page, /Corrected quantity/, "3");
@@ -160,7 +165,7 @@ test.describe("Forgiving corrections", () => {
     await pickCombobox(page, "Material / Size", MATERIAL_NAME);
     await fillField(page, /Quantity/, "100");
     await fillField(page, "Rate", "100");
-    await page.getByRole("button", { name: "Record Purchase" }).click();
+    await page.getByRole("button", { name: "Record Material Purchase" }).click();
     await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
     await page.goto("/movements/godown-to-site/new");
@@ -172,7 +177,7 @@ test.describe("Forgiving corrections", () => {
 
     // See the Consumption test above for why href-scoping (not .first())
     // is needed on this combined multi-type list.
-    await page.locator('a[href*="/movements/godown-to-site/"][aria-label="Correct"]').first().click();
+    await page.locator('a[href*="/movements/godown-to-site/"][href$="/correct"]').first().click();
     await expect(page).toHaveURL(/\/movements\/godown-to-site\/.+\/correct/);
 
     await fillField(page, /Corrected sent quantity/, "7");
@@ -197,7 +202,7 @@ test.describe("Forgiving corrections", () => {
     await page.getByRole("button", { name: "Record RMC Delivery" }).click();
     await expect(page.getByText("RMC delivery recorded")).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole("link", { name: "Correct" }).first().click();
+    await page.getByRole("link", { name: "Edit" }).first().click();
     await expect(page).toHaveURL(/\/rmc\/.+\/correct/);
 
     await fillField(page, /Corrected quantity/, "10");
@@ -223,7 +228,7 @@ test.describe("Forgiving corrections", () => {
     await page.getByRole("button", { name: "Record Disposal" }).click();
     await expect(page.getByText("Disposal recorded")).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole("link", { name: "Correct" }).first().click();
+    await page.getByRole("link", { name: "Edit" }).first().click();
     await expect(page).toHaveURL(/\/waste-disposal\/.+\/correct/);
 
     await fillField(page, /Corrected number of trips/, "3");
@@ -247,7 +252,7 @@ test.describe("Forgiving corrections", () => {
     await page.getByRole("button", { name: "Confirm & Submit" }).click();
     await expect(page.getByText("Payment recorded")).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole("link", { name: "Correct" }).first().click();
+    await page.getByRole("link", { name: "Edit" }).first().click();
     await expect(page).toHaveURL(/\/payments\/.+\/correct/);
 
     // Unlike the delta-based corrections above, every field re-enters the
@@ -283,7 +288,10 @@ test.describe("Forgiving corrections", () => {
     await page.getByRole("button", { name: "Confirm & Submit" }).click();
     await expect(page.getByText("Advance recorded")).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole("link", { name: "Correct" }).first().click();
+    // team/[id] also has its own top-level "Edit" (profile) link, so this
+    // must use the advance row's disambiguated "Edit advance" label, not
+    // bare "Edit" — otherwise .first() could resolve to the profile link.
+    await page.getByRole("link", { name: "Edit advance" }).first().click();
     await expect(page).toHaveURL(/\/team\/.+\/advances\/.+\/correct/);
 
     await fillField(page, /Corrected amount/, "1500");

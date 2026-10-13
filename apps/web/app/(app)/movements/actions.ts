@@ -9,13 +9,13 @@ import { deleteMovementEntry } from "@/lib/delete-movement-entry";
 // that list shows, is a separate entity outside this feature's scope and
 // has no delete action).
 export async function deletePurchaseAction(id: string, reason: string) {
-  await deleteMovementEntry("/purchases", id, reason, "/movements", "Purchase");
+  await deleteMovementEntry("/purchases", id, reason, "/movements", "Purchase", true);
 }
 
 export async function deleteMovementAction(id: string, reason: string) {
-  await deleteMovementEntry("/movements", id, reason, "/movements", "Movement");
+  await deleteMovementEntry("/movements", id, reason, "/movements", "Movement", true);
 }
 
 export async function deleteConsumptionAction(id: string, reason: string) {
-  await deleteMovementEntry("/consumption", id, reason, "/movements", "Material Used entry");
+  await deleteMovementEntry("/consumption", id, reason, "/movements", "Material Used entry", true);
 }

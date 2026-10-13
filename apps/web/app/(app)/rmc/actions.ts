@@ -2,6 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { deleteMovementEntry } from "@/lib/delete-movement-entry";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parseRmcEntryForm } from "./parse";
 
@@ -55,6 +56,10 @@ export async function createRmcEntryAction(
     return { formError: "Something went wrong recording the RMC delivery. Please try again." };
   }
 
+  // Same staleness fix as createPurchaseAction, see its comment. RMC
+  // deliveries don't touch Site/Godown Material stock, so /inventory is
+  // unaffected.
+  revalidatePath("/rmc");
   redirect(
     `/rmc?flash=${encodeURIComponent(formData.get("correctsId") ? "RMC correction recorded" : "RMC delivery recorded")}`,
   );

@@ -1,6 +1,7 @@
 "use server";
 
 import { authedFetch } from "@/lib/api";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { confirmMovementReceiptSchema } from "@azentisfieldos/shared";
 
@@ -47,5 +48,11 @@ export async function confirmMovementReceiptAction(
     return { formError: "Something went wrong confirming receipt. Please try again." };
   }
 
+  // Confirming receipt updates Site Stock — same staleness fix as
+  // createPurchaseAction, see its comment.
+  revalidatePath("/movements");
+  revalidatePath("/inventory");
+  // Same future-proofing as createPurchaseAction, see its comment.
+  revalidatePath("/");
   redirect(`/movements?flash=${encodeURIComponent("Receipt confirmed — Site Stock updated")}`);
 }

@@ -17,6 +17,12 @@ export async function deleteMovementEntry(
   reason: string,
   listPath: string,
   entityLabel: string,
+  // Purchase/Movement/Consumption deletes reverse their stock effect
+  // server-side (floor-checked, split-aware for Consumption) — the
+  // Inventory page depends on that reversal and must be revalidated too,
+  // same as the create/correct paths. RMC and Waste Material deletes
+  // don't touch Site/Godown Material stock, so they leave this false.
+  affectsInventory = false,
 ): Promise<never> {
   let res: Response | null = null;
   try {
@@ -42,9 +48,18 @@ export async function deleteMovementEntry(
         ? `This ${entityLabel} was already deleted.`
         : (body?.message ?? `Couldn't delete this ${entityLabel} — please try again.`);
     revalidatePath(listPath);
+    if (affectsInventory) {
+      revalidatePath("/inventory");
+      // The Dashboard's low-stock/pending-pricing reads depend on this too.
+      revalidatePath("/");
+    }
     redirect(`${listPath}?flash=${encodeURIComponent(message)}`);
   }
 
   revalidatePath(listPath);
+  if (affectsInventory) {
+    revalidatePath("/inventory");
+    revalidatePath("/");
+  }
   redirect(`${listPath}?flash=${encodeURIComponent(`${entityLabel} deleted`)}`);
 }

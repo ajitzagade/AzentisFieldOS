@@ -22,7 +22,7 @@ test("a Vendor with a paid Purchase and an unpaid Waste Disposal trip is never s
   await pickCombobox(page, "Material / Size", MATERIAL_NAME);
   await fillField(page, /Quantity/, "10");
   await fillField(page, "Rate", "100");
-  await page.getByRole("button", { name: "Record Purchase" }).click();
+  await page.getByRole("button", { name: "Record Material Purchase" }).click();
   await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
   // 2. An unpaid Waste Disposal trip for the same Vendor (form defaults

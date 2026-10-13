@@ -1,6 +1,7 @@
 "use server";
 
 import { authedFetch } from "@/lib/api";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parsePricingForm } from "./parse";
 
@@ -46,5 +47,11 @@ export async function completePricingAction(
     return { formError: "Something went wrong saving the pricing. Please try again." };
   }
 
+  // Pricing drops the "Pricing pending" badge on the Movements list — same
+  // staleness fix as createPurchaseAction, see its comment. No quantity
+  // change here, so /inventory is unaffected.
+  revalidatePath("/movements");
+  // The Dashboard's pending-pricing count/gap-flag reads this directly.
+  revalidatePath("/");
   redirect(`/movements?flash=${encodeURIComponent("Pricing saved")}`);
 }

@@ -14,7 +14,7 @@ test("Owner can record a Return/Wastage entry against existing Site Stock", asyn
   await pickCombobox(page, "Site", SITE_NAME);
   await fillField(page, /Quantity/, "100");
   await fillField(page, "Rate", "100");
-  await page.getByRole("button", { name: "Record Purchase" }).click();
+  await page.getByRole("button", { name: "Record Material Purchase" }).click();
   await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
   await page.goto("/movements/return-wastage/new");

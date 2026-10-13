@@ -27,7 +27,7 @@ test.describe("Owner Dashboard & D7 pricing queue", () => {
     await pickCombobox(page, "Vendor", VENDOR_NAME);
     await pickCombobox(page, "Material / Size", MATERIAL_NAME);
     await fillField(page, /Quantity/, "80");
-    await page.getByRole("button", { name: "Record Purchase" }).click();
+    await page.getByRole("button", { name: "Record Material Purchase" }).click();
     await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
     // Switching roles mid-test: clear the session directly rather than

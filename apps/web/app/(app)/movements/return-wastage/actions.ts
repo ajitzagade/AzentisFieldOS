@@ -1,6 +1,7 @@
 "use server";
 
 import { authedFetch } from "@/lib/api";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parseReturnWastageForm } from "./parse";
 
@@ -63,6 +64,12 @@ export async function createReturnWastageAction(
     return { formError: "Something went wrong recording this entry. Please try again." };
   }
 
+  // A Return/Wastage entry draws down stock — same staleness fix as
+  // createPurchaseAction, see its comment.
+  revalidatePath("/movements");
+  revalidatePath("/inventory");
+  // Same future-proofing as createPurchaseAction, see its comment.
+  revalidatePath("/");
   redirect(
     `/movements?flash=${encodeURIComponent(formData.get("correctsId") ? "Return/Wastage correction recorded" : "Return/Wastage recorded")}`,
   );

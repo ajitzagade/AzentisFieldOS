@@ -154,7 +154,11 @@ export function PurchaseForm({
   const destinationKnown = destination === "GODOWN" || Boolean(siteId);
   const materialOptions = useMemo(() => {
     const base = materialSizes.map((m) => ({ value: m.id, label: m.label, description: m.description }));
-    return destinationKnown ? withStockMeta(base, destinationStock) : base;
+    // hideNoStock: true — same false-alarm suppression as the `stock`
+    // hint below, applied to the dropdown's per-option badges too (was
+    // previously only applied to the hint text, leaving this one still
+    // showing "No stock" for Materials that genuinely have stock elsewhere).
+    return destinationKnown ? withStockMeta(base, destinationStock, undefined, { hideNoStock: true }) : base;
   }, [materialSizes, destinationKnown, destinationStock]);
   const rawStock = destinationKnown
     ? stockStatus({ stock: destinationStock, materialSizeId: materialSizeId || null, location: destinationLocation })

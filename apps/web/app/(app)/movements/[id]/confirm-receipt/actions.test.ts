@@ -7,6 +7,9 @@ const redirectMock = vi.hoisted(() =>
 );
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
+const revalidatePathMock = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+
 import { confirmMovementReceiptAction } from "./actions";
 
 const originalFetch = global.fetch;
@@ -15,6 +18,7 @@ const originalApiUrl = process.env.API_URL;
 beforeEach(() => {
   process.env.API_URL = "http://localhost:3001";
   redirectMock.mockClear();
+  revalidatePathMock.mockClear();
 });
 
 afterEach(() => {
@@ -51,6 +55,8 @@ describe("confirmMovementReceiptAction", () => {
       expect.objectContaining({ method: "PATCH", body: JSON.stringify({ receivedQuantity: 90 }) }),
     );
     expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/movements\?flash=/));
+    expect(revalidatePathMock).toHaveBeenCalledWith("/movements");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/inventory");
   });
 
   it("returns a form error when the API rejects a double confirmation", async () => {

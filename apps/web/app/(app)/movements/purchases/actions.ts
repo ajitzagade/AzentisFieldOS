@@ -1,6 +1,7 @@
 "use server";
 
 import { authedFetch } from "@/lib/api";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parsePurchaseForm } from "./parse";
 
@@ -55,6 +56,18 @@ export async function createPurchaseAction(
     return { formError: "Something went wrong recording the Purchase. Please try again." };
   }
 
+  // A Purchase adds stock — the Movements list and Inventory/stock figures
+  // both depend on it, and (unlike deleteMovementEntry) this redirect
+  // target was never wired to invalidate the Router Cache, so the list the
+  // user lands back on kept showing pre-mutation data (AD-9 exception
+  // note above only covers the delete path).
+  revalidatePath("/movements");
+  revalidatePath("/inventory");
+  // The Dashboard's low-stock strip and pending-pricing count both read a
+  // Purchase's effect — literal path, cheap, future-proofs against this
+  // Next version's current (documented as temporary) broader router-cache
+  // refresh-on-revalidatePath behavior narrowing to just the called path.
+  revalidatePath("/");
   redirect(
     `/movements?flash=${encodeURIComponent(formData.get("correctsId") ? "Purchase correction recorded" : "Purchase recorded")}`,
   );

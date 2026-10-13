@@ -1,6 +1,7 @@
 "use server";
 
 import { authedFetch } from "@/lib/api";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parseConsumptionForm } from "./parse";
 
@@ -63,6 +64,12 @@ export async function createConsumptionAction(
     return { formError: "Something went wrong recording the Material Used entry. Please try again." };
   }
 
+  // Consumption draws down Site/Godown stock — same staleness fix as
+  // createPurchaseAction, see its comment.
+  revalidatePath("/movements");
+  revalidatePath("/inventory");
+  // Same future-proofing as createPurchaseAction, see its comment.
+  revalidatePath("/");
   redirect(
     `/movements?flash=${encodeURIComponent(formData.get("correctsId") ? "Material Used correction recorded" : "Material Used recorded")}`,
   );

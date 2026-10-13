@@ -15,7 +15,7 @@ test("Owner can record a direct Vendor-to-Site Purchase", async ({ page }) => {
   await pickCombobox(page, "Material / Size", MATERIAL_NAME);
   await fillField(page, /Quantity/, "20");
   await fillField(page, "Rate", "100");
-  await page.getByRole("button", { name: "Record Purchase" }).click();
+  await page.getByRole("button", { name: "Record Material Purchase" }).click();
 
   // Not asserting the URL's ?flash= query directly — the flash toast reads
   // and strips it from the URL client-side, racy to catch mid-transition;

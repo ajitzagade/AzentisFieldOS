@@ -84,7 +84,7 @@ test.describe("Supervisor daily flow", () => {
     await pickCombobox(page, "Material / Size", MATERIAL_NAME);
     await fillField(page, /Quantity/, "50");
 
-    await page.getByRole("button", { name: "Record Purchase" }).click();
+    await page.getByRole("button", { name: "Record Material Purchase" }).click();
     // The redirect (not the transient flash toast, which can dismiss before
     // this assertion runs) plus the pending badge below are the real proof.
     await expect(page).toHaveURL(/\/movements/, { timeout: 10_000 });

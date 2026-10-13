@@ -7,6 +7,9 @@ const redirectMock = vi.hoisted(() =>
 );
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
+const revalidatePathMock = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+
 import { createConsumptionAction } from "./actions";
 
 const originalFetch = global.fetch;
@@ -15,6 +18,7 @@ const originalApiUrl = process.env.API_URL;
 beforeEach(() => {
   process.env.API_URL = "http://localhost:3001";
   redirectMock.mockClear();
+  revalidatePathMock.mockClear();
 });
 
 afterEach(() => {
@@ -56,6 +60,8 @@ describe("createConsumptionAction", () => {
       expect.objectContaining({ method: "POST" }),
     );
     expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/movements\?flash=/));
+    expect(revalidatePathMock).toHaveBeenCalledWith("/movements");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/inventory");
   });
 
   it("includes correctsId and reason when filing a correction", async () => {

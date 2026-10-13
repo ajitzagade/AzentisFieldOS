@@ -2,6 +2,7 @@
 
 import { authedFetch } from "@/lib/api";
 import { deleteMovementEntry } from "@/lib/delete-movement-entry";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parseWasteDisposalForm } from "./parse";
 
@@ -53,6 +54,10 @@ export async function createWasteDisposalAction(
     return { formError: "Something went wrong recording this disposal. Please try again." };
   }
 
+  // Same staleness fix as createPurchaseAction, see its comment. Waste
+  // Material entries don't touch Site/Godown Material stock, so
+  // /inventory is unaffected.
+  revalidatePath("/waste-disposal");
   redirect(
     `/waste-disposal?flash=${encodeURIComponent(
       formData.get("correctsId") ? "Disposal correction recorded" : "Disposal recorded",

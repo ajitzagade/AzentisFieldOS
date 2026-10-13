@@ -11,8 +11,12 @@ vi.mock("./use-authed-fetch", () => ({
 // static import already sees it).
 import { stockStatus, useOtherSiteStockMap, useSiteStock, withStockMeta, type StockLookup } from "./use-site-stock";
 
-function lookup(entries: Record<string, { quantity: number; unit?: string }>, loading = false): StockLookup {
-  return { bySizeId: new Map(Object.entries(entries)), loading };
+function lookup(
+  entries: Record<string, { quantity: number; unit?: string }>,
+  loading = false,
+  error = false,
+): StockLookup {
+  return { bySizeId: new Map(Object.entries(entries)), loading, error };
 }
 
 describe("stockStatus", () => {
@@ -41,6 +45,16 @@ describe("stockStatus", () => {
     expect(stockStatus({ stock, materialSizeId: "ms1", location: "this Site" })).toEqual({
       text: "No stock available at this Site",
       tone: "warning",
+      insufficient: false,
+    });
+  });
+
+  // Regression: a failed stock fetch must never be read as "No stock" —
+  // see useStock's own `error` field and its catch-block comment.
+  it("reports a real error state distinctly from 'No stock' when the fetch failed", () => {
+    expect(stockStatus({ stock: lookup({}, false, true), materialSizeId: "ms1", location: "this Site" })).toEqual({
+      text: "Couldn't check stock — try again",
+      tone: "danger",
       insufficient: false,
     });
   });
@@ -115,6 +129,16 @@ describe("stockStatus", () => {
     it("never claims elsewhere-stock while the elsewhere lookup is itself still loading", () => {
       const stock = lookup({});
       const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 500 } }, true) };
+      expect(stockStatus({ stock, materialSizeId: "ms1", location: "this Site", elsewhere })?.text).toBe(
+        "No stock recorded at this Site",
+      );
+    });
+
+    // Regression: an errored elsewhere fetch is unknown, not zero — must
+    // not be silently read as "elsewhere has nothing" either.
+    it("never claims elsewhere-stock while the elsewhere lookup itself failed", () => {
+      const stock = lookup({});
+      const elsewhere = { label: "Godown", stock: lookup({ ms1: { quantity: 500 } }, false, true) };
       expect(stockStatus({ stock, materialSizeId: "ms1", location: "this Site", elsewhere })?.text).toBe(
         "No stock recorded at this Site",
       );
@@ -324,6 +348,48 @@ describe("useSiteStock", () => {
 
     expect(authedFetchMock).toHaveBeenCalledTimes(1);
   });
+
+  // Regression: a network rejection or non-ok response used to be stored
+  // as an empty `rows: []` — indistinguishable from a genuinely-empty
+  // balance set, which made every Material read "No stock" during an
+  // outage with no indication anything had failed.
+  it("surfaces a non-ok response as error:true, never as an empty (zero-stock) result", async () => {
+    authedFetchMock.mockResolvedValue({ ok: false, status: 500 });
+
+    const { result } = renderHook(() => useSiteStock("site-1"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe(true);
+    expect(result.current.bySizeId.size).toBe(0);
+  });
+
+  it("surfaces a network rejection as error:true, never as an empty (zero-stock) result", async () => {
+    authedFetchMock.mockRejectedValue(new Error("network down"));
+
+    const { result } = renderHook(() => useSiteStock("site-1"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe(true);
+    expect(result.current.bySizeId.size).toBe(0);
+  });
+
+  it("clears error:true on a successful refetch (e.g. after regaining focus)", async () => {
+    authedFetchMock.mockResolvedValue({ ok: false, status: 500 });
+
+    const { result } = renderHook(() => useSiteStock("site-1"));
+    await waitFor(() => expect(result.current.error).toBe(true));
+
+    authedFetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [{ materialSizeId: "ms1", quantity: 10 }],
+    });
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    await waitFor(() => expect(result.current.error).toBe(false));
+    expect(result.current.bySizeId.get("ms1")?.quantity).toBe(10);
+  });
 });
 
 describe("withStockMeta", () => {
@@ -334,6 +400,12 @@ describe("withStockMeta", () => {
 
   it("leaves options meta-free while balances are loading", () => {
     expect(withStockMeta(options, lookup({}, true))).toEqual(options);
+  });
+
+  // Regression: a failed fetch must not render every option as "No
+  // stock" — same meta-free treatment as the loading case.
+  it("leaves options meta-free when the balance fetch failed, rather than claiming 'No stock'", () => {
+    expect(withStockMeta(options, lookup({}, false, true))).toEqual(options);
   });
 
   it("annotates each option with its balance, and flags missing/zero balances", () => {
@@ -349,6 +421,27 @@ describe("withStockMeta", () => {
     const stock = lookup({ ms1: { quantity: 1200, unit: "Bag" } });
     const elsewhere = { label: "Godown", stock: lookup({ ms2: { quantity: 30 } }) };
     expect(withStockMeta(options, stock, elsewhere)).toEqual([
+      { value: "ms1", label: "Cement — 50kg", meta: "1,200 Bag", metaTone: "default" },
+      { value: "ms2", label: "TMT Steel — 12mm", meta: "30 at Godown", metaTone: "warning" },
+    ]);
+  });
+
+  // Regression: the Purchase form's hideNoStock:true call (a Purchase
+  // creates stock, so a bare "No stock" badge is a false alarm) must omit
+  // meta entirely for a zero-balance option, not just suppress it when an
+  // elsewhere balance exists.
+  it("omits meta entirely for a zero-balance option when hideNoStock is set, but still shows a real balance", () => {
+    const stock = lookup({ ms1: { quantity: 1200, unit: "Bag" } });
+    expect(withStockMeta(options, stock, undefined, { hideNoStock: true })).toEqual([
+      { value: "ms1", label: "Cement — 50kg", meta: "1,200 Bag", metaTone: "default" },
+      { value: "ms2", label: "TMT Steel — 12mm" },
+    ]);
+  });
+
+  it("still shows the elsewhere balance when hideNoStock is set — only the bare 'No stock' case is suppressed", () => {
+    const stock = lookup({ ms1: { quantity: 1200, unit: "Bag" } });
+    const elsewhere = { label: "Godown", stock: lookup({ ms2: { quantity: 30 } }) };
+    expect(withStockMeta(options, stock, elsewhere, { hideNoStock: true })).toEqual([
       { value: "ms1", label: "Cement — 50kg", meta: "1,200 Bag", metaTone: "default" },
       { value: "ms2", label: "TMT Steel — 12mm", meta: "30 at Godown", metaTone: "warning" },
     ]);

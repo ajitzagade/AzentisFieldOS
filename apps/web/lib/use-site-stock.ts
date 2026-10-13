@@ -25,6 +25,12 @@ interface StockRow {
 export interface StockLookup {
   bySizeId: Map<string, StockEntry>;
   loading: boolean;
+  // A failed/non-ok fetch must never be read as "zero stock" — it is a
+  // separate, mutually-exclusive state from both `loading` and a
+  // genuinely-empty `bySizeId`. Every consumer (stockStatus,
+  // withStockMeta) checks this before falling through to "No stock"
+  // wording.
+  error: boolean;
 }
 
 function scopeKey(scope: StockScope | null): string | null {
@@ -43,7 +49,7 @@ export function useStock(scope: StockScope | null): StockLookup {
   // Keyed by location so switching Sites never shows the previous
   // location's balances, without an eager synchronous reset inside the
   // effect.
-  const [state, setState] = useState<{ key: string; rows: StockRow[] } | null>(null);
+  const [state, setState] = useState<{ key: string; rows: StockRow[]; error: boolean } | null>(null);
   // Goal 1 (DSR/module data sync fixes): a long-lived DSR session
   // (autosave/draft/resume) can stay open across a Purchase/Movement
   // recorded elsewhere — the fetch effect below is keyed only on
@@ -82,14 +88,21 @@ export function useStock(scope: StockScope | null): StockLookup {
     }
     let cancelled = false;
     authedFetch(path)
-      .then((res) => (res.ok ? res.json() : []))
+      .then((res) => {
+        if (!res.ok) throw new Error(`Stock fetch failed (${res.status})`);
+        return res.json();
+      })
       .then((data: StockRow[]) => {
-        // Defensive: an auth redirect or proxy error page must degrade to
-        // "no stock info", never crash the form.
-        if (!cancelled) setState({ key, rows: Array.isArray(data) ? data : [] });
+        if (!cancelled) setState({ key, rows: Array.isArray(data) ? data : [], error: false });
       })
       .catch(() => {
-        if (!cancelled) setState({ key, rows: [] });
+        // A non-ok response, an auth redirect/proxy error page, or a
+        // network failure all land here — surfaced as `error: true`, not
+        // collapsed into an empty `rows` the way a genuinely-empty
+        // balance set is. Conflating the two used to make a transient
+        // fetch failure read as "No stock" for every Material in the
+        // picker, with no indication anything had gone wrong.
+        if (!cancelled) setState({ key, rows: [], error: true });
       });
     return () => {
       cancelled = true;
@@ -105,7 +118,7 @@ export function useStock(scope: StockScope | null): StockLookup {
 
   const bySizeId = useMemo(() => {
     const map = new Map<string, StockEntry>();
-    const rows = state && state.key === key ? state.rows : [];
+    const rows = state && state.key === key && !state.error ? state.rows : [];
     for (const row of rows) {
       map.set(row.materialSizeId, {
         quantity: Number(row.quantity),
@@ -115,7 +128,9 @@ export function useStock(scope: StockScope | null): StockLookup {
     return map;
   }, [state, key]);
 
-  return { bySizeId, loading };
+  const error = Boolean(state && state.key === key && state.error);
+
+  return { bySizeId, loading, error };
 }
 
 export function useSiteStock(siteId: string | null | undefined): StockLookup {
@@ -220,7 +235,10 @@ export interface ElsewhereStock {
 }
 
 function elsewhereEntry(materialSizeId: string, elsewhere?: ElsewhereStock): StockEntry | undefined {
-  if (!elsewhere || elsewhere.stock.loading) return undefined;
+  // A failed elsewhere fetch is treated the same as "not loaded yet" —
+  // its balance is unknown, not zero, so it must not be read as "nothing
+  // found there" (which would otherwise understate combined availability).
+  if (!elsewhere || elsewhere.stock.loading || elsewhere.stock.error) return undefined;
   const entry = elsewhere.stock.bySizeId.get(materialSizeId);
   return entry && entry.quantity > 0 ? entry : undefined;
 }
@@ -232,7 +250,7 @@ function elsewhereEntry(materialSizeId: string, elsewhere?: ElsewhereStock): Sto
 // stock" message never silently drops the Unit just because the only row
 // that happens to carry one has a zero quantity.
 function elsewhereUnit(materialSizeId: string, elsewhere?: ElsewhereStock): string | undefined {
-  if (!elsewhere || elsewhere.stock.loading) return undefined;
+  if (!elsewhere || elsewhere.stock.loading || elsewhere.stock.error) return undefined;
   return elsewhere.stock.bySizeId.get(materialSizeId)?.unit;
 }
 
@@ -261,6 +279,13 @@ export function stockStatus({
   if (!materialSizeId) return undefined;
   if (stock.loading) {
     return { text: "Checking available stock…", tone: "default", insufficient: false };
+  }
+  // A failed fetch is a real error state, never "No stock" — danger tone
+  // (not warning) so it survives purchase-form.tsx's own warning-tone
+  // suppression (a false "No stock" alarm is suppressed there; a genuine
+  // fetch failure must not be).
+  if (stock.error) {
+    return { text: "Couldn't check stock — try again", tone: "danger", insufficient: false };
   }
   const entry = stock.bySizeId.get(materialSizeId);
   const elsewhereFound = elsewhereEntry(materialSizeId, elsewhere);
@@ -306,7 +331,7 @@ export function stockStatus({
   // top-level early return like `stock.loading` above) so the "no balance
   // recorded/zero" wording below — shown before anything is typed — is
   // unaffected.
-  const elsewhereLoading = Boolean(elsewhere && elsewhere.stock.loading);
+  const elsewhereLoading = Boolean(elsewhere && (elsewhere.stock.loading || elsewhere.stock.error));
   const insufficientCombined =
     !elsewhereLoading && quantityEntered && entered > combinedQty;
   const insufficientStatus = (): { text: string; tone: FieldHintTone; insufficient: boolean } => ({
@@ -362,8 +387,22 @@ export function withStockMeta(
   options: ComboboxFieldOption[],
   stock: StockLookup,
   elsewhere?: ElsewhereStock,
+  // A Purchase is the inward action that CREATES stock — "No stock yet" is
+  // the normal, expected state for a first-time delivery, not a warning
+  // (same reasoning stockStatus's `rawStock?.tone === "warning"` filter
+  // already applies to the single hint text below the field). Without
+  // this, the per-option badge in the dropdown kept showing "No stock" for
+  // every Material that simply hadn't been purchased at this destination
+  // yet — even when the Inventory page showed real stock for it elsewhere
+  // — which read as a contradiction between the two screens.
+  opts?: { hideNoStock?: boolean },
 ): ComboboxFieldOption[] {
-  if (stock.loading) return options;
+  // A failed fetch gets the same treatment as still-loading — stay
+  // meta-free rather than claim "No stock" for a balance that was never
+  // actually confirmed. The selected Material's own hint (stockStatus)
+  // surfaces the real "Couldn't check stock" error; this dropdown-wide
+  // badge list just avoids asserting anything false in the meantime.
+  if (stock.loading || stock.error) return options;
   return options.map((option) => {
     const entry = stock.bySizeId.get(option.value);
     if (!entry || entry.quantity <= 0) {
@@ -371,6 +410,7 @@ export function withStockMeta(
       if (found) {
         return { ...option, meta: `${formatQuantity(found)} at ${elsewhere?.label}`, metaTone: "warning" as const };
       }
+      if (opts?.hideNoStock) return option;
       return { ...option, meta: "No stock", metaTone: "warning" as const };
     }
     return { ...option, meta: formatQuantity(entry), metaTone: "default" as const };

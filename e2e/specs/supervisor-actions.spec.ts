@@ -59,7 +59,7 @@ test("recording a Consumption decrements the Site's stock by exactly the consume
   await pickCombobox(page, "Site", SITE_NAME);
   await fillField(page, /Quantity/, "30");
   await fillField(page, "Rate", "100");
-  await page.getByRole("button", { name: "Record Purchase" }).click();
+  await page.getByRole("button", { name: "Record Material Purchase" }).click();
   await expect(page.getByText("Purchase recorded")).toBeVisible({ timeout: 10_000 });
 
   const before = await readSiteCementQty(page);
